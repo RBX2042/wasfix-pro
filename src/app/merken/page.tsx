@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticMachines } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 
@@ -9,14 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Merken — alle wasmachine merken" };
 
 export default async function MerkenPage() {
-  let machines: Awaited<ReturnType<typeof prisma.washingMachine.findMany>> = [];
-  try {
-    machines = await prisma.washingMachine.findMany({
-      orderBy: { brand: "asc" },
-    });
-  } catch {
-    // DB unreachable
-  }
+  const machines = staticMachines();
 
   // Group by brand
   const brandMap = new Map<string, typeof machines>();

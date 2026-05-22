@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticErrorCode } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,9 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const { code } = await params;
   const decoded = decodeURIComponent(code);
   const [brand, ec] = decoded.split("-");
-  const errorCode = await prisma.errorCode.findFirst({
-    where: { code: ec, machine: { brand } },
-  });
+  const errorCode = staticErrorCode(brand, ec);
   if (!errorCode) {
     return { title: `${brand} ${ec} foutcode — oorzaak & oplossing` };
   }
@@ -45,14 +43,7 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
   const decoded = decodeURIComponent(code);
   const [brand, codeValue] = decoded.split("-");
 
-  const errorCode = await prisma.errorCode.findFirst({
-    where: { code: codeValue, machine: { brand } },
-    include: {
-      machine: true,
-      parts: { include: { part: true } },
-      guides: { include: { guide: true } },
-    },
-  });
+  const errorCode = staticErrorCode(brand, codeValue);
 
   if (!errorCode) notFound();
 

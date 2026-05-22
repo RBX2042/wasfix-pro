@@ -17,10 +17,17 @@ export default async function MyMachinesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/inloggen");
 
-  const saved = await prisma.savedMachine.findMany({
-    where: { userId: user.id },
-    include: { machine: { include: { _count: { select: { errorCodes: true } } } } },
-  });
+  let saved: Awaited<ReturnType<typeof prisma.savedMachine.findMany<{
+    include: { machine: { include: { _count: { select: { errorCodes: true } } } } };
+  }>>> = [];
+  try {
+    saved = await prisma.savedMachine.findMany({
+      where: { userId: user.id },
+      include: { machine: { include: { _count: { select: { errorCodes: true } } } } },
+    });
+  } catch {
+    // DB unreachable
+  }
 
   return (
     <DashboardLayout role={user.role}>

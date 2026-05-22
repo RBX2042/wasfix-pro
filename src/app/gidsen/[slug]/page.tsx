@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticGuide } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -15,22 +15,16 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const guide = await prisma.repairGuide.findUnique({ where: { slug } });
+  const guide = staticGuide(slug);
   if (!guide) return { title: "Gids niet gevonden" };
   return { title: guide.title, description: guide.summary };
 }
 
 export default async function GuideDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const guide = await prisma.repairGuide.findUnique({
-    where: { slug },
-    include: { parts: { include: { part: true } } },
-  });
+  const guide = staticGuide(slug);
 
   if (!guide) notFound();
-
-  // Increment views (fire and forget)
-  prisma.repairGuide.update({ where: { id: guide.id }, data: { views: { increment: 1 } } }).catch(() => {});
 
   const steps = JSON.parse(guide.steps) as Array<{ stepNum: number; title: string; description: string; warning?: string; imageUrl?: string }>;
   const tools = pickArr(guide.tools);

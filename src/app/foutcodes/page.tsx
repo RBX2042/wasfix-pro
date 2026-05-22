@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticErrorCodes, staticMachineBrands } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -16,31 +16,8 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
   const q = sp.q?.trim();
   const brand = sp.brand;
 
-  const where: any = {};
-  if (q) {
-    where.OR = [
-      { code: { contains: q.toUpperCase() } },
-      { title: { contains: q } },
-      { description: { contains: q } },
-    ];
-  }
-  if (brand) where.machine = { brand };
-
-  let errorCodes: Awaited<ReturnType<typeof prisma.errorCode.findMany<{ include: { machine: true } }>>> = [];
-  let brands: Array<{ brand: string }> = [];
-  try {
-    [errorCodes, brands] = await Promise.all([
-      prisma.errorCode.findMany({
-        where,
-        include: { machine: true },
-        take: 100,
-        orderBy: [{ severity: "desc" }, { code: "asc" }],
-      }),
-      prisma.washingMachine.findMany({ select: { brand: true }, distinct: ["brand"] }),
-    ]);
-  } catch {
-    // DB unreachable — render empty state
-  }
+  const errorCodes = staticErrorCodes({ where: { q, brand }, take: 100 });
+  const brands = staticMachineBrands().map((b) => ({ brand: b }));
 
   return (
     <MarketingLayout>

@@ -30,20 +30,36 @@ export default async function AdminPage() {
     );
   }
 
-  const [usersCount, partsCount, ordersCount, diagnosesCount, guidesCount, errorCodesCount, revenue, recentOrders, recentUsers, allOrders, allDiagnoses, allErrorCodes] = await Promise.all([
-    prisma.user.count(),
-    prisma.part.count(),
-    prisma.order.count(),
-    prisma.diagnosis.count(),
-    prisma.repairGuide.count(),
-    prisma.errorCode.count(),
-    prisma.order.aggregate({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } }, _sum: { totalEur: true } }),
-    prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
-    prisma.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
-    prisma.order.findMany({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } } }),
-    prisma.diagnosis.findMany({ select: { result: true } }),
-    prisma.errorCode.findMany({ select: { code: true, severity: true } }),
-  ]);
+  let usersCount = 0, partsCount = 20, ordersCount = 0, diagnosesCount = 0, guidesCount = 6, errorCodesCount = 26;
+  let revenue: { _sum: { totalEur: number | null } } = { _sum: { totalEur: 0 } };
+  let recentOrders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
+  let recentUsers: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
+  let allOrders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
+  let allDiagnoses: Array<{ result: string | null }> = [];
+  let allErrorCodes: Array<{ code: string; severity: string }> = [];
+  try {
+    [usersCount, partsCount, ordersCount, diagnosesCount, guidesCount, errorCodesCount, revenue, recentOrders, recentUsers, allOrders, allDiagnoses, allErrorCodes] = await Promise.all([
+      prisma.user.count(),
+      prisma.part.count(),
+      prisma.order.count(),
+      prisma.diagnosis.count(),
+      prisma.repairGuide.count(),
+      prisma.errorCode.count(),
+      prisma.order.aggregate({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } }, _sum: { totalEur: true } }),
+      prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
+      prisma.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
+      prisma.order.findMany({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } } }),
+      prisma.diagnosis.findMany({ select: { result: true } }),
+      prisma.errorCode.findMany({ select: { code: true, severity: true } }),
+    ]);
+  } catch {
+    // DB unreachable — show empty admin dashboard
+    const { staticStats } = await import("@/lib/static-db");
+    const s = staticStats();
+    partsCount = s.partsCount;
+    guidesCount = s.guidesCount;
+    errorCodesCount = s.errorCodesCount;
+  }
 
   // Build revenue chart data — group orders by day, last 30 days
   const now = new Date();

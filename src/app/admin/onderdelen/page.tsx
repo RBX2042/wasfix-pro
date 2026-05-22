@@ -18,7 +18,13 @@ export default async function AdminPartsPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
-  const parts = await prisma.part.findMany({ orderBy: { sku: "asc" } });
+  let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
+  try {
+    parts = await prisma.part.findMany({ orderBy: { sku: "asc" } });
+  } catch {
+    const { parts: staticPartList } = await import("@/lib/static-db");
+    parts = [...staticPartList].sort((a, b) => a.sku.localeCompare(b.sku)) as typeof parts;
+  }
 
   return (
     <DashboardLayout role={user.role}>

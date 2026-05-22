@@ -18,16 +18,24 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/inloggen");
 
-  const [diagnoses, orders, savedMachines] = await Promise.all([
-    prisma.diagnosis.findMany({ where: { userId: user.id }, take: 5, orderBy: { createdAt: "desc" } }),
-    prisma.order.findMany({ where: { userId: user.id }, take: 5, orderBy: { createdAt: "desc" } }),
-    prisma.savedMachine.findMany({ where: { userId: user.id }, include: { machine: true } }),
-  ]);
+  let diagnoses: Awaited<ReturnType<typeof prisma.diagnosis.findMany>> = [];
+  let orders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
+  let savedMachines: Array<{ id: string; machine: { brand: string; model: string } }> = [];
+  let totalSpent: { _sum: { totalEur: number | null } } = { _sum: { totalEur: 0 } };
+  try {
+    [diagnoses, orders, savedMachines] = await Promise.all([
+      prisma.diagnosis.findMany({ where: { userId: user.id }, take: 5, orderBy: { createdAt: "desc" } }),
+      prisma.order.findMany({ where: { userId: user.id }, take: 5, orderBy: { createdAt: "desc" } }),
+      prisma.savedMachine.findMany({ where: { userId: user.id }, include: { machine: true } }),
+    ]);
 
-  const totalSpent = await prisma.order.aggregate({
-    where: { userId: user.id, status: { in: ["PAID", "SHIPPED", "DELIVERED"] } },
-    _sum: { totalEur: true },
-  });
+    totalSpent = await prisma.order.aggregate({
+      where: { userId: user.id, status: { in: ["PAID", "SHIPPED", "DELIVERED"] } },
+      _sum: { totalEur: true },
+    });
+  } catch {
+    // DB unreachable — show empty dashboard
+  }
 
   return (
     <DashboardLayout role={user.role}>

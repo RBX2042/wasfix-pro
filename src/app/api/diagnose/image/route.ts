@@ -1,5 +1,4 @@
 import { NextRequest } from "next/server";
-import { prisma } from "@/lib/prisma";
 import {
   getGemini,
   DIAGNOSIS_MODEL,
@@ -7,6 +6,7 @@ import {
   demoModeImageReply,
   type ImageDiagnosis,
 } from "@/lib/gemini";
+import { staticErrorCodeByCode } from "@/lib/static-db";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
@@ -67,17 +67,7 @@ export async function POST(req: NextRequest) {
     let recommendedGuides: Array<{ id: string; slug: string; title: string; difficulty: string; timeMinutes: number; summary: string }> = [];
 
     if (parsed.detectedCode) {
-      const ec = await prisma.errorCode.findFirst({
-        where: {
-          code: { contains: parsed.detectedCode },
-          ...(parsed.detectedBrand ? { machine: { brand: parsed.detectedBrand } } : {}),
-        },
-        include: {
-          machine: true,
-          parts: { include: { part: true } },
-          guides: { include: { guide: true } },
-        },
-      });
+      const ec = staticErrorCodeByCode(parsed.detectedCode, parsed.detectedBrand ?? undefined);
       if (ec) {
         matchedErrorCode = {
           id: ec.id,

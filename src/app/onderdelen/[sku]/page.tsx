@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticPart, staticPartFull, staticRelatedParts } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -17,29 +17,19 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const part = await prisma.part.findUnique({ where: { sku } });
+  const part = staticPart(sku);
   if (!part) return { title: "Onderdeel niet gevonden" };
   return { title: `${part.name} — ${formatEur(part.priceEur)}` };
 }
 
 export default async function PartDetailPage({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const part = await prisma.part.findUnique({
-    where: { sku },
-    include: {
-      machines: { include: { machine: true } },
-      guides: { include: { guide: true } },
-      errorCodes: { include: { errorCode: { include: { machine: true } } } },
-    },
-  });
+  const part = staticPartFull(sku);
 
   if (!part) notFound();
 
   const compatibleBrands = Array.from(new Set(part.machines.map((m) => m.machine.brand)));
-  const relatedParts = await prisma.part.findMany({
-    where: { category: part.category, id: { not: part.id }, stock: { gt: 0 } },
-    take: 4,
-  });
+  const relatedParts = staticRelatedParts(part.category, part.id, 4);
 
   return (
     <MarketingLayout>
@@ -128,7 +118,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
                     <summary className="text-sm text-primary cursor-pointer">{part.machines.length} compatibele modellen tonen</summary>
                     <ul className="mt-2 space-y-1 text-sm text-muted-foreground">
                       {part.machines.map((pm) => (
-                        <li key={pm.machineId}>· {pm.machine.brand} {pm.machine.model}</li>
+                        <li key={pm.machine.id}>· {pm.machine.brand} {pm.machine.model}</li>
                       ))}
                     </ul>
                   </details>

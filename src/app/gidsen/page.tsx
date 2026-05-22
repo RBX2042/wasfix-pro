@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticGuides } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,19 +17,7 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
   const q = sp.q?.trim();
   const difficulty = sp.difficulty;
 
-  const where: any = {};
-  if (q) where.OR = [{ title: { contains: q } }, { summary: { contains: q } }];
-  if (difficulty) where.difficulty = difficulty;
-
-  let guides: Awaited<ReturnType<typeof prisma.repairGuide.findMany>> = [];
-  try {
-    guides = await prisma.repairGuide.findMany({
-      where,
-      orderBy: { views: "desc" },
-    });
-  } catch {
-    // DB unreachable — render empty state
-  }
+  const guides = staticGuides({ where: { q, difficulty }, orderBy: "views-desc" });
 
   return (
     <MarketingLayout>

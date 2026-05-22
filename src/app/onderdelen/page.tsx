@@ -1,6 +1,6 @@
 import { MarketingLayout } from "@/components/marketing-layout";
 import { PartCard } from "@/components/part-card";
-import { prisma } from "@/lib/prisma";
+import { staticParts, staticPartBrands } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -30,31 +30,12 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
   const cat = sp.cat;
   const brand = sp.brand;
 
-  const where: any = {};
-  if (q) {
-    where.OR = [
-      { name: { contains: q } },
-      { description: { contains: q } },
-      { sku: { contains: q } },
-    ];
-  }
-  if (cat) where.category = cat;
-  if (brand) where.brand = brand;
-
-  let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
-  let brands: Array<{ brand: string }> = [];
-  try {
-    [parts, brands] = await Promise.all([
-      prisma.part.findMany({
-        where,
-        orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
-        take: 60,
-      }),
-      prisma.part.findMany({ select: { brand: true }, distinct: ["brand"] }),
-    ]);
-  } catch {
-    // DB unreachable — render empty state instead of 500
-  }
+  const parts = staticParts({
+    where: { category: cat, brand, q },
+    orderBy: "stock-then-price",
+    take: 60,
+  });
+  const brands = staticPartBrands().map((b) => ({ brand: b }));
 
   return (
     <MarketingLayout>

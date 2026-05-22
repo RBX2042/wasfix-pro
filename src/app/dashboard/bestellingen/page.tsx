@@ -25,11 +25,14 @@ export default async function OrdersPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/inloggen");
 
-  const orders = await prisma.order.findMany({
-    where: { userId: user.id },
-    include: { items: { include: { part: true } } },
-    orderBy: { createdAt: "desc" },
-  });
+  let orders: Awaited<ReturnType<typeof prisma.order.findMany<{ include: { items: { include: { part: true } } } }>>> = [];
+  try {
+    orders = await prisma.order.findMany({
+      where: { userId: user.id },
+      include: { items: { include: { part: true } } },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch { /* DB unreachable */ }
 
   return (
     <DashboardLayout role={user.role}>

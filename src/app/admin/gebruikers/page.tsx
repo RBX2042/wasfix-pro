@@ -15,7 +15,10 @@ export default async function AdminUsersPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
-  const users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
+  let users: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
+  try {
+    users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
+  } catch { /* DB unreachable */ }
 
   return (
     <DashboardLayout role={user.role}>

@@ -12,20 +12,33 @@ export type DemoUser = {
 // Superadmin email — auto-logged-in in demo mode, full ADMIN/BEDRIJF privileges.
 export const SUPERADMIN_EMAIL = "jdahoe@hotmail.nl";
 
+// Static demo user — used when DB is unreachable so the app still works.
+const STATIC_DEMO_USER: DemoUser = {
+  id: "jdahoe-superadmin",
+  email: SUPERADMIN_EMAIL,
+  name: "Jimmy Dahoe",
+  role: "ADMIN",
+  plan: "BEDRIJF",
+};
+
 export async function getCurrentUser(): Promise<DemoUser | null> {
   // In demo mode, return the superadmin user (fall back to demo user)
   if (isDemoMode()) {
-    const superadmin = await prisma.user.findUnique({ where: { email: SUPERADMIN_EMAIL } });
-    const fallback = !superadmin ? await prisma.user.findUnique({ where: { email: "demo@wasfixpro.nl" } }) : null;
-    const user = superadmin ?? fallback;
-    if (!user) return null;
-    return {
-      id: user.id,
-      email: user.email,
-      name: user.name ?? "Demo User",
-      role: user.role,
-      plan: user.plan,
-    };
+    try {
+      const superadmin = await prisma.user.findUnique({ where: { email: SUPERADMIN_EMAIL } });
+      const fallback = !superadmin ? await prisma.user.findUnique({ where: { email: "demo@wasfixpro.nl" } }) : null;
+      const user = superadmin ?? fallback;
+      if (user) {
+        return {
+          id: user.id,
+          email: user.email,
+          name: user.name ?? "Demo User",
+          role: user.role,
+          plan: user.plan,
+        };
+      }
+    } catch { /* DB unreachable — fall through to static user */ }
+    return STATIC_DEMO_USER;
   }
 
   // Real Clerk auth

@@ -1,0 +1,262 @@
+[
+  {
+    "id": "cmohrri4n0013aaf9bz7n9nkl",
+    "code": "F11",
+    "machineId": "cmohrri3r0000aaf95a44g8lj",
+    "title": "Afvoerprobleem",
+    "description": "Het water kan niet worden afgevoerd. De cyclus is gestopt en de trommel zit mogelijk vol water.",
+    "likelyCauses": "Verstopte pluizenfilter|Geknikte of verstopte afvoerslang|Defecte afvoerpomp|Verstopte afvoersifon",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4o0015aaf9gchbzmdc",
+    "code": "F53",
+    "machineId": "cmohrri3r0000aaf95a44g8lj",
+    "title": "Motor probleem",
+    "description": "De motor draait niet of toerentelregeling werkt niet correct.",
+    "likelyCauses": "Defecte koolborstels|Defecte motor|Defecte tachometer|Module probleem",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri4p0017aaf9mdczfox8",
+    "code": "F21",
+    "machineId": "cmohrri3t0001aaf98jw002tu",
+    "title": "Watertoevoer probleem",
+    "description": "Er stroomt geen of te weinig water in de wasmachine.",
+    "likelyCauses": "Gesloten waterkraan|Verstopt filter in inlaatslang|Defect waterinlaatventiel|Lage waterdruk",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4q0019aaf984zimhk9",
+    "code": "F23",
+    "machineId": "cmohrri3u0002aaf9axtqraz6",
+    "title": "Waterlek gedetecteerd",
+    "description": "De Waterproof System (WPS) heeft een lekkage gedetecteerd in de bodembak.",
+    "likelyCauses": "Lekkage afvoerpomp|Lekkage zeepbak|Defecte sealring trommel|Versleten deurpakking",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri4q001baaf9wmu6bxq0",
+    "code": "E18",
+    "machineId": "cmohrri3u0003aaf9n8fnwnnw",
+    "title": "Afvoer fout (E18 / F18)",
+    "description": "Het afvalwater kan niet worden afgevoerd binnen de tijdslimiet.",
+    "likelyCauses": "Verstopte pluizenfilter|Verstopte afvoerslang|Defecte afvoerpomp|Verstopte sifon onder gootsteen",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4r001daaf9l027h7lt",
+    "code": "E21",
+    "machineId": "cmohrri3u0003aaf9n8fnwnnw",
+    "title": "Motor draait niet vrij",
+    "description": "De trommel kan niet draaien, mogelijk geblokkeerd of motor defect.",
+    "likelyCauses": "Geblokkeerde trommel (kledingstuk vast)|Defecte motor|Defecte module|Defecte koolborstels",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri4s001faaf9a2cfjl3y",
+    "code": "F21",
+    "machineId": "cmohrri3v0004aaf94bd0t5oz",
+    "title": "Aanstuurfout motor",
+    "description": "Communicatieprobleem tussen module en motor.",
+    "likelyCauses": "Defecte module|Loszittende kabelverbinding|Defecte tachosensor",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri4s001haaf96zkodozt",
+    "code": "E04",
+    "machineId": "cmohrri3w0005aaf9orm6bi3x",
+    "title": "Vulwater niveau te hoog",
+    "description": "Te veel water in de kuip — drukschakelaar geeft alarm.",
+    "likelyCauses": "Defect waterinlaatventiel (blijft open)|Defecte drukschakelaar|Verstopte luchtkamer",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4t001jaaf9at0tw0w4",
+    "code": "F23",
+    "machineId": "cmohrri3x0006aaf9doqssvm4",
+    "title": "AquaStop geactiveerd",
+    "description": "AquaStop heeft watertoevoer afgesloten wegens lekkage.",
+    "likelyCauses": "Lekkage in machine|Defecte AquaStop slang|Vocht in bodembak",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri4u001laaf92grsicqp",
+    "code": "E27",
+    "machineId": "cmohrri3x0007aaf926277wxc",
+    "title": "Spanningsvoorziening probleem",
+    "description": "Onderspanning of stroomstoring gedetecteerd.",
+    "likelyCauses": "Te lage netspanning|Defecte voeding op module|Loszittende stekker",
+    "severity": "MEDIUM",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri4v001naaf9g1kjsnsb",
+    "code": "dE",
+    "machineId": "cmohrri3y0008aaf9ymybqoch",
+    "title": "Deur niet correct gesloten",
+    "description": "De deur staat open of het deurslot werkt niet.",
+    "likelyCauses": "Deur staat niet goed dicht|Defect deurslot|Wasgoed klemt tussen deur|Beschadigde scharnier",
+    "severity": "LOW",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4v001paaf9ikoh0p32",
+    "code": "4E",
+    "machineId": "cmohrri3y0008aaf9ymybqoch",
+    "title": "Watertoevoer fout",
+    "description": "Wasmachine krijgt onvoldoende water binnen.",
+    "likelyCauses": "Gesloten kraan|Verstopt zeefje in inlaatslang|Defect inlaatventiel|Lage waterdruk",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4w001raaf90pc04f9i",
+    "code": "5E",
+    "machineId": "cmohrri3z0009aaf9lfrk8dt6",
+    "title": "Afvoerprobleem",
+    "description": "Wasmachine kan water niet afvoeren.",
+    "likelyCauses": "Verstopt pluizenfilter|Geknikte afvoerslang|Defecte afvoerpomp",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4x001taaf9tx5mwjji",
+    "code": "UE",
+    "machineId": "cmohrri3z0009aaf9lfrk8dt6",
+    "title": "Onbalans gedetecteerd",
+    "description": "De trommellading is niet gelijkmatig verdeeld.",
+    "likelyCauses": "Onevenwichtige belading|Te kleine lading|Defecte schokdempers|Versleten trommellager",
+    "severity": "LOW",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4y001vaaf90dc8ftmx",
+    "code": "OE",
+    "machineId": "cmohrri40000aaaf9t22sl67g",
+    "title": "Drain Error (OE)",
+    "description": "Water wordt niet binnen de tijdslimiet afgevoerd.",
+    "likelyCauses": "Verstopt pluizenfilter|Defecte afvoerpomp|Verstopte afvoerslang|Defecte druksensor",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri4z001xaaf9f4tbwc7d",
+    "code": "LE",
+    "machineId": "cmohrri40000aaaf9t22sl67g",
+    "title": "Motor Lock Error",
+    "description": "Motor is geblokkeerd of de trommel kan niet draaien.",
+    "likelyCauses": "Overbelading|Versleten lager|Defecte Hall-sensor|Stator probleem",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri50001zaaf9k3znbrdt",
+    "code": "IE",
+    "machineId": "cmohrri41000baaf9vb7p68py",
+    "title": "Inlet Error",
+    "description": "Geen of te weinig waterinlaat binnen de tijdslimiet.",
+    "likelyCauses": "Gesloten kraan|Defect waterinlaatventiel|Verstopt zeefje|Lage waterdruk",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri510021aaf9wgseg3be",
+    "code": "F01",
+    "machineId": "cmohrri42000caaf9llklphk6",
+    "title": "Elektronische module storing",
+    "description": "Hoofdmodule reageert niet correct.",
+    "likelyCauses": "Defecte hoofdmodule|Vochtindringing op module|Spanningsstoring",
+    "severity": "HIGH",
+    "diyFriendly": false
+  },
+  {
+    "id": "cmohrri520023aaf9ol1i53kw",
+    "code": "F08",
+    "machineId": "cmohrri42000caaf9llklphk6",
+    "title": "Verwarmingselement defect",
+    "description": "Het verwarmingselement heeft een storing.",
+    "likelyCauses": "Defect verwarmingselement|Defecte NTC sensor|Onderbroken kabel naar element",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri520025aaf9vb9gscpl",
+    "code": "E10",
+    "machineId": "cmohrri42000daaf9yl20o83t",
+    "title": "Watertoevoer storing",
+    "description": "Onvoldoende watertoevoer.",
+    "likelyCauses": "Gesloten kraan|Verstopt zeefje|Defect inlaatventiel|Drukverlies",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri530027aaf9f8eyx3x9",
+    "code": "E20",
+    "machineId": "cmohrri42000daaf9yl20o83t",
+    "title": "Afvoerprobleem AEG",
+    "description": "Het water wordt niet afgevoerd.",
+    "likelyCauses": "Verstopt filter|Defecte pomp|Geknikte slang|Druksensor defect",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri540029aaf9vyw6bj3v",
+    "code": "E40",
+    "machineId": "cmohrri43000eaaf9zv91f1ia",
+    "title": "Deurslot probleem",
+    "description": "Het deurslot kan niet worden vergrendeld of ontgrendeld.",
+    "likelyCauses": "Defect deurslot (PTC)|Beschadigde deurkruk|Module probleem",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri55002baaf9esenpqke",
+    "code": "E11",
+    "machineId": "cmohrri44000faaf9xyadtn09",
+    "title": "Vultijd overschreden",
+    "description": "De wasmachine kon niet binnen de tijdslimiet vullen.",
+    "likelyCauses": "Gesloten waterkraan|Defect inlaatventiel|Te lage waterdruk|Verstopt zeefje",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri55002daaf9ki3xsgf8",
+    "code": "H1",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Verwarmingselement / NTC fout",
+    "description": "Probleem met verwarmen tijdens cyclus.",
+    "likelyCauses": "Defect verwarmingselement|NTC sensor defect|Bekabeling onderbroken",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri56002faaf9yhmc6ud5",
+    "code": "F05",
+    "machineId": "cmohrri45000haaf9plyvs5w5",
+    "title": "Pomp / drukschakelaar fout",
+    "description": "Probleem met afvoeren of drukschakelaar geeft fouten.",
+    "likelyCauses": "Verstopt filter|Defecte pomp|Defecte drukschakelaar",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  },
+  {
+    "id": "cmohrri57002haaf9cygkymnj",
+    "code": "F08",
+    "machineId": "cmohrri45000haaf9plyvs5w5",
+    "title": "Verwarmingselement",
+    "description": "Verwarmingselement bereikt niet de juiste temperatuur.",
+    "likelyCauses": "Defect element|Kalkaanslag op element|NTC defect",
+    "severity": "MEDIUM",
+    "diyFriendly": true
+  }
+]

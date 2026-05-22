@@ -20,10 +20,16 @@ export default async function MonteurOnderdelenPage() {
   if (!user) redirect("/inloggen");
 
   const limits = getPlanLimits(user.plan);
-  const parts = await prisma.part.findMany({
-    where: { stock: { gt: 0 } },
-    orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
-  });
+  let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
+  try {
+    parts = await prisma.part.findMany({
+      where: { stock: { gt: 0 } },
+      orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
+    });
+  } catch {
+    const { staticParts } = await import("@/lib/static-db");
+    parts = staticParts({ where: { minStock: 0 }, orderBy: "stock-then-price" }) as typeof parts;
+  }
 
   return (
     <DashboardLayout role={user.role}>

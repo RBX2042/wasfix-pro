@@ -17,7 +17,13 @@ export default async function AdminGuidesPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
-  const guides = await prisma.repairGuide.findMany({ orderBy: { views: "desc" } });
+  let guides: Awaited<ReturnType<typeof prisma.repairGuide.findMany>> = [];
+  try {
+    guides = await prisma.repairGuide.findMany({ orderBy: { views: "desc" } });
+  } catch {
+    const { guides: staticGuideList } = await import("@/lib/static-db");
+    guides = [...staticGuideList].sort((a, b) => b.views - a.views).map((g) => ({ ...g, createdAt: new Date(g.createdAt) })) as typeof guides;
+  }
 
   return (
     <DashboardLayout role={user.role}>

@@ -10,6 +10,7 @@ import { getCurrentUser, getPlanLimits } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
+import { staticErrorCodeByCode, staticParts, staticGuides } from "@/lib/static-db";
 
 export const runtime = "nodejs";
 
@@ -128,66 +129,47 @@ export async function POST(req: NextRequest) {
     let recommendedGuides: Array<{ id: string; slug: string; title: string; difficulty: string; timeMinutes: number; summary: string }> = [];
 
     if (diagResult) {
-      // All DB lookups here are best-effort; demo mode still returns useful diagnosis text
-      try {
-        const brand = diagResult.brand
-          ? diagResult.brand.charAt(0).toUpperCase() + diagResult.brand.slice(1).toLowerCase()
-          : undefined;
-        const code = diagResult.errorCode;
+      // Static-DB lookups: instant, no DB dependency
+      const brand = diagResult.brand
+        ? diagResult.brand.charAt(0).toUpperCase() + diagResult.brand.slice(1).toLowerCase()
+        : undefined;
+      const code = diagResult.errorCode;
 
-        const matchedErrorCode = code
-          ? await prisma.errorCode.findFirst({
-              where: {
-                code: { contains: code },
-                ...(brand ? { machine: { brand } } : {}),
-              },
-              include: {
-                machine: true,
-                parts: { include: { part: true } },
-                guides: { include: { guide: true } },
-              },
-            })
-          : null;
+      const matchedErrorCode = code ? staticErrorCodeByCode(code, brand) : null;
 
-        if (matchedErrorCode) {
-          recommendedParts = matchedErrorCode.parts.map((ep) => ep.part);
-          recommendedGuides = matchedErrorCode.guides.map((eg) => eg.guide);
+      if (matchedErrorCode) {
+        recommendedParts = matchedErrorCode.parts.map((ep) => ep.part);
+        recommendedGuides = matchedErrorCode.guides.map((eg) => eg.guide);
+      }
+
+      if (recommendedParts.length === 0) {
+        const cause = diagResult.mainCause?.toLowerCase() ?? "";
+        const categories: string[] = [];
+        if (/(pomp|afvoer|filter)/.test(cause)) categories.push("PUMP", "FILTER", "HOSE");
+        if (/(verwarm|element|ntc)/.test(cause)) categories.push("HEATING", "ELECTRONICS");
+        if (/(motor|lager|koolborstel)/.test(cause)) categories.push("MOTOR", "BEARING");
+        if (/(deur|slot|pakking)/.test(cause)) categories.push("DOOR");
+        if (/(ventiel|inlaat|water)/.test(cause)) categories.push("VALVE", "HOSE");
+        if (categories.length > 0) {
+          recommendedParts = staticParts({
+            where: { categories, minStock: 0 },
+            orderBy: "price-asc",
+            take: 4,
+          });
         }
+      }
 
-        if (recommendedParts.length === 0) {
-          const cause = diagResult.mainCause?.toLowerCase() ?? "";
-          const categories: string[] = [];
-          if (/(pomp|afvoer|filter)/.test(cause)) categories.push("PUMP", "FILTER", "HOSE");
-          if (/(verwarm|element|ntc)/.test(cause)) categories.push("HEATING", "ELECTRONICS");
-          if (/(motor|lager|koolborstel)/.test(cause)) categories.push("MOTOR", "BEARING");
-          if (/(deur|slot|pakking)/.test(cause)) categories.push("DOOR");
-          if (/(ventiel|inlaat|water)/.test(cause)) categories.push("VALVE", "HOSE");
-          if (categories.length > 0) {
-            recommendedParts = await prisma.part.findMany({
-              where: { stock: { gt: 0 }, category: { in: categories } },
-              take: 4,
-              orderBy: { priceEur: "asc" },
-            });
-          }
+      if (recommendedGuides.length === 0) {
+        const cause = diagResult.mainCause?.toLowerCase() ?? "";
+        const slugs: string[] = [];
+        if (/(pomp|afvoer|filter)/.test(cause)) slugs.push("filter-reinigen", "afvoerpomp-reinigen-vervangen");
+        if (/(verwarm|element)/.test(cause)) slugs.push("verwarmingselement-vervangen");
+        if (/(lager|trommel)/.test(cause)) slugs.push("trommellager-vervangen");
+        if (/(deur|pakking)/.test(cause)) slugs.push("deurpakking-vervangen");
+        if (/(ventiel|inlaat)/.test(cause)) slugs.push("waterinlaatventiel-vervangen");
+        if (slugs.length > 0) {
+          recommendedGuides = staticGuides({ where: { slugs }, take: 3 });
         }
-
-        if (recommendedGuides.length === 0) {
-          const cause = diagResult.mainCause?.toLowerCase() ?? "";
-          const slugs: string[] = [];
-          if (/(pomp|afvoer|filter)/.test(cause)) slugs.push("filter-reinigen", "afvoerpomp-reinigen-vervangen");
-          if (/(verwarm|element)/.test(cause)) slugs.push("verwarmingselement-vervangen");
-          if (/(lager|trommel)/.test(cause)) slugs.push("trommellager-vervangen");
-          if (/(deur|pakking)/.test(cause)) slugs.push("deurpakking-vervangen");
-          if (/(ventiel|inlaat)/.test(cause)) slugs.push("waterinlaatventiel-vervangen");
-          if (slugs.length > 0) {
-            recommendedGuides = await prisma.repairGuide.findMany({
-              where: { slug: { in: slugs } },
-              take: 3,
-            });
-          }
-        }
-      } catch (dbErr) {
-        logger.warn("Diagnose recommended-parts lookup failed (DB unreachable)", dbErr);
       }
     }
 

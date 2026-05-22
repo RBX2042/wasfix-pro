@@ -18,10 +18,13 @@ export default async function DiagnosesPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/inloggen");
 
-  const diagnoses = await prisma.diagnosis.findMany({
-    where: { userId: user.id },
-    orderBy: { createdAt: "desc" },
-  });
+  let diagnoses: Awaited<ReturnType<typeof prisma.diagnosis.findMany>> = [];
+  try {
+    diagnoses = await prisma.diagnosis.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+    });
+  } catch { /* DB unreachable */ }
 
   return (
     <DashboardLayout role={user.role}>

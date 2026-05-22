@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticMachineFull } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,17 +21,11 @@ export default async function ModelPage({ params }: { params: Promise<{ brand: s
   const brand = decodeURIComponent(encBrand);
   const model = decodeURIComponent(encModel);
 
-  const machine = await prisma.washingMachine.findFirst({
-    where: { brand, model },
-    include: {
-      errorCodes: { orderBy: { code: "asc" } },
-      parts: { include: { part: true }, take: 8 },
-    },
-  });
+  const machine = staticMachineFull(brand, model);
 
   if (!machine) notFound();
 
-  const parts = machine.parts.map((pm) => pm.part);
+  const parts = machine.parts.map((pm) => pm.part).slice(0, 8);
 
   return (
     <MarketingLayout>

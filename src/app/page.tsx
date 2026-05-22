@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticStats, staticParts } from "@/lib/static-db";
 import { formatEur } from "@/lib/utils";
 import HeroSceneWrapper from "@/components/3d/HeroSceneWrapper";
 import { AnimatedCounter } from "@/components/ui/animated-counter";
@@ -18,23 +18,9 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  // Resilient to missing DB — page still renders with sensible defaults
-  let partsCount = 20;
-  let guidesCount = 6;
-  let machinesCount = 18;
-  let errorCodesCount = 26;
-  let featuredParts: Array<{ id: string; sku: string; name: string; brand: string; priceEur: number; imageUrl: string | null; stock: number; category: string }> = [];
-  try {
-    [partsCount, guidesCount, machinesCount, errorCodesCount, featuredParts] = await Promise.all([
-      prisma.part.count(),
-      prisma.repairGuide.count(),
-      prisma.washingMachine.count(),
-      prisma.errorCode.count(),
-      prisma.part.findMany({ take: 4, where: { stock: { gt: 0 } }, orderBy: { stock: "desc" } }),
-    ]);
-  } catch {
-    // DB unreachable (e.g. demo deploy without DATABASE_URL) — fall through with defaults
-  }
+  // Static data — instant, reliable, no DB dependency
+  const { partsCount, guidesCount, machinesCount, errorCodesCount } = staticStats();
+  const featuredParts = staticParts({ where: { minStock: 0 }, orderBy: "stock-desc", take: 4 });
 
   return (
     <MarketingLayout>

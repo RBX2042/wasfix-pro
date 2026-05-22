@@ -16,10 +16,16 @@ export default async function AdminErrorCodesPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
-  const codes = await prisma.errorCode.findMany({
-    include: { machine: true },
-    orderBy: [{ machine: { brand: "asc" } }, { code: "asc" }],
-  });
+  let codes: Awaited<ReturnType<typeof prisma.errorCode.findMany<{ include: { machine: true } }>>> = [];
+  try {
+    codes = await prisma.errorCode.findMany({
+      include: { machine: true },
+      orderBy: [{ machine: { brand: "asc" } }, { code: "asc" }],
+    });
+  } catch {
+    const { staticErrorCodes } = await import("@/lib/static-db");
+    codes = staticErrorCodes() as typeof codes;
+  }
 
   return (
     <DashboardLayout role={user.role}>

@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
+import { staticMachinesByBrand } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,13 +33,7 @@ export default async function BrandPage({ params }: { params: Promise<{ brand: s
   const { brand: encBrand } = await params;
   const brand = decodeURIComponent(encBrand);
 
-  const machines = await prisma.washingMachine.findMany({
-    where: { brand },
-    include: {
-      _count: { select: { errorCodes: true } },
-    },
-    orderBy: { model: "asc" },
-  });
+  const machines = staticMachinesByBrand(brand);
 
   if (machines.length === 0) notFound();
 

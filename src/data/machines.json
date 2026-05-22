@@ -1,0 +1,164 @@
+[
+  {
+    "id": "cmohrri3r0000aaf95a44g8lj",
+    "brand": "Miele",
+    "model": "WED 125 WPS",
+    "yearFrom": 2019,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Miele+WED+125+WPS&font=oswald",
+    "description": "Duitse premium wasmachines, lange levensduur"
+  },
+  {
+    "id": "cmohrri3t0001aaf98jw002tu",
+    "brand": "Miele",
+    "model": "WSG 363 WCS",
+    "yearFrom": 2020,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Miele+WSG+363+WCS&font=oswald",
+    "description": "Duitse premium wasmachines, lange levensduur"
+  },
+  {
+    "id": "cmohrri3u0002aaf9axtqraz6",
+    "brand": "Miele",
+    "model": "W1 Classic WDB 030",
+    "yearFrom": 2017,
+    "yearTo": 2022,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Miele+W1+Classic+WDB+030&font=oswald",
+    "description": "Duitse premium wasmachines, lange levensduur"
+  },
+  {
+    "id": "cmohrri3u0003aaf9n8fnwnnw",
+    "brand": "Bosch",
+    "model": "WAU28T40NL",
+    "yearFrom": 2020,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Bosch+WAU28T40NL&font=oswald",
+    "description": "Betrouwbare Duitse wasmachines met SilencePlus technologie"
+  },
+  {
+    "id": "cmohrri3v0004aaf94bd0t5oz",
+    "brand": "Bosch",
+    "model": "Serie 6 WAT28695NL",
+    "yearFrom": 2018,
+    "yearTo": 2023,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Bosch+Serie+6+WAT28695NL&font=oswald",
+    "description": "Betrouwbare Duitse wasmachines met SilencePlus technologie"
+  },
+  {
+    "id": "cmohrri3w0005aaf9orm6bi3x",
+    "brand": "Bosch",
+    "model": "Serie 8 WAX32M70NL",
+    "yearFrom": 2021,
+    "yearTo": 2025,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Bosch+Serie+8+WAX32M70NL&font=oswald",
+    "description": "Betrouwbare Duitse wasmachines met SilencePlus technologie"
+  },
+  {
+    "id": "cmohrri3x0006aaf9doqssvm4",
+    "brand": "Siemens",
+    "model": "iQ500 WM14T780NL",
+    "yearFrom": 2019,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Siemens+iQ500+WM14T780NL&font=oswald",
+    "description": "iQ-serie met iSensoric en speedPack"
+  },
+  {
+    "id": "cmohrri3x0007aaf926277wxc",
+    "brand": "Siemens",
+    "model": "iQ700 WM16XKH0EU",
+    "yearFrom": 2020,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Siemens+iQ700+WM16XKH0EU&font=oswald",
+    "description": "iQ-serie met iSensoric en speedPack"
+  },
+  {
+    "id": "cmohrri3y0008aaf9ymybqoch",
+    "brand": "Samsung",
+    "model": "WW90T684DLH EcoBubble",
+    "yearFrom": 2020,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Samsung+WW90T684DLH+EcoBubble&font=oswald",
+    "description": "EcoBubble en AddWash technologie"
+  },
+  {
+    "id": "cmohrri3z0009aaf9lfrk8dt6",
+    "brand": "Samsung",
+    "model": "WW80T554DAW",
+    "yearFrom": 2021,
+    "yearTo": 2025,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Samsung+WW80T554DAW&font=oswald",
+    "description": "EcoBubble en AddWash technologie"
+  },
+  {
+    "id": "cmohrri40000aaaf9t22sl67g",
+    "brand": "LG",
+    "model": "F4WV710P1E",
+    "yearFrom": 2020,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=LG+F4WV710P1E&font=oswald",
+    "description": "Direct Drive motors met TurboWash"
+  },
+  {
+    "id": "cmohrri41000baaf9vb7p68py",
+    "brand": "LG",
+    "model": "F4WV9008P2W",
+    "yearFrom": 2021,
+    "yearTo": 2025,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=LG+F4WV9008P2W&font=oswald",
+    "description": "Direct Drive motors met TurboWash"
+  },
+  {
+    "id": "cmohrri42000caaf9llklphk6",
+    "brand": "Whirlpool",
+    "model": "FFD 9469E BV BE",
+    "yearFrom": 2019,
+    "yearTo": 2023,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Whirlpool+FFD+9469E+BV+BE&font=oswald",
+    "description": "6th Sense technologie voor zuinig wassen"
+  },
+  {
+    "id": "cmohrri42000daaf9yl20o83t",
+    "brand": "AEG",
+    "model": "L7FE96BS",
+    "yearFrom": 2018,
+    "yearTo": 2023,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=AEG+L7FE96BS&font=oswald",
+    "description": "ÖKOMix en ProSteam serie"
+  },
+  {
+    "id": "cmohrri43000eaaf9zv91f1ia",
+    "brand": "AEG",
+    "model": "LR8E75690",
+    "yearFrom": 2021,
+    "yearTo": 2025,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=AEG+LR8E75690&font=oswald",
+    "description": "ÖKOMix en ProSteam serie"
+  },
+  {
+    "id": "cmohrri44000faaf9xyadtn09",
+    "brand": "Electrolux",
+    "model": "EW6F4831RB",
+    "yearFrom": 2019,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Electrolux+EW6F4831RB&font=oswald",
+    "description": "PerfectCare met SensiCare systeem"
+  },
+  {
+    "id": "cmohrri44000gaaf9dw1xyoxk",
+    "brand": "Beko",
+    "model": "WTV 8736 XC",
+    "yearFrom": 2020,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Beko+WTV+8736+XC&font=oswald",
+    "description": "Voordelige wasmachines met AquaTech"
+  },
+  {
+    "id": "cmohrri45000haaf9plyvs5w5",
+    "brand": "Indesit",
+    "model": "MTWE 91483 WK EE",
+    "yearFrom": 2019,
+    "yearTo": 2024,
+    "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Indesit+MTWE+91483+WK+EE&font=oswald",
+    "description": "Push & Wash met EcoTime programma's"
+  }
+]

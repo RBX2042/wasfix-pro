@@ -18,13 +18,23 @@ import {
 export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
-  const [partsCount, guidesCount, machinesCount, errorCodesCount, featuredParts] = await Promise.all([
-    prisma.part.count(),
-    prisma.repairGuide.count(),
-    prisma.washingMachine.count(),
-    prisma.errorCode.count(),
-    prisma.part.findMany({ take: 4, where: { stock: { gt: 0 } }, orderBy: { stock: "desc" } }),
-  ]);
+  // Resilient to missing DB — page still renders with sensible defaults
+  let partsCount = 20;
+  let guidesCount = 6;
+  let machinesCount = 18;
+  let errorCodesCount = 26;
+  let featuredParts: Array<{ id: string; sku: string; name: string; brand: string; priceEur: number; imageUrl: string | null; stock: number; category: string }> = [];
+  try {
+    [partsCount, guidesCount, machinesCount, errorCodesCount, featuredParts] = await Promise.all([
+      prisma.part.count(),
+      prisma.repairGuide.count(),
+      prisma.washingMachine.count(),
+      prisma.errorCode.count(),
+      prisma.part.findMany({ take: 4, where: { stock: { gt: 0 } }, orderBy: { stock: "desc" } }),
+    ]);
+  } catch {
+    // DB unreachable (e.g. demo deploy without DATABASE_URL) — fall through with defaults
+  }
 
   return (
     <MarketingLayout>

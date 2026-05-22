@@ -21,10 +21,15 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
   if (q) where.OR = [{ title: { contains: q } }, { summary: { contains: q } }];
   if (difficulty) where.difficulty = difficulty;
 
-  const guides = await prisma.repairGuide.findMany({
-    where,
-    orderBy: { views: "desc" },
-  });
+  let guides: Awaited<ReturnType<typeof prisma.repairGuide.findMany>> = [];
+  try {
+    guides = await prisma.repairGuide.findMany({
+      where,
+      orderBy: { views: "desc" },
+    });
+  } catch {
+    // DB unreachable — render empty state
+  }
 
   return (
     <MarketingLayout>

@@ -9,9 +9,14 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Merken — alle wasmachine merken" };
 
 export default async function MerkenPage() {
-  const machines = await prisma.washingMachine.findMany({
-    orderBy: { brand: "asc" },
-  });
+  let machines: Awaited<ReturnType<typeof prisma.washingMachine.findMany>> = [];
+  try {
+    machines = await prisma.washingMachine.findMany({
+      orderBy: { brand: "asc" },
+    });
+  } catch {
+    // DB unreachable
+  }
 
   // Group by brand
   const brandMap = new Map<string, typeof machines>();

@@ -1,0 +1,216 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id               String         @id @default(cuid())
+  clerkId          String?        @unique
+  email            String         @unique
+  name             String?
+  role             String         @default("CONSUMER")
+  plan             String         @default("FREE")
+  stripeCustomerId String?
+  stripeSubId      String?
+  diagnosesUsed    Int            @default(0)
+  diagnosesResetAt DateTime       @default(now())
+  createdAt        DateTime       @default(now())
+  updatedAt        DateTime       @updatedAt
+  diagnoses        Diagnosis[]
+  orders           Order[]
+  savedMachines    SavedMachine[]
+
+  @@index([role])
+  @@index([plan])
+}
+
+model WashingMachine {
+  id           String         @id @default(cuid())
+  brand        String
+  model        String
+  yearFrom     Int?
+  yearTo       Int?
+  imageUrl     String?
+  description  String?
+  errorCodes   ErrorCode[]
+  repairGuides RepairGuide[]
+  parts        PartMachine[]
+  saved        SavedMachine[]
+
+  @@unique([brand, model])
+  @@index([brand])
+}
+
+model SavedMachine {
+  id        String         @id @default(cuid())
+  userId    String
+  user      User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  machineId String
+  machine   WashingMachine @relation(fields: [machineId], references: [id])
+  nickname  String?
+  createdAt DateTime       @default(now())
+
+  @@unique([userId, machineId])
+}
+
+model ErrorCode {
+  id           String            @id @default(cuid())
+  code         String
+  machineId    String
+  machine      WashingMachine    @relation(fields: [machineId], references: [id], onDelete: Cascade)
+  title        String
+  description  String
+  likelyCauses String
+  severity     String            @default("MEDIUM")
+  diyFriendly  Boolean           @default(true)
+  parts        ErrorCodeParts[]
+  guides       ErrorCodeGuides[]
+
+  @@unique([code, machineId])
+  @@index([code])
+  @@index([machineId])
+  @@index([severity])
+}
+
+model RepairGuide {
+  id          String            @id @default(cuid())
+  title       String
+  slug        String            @unique
+  machineId   String?
+  machine     WashingMachine?   @relation(fields: [machineId], references: [id])
+  difficulty  String            @default("MEDIUM")
+  timeMinutes Int
+  steps       String
+  tools       String
+  summary     String
+  warnings    String?
+  isPremium   Boolean           @default(false)
+  views       Int               @default(0)
+  errorCodes  ErrorCodeGuides[]
+  parts       GuideParts[]
+  createdAt   DateTime          @default(now())
+
+  @@index([machineId])
+  @@index([difficulty])
+  @@index([isPremium])
+}
+
+model Part {
+  id          String           @id @default(cuid())
+  sku         String           @unique
+  name        String
+  description String?
+  brand       String
+  category    String           @default("OTHER")
+  priceEur    Float
+  stock       Int              @default(0)
+  imageUrl    String?
+  isOriginal  Boolean          @default(true)
+  supplier    String?
+  machines    PartMachine[]
+  errorCodes  ErrorCodeParts[]
+  guides      GuideParts[]
+  orderItems  OrderItem[]
+
+  @@index([brand])
+  @@index([category])
+  @@index([stock])
+}
+
+model PartMachine {
+  partId    String
+  part      Part           @relation(fields: [partId], references: [id], onDelete: Cascade)
+  machineId String
+  machine   WashingMachine @relation(fields: [machineId], references: [id], onDelete: Cascade)
+
+  @@id([partId, machineId])
+}
+
+model ErrorCodeParts {
+  errorCodeId String
+  errorCode   ErrorCode @relation(fields: [errorCodeId], references: [id], onDelete: Cascade)
+  partId      String
+  part        Part      @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@id([errorCodeId, partId])
+}
+
+model ErrorCodeGuides {
+  errorCodeId String
+  errorCode   ErrorCode   @relation(fields: [errorCodeId], references: [id], onDelete: Cascade)
+  guideId     String
+  guide       RepairGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+
+  @@id([errorCodeId, guideId])
+}
+
+model GuideParts {
+  guideId String
+  guide   RepairGuide @relation(fields: [guideId], references: [id], onDelete: Cascade)
+  partId  String
+  part    Part        @relation(fields: [partId], references: [id], onDelete: Cascade)
+
+  @@id([guideId, partId])
+}
+
+model Diagnosis {
+  id        String   @id @default(cuid())
+  userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sessionId String
+  brand     String
+  model     String?
+  symptoms  String
+  messages  String
+  result    String?
+  createdAt DateTime @default(now())
+
+  @@index([sessionId])
+  @@index([userId])
+  @@index([createdAt])
+}
+
+model Order {
+  id              String      @id @default(cuid())
+  userId          String
+  user            User        @relation(fields: [userId], references: [id])
+  items           OrderItem[]
+  status          String      @default("PENDING")
+  subtotalEur     Float
+  discountEur     Float       @default(0)
+  shippingEur     Float       @default(0)
+  totalEur        Float
+  stripePaymentId String?
+  shippingAddress String
+  email           String
+  createdAt       DateTime    @default(now())
+  updatedAt       DateTime    @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([createdAt])
+  @@index([stripePaymentId])
+}
+
+model StripeEvent {
+  id              String   @id @default(cuid())
+  stripeEventId   String   @unique
+  type            String
+  processedAt     DateTime @default(now())
+
+  @@index([type])
+}
+
+model OrderItem {
+  id        String @id @default(cuid())
+  orderId   String
+  order     Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  partId    String
+  part      Part   @relation(fields: [partId], references: [id])
+  quantity  Int
+  unitPrice Float
+}

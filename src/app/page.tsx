@@ -30,7 +30,7 @@ export default async function HomePage() {
           <div className="grid gap-10 lg:grid-cols-2 items-center">
             <div className="space-y-6 animate-fade-in">
               <Badge variant="accent" className="rounded-full px-3 py-1">
-                <Sparkles className="mr-1 h-3 w-3" /> Powered by Claude AI
+                <Sparkles className="mr-1 h-3 w-3" /> Powered by Google Gemini AI
               </Badge>
               <h1 className="font-heading text-4xl sm:text-5xl lg:text-6xl font-bold tracking-tighter leading-[1.05]">
                 Wasmachine kapot? <span className="text-primary italic">Wij weten wat er mis is.</span>

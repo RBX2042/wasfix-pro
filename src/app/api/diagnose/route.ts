@@ -103,14 +103,15 @@ export async function POST(req: NextRequest) {
         const errMsg = err instanceof Error ? err.message : String(err);
         const status = (err as { status?: number })?.status;
 
+        // Log the failure type but always fall back to demo so the user sees a useful answer
         if (status === 401 || status === 403 || /API key|unauthorized|forbidden/i.test(errMsg)) {
           logger.error("Gemini auth failure — falling back to demo", errMsg);
         } else if (status === 429 || /quota|rate limit|429/i.test(errMsg)) {
-          return apiError("AI service is overbelast (limiet bereikt). Probeer het over een minuut.", 503);
+          logger.warn("Gemini quota exceeded — falling back to demo", errMsg);
         } else if (status === 503 || /unavailable|overloaded/i.test(errMsg)) {
-          return apiError("AI service is tijdelijk niet beschikbaar. Probeer het later.", 503);
+          logger.warn("Gemini overloaded — falling back to demo", errMsg);
         } else {
-          logger.error("Gemini error", err);
+          logger.error("Gemini error — falling back to demo", err);
         }
         const demo = demoModeReply(messages);
         assistantText = demo.text;

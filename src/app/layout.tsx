@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Inter, Syne } from "next/font/google";
+import { Inter, Syne, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/components/cart-provider";
@@ -7,6 +7,8 @@ import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
 const syne = Syne({ subsets: ["latin"], variable: "--font-syne", display: "swap" });
+const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "swap" });
+const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: {
@@ -26,7 +28,7 @@ export const metadata: Metadata = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="nl" suppressHydrationWarning className={`${inter.variable} ${syne.variable}`}>
+    <html lang="nl" suppressHydrationWarning className={`${inter.variable} ${syne.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
         <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
           <CartProvider>

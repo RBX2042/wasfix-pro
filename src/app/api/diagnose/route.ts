@@ -36,7 +36,13 @@ export async function POST(req: NextRequest) {
     const { messages } = parsed.data;
     const sessionId = parsed.data.sessionId ?? `anon-${Date.now()}`;
 
-    const user = await getCurrentUser();
+    // Auth + quota: skip silently if DB unreachable so demo mode still works
+    let user: Awaited<ReturnType<typeof getCurrentUser>> = null;
+    try {
+      user = await getCurrentUser();
+    } catch {
+      // ignore — diagnose still works anonymously
+    }
 
     // IP rate-limit (separate from monthly quota): 60/min/IP
     const ipKey = getClientKey(req, user?.id);
@@ -46,26 +52,30 @@ export async function POST(req: NextRequest) {
 
     // Monthly quota for non-paid users
     if (user) {
-      const limits = getPlanLimits(user.plan);
-      if (limits.diagnosesPerMonth !== -1) {
-        const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-        if (dbUser) {
-          const resetAt = new Date(dbUser.diagnosesResetAt);
-          const now = new Date();
-          const monthMs = 30 * 24 * 60 * 60 * 1000;
-          if (now.getTime() - resetAt.getTime() > monthMs) {
-            await prisma.user.update({
-              where: { id: user.id },
-              data: { diagnosesUsed: 0, diagnosesResetAt: now },
-            });
-          } else if (dbUser.diagnosesUsed >= limits.diagnosesPerMonth) {
-            return apiError(
-              "Je hebt je gratis diagnoses voor deze maand opgebruikt. Upgrade voor onbeperkte diagnoses.",
-              429,
-              { code: "limit_reached" }
-            );
+      try {
+        const limits = getPlanLimits(user.plan);
+        if (limits.diagnosesPerMonth !== -1) {
+          const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
+          if (dbUser) {
+            const resetAt = new Date(dbUser.diagnosesResetAt);
+            const now = new Date();
+            const monthMs = 30 * 24 * 60 * 60 * 1000;
+            if (now.getTime() - resetAt.getTime() > monthMs) {
+              await prisma.user.update({
+                where: { id: user.id },
+                data: { diagnosesUsed: 0, diagnosesResetAt: now },
+              });
+            } else if (dbUser.diagnosesUsed >= limits.diagnosesPerMonth) {
+              return apiError(
+                "Je hebt je gratis diagnoses voor deze maand opgebruikt. Upgrade voor onbeperkte diagnoses.",
+                429,
+                { code: "limit_reached" }
+              );
+            }
           }
         }
+      } catch {
+        // DB unreachable — skip quota check
       }
     }
 
@@ -117,61 +127,66 @@ export async function POST(req: NextRequest) {
     let recommendedGuides: Array<{ id: string; slug: string; title: string; difficulty: string; timeMinutes: number; summary: string }> = [];
 
     if (diagResult) {
-      const brand = diagResult.brand
-        ? diagResult.brand.charAt(0).toUpperCase() + diagResult.brand.slice(1).toLowerCase()
-        : undefined;
-      const code = diagResult.errorCode;
+      // All DB lookups here are best-effort; demo mode still returns useful diagnosis text
+      try {
+        const brand = diagResult.brand
+          ? diagResult.brand.charAt(0).toUpperCase() + diagResult.brand.slice(1).toLowerCase()
+          : undefined;
+        const code = diagResult.errorCode;
 
-      const matchedErrorCode = code
-        ? await prisma.errorCode.findFirst({
-            where: {
-              code: { contains: code },
-              ...(brand ? { machine: { brand } } : {}),
-            },
-            include: {
-              machine: true,
-              parts: { include: { part: true } },
-              guides: { include: { guide: true } },
-            },
-          })
-        : null;
+        const matchedErrorCode = code
+          ? await prisma.errorCode.findFirst({
+              where: {
+                code: { contains: code },
+                ...(brand ? { machine: { brand } } : {}),
+              },
+              include: {
+                machine: true,
+                parts: { include: { part: true } },
+                guides: { include: { guide: true } },
+              },
+            })
+          : null;
 
-      if (matchedErrorCode) {
-        recommendedParts = matchedErrorCode.parts.map((ep) => ep.part);
-        recommendedGuides = matchedErrorCode.guides.map((eg) => eg.guide);
-      }
-
-      if (recommendedParts.length === 0) {
-        const cause = diagResult.mainCause?.toLowerCase() ?? "";
-        const categories: string[] = [];
-        if (/(pomp|afvoer|filter)/.test(cause)) categories.push("PUMP", "FILTER", "HOSE");
-        if (/(verwarm|element|ntc)/.test(cause)) categories.push("HEATING", "ELECTRONICS");
-        if (/(motor|lager|koolborstel)/.test(cause)) categories.push("MOTOR", "BEARING");
-        if (/(deur|slot|pakking)/.test(cause)) categories.push("DOOR");
-        if (/(ventiel|inlaat|water)/.test(cause)) categories.push("VALVE", "HOSE");
-        if (categories.length > 0) {
-          recommendedParts = await prisma.part.findMany({
-            where: { stock: { gt: 0 }, category: { in: categories } },
-            take: 4,
-            orderBy: { priceEur: "asc" },
-          });
+        if (matchedErrorCode) {
+          recommendedParts = matchedErrorCode.parts.map((ep) => ep.part);
+          recommendedGuides = matchedErrorCode.guides.map((eg) => eg.guide);
         }
-      }
 
-      if (recommendedGuides.length === 0) {
-        const cause = diagResult.mainCause?.toLowerCase() ?? "";
-        const slugs: string[] = [];
-        if (/(pomp|afvoer|filter)/.test(cause)) slugs.push("filter-reinigen", "afvoerpomp-reinigen-vervangen");
-        if (/(verwarm|element)/.test(cause)) slugs.push("verwarmingselement-vervangen");
-        if (/(lager|trommel)/.test(cause)) slugs.push("trommellager-vervangen");
-        if (/(deur|pakking)/.test(cause)) slugs.push("deurpakking-vervangen");
-        if (/(ventiel|inlaat)/.test(cause)) slugs.push("waterinlaatventiel-vervangen");
-        if (slugs.length > 0) {
-          recommendedGuides = await prisma.repairGuide.findMany({
-            where: { slug: { in: slugs } },
-            take: 3,
-          });
+        if (recommendedParts.length === 0) {
+          const cause = diagResult.mainCause?.toLowerCase() ?? "";
+          const categories: string[] = [];
+          if (/(pomp|afvoer|filter)/.test(cause)) categories.push("PUMP", "FILTER", "HOSE");
+          if (/(verwarm|element|ntc)/.test(cause)) categories.push("HEATING", "ELECTRONICS");
+          if (/(motor|lager|koolborstel)/.test(cause)) categories.push("MOTOR", "BEARING");
+          if (/(deur|slot|pakking)/.test(cause)) categories.push("DOOR");
+          if (/(ventiel|inlaat|water)/.test(cause)) categories.push("VALVE", "HOSE");
+          if (categories.length > 0) {
+            recommendedParts = await prisma.part.findMany({
+              where: { stock: { gt: 0 }, category: { in: categories } },
+              take: 4,
+              orderBy: { priceEur: "asc" },
+            });
+          }
         }
+
+        if (recommendedGuides.length === 0) {
+          const cause = diagResult.mainCause?.toLowerCase() ?? "";
+          const slugs: string[] = [];
+          if (/(pomp|afvoer|filter)/.test(cause)) slugs.push("filter-reinigen", "afvoerpomp-reinigen-vervangen");
+          if (/(verwarm|element)/.test(cause)) slugs.push("verwarmingselement-vervangen");
+          if (/(lager|trommel)/.test(cause)) slugs.push("trommellager-vervangen");
+          if (/(deur|pakking)/.test(cause)) slugs.push("deurpakking-vervangen");
+          if (/(ventiel|inlaat)/.test(cause)) slugs.push("waterinlaatventiel-vervangen");
+          if (slugs.length > 0) {
+            recommendedGuides = await prisma.repairGuide.findMany({
+              where: { slug: { in: slugs } },
+              take: 3,
+            });
+          }
+        }
+      } catch (dbErr) {
+        logger.warn("Diagnose recommended-parts lookup failed (DB unreachable)", dbErr);
       }
     }
 

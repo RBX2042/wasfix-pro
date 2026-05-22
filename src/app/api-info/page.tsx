@@ -54,7 +54,7 @@ export default function ApiPage() {
           <CardContent className="p-6">
             <h2 className="font-heading text-xl font-semibold mb-3">Voorbeeld: diagnose endpoint</h2>
             <pre className="bg-muted text-xs p-4 rounded-md overflow-x-auto">
-{`curl -X POST https://api.wasfixpro.nl/v1/diagnose \\
+{`curl -X POST https://api.wasfix.nl/v1/diagnose \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

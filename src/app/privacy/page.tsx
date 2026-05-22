@@ -52,7 +52,7 @@ export default function PrivacyPage() {
 
           <section>
             <h2 className="font-heading text-xl font-semibold mb-2">6. Jouw rechten</h2>
-            <p>Je hebt het recht om je gegevens in te zien, te corrigeren, te laten verwijderen of over te dragen. Stuur een verzoek naar <a href="mailto:privacy@wasfixpro.nl" className="text-primary underline">privacy@wasfixpro.nl</a>.</p>
+            <p>Je hebt het recht om je gegevens in te zien, te corrigeren, te laten verwijderen of over te dragen. Stuur een verzoek naar <a href="mailto:privacy@wasfix.nl" className="text-primary underline">privacy@wasfix.nl</a>.</p>
           </section>
 
           <section>

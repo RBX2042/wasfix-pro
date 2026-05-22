@@ -24,7 +24,7 @@ export default function ContactPage() {
                 <Mail className="h-5 w-5" />
               </div>
               <h3 className="font-heading font-semibold mb-1">E-mail</h3>
-              <a href="mailto:support@wasfixpro.nl" className="text-primary hover:underline text-sm">support@wasfixpro.nl</a>
+              <a href="mailto:support@wasfix.nl" className="text-primary hover:underline text-sm">support@wasfix.nl</a>
             </CardContent>
           </Card>
 

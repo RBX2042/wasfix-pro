@@ -11,6 +11,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist", display: "sw
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono", display: "swap" });
 
 export const metadata: Metadata = {
+  metadataBase: new URL(process.env.NEXT_PUBLIC_APP_URL ?? "https://wasfix.nl"),
   title: {
     default: "WasFix Pro — AI wasmachine diagnose & onderdelen",
     template: "%s · WasFix Pro",
@@ -21,8 +22,13 @@ export const metadata: Metadata = {
   openGraph: {
     title: "WasFix Pro",
     description: "AI-gestuurde wasmachine diagnose en onderdelen",
+    url: "https://wasfix.nl",
+    siteName: "WasFix Pro",
     locale: "nl_NL",
     type: "website",
+  },
+  alternates: {
+    canonical: "https://wasfix.nl",
   },
 };
 

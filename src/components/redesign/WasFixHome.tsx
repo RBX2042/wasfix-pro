@@ -1059,7 +1059,7 @@ function MonteurPro() {
                 <span style={{ width: 10, height: 10, borderRadius: 5, background: "#f5b643", opacity: 0.8 }}></span>
                 <span style={{ width: 10, height: 10, borderRadius: 5, background: "#34d399", opacity: 0.8 }}></span>
               </div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>dashboard.wasfixpro.io/pro</div>
+              <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>dashboard.wasfix.nl/pro</div>
               <div style={{ marginLeft: "auto" }} className="pill pill-mono">Pro · 4 actief</div>
             </div>
 

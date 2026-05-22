@@ -144,7 +144,7 @@ export default async function MonteurDashboardPage() {
                 Integreer WasFix Pro AI diagnose in je eigen systeem. 1000 calls/maand inbegrepen.
               </p>
               <code className="block bg-muted text-xs p-3 rounded-md mb-3 overflow-x-auto">
-                curl -X POST https://api.wasfixpro.nl/v1/diagnose \<br/>
+                curl -X POST https://api.wasfix.nl/v1/diagnose \<br/>
                 &nbsp;&nbsp;-H {`"Authorization: Bearer YOUR_API_KEY"`} \<br/>
                 &nbsp;&nbsp;-d {`'{"brand":"Bosch","model":"WAU28","symptom":"Foutcode E18"}'`}
               </code>

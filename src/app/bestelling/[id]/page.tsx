@@ -70,7 +70,7 @@ export default async function OrderDetailPage({
                 <Package className="h-12 w-12 text-primary mx-auto mb-3" />
                 <h2 className="font-heading text-lg font-semibold mb-2">Wat gebeurt er nu?</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Je ontvangt direct een e-mailbevestiging. Voor 22:00 besteld = morgen in huis. Bij vragen mail je support@wasfixpro.nl.
+                  Je ontvangt direct een e-mailbevestiging. Voor 22:00 besteld = morgen in huis. Bij vragen mail je support@wasfix.nl.
                 </p>
               </CardContent>
             </Card>
@@ -168,7 +168,7 @@ export default async function OrderDetailPage({
               <Mail className="h-4 w-4" /> Contact
             </h2>
             <p className="text-sm text-muted-foreground">
-              Vragen over je bestelling? Stuur een mail naar <a href="mailto:support@wasfixpro.nl" className="text-primary underline">support@wasfixpro.nl</a> met vermelding van bestelnummer.
+              Vragen over je bestelling? Stuur een mail naar <a href="mailto:support@wasfix.nl" className="text-primary underline">support@wasfix.nl</a> met vermelding van bestelnummer.
             </p>
           </CardContent>
         </Card>

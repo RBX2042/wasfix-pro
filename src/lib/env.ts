@@ -33,7 +33,7 @@ export const env = {
   STRIPE_PRICE_BEDRIJF: read("STRIPE_PRICE_BEDRIJF"),
 
   RESEND_API_KEY: read("RESEND_API_KEY"),
-  RESEND_FROM_EMAIL: read("RESEND_FROM_EMAIL") ?? "WasFix Pro <noreply@wasfixpro.nl>",
+  RESEND_FROM_EMAIL: read("RESEND_FROM_EMAIL") ?? "WasFix Pro <noreply@wasfix.nl>",
 
   DEMO_MODE: isDemoMode,
   IS_PRODUCTION: process.env.NODE_ENV === "production",

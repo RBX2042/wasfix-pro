@@ -26,15 +26,21 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
   }
   if (brand) where.machine = { brand };
 
-  const [errorCodes, brands] = await Promise.all([
-    prisma.errorCode.findMany({
-      where,
-      include: { machine: true },
-      take: 100,
-      orderBy: [{ severity: "desc" }, { code: "asc" }],
-    }),
-    prisma.washingMachine.findMany({ select: { brand: true }, distinct: ["brand"] }),
-  ]);
+  let errorCodes: Awaited<ReturnType<typeof prisma.errorCode.findMany<{ include: { machine: true } }>>> = [];
+  let brands: Array<{ brand: string }> = [];
+  try {
+    [errorCodes, brands] = await Promise.all([
+      prisma.errorCode.findMany({
+        where,
+        include: { machine: true },
+        take: 100,
+        orderBy: [{ severity: "desc" }, { code: "asc" }],
+      }),
+      prisma.washingMachine.findMany({ select: { brand: true }, distinct: ["brand"] }),
+    ]);
+  } catch {
+    // DB unreachable — render empty state
+  }
 
   return (
     <MarketingLayout>

@@ -41,14 +41,20 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
   if (cat) where.category = cat;
   if (brand) where.brand = brand;
 
-  const [parts, brands] = await Promise.all([
-    prisma.part.findMany({
-      where,
-      orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
-      take: 60,
-    }),
-    prisma.part.findMany({ select: { brand: true }, distinct: ["brand"] }),
-  ]);
+  let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
+  let brands: Array<{ brand: string }> = [];
+  try {
+    [parts, brands] = await Promise.all([
+      prisma.part.findMany({
+        where,
+        orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
+        take: 60,
+      }),
+      prisma.part.findMany({ select: { brand: true }, distinct: ["brand"] }),
+    ]);
+  } catch {
+    // DB unreachable — render empty state instead of 500
+  }
 
   return (
     <MarketingLayout>

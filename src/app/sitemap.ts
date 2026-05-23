@@ -1,30 +1,23 @@
-import { prisma } from "@/lib/prisma";
 import { env } from "@/lib/env";
 import { MetadataRoute } from "next";
+import {
+  errorCodes as staticEcs,
+  machines as staticMachines,
+  parts as staticParts,
+  guides as staticGuides,
+} from "@/lib/static-db";
 
-// Sitemap is generated at runtime, not build time — keeps build green even
-// without DB connectivity (DATABASE_URL not yet configured in deploy env).
-export const dynamic = "force-dynamic";
-
-export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
+export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = env.APP_URL;
 
-  // If the DB isn't reachable (e.g. before DATABASE_URL is set in Vercel), still
-  // emit the static URLs so the site can be indexed and the build won't fail.
-  let errorCodes: Array<{ code: string; machine: { brand: string } }> = [];
-  let guides: Array<{ slug: string; createdAt: Date }> = [];
-  let machines: Array<{ brand: string; model: string }> = [];
-  let parts: Array<{ sku: string }> = [];
-  try {
-    [errorCodes, guides, machines, parts] = await Promise.all([
-      prisma.errorCode.findMany({ select: { code: true, machine: { select: { brand: true } } } }),
-      prisma.repairGuide.findMany({ select: { slug: true, createdAt: true } }),
-      prisma.washingMachine.findMany({ select: { brand: true, model: true } }),
-      prisma.part.findMany({ select: { sku: true } }),
-    ]);
-  } catch {
-    // DB unreachable — fall through with empty arrays
-  }
+  // All data from static catalog — instant, no DB dependency
+  const errorCodes = staticEcs.map((ec) => {
+    const machine = staticMachines.find((m) => m.id === ec.machineId);
+    return { code: ec.code, machine: { brand: machine?.brand ?? "" } };
+  });
+  const guides = staticGuides.map((g) => ({ slug: g.slug, createdAt: new Date(g.createdAt) }));
+  const machines = staticMachines.map((m) => ({ brand: m.brand, model: m.model }));
+  const parts = staticParts.map((p) => ({ sku: p.sku }));
 
   const now = new Date();
 

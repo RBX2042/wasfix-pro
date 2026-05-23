@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter, Syne, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
+import { Analytics } from "@vercel/analytics/next";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/components/cart-provider";
 import "./globals.css";
@@ -42,6 +44,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <Toaster richColors position="top-right" />
           </CartProvider>
         </ThemeProvider>
+        <Analytics />
+        <SpeedInsights />
       </body>
     </html>
   );

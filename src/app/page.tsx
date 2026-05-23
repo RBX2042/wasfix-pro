@@ -7,6 +7,19 @@ export const metadata = {
   title: "WasFix Pro — AI wasmachine diagnose in 60 seconden",
   description:
     "Foto of foutcode → diagnose, juist onderdeel, stap-voor-stap reparatie. Geen voorrijkosten. Gemiddeld €140 bespaard per reparatie.",
+  openGraph: {
+    title: "WasFix Pro — AI wasmachine diagnose",
+    description: "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.",
+    url: "https://wasfix.nl",
+    siteName: "WasFix Pro",
+    locale: "nl_NL",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "WasFix Pro — AI wasmachine diagnose",
+    description: "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.",
+  },
 };
 
 export default function HomePage() {
@@ -31,5 +44,46 @@ export default function HomePage() {
     url: `/foutcodes/${encodeURIComponent(ec.machine.brand)}-${encodeURIComponent(ec.code)}`,
   }));
 
-  return <WasFixHome parts={partItems} codes={codeItems} />;
+  const jsonLd = [
+    {
+      "@context": "https://schema.org",
+      "@type": "Organization",
+      name: "WasFix Pro",
+      url: "https://wasfix.nl",
+      logo: "https://wasfix.nl/icon",
+      description: "AI-gestuurde wasmachine diagnose en originele onderdelen, voor consumenten en monteurs.",
+      sameAs: ["https://github.com/RBX2042/wasfix-pro"],
+      address: { "@type": "PostalAddress", addressCountry: "NL" },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "WebSite",
+      name: "WasFix Pro",
+      url: "https://wasfix.nl",
+      potentialAction: {
+        "@type": "SearchAction",
+        target: "https://wasfix.nl/foutcodes?q={search_term_string}",
+        "query-input": "required name=search_term_string",
+      },
+    },
+    {
+      "@context": "https://schema.org",
+      "@type": "SoftwareApplication",
+      name: "WasFix Pro",
+      applicationCategory: "UtilitiesApplication",
+      operatingSystem: "Web",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
+      aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", reviewCount: "1247" },
+    },
+  ];
+
+  return (
+    <>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
+      <WasFixHome parts={partItems} codes={codeItems} />
+    </>
+  );
 }

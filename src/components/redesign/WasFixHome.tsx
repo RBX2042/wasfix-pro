@@ -2,6 +2,9 @@
 
 import * as React from "react";
 import Link from "next/link";
+import { useCart, cartCount } from "@/components/cart-provider";
+import { CartDrawer } from "@/components/cart-drawer";
+import { toast } from "sonner";
 import "@/app/wasfix-design.css";
 
 // ─── Icon helper ────────────────────────────────────────────────────────
@@ -331,6 +334,12 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
 
 // ─── Nav ────────────────────────────────────────────────────────────────
 function Nav() {
+  const items = useCart((s) => s.items);
+  const setOpen = useCart((s) => s.setOpen);
+  const [mounted, setMounted] = React.useState(false);
+  React.useEffect(() => setMounted(true), []);
+  const count = mounted ? cartCount(items) : 0;
+
   return (
     <nav className="nav">
       <div className="container nav-inner">
@@ -352,6 +361,24 @@ function Nav() {
           <Link className="nav-link" href="/prijzen">Prijzen</Link>
         </div>
         <div className="nav-cta">
+          <button
+            className="btn btn-ghost btn-sm"
+            onClick={() => setOpen(true)}
+            aria-label="Winkelmand openen"
+            style={{ position: "relative" }}
+          >
+            <Icon name="cart" size={14} />
+            {count > 0 && (
+              <span style={{
+                position: "absolute", top: -4, right: -4,
+                background: "linear-gradient(180deg, #5d97ff, #3b7aff)",
+                color: "#fff", fontSize: 10, fontWeight: 600,
+                minWidth: 16, height: 16, borderRadius: 8,
+                display: "grid", placeItems: "center", padding: "0 4px",
+                boxShadow: "0 0 12px rgba(79,140,255,0.6)",
+              }}>{count}</span>
+            )}
+          </button>
           <Link className="btn btn-ghost btn-sm" href="/inloggen">Inloggen</Link>
           <Link className="btn btn-primary btn-sm" href="/diagnose">
             Start gratis <Icon name="arrow" size={14} />
@@ -478,7 +505,20 @@ type ChatMsg = {
   probs?: ChatProb[];
 };
 
-function DiagnoseDemo() {
+function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
+  const add = useCart((s) => s.add);
+  const handleAddFilter = () => {
+    if (!filterPart) return;
+    add({
+      partId: filterPart.id,
+      sku: filterPart.sku,
+      name: filterPart.name,
+      brand: filterPart.brand,
+      priceEur: filterPart.priceEur,
+      imageUrl: null,
+    }, 1);
+    toast.success(`${filterPart.name} toegevoegd aan winkelmand`);
+  };
   const SCRIPT: ChatMsg[] = [
     { role: "user", text: "Mijn Bosch wasmachine geeft foutcode E18. Water staat in de trommel.", t: 0 },
     { role: "ai", text: "Ik scan jouw Bosch model nu...", t: 700, scan: true },
@@ -600,12 +640,12 @@ function DiagnoseDemo() {
               {latest && (
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                   <div>
-                    <div style={{ fontWeight: 500 }}>Aanbevolen: Vuilfilter</div>
-                    <div className="muted" style={{ fontSize: 12 }}>€ 6,50 · morgen in huis</div>
+                    <div style={{ fontWeight: 500 }}>Aanbevolen: {filterPart?.name ?? "Vuilfilter"}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>€ {(filterPart?.priceEur ?? 6.5).toFixed(2).replace(".", ",")} · morgen in huis</div>
                   </div>
-                  <Link className="btn btn-primary btn-sm" href="/onderdelen/WF-FILTER-09">
+                  <button className="btn btn-primary btn-sm" onClick={handleAddFilter} disabled={!filterPart}>
                     <Icon name="cart" size={13} /> Toevoegen
-                  </Link>
+                  </button>
                 </div>
               )}
             </div>
@@ -716,6 +756,22 @@ function PartGlyph({ sku }: { sku: string }) {
 type PartItem = { id: string; sku: string; name: string; brand: string; priceEur: number; stock: number; isOriginal?: boolean };
 
 function PartsCatalog({ parts }: { parts: PartItem[] }) {
+  const add = useCart((s) => s.add);
+
+  const handleAdd = (e: React.MouseEvent, p: PartItem) => {
+    e.preventDefault();
+    e.stopPropagation();
+    add({
+      partId: p.id,
+      sku: p.sku,
+      name: p.name,
+      brand: p.brand,
+      priceEur: p.priceEur,
+      imageUrl: null,
+    }, 1);
+    toast.success(`${p.name} toegevoegd aan winkelmand`);
+  };
+
   return (
     <section className="section" id="parts">
       <div className="container">
@@ -743,7 +799,9 @@ function PartsCatalog({ parts }: { parts: PartItem[] }) {
                 </div>
                 <div style={{ textAlign: "right" }}>
                   <div className="part-tag" style={{ color: p.stock > 0 ? "var(--ok)" : "var(--warn)" }}>● {p.stock} op voorraad</div>
-                  <button className="btn btn-sm" style={{ marginTop: 6 }}><Icon name="cart" size={11} /> Bestel</button>
+                  <button className="btn btn-sm" style={{ marginTop: 6 }} onClick={(e) => handleAdd(e, p)}>
+                    <Icon name="cart" size={11} /> Bestel
+                  </button>
                 </div>
               </div>
             </Link>
@@ -1297,13 +1355,16 @@ function Footer() {
 
 // ─── Top-level page ─────────────────────────────────────────────────────
 export default function WasFixHome({ parts, codes }: { parts: PartItem[]; codes: CodeItem[] }) {
+  const filterPart = parts.find((p) => p.sku.includes("FILTER")) ?? parts[0];
+  const isOpen = useCart((s) => s.isOpen);
+  const setOpen = useCart((s) => s.setOpen);
   return (
     <div className="wasfix-design">
       <div className="app-bg" />
       <div className="shell">
         <Nav />
         <Hero />
-        <DiagnoseDemo />
+        <DiagnoseDemo filterPart={filterPart} />
         <HowItWorks />
         <CodeExplorer codes={codes} />
         <PartsCatalog parts={parts} />
@@ -1315,6 +1376,7 @@ export default function WasFixHome({ parts, codes }: { parts: PartItem[]; codes:
         <FinalCTA />
         <Footer />
       </div>
+      <CartDrawer open={isOpen} onOpenChange={setOpen} />
     </div>
   );
 }

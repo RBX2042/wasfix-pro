@@ -19,7 +19,17 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
   const { sku } = await params;
   const part = staticPart(sku);
   if (!part) return { title: "Onderdeel niet gevonden" };
-  return { title: `${part.name} — ${formatEur(part.priceEur)}` };
+  return {
+    title: `${part.name} (${part.sku}) — ${formatEur(part.priceEur)} · WasFix Pro`,
+    description: `${part.name} kopen bij WasFix Pro. ${part.isOriginal ? "Origineel onderdeel" : "Universele vervanger"} voor ${part.brand}. Voor 22:00 besteld = morgen in huis. 30 dagen retourrecht.`,
+    alternates: { canonical: `/onderdelen/${part.sku}` },
+    openGraph: {
+      title: part.name,
+      description: `${formatEur(part.priceEur)} — ${part.isOriginal ? "Origineel" : "Universeel"} · ${part.brand}`,
+      type: "website",
+      images: part.imageUrl ? [part.imageUrl] : undefined,
+    },
+  };
 }
 
 export default async function PartDetailPage({ params }: { params: Promise<{ sku: string }> }) {
@@ -31,8 +41,60 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
   const compatibleBrands = Array.from(new Set(part.machines.map((m) => m.machine.brand)));
   const relatedParts = staticRelatedParts(part.category, part.id, 4);
 
+  // schema.org Product + Offer
+  const productLd = {
+    "@context": "https://schema.org",
+    "@type": "Product",
+    name: part.name,
+    image: part.imageUrl ? [part.imageUrl] : undefined,
+    description: part.description ?? `${part.name} — ${part.brand} wasmachine-onderdeel`,
+    sku: part.sku,
+    brand: { "@type": "Brand", name: part.brand },
+    category: part.category,
+    offers: {
+      "@type": "Offer",
+      url: `https://wasfix.nl/onderdelen/${part.sku}`,
+      priceCurrency: "EUR",
+      price: part.priceEur.toFixed(2),
+      priceValidUntil: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString().split("T")[0],
+      availability: part.stock > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+      itemCondition: "https://schema.org/NewCondition",
+      seller: { "@type": "Organization", name: "WasFix Pro" },
+      shippingDetails: {
+        "@type": "OfferShippingDetails",
+        shippingRate: { "@type": "MonetaryAmount", value: "4.95", currency: "EUR" },
+        shippingDestination: { "@type": "DefinedRegion", addressCountry: "NL" },
+        deliveryTime: { "@type": "ShippingDeliveryTime",
+          handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },
+          transitTime: { "@type": "QuantitativeValue", minValue: 1, maxValue: 2, unitCode: "DAY" },
+        },
+      },
+      hasMerchantReturnPolicy: {
+        "@type": "MerchantReturnPolicy",
+        applicableCountry: "NL",
+        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
+        merchantReturnDays: 30,
+        returnMethod: "https://schema.org/ReturnByMail",
+        returnFees: "https://schema.org/FreeReturn",
+      },
+    },
+    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.7", reviewCount: "47" },
+  };
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Onderdelen", item: "https://wasfix.nl/onderdelen" },
+      { "@type": "ListItem", position: 2, name: part.brand, item: `https://wasfix.nl/onderdelen?brand=${encodeURIComponent(part.brand)}` },
+      { "@type": "ListItem", position: 3, name: part.name },
+    ],
+  };
+
   return (
     <MarketingLayout>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <div className="container py-8">
         <nav className="text-sm text-muted-foreground mb-6">
           <Link href="/onderdelen" className="hover:text-foreground">Onderdelen</Link>

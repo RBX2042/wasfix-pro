@@ -17,7 +17,12 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const { slug } = await params;
   const guide = staticGuide(slug);
   if (!guide) return { title: "Gids niet gevonden" };
-  return { title: guide.title, description: guide.summary };
+  return {
+    title: `${guide.title} — Stap-voor-stap reparatiegids · WasFix Pro`,
+    description: guide.summary,
+    alternates: { canonical: `/gidsen/${guide.slug}` },
+    openGraph: { title: guide.title, description: guide.summary, type: "article" },
+  };
 }
 
 export default async function GuideDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -30,8 +35,39 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
   const tools = pickArr(guide.tools);
   const parts = guide.parts.map((gp) => gp.part);
 
+  // schema.org HowTo structured data
+  const howToLd = {
+    "@context": "https://schema.org",
+    "@type": "HowTo",
+    name: guide.title,
+    description: guide.summary,
+    totalTime: `PT${guide.timeMinutes}M`,
+    estimatedCost: parts.length
+      ? { "@type": "MonetaryAmount", currency: "EUR", value: parts.reduce((s, p) => s + p.priceEur, 0).toFixed(2) }
+      : undefined,
+    tool: tools.map((t) => ({ "@type": "HowToTool", name: t })),
+    supply: parts.map((p) => ({ "@type": "HowToSupply", name: p.name, image: p.imageUrl ?? undefined })),
+    step: steps.map((s) => ({
+      "@type": "HowToStep",
+      name: s.title,
+      text: s.description + (s.warning ? ` Let op: ${s.warning}` : ""),
+      position: s.stepNum,
+    })),
+  };
+
+  const breadcrumbLd = {
+    "@context": "https://schema.org",
+    "@type": "BreadcrumbList",
+    itemListElement: [
+      { "@type": "ListItem", position: 1, name: "Gidsen", item: "https://wasfix.nl/gidsen" },
+      { "@type": "ListItem", position: 2, name: guide.title, item: `https://wasfix.nl/gidsen/${guide.slug}` },
+    ],
+  };
+
   return (
     <MarketingLayout>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <div className="container py-8 max-w-5xl">
         <nav className="text-sm text-muted-foreground mb-4">
           <Link href="/gidsen" className="hover:text-foreground">Gidsen</Link>

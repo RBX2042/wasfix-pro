@@ -65,12 +65,37 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
     publisher: { "@type": "Organization", name: "WasFix Pro" },
   };
 
+  // FAQPage schema — Google shows rich FAQ results
+  const faqLd = {
+    "@context": "https://schema.org",
+    "@type": "FAQPage",
+    mainEntity: [
+      {
+        "@type": "Question",
+        name: `Wat betekent ${errorCode.machine.brand} foutcode ${errorCode.code}?`,
+        acceptedAnswer: { "@type": "Answer", text: `${errorCode.title}. ${errorCode.description}` },
+      },
+      ...(causes.length > 0 ? [{
+        "@type": "Question",
+        name: `Wat zijn de oorzaken van foutcode ${errorCode.code} op een ${errorCode.machine.brand}?`,
+        acceptedAnswer: { "@type": "Answer", text: `De meest voorkomende oorzaken zijn: ${causes.join("; ")}.` },
+      }] : []),
+      {
+        "@type": "Question",
+        name: `Kan ik foutcode ${errorCode.code} zelf oplossen?`,
+        acceptedAnswer: { "@type": "Answer", text: errorCode.diyFriendly
+          ? `Ja, foutcode ${errorCode.code} is in veel gevallen zelf op te lossen. Bekijk de aanbevolen reparatiegids voor stap-voor-stap instructies.`
+          : `Nee, foutcode ${errorCode.code} vereist meestal een professionele monteur omdat het meestal een elektronisch of complex mechanisch probleem betreft.` },
+      },
+    ],
+  };
+
   const breadcrumbLd = {
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Foutcodes", item: "/foutcodes" },
-      { "@type": "ListItem", position: 2, name: errorCode.machine.brand, item: `/merken/${encodeURIComponent(errorCode.machine.brand)}` },
+      { "@type": "ListItem", position: 1, name: "Foutcodes", item: "https://wasfix.nl/foutcodes" },
+      { "@type": "ListItem", position: 2, name: errorCode.machine.brand, item: `https://wasfix.nl/merken/${encodeURIComponent(errorCode.machine.brand)}` },
       { "@type": "ListItem", position: 3, name: errorCode.code },
     ],
   };
@@ -78,6 +103,7 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
   return (
     <MarketingLayout>
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
       <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
       <div className="container py-8 max-w-5xl">
         <nav className="text-sm text-muted-foreground mb-4">

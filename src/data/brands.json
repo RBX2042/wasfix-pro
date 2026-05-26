@@ -1,0 +1,137 @@
+[
+  {
+    "slug": "bosch-wasmachine-reparatie",
+    "brand": "Bosch",
+    "tagline": "Duitse degelijkheid — meestal te repareren tot 15 jaar",
+    "blurb": "Bosch wasmachines (Serie 4/6/8, EcoSilence, ActiveWater) hebben een uitstekend onderdelen-aanbod en zijn meestal goed zelf te repareren. Top defects: pomp (E18), deurslot (F16), verwarming (E05). Onderdelen blijven 10+ jaar leverbaar onder EU Right-to-Repair.",
+    "topCodes": ["E18", "F21", "F16", "E05", "F43", "F63"],
+    "common": ["pomp", "deurslot", "verwarmingselement", "koolborstels", "schokdempers"],
+    "modelExamples": ["WAU28T40NL", "WAT286H0NL", "Serie 6 WAT28695NL", "Serie 8 WAX32M70NL"]
+  },
+  {
+    "slug": "siemens-wasmachine-reparatie",
+    "brand": "Siemens",
+    "tagline": "Zelfde platform als Bosch — zelfde foutcodes",
+    "blurb": "Siemens iQ-serie (iQ300, iQ500, iQ700) deelt het EDW-platform met Bosch. Foutcodes en onderdelen zijn nagenoeg identiek. iSensoric en aquaSensor zijn merk-specifieke features. Veel reparaties zijn DIY-vriendelijk.",
+    "topCodes": ["E18", "F21", "F16", "E05", "F43"],
+    "common": ["pomp", "deurslot", "verwarmingselement", "schokdempers"],
+    "modelExamples": ["iQ500 WM14T780NL", "iQ700 WM16XKH0EU", "iQ300 WM14N201NL"]
+  },
+  {
+    "slug": "miele-wasmachine-reparatie",
+    "brand": "Miele",
+    "tagline": "20-jaar levensduur — repareren loont bijna altijd",
+    "blurb": "Miele is gebouwd voor 20.000+ wasbeurten. Hogere instapprijs, maar onderdelen blijven 15+ jaar beschikbaar en de meeste defecten zijn relatief eenvoudig te fixen. F11 (afvoer) en F19 (verwarming) zijn meestal pluizenfilter of verkalkt element.",
+    "topCodes": ["F11", "F19", "F03", "F36", "F101", "F53"],
+    "common": ["pluizenfilter", "verwarmingselement", "TwinDos", "lagers", "deurpakking"],
+    "modelExamples": ["WED 125 WPS", "WSG 363 WCS", "W1 Classic WDB 030"]
+  },
+  {
+    "slug": "samsung-wasmachine-reparatie",
+    "brand": "Samsung",
+    "tagline": "EcoBubble + Direct Drive — moderne tech, eenvoudige codes",
+    "blurb": "Samsung gebruikt 2-letter codes (OE, dC, HE, 5E). EcoBubble-serie heeft hogere wasefficiëntie maar deurpakkingen verslijten sneller. Direct Drive motoren gaan vaak 15+ jaar mee. dC (deurslot) is meest voorkomende reparatie.",
+    "topCodes": ["OE", "dC", "HE", "5E", "4E", "tE"],
+    "common": ["deurslot", "afvoerpomp", "deurpakking", "verwarmingselement"],
+    "modelExamples": ["WW90T684DLH EcoBubble", "WW80T554DAW", "WW70T4540AW"]
+  },
+  {
+    "slug": "lg-wasmachine-reparatie",
+    "brand": "LG",
+    "tagline": "Direct Drive — minder onderhoud, hogere reparatie-complexiteit",
+    "blurb": "LG F-serie heeft Direct Drive (geen riem, geen koolborstels). Meeste defecten: pluizenfilter (OE), schokdempers (UE), deurslot (DE). Inverter-motor probleem? Vaak monteur nodig vanwege complexe diagnose-toolchain.",
+    "topCodes": ["UE", "OE", "DE", "HE", "LE1", "PE"],
+    "common": ["pomp", "schokdempers", "deurslot", "verwarmingselement"],
+    "modelExamples": ["F4WV710P1E", "F4WV9008P2W", "F4J7TY1W"]
+  },
+  {
+    "slug": "aeg-wasmachine-reparatie",
+    "brand": "AEG",
+    "tagline": "Electrolux-groep — duurzaam ontworpen",
+    "blurb": "AEG L7/L8/LR8-series delen het Electrolux EWM-platform. Codes E10-E97 zijn diagnostisch heel specifiek (3-cijferige sub-codes). Inverter-motoren in nieuwere modellen. ProSense maakt onderhoud transparant.",
+    "topCodes": ["E20", "E40", "E61", "E68", "EHO", "E91"],
+    "common": ["pomp", "schokdempers", "deurslot", "module"],
+    "modelExamples": ["L7FE96BS", "LR8E75690", "L7FBI 96"]
+  },
+  {
+    "slug": "electrolux-wasmachine-reparatie",
+    "brand": "Electrolux",
+    "tagline": "Zelfde platform als AEG — identieke foutcodes",
+    "blurb": "Electrolux deelt het EWM-platform met AEG en Zanussi. Codes E10-E97 zijn identiek. PerfectCare en EcoInverter zijn merk-features. Bij Zanussi-modellen vaak goedkopere onderdelen dan AEG.",
+    "topCodes": ["E20", "E40", "E61", "E68", "EHO"],
+    "common": ["pomp", "schokdempers", "deurslot"],
+    "modelExamples": ["EW6F4831RB", "EW6F4823BB", "EW7F4720WP"]
+  },
+  {
+    "slug": "whirlpool-wasmachine-reparatie",
+    "brand": "Whirlpool",
+    "tagline": "Amerikaanse gigant — universele onderdelen",
+    "blurb": "Whirlpool FFD-serie + Indesit (zelfde groep) gebruiken F-codes (F02, F05, F14, FdL). Universele onderdelen vaak goedkoper dan originele. Bekend om robuuste motoren met koolborstels die 10+ jaar meegaan.",
+    "topCodes": ["F02", "F05", "F14", "FdL", "FdU", "F11"],
+    "common": ["pomp", "motor", "koolborstels", "deurslot"],
+    "modelExamples": ["FFD 9469E BV BE", "FWG91284W EU", "FWDD 1071682 WBV"]
+  },
+  {
+    "slug": "indesit-wasmachine-reparatie",
+    "brand": "Indesit",
+    "tagline": "Budget — onderdelen meestal goedkoop",
+    "blurb": "Indesit (Whirlpool-groep) MTW/MTWE-serie. Codes F01-F18. Vergelijkbaar met Whirlpool maar instap-klasse: minder elektronica, sneller mechanisch defect. Reparatie meestal lonend tot 8 jaar oud.",
+    "topCodes": ["F11", "F02", "F17", "F09", "F05"],
+    "common": ["pomp", "deurslot", "verwarmingselement"],
+    "modelExamples": ["MTWE 91483 WK EE", "BWE 91484X W EU", "EWE 91482 W"]
+  },
+  {
+    "slug": "beko-wasmachine-reparatie",
+    "brand": "Beko",
+    "tagline": "Turks merk — onderdelen prima leverbaar",
+    "blurb": "Beko (Arçelik-groep) is bekend voor prijs/kwaliteit. H-codes (H2-H7) zijn beknopt maar duidelijk. AquaTech en SteamCure zijn merk-features. Motor + pomp meestal 8-10 jaar levensduur.",
+    "topCodes": ["H2", "H3", "H4", "H5", "H6", "H7"],
+    "common": ["pomp", "verwarmingselement", "motor", "drukschakelaar"],
+    "modelExamples": ["WTV 8736 XC", "WUE 8627 XBN", "WMY 91493 LB1"]
+  },
+  {
+    "slug": "zanussi-wasmachine-reparatie",
+    "brand": "Zanussi",
+    "tagline": "Electrolux-groep — Italiaans design, EWM-platform",
+    "blurb": "Zanussi deelt platform met AEG en Electrolux. Codes E10-E97 zijn identiek. Goedkoper dan AEG bij gelijke kwaliteit op pomp/motor/element-niveau. Lindo en Active-Tech zijn merk-features.",
+    "topCodes": ["E20", "E40", "E61", "EHO"],
+    "common": ["pomp", "schokdempers", "deurslot"],
+    "modelExamples": ["ZWY61024SI", "ZWF142F1DG", "ZWF8240SXV"]
+  },
+  {
+    "slug": "hotpoint-wasmachine-reparatie",
+    "brand": "Hotpoint",
+    "tagline": "Britse Whirlpool-tak — basis-modellen",
+    "blurb": "Hotpoint (Whirlpool-groep) UK Aqualtis en Anti-Stain series. F-codes 1-18 vergelijkbaar met Whirlpool/Indesit. Onderdelen breed verkrijgbaar via universele leveranciers.",
+    "topCodes": ["F08", "F12", "F05", "F02"],
+    "common": ["pomp", "deurslot", "verwarmingselement"],
+    "modelExamples": ["NSWA 943C WW UK N", "NSWE 745C WS UK N", "BIWMHG 71284 UK"]
+  },
+  {
+    "slug": "candy-wasmachine-reparatie",
+    "brand": "Candy",
+    "tagline": "Haier-groep — instap-klasse, simpele constructie",
+    "blurb": "Candy (Haier-groep sinds 2019) Smart Pro en RapidÓ-series. E0-E9 codes. Eenvoudige elektronica = relatief gemakkelijk DIY. Pomp en verwarming meest gangbare defecten.",
+    "topCodes": ["E02", "E03", "E05", "E07", "E08"],
+    "common": ["pomp", "verwarmingselement", "deurslot"],
+    "modelExamples": ["RPW4 866DWMR/1-S", "GVS 149DC3", "CS4 1262D3"]
+  },
+  {
+    "slug": "haier-wasmachine-reparatie",
+    "brand": "Haier",
+    "tagline": "Chinese gigant — modern Direct Motion-platform",
+    "blurb": "Haier (groep waar ook Candy onder valt) gebruikt Direct Motion (vergelijkbaar met LG DD). HW-serie energiezuinig. F-codes en E-codes. Inverter-modellen zijn goed maar reparatie van Direct Motion vereist specifieke tools.",
+    "topCodes": ["F1", "F2", "F3", "F4", "E1"],
+    "common": ["pomp", "Direct Motion sensor", "deurslot"],
+    "modelExamples": ["HW90-B14979", "HW80-B14959", "HW100-B14979"]
+  },
+  {
+    "slug": "panasonic-wasmachine-reparatie",
+    "brand": "Panasonic",
+    "tagline": "Japanse precisie — beperkte EU-distributie",
+    "blurb": "Panasonic NA-serie is in NL minder vertegenwoordigd maar zeer betrouwbaar. EconaviPlus en Aquabeat zijn merk-features. Onderdelen via specialist-leveranciers. Direct Drive motoren gaan 15+ jaar mee.",
+    "topCodes": ["U11", "U12", "U13", "U14"],
+    "common": ["pomp", "deurslot", "elektronica"],
+    "modelExamples": ["NA-148XS1", "NA-S106X1LDE", "NA-V107"]
+  }
+]

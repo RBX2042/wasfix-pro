@@ -9,6 +9,8 @@ import {
 import helpArticles from "@/data/help-articles.json";
 import blogPosts from "@/data/blog-posts.json";
 import cities from "@/data/cities.json";
+import brandsData from "@/data/brands.json";
+import comparisons from "@/data/comparisons.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = env.APP_URL;
@@ -35,6 +37,9 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/monteur",
     "/help",
     "/blog",
+    "/pers",
+    "/right-to-repair",
+    "/api-docs",
     "/contact",
     "/over",
     "/api-info",
@@ -77,6 +82,22 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.65,
   }));
 
+  // Programmatic SEO: per-brand commercial-intent pages
+  const brandRepairPages = (brandsData as Array<{ slug: string }>).map((b) => ({
+    url: `${baseUrl}/${b.slug}`,
+    lastModified: now,
+    changeFrequency: "weekly" as const,
+    priority: 0.75,
+  }));
+
+  // Comparison pages
+  const vsPages = (comparisons as Array<{ slug: string }>).map((c) => ({
+    url: `${baseUrl}/vs/${c.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
   const errorCodePages = errorCodes.map((ec) => ({
     url: `${baseUrl}/foutcodes/${encodeURIComponent(ec.machine.brand)}-${encodeURIComponent(ec.code)}`,
     lastModified: now,
@@ -113,5 +134,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...helpPages, ...blogPages, ...cityPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
+  return [...staticPages, ...helpPages, ...blogPages, ...cityPages, ...brandRepairPages, ...vsPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
 }

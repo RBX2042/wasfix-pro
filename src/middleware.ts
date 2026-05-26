@@ -1,8 +1,12 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { locales, defaultLocale, type Locale } from "@/i18n/config";
+import brandsData from "@/data/brands.json";
 
 const isDemoMode = process.env.DEMO_MODE === "true" || !process.env.CLERK_SECRET_KEY;
 const FEATURE_I18N = process.env.NEXT_PUBLIC_FEATURE_I18N === "true";
+
+// Brand-page SEO URLs: /bosch-wasmachine-reparatie → /reparatie/bosch (rewrite, not redirect)
+const BRAND_SLUGS = new Set((brandsData as Array<{ slug: string }>).map((b) => b.slug));
 
 const protectedPaths = ["/dashboard", "/admin", "/monteur/dashboard", "/monteur/klanten", "/monteur/onderdelen", "/monteur/werkorders"];
 
@@ -25,6 +29,17 @@ function detectLocale(req: NextRequest): Locale {
 
 export default async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // ─── Brand-page SEO URL rewrite ──────────────────────────────────
+  // /bosch-wasmachine-reparatie → internally serves /reparatie/bosch
+  // Public URL stays SEO-friendly, generateStaticParams produces the
+  // pages at /reparatie/[merk]/.
+  const brandMatch = pathname.match(/^\/([a-z0-9]+)-wasmachine-reparatie\/?$/i);
+  if (brandMatch && BRAND_SLUGS.has(brandMatch[1].toLowerCase())) {
+    const url = req.nextUrl.clone();
+    url.pathname = `/reparatie/${brandMatch[1].toLowerCase()}`;
+    return NextResponse.rewrite(url);
+  }
 
   // ─── i18n geo-detection (feature-flagged) ─────────────────────────
   // Until pages are migrated under [locale]/, this only sets a hint cookie

@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest } from "next/server";
 import { z } from "zod";
 import { ImageResponse } from "next/og";
+import QRCode from "qrcode";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { apiError } from "@/lib/api-response";
 
@@ -13,11 +14,6 @@ const Schema = z.object({
   code: z.string().regex(/^[A-Z0-9]{6,12}$/).optional(),
 });
 
-// Generate a printable QR sticker PNG (800x1100) with QR + brand/model + scan-redirect.
-// User can print on adhesive paper (Avery 6005 100x140mm) and stick on machine.
-//
-// QR is generated via api.qrserver.com (free, no key). The scan-target URL is
-// https://wasfix.nl/qr/<CODE> which redirects to the saved-machine page in dashboard.
 export async function GET(req: NextRequest) {
   if (!rateLimit(`qr:${getClientKey(req)}`, 10, 60 * 60 * 1000)) {
     return apiError("Te veel QR-aanvragen — probeer over een uur opnieuw.", 429);
@@ -31,10 +27,20 @@ export async function GET(req: NextRequest) {
   });
   if (!parsed.success) return apiError("Ongeldige QR-parameters", 400);
 
-  // Generate a deterministic 8-char code if not provided
   const code = parsed.data.code ?? generateCode(parsed.data.brand, parsed.data.model ?? "");
   const scanUrl = `https://wasfix.nl/qr/${code}`;
-  const qrImgUrl = `https://api.qrserver.com/v1/create-qr-code/?data=${encodeURIComponent(scanUrl)}&size=520x520&margin=8&format=png&color=0b1224&bgcolor=ffffff`;
+
+  let qrDataUrl: string;
+  try {
+    qrDataUrl = await QRCode.toDataURL(scanUrl, {
+      errorCorrectionLevel: "M",
+      margin: 2,
+      width: 520,
+      color: { dark: "#0b1224", light: "#ffffff" },
+    });
+  } catch {
+    return apiError("QR-generatie mislukt", 500);
+  }
 
   try {
     return new ImageResponse(
@@ -46,7 +52,6 @@ export async function GET(req: NextRequest) {
           padding: 60,
           fontFamily: "system-ui, sans-serif",
         }}>
-          {/* Header — brand strip */}
           <div style={{ display: "flex", alignItems: "center", gap: 14, marginBottom: 30 }}>
             <div style={{
               width: 44, height: 44, borderRadius: 10,
@@ -64,7 +69,6 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
 
-          {/* Machine info */}
           <div style={{ display: "flex", flexDirection: "column", marginBottom: 18 }}>
             <div style={{ fontSize: 18, color: "#6a7488", textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Wasmachine
@@ -77,12 +81,9 @@ export async function GET(req: NextRequest) {
             )}
           </div>
 
-          {/* QR code */}
-          <div style={{ display: "flex", justifyContent: "center", margin: "10px 0 24px" }}>
-            <img src={qrImgUrl} width="520" height="520" alt="QR code" />
-          </div>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={qrDataUrl} width="520" height="520" alt="QR" style={{ alignSelf: "center", margin: "10px 0 24px" }} />
 
-          {/* Code label */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginBottom: 14 }}>
             <div style={{ fontSize: 14, color: "#6a7488", textTransform: "uppercase", letterSpacing: "0.1em" }}>
               Scan-code
@@ -92,7 +93,6 @@ export async function GET(req: NextRequest) {
             </div>
           </div>
 
-          {/* Instructions */}
           <div style={{ display: "flex", flexDirection: "column", alignItems: "center", marginTop: "auto" }}>
             <div style={{ fontSize: 16, color: "#4a5568", textAlign: "center", lineHeight: 1.4 }}>
               Scan met je telefoon-camera voor:
@@ -114,7 +114,6 @@ export async function GET(req: NextRequest) {
 }
 
 function generateCode(brand: string, model: string): string {
-  // Deterministic 8-char code based on brand+model + random suffix
   const seed = `${brand}-${model}`.replace(/\s+/g, "").toUpperCase().slice(0, 4);
   const rand = Math.random().toString(36).slice(2, 6).toUpperCase();
   return `${seed.padEnd(4, "X")}${rand}`;

@@ -9,6 +9,7 @@ import { CookieConsent } from "@/components/CookieConsent";
 import { ExitIntentModal } from "@/components/ExitIntentModal";
 import { ReferralTracker } from "@/components/ReferralTracker";
 import { PostHogProvider } from "@/components/PostHogProvider";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -53,6 +54,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <CookieConsent />
         <ExitIntentModal />
         <ReferralTracker />
+        <MobileBottomNav />
         <Analytics />
         <SpeedInsights />
       </body>

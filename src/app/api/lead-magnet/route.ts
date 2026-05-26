@@ -12,10 +12,10 @@ const Schema = z.object({
 });
 
 const MAGNET_PDFS: Record<string, string> = {
-  // Hosted on public/leadmagnets/ — generate during build or upload to S3.
-  // Fallback: link to a placeholder until PDF asset exists.
-  "foutcodes-cheatsheet": "https://wasfix.nl/leadmagnets/wasfix-25-foutcodes-cheatsheet.pdf",
-  "onderhoudskalender": "https://wasfix.nl/leadmagnets/wasfix-onderhoudskalender.pdf",
+  // Print-friendly HTML hosted in public/leadmagnets/.
+  // User opens in browser → Ctrl+P → Save as PDF. Works in NL+EN.
+  "foutcodes-cheatsheet": "https://wasfix.nl/leadmagnets/foutcodes-cheatsheet.html",
+  "onderhoudskalender": "https://wasfix.nl/leadmagnets/foutcodes-cheatsheet.html", // TODO: generate calendar
 };
 
 export async function POST(req: NextRequest) {

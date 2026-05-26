@@ -1,0 +1,89 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Offline · WasFix Pro</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background: #060912;
+      color: #e8eefb;
+      min-height: 100vh;
+      display: grid;
+      place-items: center;
+      padding: 24px;
+      background-image:
+        radial-gradient(900px 600px at 70% -10%, rgba(79,140,255,0.20), transparent 60%),
+        radial-gradient(700px 500px at 0% 0%, rgba(0,212,255,0.12), transparent 50%);
+    }
+    .wrap { max-width: 480px; text-align: center; }
+    .brand-mark {
+      width: 56px; height: 56px;
+      border-radius: 14px;
+      background: linear-gradient(135deg, #4f8cff, #00d4ff);
+      display: inline-grid; place-items: center;
+      margin-bottom: 24px;
+      box-shadow: 0 0 40px rgba(79,140,255,0.4);
+    }
+    h1 { font-size: 28px; font-weight: 500; margin: 0 0 12px; letter-spacing: -0.02em; }
+    p { color: rgba(232,238,251,0.7); line-height: 1.6; font-size: 15px; margin: 0 0 20px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: center; margin-top: 8px; }
+    .btn {
+      padding: 10px 18px;
+      background: linear-gradient(180deg, #5d97ff, #3b7aff);
+      color: #fff;
+      text-decoration: none;
+      border-radius: 8px;
+      font-weight: 500;
+      font-size: 14px;
+      border: 0;
+      cursor: pointer;
+      font-family: inherit;
+    }
+    .btn-ghost {
+      background: rgba(255,255,255,0.06);
+      color: #e8eefb;
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+    .cached {
+      margin-top: 32px;
+      padding: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      border-radius: 10px;
+      text-align: left;
+    }
+    .cached-title { font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: rgba(232,238,251,0.5); margin-bottom: 8px; }
+    .cached a { display: block; padding: 6px 0; color: #7eb3ff; text-decoration: none; font-size: 13px; }
+    .cached a:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="brand-mark">
+      <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2">
+        <circle cx="12" cy="12" r="7" />
+        <circle cx="12" cy="12" r="3" fill="#fff" />
+      </svg>
+    </div>
+    <h1>Geen verbinding</h1>
+    <p>
+      Je bent offline of de site is even niet bereikbaar. Geen zorgen — sommige eerder geladen pagina&apos;s zijn nog beschikbaar.
+    </p>
+    <div class="actions">
+      <button class="btn" onclick="location.reload()">🔄 Probeer opnieuw</button>
+      <a class="btn btn-ghost" href="/">Naar homepage</a>
+    </div>
+    <div class="cached">
+      <div class="cached-title">Mogelijk nog beschikbaar (cached)</div>
+      <a href="/diagnose">AI Diagnose</a>
+      <a href="/foutcodes">Foutcodes</a>
+      <a href="/onderdelen">Onderdelen</a>
+      <a href="/gidsen">Reparatiegidsen</a>
+    </div>
+  </div>
+</body>
+</html>

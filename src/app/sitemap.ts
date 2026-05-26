@@ -53,6 +53,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/retour/start",
     "/tools/repareren-of-vervangen",
     "/tools/garantie-check",
+    "/tools/predictive",
+    "/tools/qr-sticker",
   ].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: now,

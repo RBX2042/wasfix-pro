@@ -10,6 +10,8 @@ import { ExitIntentModal } from "@/components/ExitIntentModal";
 import { ReferralTracker } from "@/components/ReferralTracker";
 import { PostHogProvider } from "@/components/PostHogProvider";
 import { MobileBottomNav } from "@/components/MobileBottomNav";
+import { SearchModal } from "@/components/SearchModal";
+import { ServiceWorkerRegister } from "@/components/ServiceWorkerRegister";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -55,6 +57,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ExitIntentModal />
         <ReferralTracker />
         <MobileBottomNav />
+        <SearchModal />
+        <ServiceWorkerRegister />
         <Analytics />
         <SpeedInsights />
       </body>

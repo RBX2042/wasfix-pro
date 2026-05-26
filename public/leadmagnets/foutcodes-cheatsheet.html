@@ -1,0 +1,232 @@
+<!doctype html>
+<html lang="nl">
+<head>
+  <meta charset="utf-8" />
+  <title>25 wasmachine foutcodes — WasFix Pro cheatsheet</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    @page { size: A4; margin: 14mm 16mm; }
+    * { box-sizing: border-box; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    body { margin: 0; font: 11px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", system-ui, sans-serif; color: #0b1224; }
+    h1 { margin: 0; font-size: 24px; letter-spacing: -0.015em; font-weight: 600; }
+    h2 { font-size: 14px; margin: 0 0 6px; letter-spacing: -0.01em; font-weight: 600; }
+    h3 { font-size: 11px; margin: 0; font-weight: 600; color: #4f8cff; letter-spacing: 0.04em; text-transform: uppercase; }
+    .header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 12px; border-bottom: 2px solid #4f8cff; margin-bottom: 16px; }
+    .brand { display: flex; align-items: center; gap: 10px; }
+    .brand-mark { width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #4f8cff, #00d4ff); display: inline-flex; align-items: center; justify-content: center; color: #fff; font-weight: 700; font-size: 14px; }
+    .brand-name { font-size: 16px; font-weight: 600; }
+    .brand-name span { color: #7b88a6; font-weight: 400; margin-left: 4px; }
+    .subtitle { color: #6a7488; font-size: 9px; text-transform: uppercase; letter-spacing: 0.1em; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+    .code-card { border: 1px solid #e2e8f0; border-radius: 6px; padding: 8px 10px; background: #fff; page-break-inside: avoid; }
+    .code-head { display: flex; align-items: baseline; gap: 8px; margin-bottom: 4px; }
+    .code { font-family: "SF Mono", "Consolas", monospace; font-weight: 700; font-size: 12px; color: #0b1224; background: #f7f9fc; padding: 2px 7px; border-radius: 3px; }
+    .brand-tag { font-size: 9px; color: #6a7488; text-transform: uppercase; letter-spacing: 0.05em; font-weight: 600; }
+    .severity { margin-left: auto; font-size: 8px; padding: 2px 5px; border-radius: 3px; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 600; }
+    .severity.low { background: #d4f4dd; color: #1b6f3b; }
+    .severity.med { background: #fff4d6; color: #8a6914; }
+    .severity.high { background: #fcd9d9; color: #8a2a2a; }
+    .meaning { font-weight: 600; font-size: 10.5px; margin-bottom: 3px; }
+    .fix { color: #4a5568; font-size: 9.5px; line-height: 1.4; }
+    .diy { display: inline-block; font-size: 8px; color: #1b6f3b; background: #d4f4dd; padding: 1px 5px; border-radius: 3px; font-weight: 600; margin-left: 4px; }
+    .footer { margin-top: 18px; padding-top: 12px; border-top: 1px solid #e2e8f0; font-size: 9px; color: #6a7488; display: flex; justify-content: space-between; align-items: center; }
+    .cta { background: linear-gradient(135deg, #4f8cff, #00d4ff); color: #fff; padding: 12px 16px; border-radius: 8px; margin-top: 14px; display: flex; justify-content: space-between; align-items: center; }
+    .cta-text { font-size: 11px; font-weight: 500; }
+    .cta-text strong { font-size: 13px; }
+    .cta-url { font-family: "SF Mono", monospace; font-size: 11px; font-weight: 600; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 4px; }
+    .print-hint { background: #f7f9fc; padding: 8px 12px; border-radius: 6px; font-size: 9.5px; color: #4a5568; margin-bottom: 12px; }
+    @media print { .print-hint { display: none; } }
+  </style>
+</head>
+<body>
+  <div class="print-hint">
+    💡 <strong>Print-tip:</strong> Druk op <kbd>Ctrl/⌘ + P</kbd> en kies "Opslaan als PDF". Past op 2 A4-vellen.
+  </div>
+
+  <div class="header">
+    <div class="brand">
+      <div class="brand-mark">W</div>
+      <div>
+        <div class="brand-name">WasFix<span>Pro</span></div>
+        <div class="subtitle">Cheatsheet · 25 foutcodes</div>
+      </div>
+    </div>
+    <div style="text-align: right; font-size: 9px; color: #6a7488;">
+      <div style="font-weight: 600;">wasfix.nl</div>
+      <div>Versie 2026 · v1.2</div>
+    </div>
+  </div>
+
+  <h1>25 meest voorkomende wasmachine-foutcodes</h1>
+  <p style="color: #4a5568; margin: 6px 0 16px; font-size: 11px;">
+    Per code: betekenis + meest waarschijnlijke fix. Markeer DIY = zelf-repareerbaar in &lt;1u.
+    Bekijk <strong>331+ codes</strong> per merk op wasfix.nl/foutcodes.
+  </p>
+
+  <h3 style="margin-bottom: 6px;">Bosch / Siemens</h3>
+  <div class="grid">
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Bosch/Sie</span><span class="code">E18 / F18</span><span class="severity med">Med</span></div>
+      <div class="meaning">Afvoer te langzaam <span class="diy">DIY</span></div>
+      <div class="fix">Pluizenfilter rechtsonder openen, leegmaken. 70% van de gevallen opgelost. Anders pomp vervangen (€30, 25 min).</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Bosch/Sie</span><span class="code">E05 / F19</span><span class="severity med">Med</span></div>
+      <div class="meaning">Verwarming te langzaam <span class="diy">DIY</span></div>
+      <div class="fix">Element verkalkt. Eerst ontkalken — als dat niet helpt, element vervangen (€40, 75 min).</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Bosch/Sie</span><span class="code">F16</span><span class="severity med">Med</span></div>
+      <div class="meaning">Deurslot — sluit niet <span class="diy">DIY</span></div>
+      <div class="fix">Slot vervangen, €30 + 30 min werk. Eerst checken of deur niet verbogen is.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Bosch/Sie</span><span class="code">F21</span><span class="severity high">High</span></div>
+      <div class="meaning">Motor — toerental afwijkend</div>
+      <div class="fix">Koolborstels (€10) of inverter — bij twijfel monteur. Check eerst V-snaar.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Bosch/Sie</span><span class="code">E12 / F17</span><span class="severity low">Low</span></div>
+      <div class="meaning">Watertoevoer mislukt <span class="diy">DIY</span></div>
+      <div class="fix">Kraan open? Slangfilter verstopt? Spoel 't zeefje — vaak in 5 min opgelost gratis.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Bosch/Sie</span><span class="code">F23</span><span class="severity high">High</span></div>
+      <div class="meaning">Aquastop geactiveerd</div>
+      <div class="fix">Lekkage gedetecteerd. Inlaatslang of manchet inspecteren. Monteur vaak nodig.</div>
+    </div>
+  </div>
+
+  <h3 style="margin: 12px 0 6px;">Miele</h3>
+  <div class="grid">
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Miele</span><span class="code">F11</span><span class="severity med">Med</span></div>
+      <div class="meaning">Afvoer-fout <span class="diy">DIY</span></div>
+      <div class="fix">Pluizenfilter + pomp checken. Identiek aan Bosch E18.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Miele</span><span class="code">F19</span><span class="severity med">Med</span></div>
+      <div class="meaning">Verwarming niet bereikt <span class="diy">DIY</span></div>
+      <div class="fix">Element verkalkt. Ontkalken, anders element vervangen.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Miele</span><span class="code">F36</span><span class="severity low">Low</span></div>
+      <div class="meaning">Onbalans tijdens centrifuge <span class="diy">DIY</span></div>
+      <div class="fix">Wasgoed verdelen + opnieuw starten. Vaak een eenmalig issue.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Miele</span><span class="code">F53</span><span class="severity high">High</span></div>
+      <div class="meaning">Motor commutator-fout</div>
+      <div class="fix">Koolborstels of complete motor. Monteur aanbevolen.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Miele</span><span class="code">F101</span><span class="severity low">Low</span></div>
+      <div class="meaning">Service-melding <span class="diy">DIY</span></div>
+      <div class="fix">Onderhouds-reminder. Pluizenfilter + wasmiddellade reinigen + heet 90°C-onderhoudswas.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Miele</span><span class="code">F55</span><span class="severity med">Med</span></div>
+      <div class="meaning">Deurslot motor <span class="diy">DIY</span></div>
+      <div class="fix">Slot defect, €64 origineel + 30 min werk.</div>
+    </div>
+  </div>
+
+  <h3 style="margin: 12px 0 6px;">Samsung</h3>
+  <div class="grid">
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Samsung</span><span class="code">OE / 5E</span><span class="severity med">Med</span></div>
+      <div class="meaning">Afvoer mislukt <span class="diy">DIY</span></div>
+      <div class="fix">Filter + slang controleren. Identiek aan Bosch E18.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Samsung</span><span class="code">dC / dC1</span><span class="severity med">Med</span></div>
+      <div class="meaning">Deur niet gesloten <span class="diy">DIY</span></div>
+      <div class="fix">Hard duwen tegen deur, anders slot vervangen (€29, 30 min).</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Samsung</span><span class="code">HE</span><span class="severity med">Med</span></div>
+      <div class="meaning">Verwarmingsfout <span class="diy">DIY</span></div>
+      <div class="fix">Element of NTC sensor. Test eerst NTC met multimeter.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Samsung</span><span class="code">tE</span><span class="severity med">Med</span></div>
+      <div class="meaning">NTC sensor defect <span class="diy">DIY</span></div>
+      <div class="fix">NTC vervangen, €9 + 30 min.</div>
+    </div>
+  </div>
+
+  <h3 style="margin: 12px 0 6px;">LG</h3>
+  <div class="grid">
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">LG</span><span class="code">UE</span><span class="severity low">Low</span></div>
+      <div class="meaning">Onbalans <span class="diy">DIY</span></div>
+      <div class="fix">Wasgoed herverdelen. Bij herhaald: schokdempers (€32) of waterpas zetten.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">LG</span><span class="code">DE</span><span class="severity med">Med</span></div>
+      <div class="meaning">Deurslot <span class="diy">DIY</span></div>
+      <div class="fix">Slot vervangen, €31 + 30 min werk.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">LG</span><span class="code">LE1 / LE2</span><span class="severity high">High</span></div>
+      <div class="meaning">Direct Drive motor</div>
+      <div class="fix">Hall sensor of stator. Monteur aanbevolen voor LG DD.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">LG</span><span class="code">PE</span><span class="severity med">Med</span></div>
+      <div class="meaning">Drukschakelaar <span class="diy">DIY</span></div>
+      <div class="fix">Slangetje van schakelaar verstopt? Spoel met warm water.</div>
+    </div>
+  </div>
+
+  <h3 style="margin: 12px 0 6px;">AEG / Electrolux / Zanussi (zelfde platform)</h3>
+  <div class="grid">
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">AEG/Ele</span><span class="code">E20</span><span class="severity med">Med</span></div>
+      <div class="meaning">Afvoer-fout <span class="diy">DIY</span></div>
+      <div class="fix">Pomp + filter. Originele AEG pomp €36, universele €25.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">AEG/Ele</span><span class="code">E40</span><span class="severity med">Med</span></div>
+      <div class="meaning">Deurslot <span class="diy">DIY</span></div>
+      <div class="fix">Metalflex slot, €27. Universeel + identiek voor alle AEG/Electrolux/Zanussi.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">AEG/Ele</span><span class="code">EHO / E91</span><span class="severity high">High</span></div>
+      <div class="meaning">Module / spanning</div>
+      <div class="fix">Reset met stekker 30 min eruit. Anders hoofdmodule defect (€189+).</div>
+    </div>
+  </div>
+
+  <h3 style="margin: 12px 0 6px;">Whirlpool / Indesit (zelfde platform)</h3>
+  <div class="grid">
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Whirl</span><span class="code">F02 / F11</span><span class="severity med">Med</span></div>
+      <div class="meaning">Pomp-fout <span class="diy">DIY</span></div>
+      <div class="fix">Universele Whirlpool/Indesit pomp €28.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Whirl</span><span class="code">FdL / FdU</span><span class="severity med">Med</span></div>
+      <div class="meaning">Deurslot lock / unlock <span class="diy">DIY</span></div>
+      <div class="fix">Bitron 1630200x universeel slot, €29.</div>
+    </div>
+    <div class="code-card">
+      <div class="code-head"><span class="brand-tag">Beko</span><span class="code">H5</span><span class="severity med">Med</span></div>
+      <div class="meaning">Pomp <span class="diy">DIY</span></div>
+      <div class="fix">Filter + pomp checken — zelfde diagnose als Bosch E18.</div>
+    </div>
+  </div>
+
+  <div class="cta">
+    <div class="cta-text">
+      <strong>Code niet gevonden?</strong> Gratis AI-diagnose voor 331+ codes per merk.
+    </div>
+    <div class="cta-url">wasfix.nl/diagnose</div>
+  </div>
+
+  <div class="footer">
+    <div>© 2026 WasFix Pro B.V. · Vrij te delen voor persoonlijk gebruik</div>
+    <div>Versie 2026.1 · 25 codes</div>
+  </div>
+</body>
+</html>

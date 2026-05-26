@@ -1,0 +1,31 @@
+name: SEO audit
+
+on:
+  schedule:
+    - cron: "0 4 * * 0" # Every Sunday at 04:00 UTC
+  workflow_dispatch:
+
+jobs:
+  seo:
+    name: Sitemap + broken-link check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install linkinator
+        run: npm install -g linkinator
+      - name: Check sitemap validity
+        run: |
+          curl -sS https://wasfix.nl/sitemap.xml > sitemap.xml
+          # Basic XML validation
+          xmllint --noout sitemap.xml
+          # Count URLs
+          echo "URL count: $(grep -c '<url>' sitemap.xml)"
+      - name: Crawl for broken links
+        run: |
+          linkinator https://wasfix.nl --recurse --skip "linkedin\\.com|twitter\\.com|facebook\\.com" --timeout 10000 --concurrency 5 || true
+      - name: Validate robots.txt
+        run: |
+          curl -sS https://wasfix.nl/robots.txt | head -20

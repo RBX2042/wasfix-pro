@@ -116,6 +116,48 @@ export async function sendDiagnosisSummary(
   });
 }
 
+export async function sendMonteurApplicationNotification(data: {
+  applicationId: string;
+  companyName: string;
+  kvkNumber: string;
+  vatNumber?: string;
+  email: string;
+  phone?: string;
+  contactName: string;
+  yearsExperience?: number;
+  coverageAreas?: string[];
+  specializations?: string[];
+}) {
+  const resend = getResend();
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: FROM,
+    to: "monteur@wasfix.nl",
+    replyTo: data.email,
+    subject: `🔧 Monteur Pro aanmelding · ${data.applicationId}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a6b6b;">Nieuwe Monteur Pro aanmelding</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr><td style="padding: 6px 0; color: #666; width: 40%;">Application ID:</td><td style="font-family: monospace; font-weight: 600;">${data.applicationId}</td></tr>
+          <tr><td style="padding: 6px 0; color: #666;">Bedrijfsnaam:</td><td>${data.companyName}</td></tr>
+          <tr><td style="padding: 6px 0; color: #666;">KvK:</td><td>${data.kvkNumber}</td></tr>
+          ${data.vatNumber ? `<tr><td style="padding: 6px 0; color: #666;">BTW:</td><td>${data.vatNumber}</td></tr>` : ""}
+          <tr><td style="padding: 6px 0; color: #666;">Contact:</td><td>${data.contactName} &lt;${data.email}&gt;</td></tr>
+          ${data.phone ? `<tr><td style="padding: 6px 0; color: #666;">Telefoon:</td><td>${data.phone}</td></tr>` : ""}
+          ${data.yearsExperience != null ? `<tr><td style="padding: 6px 0; color: #666;">Ervaring:</td><td>${data.yearsExperience} jaar</td></tr>` : ""}
+          ${data.coverageAreas?.length ? `<tr><td style="padding: 6px 0; color: #666;">Dekkingsgebied:</td><td>${data.coverageAreas.join(", ")}</td></tr>` : ""}
+          ${data.specializations?.length ? `<tr><td style="padding: 6px 0; color: #666;">Specialisaties:</td><td>${data.specializations.join(", ")}</td></tr>` : ""}
+        </table>
+        <p style="margin-top: 20px; padding: 12px 14px; background: #f0f9f9; border-left: 3px solid #1a6b6b; border-radius: 4px; font-size: 13px;">
+          Review handmatig via admin/monteur-applications, of beantwoord deze e-mail om met de aanvrager te corresponderen.
+        </p>
+      </div>
+    `,
+  });
+}
+
 export async function sendRmaNotification(data: {
   rmaNumber: string;
   orderId: string;

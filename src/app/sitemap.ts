@@ -8,6 +8,7 @@ import {
 } from "@/lib/static-db";
 import helpArticles from "@/data/help-articles.json";
 import blogPosts from "@/data/blog-posts.json";
+import cities from "@/data/cities.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = env.APP_URL;
@@ -68,6 +69,14 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.7,
   }));
 
+  // Programmatic SEO: 50 NL city pages
+  const cityPages = (cities as Array<{ slug: string }>).map((c) => ({
+    url: `${baseUrl}/wasmachine-kapot/${c.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.65,
+  }));
+
   const errorCodePages = errorCodes.map((ec) => ({
     url: `${baseUrl}/foutcodes/${encodeURIComponent(ec.machine.brand)}-${encodeURIComponent(ec.code)}`,
     lastModified: now,
@@ -104,5 +113,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...helpPages, ...blogPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
+  return [...staticPages, ...helpPages, ...blogPages, ...cityPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
 }

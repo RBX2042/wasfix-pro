@@ -1,0 +1,36 @@
+name: Lighthouse CI
+
+on:
+  schedule:
+    - cron: "0 6 * * 1" # Every Monday at 06:00 UTC
+  workflow_dispatch:
+
+jobs:
+  lighthouse:
+    name: Lighthouse audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Install Lighthouse CI
+        run: npm install -g @lhci/cli@latest
+      - name: Run Lighthouse on production
+        run: |
+          lhci collect --url=https://wasfix.nl \
+                       --url=https://wasfix.nl/diagnose \
+                       --url=https://wasfix.nl/foutcodes/Bosch-E18 \
+                       --url=https://wasfix.nl/gidsen/koolborstels-motor-vervangen \
+                       --url=https://wasfix.nl/onderdelen/WF-FILTER-09 \
+                       --url=https://wasfix.nl/prijzen
+          lhci assert --preset=lighthouse:recommended
+        env:
+          LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: lighthouse-reports
+          path: .lighthouseci/
+          retention-days: 30

@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+env:
+  NEXT_TELEMETRY_DISABLED: 1
+  NEXT_PUBLIC_APP_URL: https://wasfix.nl
+
+jobs:
+  lint-typecheck:
+    name: Lint + TypeCheck
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: TypeScript
+        run: npm run typecheck
+      - name: ESLint
+        run: npm run lint
+        continue-on-error: true # Warn-only for now while we settle
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint-typecheck
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Upload .next bundle stats
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: next-build
+          path: |
+            .next/server/app/
+            .next/static/
+          retention-days: 7

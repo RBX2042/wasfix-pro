@@ -1,75 +1,85 @@
-import { MarketingLayout } from "@/components/marketing-layout";
-import { Card, CardContent } from "@/components/ui/card";
+import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
-import { Sparkles, Wrench, ShoppingCart, CreditCard, Mail } from "lucide-react";
+import articlesData from "@/data/help-articles.json";
 
-export const metadata = { title: "Helpcentrum" };
+export const metadata = {
+  title: "Helpcentrum · WasFix Pro",
+  description: "Antwoorden op de meest gestelde vragen. AI diagnose, onderdelen, bestellingen, abonnement, garantie, privacy.",
+};
 
-const TOPICS = [
-  { icon: Sparkles, title: "AI Diagnose", text: "Hoe werkt de AI diagnose? Wat als ik geen foutcode heb?", href: "/diagnose" },
-  { icon: Wrench, title: "Reparatie", text: "Welke reparaties kun je zelf doen? Wat als ik er niet uitkom?", href: "/gidsen" },
-  { icon: ShoppingCart, title: "Onderdelen", text: "Hoe weet ik welk onderdeel ik nodig heb? Levertijden en retourneren.", href: "/onderdelen" },
-  { icon: CreditCard, title: "Abonnement", text: "Verschil tussen plannen, opzeggen, factuur info.", href: "/prijzen" },
-];
+type Article = { slug: string; category: string; title: string; summary: string; content: string };
+const articles = articlesData as Article[];
 
 export default function HelpPage() {
+  // Group by category
+  const grouped = articles.reduce((acc, a) => {
+    (acc[a.category] ??= []).push(a);
+    return acc;
+  }, {} as Record<string, Article[]>);
+
+  const CATEGORY_ICONS: Record<string, string> = {
+    "AI Diagnose": "sparkle",
+    "Onderdelen": "package",
+    "Bestellingen": "cart",
+    "Abonnement": "shield",
+    "Reparatie": "code",
+    "Klantenservice": "user",
+    "Privacy": "shield",
+  };
+
   return (
-    <MarketingLayout>
-      <section className="border-b bg-muted/30">
-        <div className="container py-12">
-          <h1 className="font-heading text-3xl md:text-4xl font-bold">Helpcentrum</h1>
-          <p className="text-muted-foreground mt-2 max-w-2xl">
-            Antwoorden op de meest gestelde vragen. Niet gevonden wat je zocht? <Link href="/contact" className="text-primary hover:underline">Neem contact op</Link>.
+    <WasFixShell>
+      <section className="section" style={{ paddingTop: 56 }}>
+        <div className="container" style={{ maxWidth: 920 }}>
+          <div className="eyebrow">Helpcentrum</div>
+          <h1 className="h-display" style={{ fontSize: "clamp(32px, 4.5vw, 52px)", marginBottom: 14 }}>
+            Hoe kunnen we <em>helpen</em>?
+          </h1>
+          <p className="lead" style={{ marginBottom: 40 }}>
+            Veelgestelde vragen per categorie. Vind je niet wat je zoekt? <Link href="/contact" style={{ color: "var(--acc-2)", textDecoration: "underline" }}>Stuur ons een bericht</Link>.
           </p>
+
+          <div style={{ display: "grid", gap: 32 }}>
+            {Object.entries(grouped).map(([category, items]) => {
+              const iconName = (CATEGORY_ICONS[category] ?? "book") as Parameters<typeof Icon>[0]["name"];
+              return (
+                <div key={category}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(79,140,255,0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
+                      <Icon name={iconName} size={14} />
+                    </div>
+                    <h2 style={{ fontSize: 20, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>{category}</h2>
+                    <span className="muted mono" style={{ fontSize: 11, marginLeft: 4 }}>{items.length} artikel{items.length === 1 ? "" : "en"}</span>
+                  </div>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                    {items.map((a) => (
+                      <Link
+                        key={a.slug}
+                        href={`/help/${a.slug}`}
+                        className="step-card"
+                        style={{ textDecoration: "none", color: "inherit", display: "block" }}
+                      >
+                        <div style={{ fontWeight: 500, marginBottom: 4, fontSize: 14.5 }}>{a.title}</div>
+                        <div className="muted" style={{ fontSize: 12.5, lineHeight: 1.55 }}>{a.summary}</div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+
+          <div style={{ marginTop: 56, padding: 32, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16, textAlign: "center" }}>
+            <h2 style={{ fontSize: 22, fontWeight: 500, marginBottom: 10 }}>Niet gevonden wat je zocht?</h2>
+            <p className="muted" style={{ marginBottom: 18, maxWidth: 480, margin: "0 auto 18px" }}>
+              Stuur ons een bericht — we reageren binnen 24u op werkdagen.
+            </p>
+            <Link className="btn btn-primary" href="/contact">
+              Contact support <Icon name="send" size={13} />
+            </Link>
+          </div>
         </div>
       </section>
-
-      <div className="container py-8">
-        <div className="grid md:grid-cols-2 gap-6 mb-12">
-          {TOPICS.map((t) => (
-            <Link key={t.href} href={t.href}>
-              <Card className="hover:border-primary transition-colors h-full">
-                <CardContent className="p-6">
-                  <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-3">
-                    <t.icon className="h-5 w-5" />
-                  </div>
-                  <h2 className="font-heading text-lg font-semibold mb-1">{t.title}</h2>
-                  <p className="text-sm text-muted-foreground">{t.text}</p>
-                </CardContent>
-              </Card>
-            </Link>
-          ))}
-        </div>
-
-        <Card>
-          <CardContent className="p-6">
-            <h2 className="font-heading text-xl font-semibold mb-3">Veelgestelde vragen</h2>
-            <div className="space-y-4">
-              <Faq q="Hoe werkt de AI diagnose?" a="Beschrijf je wasmachine merk, model en symptoom. Onze AI zoekt in een database van duizenden gevallen naar de meest waarschijnlijke oorzaak en stelt eventueel verduidelijkende vragen." />
-              <Faq q="Wat is de levertijd van onderdelen?" a="Voor 22:00 besteld is morgen in huis (Nederland). Voor België 1-2 werkdagen. Verzending is gratis vanaf €50." />
-              <Faq q="Kan ik een onderdeel retourneren?" a="Ja, binnen 30 dagen onbeschadigd terugsturen. We betalen het aankoopbedrag terug." />
-              <Faq q="Werkt het ook voor andere merken?" a="We ondersteunen 10+ grote merken inclusief Miele, Bosch, Samsung, LG, AEG, Whirlpool, Electrolux, Beko, Indesit en Siemens." />
-              <Faq q="Is mijn data veilig?" a="Ja. We slaan alleen het minimale op (e-mail, naam, adres voor verzending). Diagnose data is geanonimiseerd voor model verbetering." />
-            </div>
-          </CardContent>
-        </Card>
-
-        <div className="mt-8 text-center">
-          <p className="text-muted-foreground mb-3">Vraag niet gevonden?</p>
-          <Link href="/contact" className="inline-flex items-center gap-2 text-primary hover:underline">
-            <Mail className="h-4 w-4" /> Stuur ons een bericht
-          </Link>
-        </div>
-      </div>
-    </MarketingLayout>
-  );
-}
-
-function Faq({ q, a }: { q: string; a: string }) {
-  return (
-    <details className="rounded-md border p-4">
-      <summary className="font-medium cursor-pointer">{q}</summary>
-      <p className="text-sm text-muted-foreground mt-2">{a}</p>
-    </details>
+    </WasFixShell>
   );
 }

@@ -116,6 +116,70 @@ export async function sendDiagnosisSummary(
   });
 }
 
+export async function sendRmaNotification(data: {
+  rmaNumber: string;
+  orderId: string;
+  name: string;
+  email: string;
+  reason: string;
+  notes: string;
+}) {
+  const resend = getResend();
+  if (!resend) return;
+
+  // Send to internal team
+  await resend.emails.send({
+    from: FROM,
+    to: "retour@wasfix.nl",
+    replyTo: data.email,
+    subject: `🔄 Nieuwe retour-aanvraag · ${data.rmaNumber}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+        <h2 style="color: #1a6b6b; margin: 0 0 16px 0;">Nieuwe retour-aanvraag</h2>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+          <tr><td style="padding: 6px 0; color: #666;">RMA-nummer:</td><td style="font-weight: 600; font-family: monospace;">${data.rmaNumber}</td></tr>
+          <tr><td style="padding: 6px 0; color: #666;">Bestelnummer:</td><td>${data.orderId}</td></tr>
+          <tr><td style="padding: 6px 0; color: #666;">Klant:</td><td>${data.name} &lt;${data.email}&gt;</td></tr>
+          <tr><td style="padding: 6px 0; color: #666;">Reden:</td><td>${data.reason}</td></tr>
+        </table>
+        <h3 style="margin: 20px 0 8px 0; font-size: 14px;">Toelichting:</h3>
+        <div style="background: #f7f7f7; border-left: 3px solid #1a6b6b; padding: 12px 14px; border-radius: 4px; font-size: 14px; line-height: 1.5;">${data.notes.replace(/\n/g, "<br>")}</div>
+        <p style="margin-top: 24px; font-size: 12px; color: #888;">Beantwoord deze e-mail om met de klant te corresponderen — reply-to is ingesteld op de klant.</p>
+      </div>
+    `,
+  });
+
+  // Confirmation to customer
+  await resend.emails.send({
+    from: FROM,
+    to: data.email,
+    subject: `Retour-aanvraag ontvangen · ${data.rmaNumber}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
+        <h1 style="color: #1a6b6b;">Retour-aanvraag ontvangen</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${data.name},</p>
+        <p style="font-size: 16px; line-height: 1.6;">
+          We hebben je retour-aanvraag in goede orde ontvangen. Je RMA-nummer is:
+        </p>
+        <div style="background: #f0f9f9; border: 1px solid #1a6b6b; padding: 14px 18px; border-radius: 8px; margin: 16px 0;">
+          <div style="font-family: monospace; font-size: 18px; font-weight: 600; color: #1a6b6b;">${data.rmaNumber}</div>
+        </div>
+        <p style="font-size: 14px; line-height: 1.6;">
+          Wat nu? Binnen 24 uur (op werkdagen) ontvang je een e-mail met retour-instructies, inclusief een verzendlabel als je in aanmerking komt voor gratis retour (defect of fout van onze kant).
+        </p>
+        <p style="font-size: 14px; line-height: 1.6;">
+          Pak je product in originele verpakking met het RMA-nummer duidelijk op de buitenkant geschreven. Zodra wij het ontvangen verwerken wij de restitutie binnen 14 dagen.
+        </p>
+        <p style="font-size: 13px; color: #666; margin-top: 24px;">
+          Vragen? Antwoord op deze e-mail of bel 020 123 45 67 (ma-vr 9-17:30).
+        </p>
+        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
+        <p style="font-size: 12px; color: #888;">WasFix Pro B.V. · Hoofdstraat 1, 1234 AB Amsterdam · KvK 12345678</p>
+      </div>
+    `,
+  });
+}
+
 export async function sendSubscriptionConfirmation(email: string, plan: string) {
   const resend = getResend();
   if (!resend) return;

@@ -6,6 +6,7 @@ import {
   parts as staticParts,
   guides as staticGuides,
 } from "@/lib/static-db";
+import helpArticles from "@/data/help-articles.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = env.APP_URL;
@@ -29,18 +30,33 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/gidsen",
     "/onderdelen",
     "/prijzen",
+    "/monteur",
     "/help",
     "/contact",
     "/over",
+    "/api-info",
     "/privacy",
     "/voorwaarden",
-    "/api-info",
+    "/cookies",
+    "/garantie",
+    "/klachten",
+    "/disclaimer",
+    "/retourvoorwaarden",
+    "/retour/start",
     "/tools/repareren-of-vervangen",
+    "/tools/garantie-check",
   ].map((path) => ({
     url: `${baseUrl}${path}`,
     lastModified: now,
     changeFrequency: "weekly" as const,
     priority: path === "/" ? 1 : path === "/diagnose" ? 0.95 : 0.8,
+  }));
+
+  const helpPages = (helpArticles as Array<{ slug: string }>).map((a) => ({
+    url: `${baseUrl}/help/${a.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.65,
   }));
 
   const errorCodePages = errorCodes.map((ec) => ({
@@ -79,5 +95,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
+  return [...staticPages, ...helpPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
 }

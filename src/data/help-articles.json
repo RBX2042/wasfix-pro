@@ -1,0 +1,72 @@
+[
+  {
+    "slug": "hoe-werkt-ai-diagnose",
+    "category": "AI Diagnose",
+    "title": "Hoe werkt de AI diagnose?",
+    "summary": "Onze AI analyseert je probleem op basis van foutcode, symptoom en machinemerk — binnen 60 seconden.",
+    "content": "Onze AI is getraind op een database van duizenden wasmachine-storingen, service-manuals van alle grote merken, en ervaringen van professionele monteurs. Het proces:\n\n1. **Beschrijf het probleem** in eigen woorden of plak een foutcode (bv. 'Bosch E18').\n2. **Geef je machine-info** op (merk, model — vind je op het type-plaatje achterkant of in deuropening).\n3. **AI analyseert** binnen 60 seconden: kijkt naar foutcodes, symptomen, leeftijd, bekende defecten per platform.\n4. **Resultaat**: top-3 oorzaken met confidence-percentage, aanbevolen onderdelen, en eventueel een stap-voor-stap reparatiegids.\n\nDe AI gebruikt Google Gemini 2.0 Flash voor de natuurlijke-taal-verwerking. Bij twijfel stelt hij verduidelijkingsvragen — bv. 'staat er water in de trommel?' of 'horen je bewegen of stilstaan?'.\n\nDe AI is een **hulpmiddel**, geen vervanging voor een monteur bij complexe of veiligheidsgevoelige zaken (gas, elektriciteit, water-overloop). Bij twijfel altijd een professional inschakelen."
+  },
+  {
+    "slug": "wat-als-ai-confidence-laag-is",
+    "category": "AI Diagnose",
+    "title": "Wat als de AI confidence laag is (<70%)?",
+    "summary": "Bij onzekerheid: meer details geven, foto's uploaden of monteur inschakelen.",
+    "content": "Een lage confidence-score (<70%) betekent dat de AI meerdere mogelijke oorzaken ziet zonder duidelijke winnaar. Mogelijke acties:\n\n1. **Geef meer details** — Hoort de pomp draaien? Komt er een geluidsverandering? Welke programma faalt? Welke startfase? Hoe lang heb je de machine al?\n2. **Upload een foto** van het display met de foutcode of het probleemonderdeel. AI kan visuele patronen herkennen die tekst-beschrijving mist.\n3. **Vraag onze monteur-pool** — via /contact kun je een tegen betaling een professionele second opinion krijgen binnen 4u.\n4. **Foutcode aflezen** — als je nog geen exacte foutcode hebt, zoek deze eerst op (vaak via een speciale toetsencombinatie tijdens diagnose-mode).\n\nLager-dan-70% confidence betekent NIET dat de AI fout zit — alleen dat hij voorzichtig is over de top-1 oorzaak. Bekijk de alternatieve oorzaken ook altijd."
+  },
+  {
+    "slug": "welk-onderdeel-heb-ik-nodig",
+    "category": "Onderdelen",
+    "title": "Hoe weet ik welk onderdeel ik nodig heb?",
+    "summary": "Diagnose eerst, dan kopen. Vermeld bij twijfel altijd je machine-serienummer.",
+    "content": "Het kopen van het verkeerde onderdeel = tijd + geld verspild. Volg deze stappen:\n\n1. **Doe eerst de diagnose** — via /diagnose of een gecertificeerde monteur. Een onderdeel kopen op basis van 'het zal wel dit zijn' = vaak fout.\n2. **Match op compatibiliteit** — onze onderdelen-pagina toont per onderdeel welke merken/modellen ondersteund worden. Vermeld bij twijfel je type-nummer (vaak FD-nummer of E-nummer op type-plaatje).\n3. **Origineel of universeel?** — Origineel: duurder maar langere garantie (24 mnd) en exact passend. Universeel: goedkoper, 12 mnd garantie, soms kleine aanpassing nodig.\n4. **OEM-nummer** — sommige fabrikanten gebruiken een uniek OEM-nummer (bv. 145212 voor een Bosch pomp). Dit nummer staat soms op het oude defecte onderdeel — match daarmee.\n5. **Twijfel?** — Mail support@wasfix.nl met je machine type-plaatje + omschrijving. We checken voor je."
+  },
+  {
+    "slug": "levertijden-verzending",
+    "category": "Bestellingen",
+    "title": "Levertijden + verzendkosten",
+    "summary": "Voor 22:00 besteld = morgen in huis (NL). Gratis vanaf €50. BE: 1-2 werkdagen.",
+    "content": "**Nederland:**\n- Voor 22:00 op werkdagen besteld = volgende werkdag bezorgd\n- Verzending door PostNL of DHL\n- Gratis vanaf €50, anders €4,95\n- Avondbezorging (18-22u) +€2,95\n- Buurtpunt afhalen gratis bij ophalen\n\n**België:**\n- 1-2 werkdagen na verzending\n- Verzendkosten €7,95, gratis vanaf €75\n\n**Duitsland:**\n- 2-3 werkdagen via DHL\n- €9,95, gratis vanaf €100\n\n**Track & trace:**\nZodra je pakket bij PostNL/DHL ligt, ontvang je per e-mail een tracking-link. Je kunt je bestelling ook altijd inzien via /dashboard/bestellingen.\n\n**Niet thuis?** PostNL probeert max 2x, daarna ligt het 7 dagen bij een afhaalpunt. Bij DHL: 1x bezorgpoging + 7 dagen bij ServicePoint.\n\n**Vragen over je bestelling?** Mail support@wasfix.nl met je bestelnummer."
+  },
+  {
+    "slug": "retour-en-restitutie",
+    "category": "Bestellingen",
+    "title": "Retour en restitutie",
+    "summary": "30 dagen bedenktijd. Gratis retour bij defect of fout. Restitutie binnen 14 dagen.",
+    "content": "We hanteren een ruimer retourbeleid dan wettelijk vereist (14 → 30 dagen).\n\n**Wanneer kun je retour?**\n- Binnen 30 dagen na ontvangst\n- Product ongebruikt, in originele verpakking\n- Eventuele zegels en plastic niet verbroken\n- Met orderbevestiging of factuur\n\n**Hoe?**\n1. Vul het [retour-formulier](/retour/start) in\n2. Je ontvangt binnen 24u (werkdagen) je RMA-nummer + instructies\n3. Pak het product in originele verpakking met RMA-nummer op buitenkant\n4. Verstuur binnen 14 dagen — bewaar verzendbewijs\n5. Restitutie binnen 14 dagen na ontvangst, op dezelfde betaalmethode\n\n**Kosten retour:**\n- Bedenktijd/verkeerd besteld: voor jouw rekening (vanaf €4,95)\n- Defect of fout van ons: gratis (wij sturen retour-label)\n- Garantieclaim: gratis\n\n**Uitsluitingen:**\n- Op maat gemaakte onderdelen of speciaal voor jou besteld\n- Hygiënische producten met verbroken zegel\n- Sporen van montage of gebruik\n\nVolledige voorwaarden: [retourvoorwaarden](/retourvoorwaarden)."
+  },
+  {
+    "slug": "garantie-uitleg",
+    "category": "Bestellingen",
+    "title": "Garantie op onderdelen",
+    "summary": "Origineel 24 maanden, universeel 12 maanden, plus EU Right-to-Repair tot 10 jaar.",
+    "content": "**WasFix garantieperiodes:**\n- Origineel onderdeel: 24 maanden\n- Universeel/compatibel: 12 maanden\n- Verbruiksartikelen (filter, dichting): 6 maanden\n- Elektronica (PCB, display): 24 maanden\n\nDeze WasFix-garantie staat naast (niet boven) de **wettelijke conformiteitsgarantie** (art. 7:17 BW) die altijd geldt en niet weggecontracteerd kan worden.\n\n**EU Right-to-Repair (2024):**\nFabrikanten moeten onderdelen voor huishoudelijke apparaten 10 jaar beschikbaar houden. WasFix doet dit voor onze hele catalogus.\n\n**Garantie vervalt bij:**\n- Verkeerd gebruik of ondeskundige installatie\n- Schade door extern geweld (water, brand, bliksem)\n- Modificaties aan het onderdeel\n\n**Claim indienen:**\nMail garantie@wasfix.nl met bestelnummer + foto's + omschrijving. We beoordelen binnen 5 werkdagen.\n\nMeer info: [garantievoorwaarden](/garantie)."
+  },
+  {
+    "slug": "abonnement-opzeggen",
+    "category": "Abonnement",
+    "title": "Abonnement opzeggen of wijzigen",
+    "summary": "Maandelijks opzegbaar via dashboard of e-mail. Geen opzegtermijn.",
+    "content": "**Opzeggen:**\n1. Login op /dashboard\n2. Ga naar Abonnement → Beheer\n3. Klik 'Opzeggen' → bevestig\n4. Of stuur een mail naar support@wasfix.nl met je accountnummer\n\nJe behoudt toegang tot het einde van de betaalde periode. Geen pro-rata teruggave.\n\n**Wijzigen (upgrade/downgrade):**\n- Upgrade: direct actief, pro-rata bijbetaling tot einde periode\n- Downgrade: actief vanaf volgende factuurdatum\n\n**Eerste 14 dagen Monteur Pro gratis** — opzeggen vóór de eerste factuurdatum = geen kosten.\n\n**Refunds bij geannuleerde bestelling:**\nAls je net geld hebt betaald en binnen 14 dagen wilt opzeggen: stuur ons een mail dan kijken we vergoeden we deze gedeeltelijk.\n\n**Factuur archief:** /dashboard/abonnement → Facturen → download als PDF."
+  },
+  {
+    "slug": "veiligheid-zelf-reparatie",
+    "category": "Reparatie",
+    "title": "Veiligheid bij zelf-reparatie",
+    "summary": "8 regels die je leven kunnen redden. Lees voor je begint.",
+    "content": "Wasmachines werken op 230V netspanning + water. Bij verkeerde aanpak: elektrocutie, brand, waterschade. Houd je hieraan:\n\n1. **Stekker eruit.** Altijd. Eerst stekker uit het stopcontact, dan pas beginnen.\n2. **Waterkraan dicht.** Sluit beide aanvoerkranen.\n3. **Restwater leeg.** Plaats een bak onder pluizenfilter en tap af voordat je iets demonteert.\n4. **Test met spanningstester.** Bij twijfel of er écht geen stroom op staat.\n5. **Werk droog.** Geen natte handen, geen plassen.\n6. **Til niet alleen.** 60-80 kg = met 2 personen of autokrik.\n7. **Foto's maken.** Voor je bedrading loskoppelt: maak foto. Bespaart frustratie bij terugbouw.\n8. **Bij twijfel: monteur bellen.** Geen schaamte.\n\nWanneer NIET zelf doen:\n- Twijfel over je elektrische kennis\n- Probleem zit op de hoofdmodule (PCB)\n- Machine onder fabrieksgarantie (zelf openen = garantie vervalt)\n- Rook of brandlucht uit machine — direct stekker eruit, niet repareren\n\nVolledige veiligheidsregels: [DIY disclaimer](/disclaimer)."
+  },
+  {
+    "slug": "klacht-indienen",
+    "category": "Klantenservice",
+    "title": "Hoe dien ik een klacht in?",
+    "summary": "Mail klachten@wasfix.nl. Reactie binnen 7 werkdagen, oplossing binnen 30 dagen.",
+    "content": "Niet tevreden? We willen het oplossen.\n\n**Direct contact:**\n- E-mail: klachten@wasfix.nl (reactie binnen 24u op werkdagen)\n- Telefoon: 020 123 45 67 (ma-vr 9:00-17:30)\n- [Contact-formulier](/contact?onderwerp=klacht)\n\n**Onze procedure:**\n1. Bevestiging binnen 2 werkdagen\n2. Voorstel-oplossing binnen 14 dagen\n3. Bij complexe klachten: maximaal 30 dagen, met tussentijdse update\n\n**Niet tevreden met onze oplossing?**\nWe zijn aangesloten bij Stichting WebwinkelKeur en het EU ODR-platform. Hun bemiddeling is voor ons bindend.\n\n- [WebwinkelKeur klacht indienen](https://www.webwinkelkeur.nl/klacht-indienen/)\n- [EU ODR-platform](https://ec.europa.eu/consumers/odr)\n\n**AVG-klacht?**\nMail privacy@wasfix.nl of wend je tot de Autoriteit Persoonsgegevens.\n\nVolledige procedure: [klachten](/klachten)."
+  },
+  {
+    "slug": "is-mijn-data-veilig",
+    "category": "Privacy",
+    "title": "Is mijn data veilig bij WasFix Pro?",
+    "summary": "AVG-compliant, EU-hosting, AES-256 encryptie. We verkopen nooit data.",
+    "content": "Jouw privacy is belangrijk. Onze maatregelen:\n\n**Hosting & versleuteling:**\n- Hosting in EU (Frankfurt — Vercel + Supabase)\n- HTTPS/TLS 1.3 op alle verbindingen\n- Database-encryptie at-rest (AES-256)\n- Wachtwoorden gehashed met bcrypt (rounds=12)\n\n**Wat slaan we minimaal op:**\n- Account: naam, e-mail (verplicht voor inloggen)\n- Bestellingen: adres, factuur (wettelijk 7 jaar bewaarplicht)\n- Diagnoses: 12 maanden gekoppeld aan account, daarna geanonimiseerd\n- Server-logs: 90 dagen, IP-adres geanonimiseerd na 7 dagen\n\n**Wat we NOOIT doen:**\n- Persoonsgegevens verkopen aan derden\n- Tracking-cookies zonder toestemming\n- Marketing zonder opt-in\n- Profielen opbouwen voor advertenties\n\n**Jouw rechten (AVG):**\n- Inzage: vraag een data-export aan via privacy@wasfix.nl\n- Correctie / verwijdering / dataportabiliteit\n- Toestemming intrekken\n- Klacht bij Autoriteit Persoonsgegevens\n\nVolledig: [privacybeleid](/privacy)."
+  }
+]

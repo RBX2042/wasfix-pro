@@ -1,0 +1,8 @@
+.next
+.vercel
+node_modules
+prisma/migrations
+src/data
+public
+*.lock
+package-lock.json

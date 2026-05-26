@@ -84,7 +84,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   // Programmatic SEO: per-brand commercial-intent pages
   const brandRepairPages = (brandsData as Array<{ slug: string }>).map((b) => ({
-    url: `${baseUrl}/${b.slug}`,
+    url: `${baseUrl}/${b.slug}-wasmachine-reparatie`,
     lastModified: now,
     changeFrequency: "weekly" as const,
     priority: 0.75,

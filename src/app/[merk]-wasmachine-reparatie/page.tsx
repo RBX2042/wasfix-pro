@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: { params: Promise<{ merk: str
   return {
     title: `${brand.brand} wasmachine reparatie — AI-diagnose + onderdelen · WasFix Pro`,
     description: `${brand.brand} wasmachine kapot of foutcode? Gratis AI-diagnose in 60s. ${brand.tagline}. Originele onderdelen voor 22:00 besteld = morgen in huis.`,
-    alternates: { canonical: `/${brand.slug}` },
+    alternates: { canonical: `/${brand.slug}-wasmachine-reparatie` },
     openGraph: {
       title: `${brand.brand} wasmachine reparatie`,
       description: brand.tagline,

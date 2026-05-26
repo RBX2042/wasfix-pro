@@ -1,0 +1,115 @@
+{
+  "common": {
+    "brand": "WasFix Pro",
+    "tagline": "Diagnostic IA en 60 secondes",
+    "ctaPrimary": "Démarrer le diagnostic gratuit",
+    "ctaSecondary": "Voir la démo",
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "retry": "Réessayer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "next": "Suivant",
+    "previous": "Précédent",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "menu": "Menu",
+    "back": "Retour",
+    "home": "Accueil"
+  },
+  "nav": {
+    "diagnose": "Diagnostic IA",
+    "errorCodes": "Codes erreur",
+    "parts": "Pièces détachées",
+    "guides": "Guides",
+    "brands": "Marques",
+    "pricing": "Tarifs",
+    "forTechnicians": "Pour les techniciens",
+    "blog": "Blog",
+    "login": "Connexion",
+    "register": "Inscription",
+    "cart": "Panier",
+    "dashboard": "Tableau de bord"
+  },
+  "hero": {
+    "title": "Machine à laver en panne ? Nous savons ce qui ne va vraiment pas.",
+    "subtitle": "Diagnostic IA en 60 secondes. La bonne pièce. Réparation pas à pas. Sans frais de déplacement.",
+    "ctaPrimary": "Démarrer le diagnostic gratuit",
+    "ctaSecondary": "Voir comment ça marche",
+    "trustBadge1": "3.420+ modèles",
+    "trustBadge2": "Propulsé par Gemini",
+    "trustBadge3": "EU Right to Repair"
+  },
+  "diagnose": {
+    "title": "Diagnostic IA pour votre lave-linge",
+    "subtitle": "Décrivez votre problème, collez un code erreur, ou téléchargez une photo de l'écran. Notre IA vous dit ce qui ne va pas.",
+    "placeholderEmpty": "Ex. Bosch E18 — l'eau reste dans le tambour...",
+    "placeholderFollowup": "Posez une question complémentaire...",
+    "quickStart": "Démarrage rapide",
+    "thinking": "L'IA analyse votre problème...",
+    "reset": "Réinitialiser",
+    "send": "Envoyer",
+    "addToCart": "Ajouter au panier"
+  },
+  "cart": {
+    "title": "Panier",
+    "empty": "Votre panier est vide",
+    "continue": "Continuer les achats",
+    "checkout": "Passer la commande",
+    "subtotal": "Sous-total",
+    "shipping": "Livraison",
+    "free": "Gratuite",
+    "discount": "Réduction",
+    "total": "Total",
+    "added": "Ajouté au panier"
+  },
+  "checkout": {
+    "title": "Commander",
+    "step1": "Coordonnées",
+    "step2": "Livraison",
+    "step3": "Paiement",
+    "name": "Nom complet",
+    "email": "Adresse e-mail",
+    "phone": "Téléphone (optionnel)",
+    "address": "Rue + numéro",
+    "postcode": "Code postal",
+    "city": "Ville",
+    "country": "Pays",
+    "payNow": "Payer maintenant",
+    "agreeTerms": "J'accepte les conditions et la politique de confidentialité"
+  },
+  "footer": {
+    "product": "Produit",
+    "company": "Entreprise",
+    "support": "Support",
+    "legal": "Mentions légales",
+    "topErrorCodes": "Top codes erreur",
+    "popularParts": "Pièces populaires",
+    "newsletter": {
+      "title": "Newsletter hebdomadaire",
+      "subtitle": "Codes erreur tendance, nouveaux guides, conseils durables. Pas de spam.",
+      "placeholder": "vous@email.fr",
+      "submit": "S'abonner"
+    }
+  },
+  "cookies": {
+    "title": "Cookies & confidentialité",
+    "description": "Nous utilisons des cookies essentiels pour faire fonctionner le site. Analytics nous aide à améliorer.",
+    "acceptAll": "Tout accepter",
+    "rejectAll": "Fonctionnels uniquement",
+    "customize": "Personnaliser",
+    "save": "Enregistrer ma sélection",
+    "functional": "Fonctionnels (toujours actifs) — Connexion, panier, préférences.",
+    "analytics": "Analytics — Données de pages vues anonymisées.",
+    "marketing": "Marketing — Cookies de reciblage. Désactivés par défaut."
+  },
+  "errors": {
+    "notFound": "Page non trouvée",
+    "notFoundBody": "Cette page n'existe pas ou a été déplacée.",
+    "serverError": "Une erreur s'est produite",
+    "serverErrorBody": "Nous avons enregistré une erreur interne. Veuillez recharger la page.",
+    "backHome": "Retour à l'accueil"
+  }
+}

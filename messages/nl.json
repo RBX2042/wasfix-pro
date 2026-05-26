@@ -1,0 +1,115 @@
+{
+  "common": {
+    "brand": "WasFix Pro",
+    "tagline": "AI-diagnose in 60 seconden",
+    "ctaPrimary": "Start gratis diagnose",
+    "ctaSecondary": "Bekijk demo",
+    "loading": "Laden...",
+    "error": "Er ging iets mis",
+    "retry": "Opnieuw proberen",
+    "save": "Opslaan",
+    "cancel": "Annuleren",
+    "delete": "Verwijderen",
+    "edit": "Bewerken",
+    "next": "Volgende",
+    "previous": "Vorige",
+    "close": "Sluiten",
+    "search": "Zoeken",
+    "menu": "Menu",
+    "back": "Terug",
+    "home": "Home"
+  },
+  "nav": {
+    "diagnose": "AI Diagnose",
+    "errorCodes": "Foutcodes",
+    "parts": "Onderdelen",
+    "guides": "Gidsen",
+    "brands": "Merken",
+    "pricing": "Prijzen",
+    "forTechnicians": "Voor monteurs",
+    "blog": "Blog",
+    "login": "Inloggen",
+    "register": "Registreren",
+    "cart": "Winkelmand",
+    "dashboard": "Dashboard"
+  },
+  "hero": {
+    "title": "Wasmachine kapot? Wij weten wat er echt mis is.",
+    "subtitle": "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie. Geen voorrijkosten.",
+    "ctaPrimary": "Start gratis diagnose",
+    "ctaSecondary": "Bekijk hoe het werkt",
+    "trustBadge1": "3.420+ modellen",
+    "trustBadge2": "Powered by Gemini",
+    "trustBadge3": "EU Right to Repair"
+  },
+  "diagnose": {
+    "title": "AI diagnose voor je wasmachine",
+    "subtitle": "Beschrijf je probleem, plak een foutcode, of upload een foto van het display. Onze AI vertelt je wat er mis is.",
+    "placeholderEmpty": "Bv. Bosch E18 — water staat in de trommel...",
+    "placeholderFollowup": "Stel een vervolgvraag...",
+    "quickStart": "Snel starten",
+    "thinking": "AI analyseert je probleem...",
+    "reset": "Reset",
+    "send": "Verstuur",
+    "addToCart": "Toevoegen aan winkelmand"
+  },
+  "cart": {
+    "title": "Winkelmand",
+    "empty": "Je winkelmand is leeg",
+    "continue": "Verder winkelen",
+    "checkout": "Naar afrekenen",
+    "subtotal": "Subtotaal",
+    "shipping": "Verzending",
+    "free": "Gratis",
+    "discount": "Korting",
+    "total": "Totaal",
+    "added": "Toegevoegd aan winkelmand"
+  },
+  "checkout": {
+    "title": "Afrekenen",
+    "step1": "Gegevens",
+    "step2": "Verzending",
+    "step3": "Betaling",
+    "name": "Volledige naam",
+    "email": "E-mailadres",
+    "phone": "Telefoonnummer (optioneel)",
+    "address": "Straat + huisnummer",
+    "postcode": "Postcode",
+    "city": "Plaats",
+    "country": "Land",
+    "payNow": "Betaal nu",
+    "agreeTerms": "Ik ga akkoord met de algemene voorwaarden en privacy policy"
+  },
+  "footer": {
+    "product": "Product",
+    "company": "Bedrijf",
+    "support": "Support",
+    "legal": "Juridisch",
+    "topErrorCodes": "Top foutcodes",
+    "popularParts": "Populaire onderdelen",
+    "newsletter": {
+      "title": "Wekelijkse nieuwsbrief",
+      "subtitle": "Trending foutcodes, nieuwe gidsen, duurzame tips. Geen spam.",
+      "placeholder": "je@email.nl",
+      "submit": "Abonneer"
+    }
+  },
+  "cookies": {
+    "title": "Cookies & privacy",
+    "description": "We gebruiken essentiële cookies om de site te laten werken. Analytics helpt ons de site te verbeteren.",
+    "acceptAll": "Alles accepteren",
+    "rejectAll": "Alleen functioneel",
+    "customize": "Aanpassen",
+    "save": "Mijn keuze opslaan",
+    "functional": "Functioneel (altijd aan) — Inloggen, winkelmand, voorkeuren.",
+    "analytics": "Analytics — Geanonimiseerd page-view-data.",
+    "marketing": "Marketing — Cookies voor retargeting. Standaard uit."
+  },
+  "errors": {
+    "notFound": "Pagina niet gevonden",
+    "notFoundBody": "Deze pagina bestaat niet of is verplaatst.",
+    "serverError": "Er ging iets mis",
+    "serverErrorBody": "We hebben een interne fout gelogd. Probeer de pagina opnieuw te laden.",
+    "backHome": "Terug naar home"
+  }
+}

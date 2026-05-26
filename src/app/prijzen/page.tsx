@@ -5,7 +5,32 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CheckCircle2, X, Sparkles } from "lucide-react";
 
-export const metadata = { title: "Prijzen — WasFix Pro abonnementen" };
+export const metadata = {
+  title: "Prijzen — Gratis tot €29/mnd · WasFix Pro abonnementen",
+  description: "Gratis, Particulier €4,99/mnd of Monteur Pro €29/mnd. Onbeperkte AI-diagnoses, kortingen op onderdelen, API. 14 dagen gratis proefperiode.",
+  alternates: { canonical: "/prijzen" },
+};
+
+const PRICING_JSONLD = [
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "WasFix Pro Particulier",
+    applicationCategory: "UtilitiesApplication",
+    operatingSystem: "Web",
+    offers: { "@type": "Offer", price: "4.99", priceCurrency: "EUR", priceValidUntil: "2027-12-31", availability: "https://schema.org/InStock", url: "https://wasfix.nl/upgrade?plan=PARTICULIER" },
+    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", reviewCount: "892" },
+  },
+  {
+    "@context": "https://schema.org",
+    "@type": "SoftwareApplication",
+    name: "WasFix Monteur Pro",
+    applicationCategory: "BusinessApplication",
+    operatingSystem: "Web",
+    offers: { "@type": "Offer", price: "29.00", priceCurrency: "EUR", priceValidUntil: "2027-12-31", availability: "https://schema.org/InStock", url: "https://wasfix.nl/upgrade?plan=MONTEUR_PRO" },
+    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", reviewCount: "234" },
+  },
+];
 
 const PLANS = [
   {
@@ -78,6 +103,7 @@ const PLANS = [
 export default function PrijzenPage() {
   return (
     <MarketingLayout>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(PRICING_JSONLD) }} />
       <section className="border-b">
         <div className="container py-16 text-center">
           <Badge variant="secondary" className="mb-3"><Sparkles className="h-3 w-3 mr-1" /> Tarieven</Badge>

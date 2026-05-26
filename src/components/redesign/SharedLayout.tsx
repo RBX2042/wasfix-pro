@@ -149,13 +149,79 @@ export function WasFixFooter() {
             <div className="foot-l">
               <Link href="/help">Helpcentrum</Link>
               <Link href="/contact">Contact</Link>
+              <Link href="/garantie">Garantie</Link>
+              <Link href="/retour/start">Retour starten</Link>
+              <Link href="/klachten">Klachten</Link>
+              <Link href="/voor-monteurs">Voor monteurs</Link>
+            </div>
+          </div>
+          <div>
+            <div className="foot-h">Juridisch</div>
+            <div className="foot-l">
               <Link href="/privacy">Privacy</Link>
               <Link href="/voorwaarden">Voorwaarden</Link>
+              <Link href="/cookies">Cookies</Link>
+              <Link href="/disclaimer">DIY Disclaimer</Link>
+              <Link href="/retourvoorwaarden">Retourvoorwaarden</Link>
             </div>
           </div>
         </div>
-        <div className="foot-bottom">
-          <div>© 2026 WasFix Pro. Made with care in The Netherlands.</div>
+
+        {/* Top foutcodes — sterke interne linking voor SEO */}
+        <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+          <div className="foot-h" style={{ marginBottom: 12 }}>Top foutcodes</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[
+              { brand: "Bosch", codes: ["E18", "E17", "F21", "F23", "F43", "F63"] },
+              { brand: "Miele", codes: ["F11", "F19", "F36", "F53", "F101"] },
+              { brand: "Samsung", codes: ["OE", "dC", "HE", "5E", "4E"] },
+              { brand: "LG", codes: ["UE", "DE", "HE", "OE", "LE"] },
+              { brand: "AEG", codes: ["E20", "E40", "E61", "EHO"] },
+            ].map(({ brand, codes }) =>
+              codes.map((code) => (
+                <Link
+                  key={`${brand}-${code}`}
+                  href={`/foutcodes/${encodeURIComponent(brand)}-${encodeURIComponent(code)}`}
+                  className="pill pill-mono"
+                  style={{ fontSize: 11, padding: "4px 9px", textDecoration: "none" }}
+                >
+                  {brand} <b style={{ color: "var(--acc-2)" }}>{code}</b>
+                </Link>
+              )),
+            )}
+          </div>
+        </div>
+
+        {/* Top onderdelen */}
+        <div style={{ marginTop: 18 }}>
+          <div className="foot-h" style={{ marginBottom: 12 }}>Populaire onderdelen</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {[
+              { sku: "WF-PUMP-04", label: "Samsung afvoerpomp" },
+              { sku: "WF-FILTER-09", label: "Pluizenfilter" },
+              { sku: "WF-HEAT-03", label: "Verwarmingselement 1800W" },
+              { sku: "WF-BEAR-03", label: "Trommellager 6205" },
+              { sku: "WF-BELT-06", label: "V-snaar 1196 J5" },
+              { sku: "WF-LOCK-09", label: "Deurslot Bosch ZV-446" },
+              { sku: "WF-NTC-15", label: "NTC sensor Bosch" },
+              { sku: "WF-DOOR-04", label: "Deurpakking Bosch S6" },
+              { sku: "WF-DAMP-16", label: "Schokdempers Bosch" },
+              { sku: "WF-VALVE-08", label: "Magneetventiel" },
+            ].map((p) => (
+              <Link
+                key={p.sku}
+                href={`/onderdelen/${p.sku}`}
+                className="pill"
+                style={{ fontSize: 11.5, padding: "4px 10px", textDecoration: "none" }}
+              >
+                {p.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="foot-bottom" style={{ marginTop: 32 }}>
+          <div>© 2026 WasFix Pro B.V. · KvK 12345678 · Made with care in The Netherlands.</div>
           <div className="mono" style={{ fontSize: 11.5 }}>Gemini 2.0 · Geist</div>
         </div>
       </div>

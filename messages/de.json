@@ -1,0 +1,115 @@
+{
+  "common": {
+    "brand": "WasFix Pro",
+    "tagline": "KI-Diagnose in 60 Sekunden",
+    "ctaPrimary": "Kostenlose Diagnose starten",
+    "ctaSecondary": "Demo ansehen",
+    "loading": "Lädt...",
+    "error": "Etwas ist schiefgelaufen",
+    "retry": "Erneut versuchen",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "delete": "Löschen",
+    "edit": "Bearbeiten",
+    "next": "Weiter",
+    "previous": "Zurück",
+    "close": "Schließen",
+    "search": "Suchen",
+    "menu": "Menü",
+    "back": "Zurück",
+    "home": "Startseite"
+  },
+  "nav": {
+    "diagnose": "KI Diagnose",
+    "errorCodes": "Fehlercodes",
+    "parts": "Ersatzteile",
+    "guides": "Anleitungen",
+    "brands": "Marken",
+    "pricing": "Preise",
+    "forTechnicians": "Für Techniker",
+    "blog": "Blog",
+    "login": "Anmelden",
+    "register": "Registrieren",
+    "cart": "Warenkorb",
+    "dashboard": "Dashboard"
+  },
+  "hero": {
+    "title": "Waschmaschine kaputt? Wir wissen, was wirklich los ist.",
+    "subtitle": "KI-Diagnose in 60 Sekunden. Das richtige Ersatzteil. Schritt-für-Schritt-Reparatur. Keine Anfahrtskosten.",
+    "ctaPrimary": "Kostenlose Diagnose starten",
+    "ctaSecondary": "So funktioniert's",
+    "trustBadge1": "3.420+ Modelle",
+    "trustBadge2": "Powered by Gemini",
+    "trustBadge3": "EU Right to Repair"
+  },
+  "diagnose": {
+    "title": "KI-Diagnose für Ihre Waschmaschine",
+    "subtitle": "Beschreiben Sie Ihr Problem, fügen Sie einen Fehlercode ein, oder laden Sie ein Foto vom Display hoch. Unsere KI sagt Ihnen, was kaputt ist.",
+    "placeholderEmpty": "z.B. Bosch E18 — Wasser bleibt in der Trommel...",
+    "placeholderFollowup": "Stellen Sie eine Folgefrage...",
+    "quickStart": "Schnellstart",
+    "thinking": "KI analysiert Ihr Problem...",
+    "reset": "Zurücksetzen",
+    "send": "Senden",
+    "addToCart": "In den Warenkorb"
+  },
+  "cart": {
+    "title": "Warenkorb",
+    "empty": "Ihr Warenkorb ist leer",
+    "continue": "Weiter einkaufen",
+    "checkout": "Zur Kasse",
+    "subtotal": "Zwischensumme",
+    "shipping": "Versand",
+    "free": "Kostenlos",
+    "discount": "Rabatt",
+    "total": "Gesamt",
+    "added": "In den Warenkorb gelegt"
+  },
+  "checkout": {
+    "title": "Kasse",
+    "step1": "Daten",
+    "step2": "Versand",
+    "step3": "Zahlung",
+    "name": "Vollständiger Name",
+    "email": "E-Mail-Adresse",
+    "phone": "Telefonnummer (optional)",
+    "address": "Straße + Hausnummer",
+    "postcode": "Postleitzahl",
+    "city": "Stadt",
+    "country": "Land",
+    "payNow": "Jetzt bezahlen",
+    "agreeTerms": "Ich stimme den AGB und der Datenschutzerklärung zu"
+  },
+  "footer": {
+    "product": "Produkt",
+    "company": "Unternehmen",
+    "support": "Support",
+    "legal": "Rechtliches",
+    "topErrorCodes": "Top Fehlercodes",
+    "popularParts": "Beliebte Ersatzteile",
+    "newsletter": {
+      "title": "Wöchentlicher Newsletter",
+      "subtitle": "Trending Fehlercodes, neue Anleitungen, Nachhaltigkeitstipps. Kein Spam.",
+      "placeholder": "ihre@email.de",
+      "submit": "Abonnieren"
+    }
+  },
+  "cookies": {
+    "title": "Cookies & Datenschutz",
+    "description": "Wir verwenden essenzielle Cookies, damit die Seite funktioniert. Analytics hilft uns, die Seite zu verbessern.",
+    "acceptAll": "Alle akzeptieren",
+    "rejectAll": "Nur funktional",
+    "customize": "Anpassen",
+    "save": "Auswahl speichern",
+    "functional": "Funktional (immer an) — Login, Warenkorb, Einstellungen.",
+    "analytics": "Analytics — Anonymisierte Seitenaufrufdaten.",
+    "marketing": "Marketing — Retargeting-Cookies. Standardmäßig aus."
+  },
+  "errors": {
+    "notFound": "Seite nicht gefunden",
+    "notFoundBody": "Diese Seite existiert nicht oder wurde verschoben.",
+    "serverError": "Etwas ist schiefgelaufen",
+    "serverErrorBody": "Wir haben einen internen Fehler protokolliert. Bitte laden Sie die Seite neu.",
+    "backHome": "Zurück zur Startseite"
+  }
+}

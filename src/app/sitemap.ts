@@ -7,6 +7,8 @@ import {
   guides as staticGuides,
 } from "@/lib/static-db";
 import helpArticles from "@/data/help-articles.json";
+import blogPosts from "@/data/blog-posts.json";
+import cities from "@/data/cities.json";
 
 export default function sitemap(): MetadataRoute.Sitemap {
   const baseUrl = env.APP_URL;
@@ -32,6 +34,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
     "/prijzen",
     "/monteur",
     "/help",
+    "/blog",
     "/contact",
     "/over",
     "/api-info",
@@ -54,6 +57,21 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   const helpPages = (helpArticles as Array<{ slug: string }>).map((a) => ({
     url: `${baseUrl}/help/${a.slug}`,
+    lastModified: now,
+    changeFrequency: "monthly" as const,
+    priority: 0.65,
+  }));
+
+  const blogPages = (blogPosts as Array<{ slug: string; publishedAt: string }>).map((p) => ({
+    url: `${baseUrl}/blog/${p.slug}`,
+    lastModified: new Date(p.publishedAt),
+    changeFrequency: "monthly" as const,
+    priority: 0.7,
+  }));
+
+  // Programmatic SEO: 50 NL city pages
+  const cityPages = (cities as Array<{ slug: string }>).map((c) => ({
+    url: `${baseUrl}/wasmachine-kapot/${c.slug}`,
     lastModified: now,
     changeFrequency: "monthly" as const,
     priority: 0.65,
@@ -95,5 +113,5 @@ export default function sitemap(): MetadataRoute.Sitemap {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...helpPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
+  return [...staticPages, ...helpPages, ...blogPages, ...cityPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
 }

@@ -6,6 +6,10 @@ import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
 import { CartProvider } from "@/components/cart-provider";
 import { CookieConsent } from "@/components/CookieConsent";
+import { ExitIntentModal } from "@/components/ExitIntentModal";
+import { ReferralTracker } from "@/components/ReferralTracker";
+import { PostHogProvider } from "@/components/PostHogProvider";
+import { MobileBottomNav } from "@/components/MobileBottomNav";
 import "./globals.css";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter", display: "swap" });
@@ -39,13 +43,18 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="nl" suppressHydrationWarning className={`${inter.variable} ${syne.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-          <CartProvider>
-            {children}
-            <Toaster richColors position="top-right" />
-          </CartProvider>
-        </ThemeProvider>
+        <PostHogProvider>
+          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+            <CartProvider>
+              {children}
+              <Toaster richColors position="top-right" />
+            </CartProvider>
+          </ThemeProvider>
+        </PostHogProvider>
         <CookieConsent />
+        <ExitIntentModal />
+        <ReferralTracker />
+        <MobileBottomNav />
         <Analytics />
         <SpeedInsights />
       </body>

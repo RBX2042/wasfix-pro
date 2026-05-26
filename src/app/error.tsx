@@ -1,29 +1,53 @@
 "use client";
-import { useEffect } from "react";
-import { Button } from "@/components/ui/button";
-import { AlertTriangle } from "lucide-react";
 
-export default function GlobalError({ error, reset }: { error: Error & { digest?: string }; reset: () => void }) {
-  useEffect(() => {
-     
-    console.error("[WasFix] Page-level error", error);
+import * as React from "react";
+import Link from "next/link";
+import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
+
+export default function GlobalError({
+  error,
+  reset,
+}: {
+  error: Error & { digest?: string };
+  reset: () => void;
+}) {
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      console.error("[WasFix error boundary]", error);
+    }
   }, [error]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-muted/30 p-6">
-      <div className="max-w-md text-center">
-        <AlertTriangle className="mx-auto h-12 w-12 text-destructive mb-4" />
-        <h1 className="font-heading text-2xl font-bold mb-2">Er is iets misgegaan</h1>
-        <p className="text-muted-foreground mb-6">
-          We hebben de fout gelogd en gaan deze onderzoeken. Probeer de pagina te vernieuwen.
-        </p>
-        <div className="flex justify-center gap-3">
-          <Button onClick={reset}>Opnieuw proberen</Button>
-          <Button variant="outline" onClick={() => (window.location.href = "/")}>
-            Naar homepage
-          </Button>
+    <WasFixShell>
+      <section className="section" style={{ paddingTop: 64 }}>
+        <div className="container" style={{ maxWidth: 720, textAlign: "center" }}>
+          <div className="mono" style={{ fontSize: 72, fontWeight: 200, lineHeight: 1, color: "var(--warn)", letterSpacing: "-0.05em", marginBottom: 8 }}>
+            500
+          </div>
+          <h1 className="h-display" style={{ fontSize: "clamp(28px, 4vw, 44px)", marginBottom: 14 }}>
+            Er ging iets <em>mis</em>
+          </h1>
+          <p className="lead" style={{ maxWidth: 480, margin: "0 auto 16px" }}>
+            We hebben een interne fout gelogd. Probeer de pagina opnieuw te laden — vaak helpt dat. Blijft het probleem, neem contact op met support.
+          </p>
+          {error.digest && (
+            <div className="mono" style={{ fontSize: 11, color: "var(--muted)", marginBottom: 28, letterSpacing: "0.04em" }}>
+              Foutcode: {error.digest}
+            </div>
+          )}
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center", marginBottom: 32 }}>
+            <button className="btn btn-primary" onClick={() => reset()}>
+              <Icon name="repeat" size={14} /> Probeer opnieuw
+            </button>
+            <Link className="btn" href="/">
+              Naar homepage
+            </Link>
+            <Link className="btn btn-ghost btn-sm" href="/contact">
+              Contact support
+            </Link>
+          </div>
         </div>
-      </div>
-    </div>
+      </section>
+    </WasFixShell>
   );
 }

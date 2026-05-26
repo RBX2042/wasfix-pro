@@ -1,0 +1,115 @@
+{
+  "common": {
+    "brand": "WasFix Pro",
+    "tagline": "AI diagnosis in 60 seconds",
+    "ctaPrimary": "Start free diagnosis",
+    "ctaSecondary": "Watch demo",
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "save": "Save",
+    "cancel": "Cancel",
+    "delete": "Delete",
+    "edit": "Edit",
+    "next": "Next",
+    "previous": "Previous",
+    "close": "Close",
+    "search": "Search",
+    "menu": "Menu",
+    "back": "Back",
+    "home": "Home"
+  },
+  "nav": {
+    "diagnose": "AI Diagnose",
+    "errorCodes": "Error codes",
+    "parts": "Parts",
+    "guides": "Guides",
+    "brands": "Brands",
+    "pricing": "Pricing",
+    "forTechnicians": "For technicians",
+    "blog": "Blog",
+    "login": "Log in",
+    "register": "Sign up",
+    "cart": "Cart",
+    "dashboard": "Dashboard"
+  },
+  "hero": {
+    "title": "Washing machine broken? We know what's really wrong.",
+    "subtitle": "AI diagnosis in 60 seconds. The right part. Step-by-step repair. No call-out fees.",
+    "ctaPrimary": "Start free diagnosis",
+    "ctaSecondary": "See how it works",
+    "trustBadge1": "3,420+ models",
+    "trustBadge2": "Powered by Gemini",
+    "trustBadge3": "EU Right to Repair"
+  },
+  "diagnose": {
+    "title": "AI diagnosis for your washing machine",
+    "subtitle": "Describe your problem, paste an error code, or upload a photo of the display. Our AI tells you what's wrong.",
+    "placeholderEmpty": "E.g. Bosch E18 — water remains in the drum...",
+    "placeholderFollowup": "Ask a follow-up question...",
+    "quickStart": "Quick start",
+    "thinking": "AI is analyzing your problem...",
+    "reset": "Reset",
+    "send": "Send",
+    "addToCart": "Add to cart"
+  },
+  "cart": {
+    "title": "Cart",
+    "empty": "Your cart is empty",
+    "continue": "Continue shopping",
+    "checkout": "Go to checkout",
+    "subtotal": "Subtotal",
+    "shipping": "Shipping",
+    "free": "Free",
+    "discount": "Discount",
+    "total": "Total",
+    "added": "Added to cart"
+  },
+  "checkout": {
+    "title": "Checkout",
+    "step1": "Details",
+    "step2": "Shipping",
+    "step3": "Payment",
+    "name": "Full name",
+    "email": "Email address",
+    "phone": "Phone number (optional)",
+    "address": "Street + house number",
+    "postcode": "Postal code",
+    "city": "City",
+    "country": "Country",
+    "payNow": "Pay now",
+    "agreeTerms": "I agree to the terms and privacy policy"
+  },
+  "footer": {
+    "product": "Product",
+    "company": "Company",
+    "support": "Support",
+    "legal": "Legal",
+    "topErrorCodes": "Top error codes",
+    "popularParts": "Popular parts",
+    "newsletter": {
+      "title": "Weekly newsletter",
+      "subtitle": "Trending error codes, new guides, sustainability tips. No spam.",
+      "placeholder": "you@email.com",
+      "submit": "Subscribe"
+    }
+  },
+  "cookies": {
+    "title": "Cookies & privacy",
+    "description": "We use essential cookies to make the site work. Analytics helps us improve.",
+    "acceptAll": "Accept all",
+    "rejectAll": "Functional only",
+    "customize": "Customize",
+    "save": "Save my choice",
+    "functional": "Functional (always on) — Login, cart, preferences.",
+    "analytics": "Analytics — Anonymized page-view data.",
+    "marketing": "Marketing — Retargeting cookies. Off by default."
+  },
+  "errors": {
+    "notFound": "Page not found",
+    "notFoundBody": "This page doesn't exist or has been moved.",
+    "serverError": "Something went wrong",
+    "serverErrorBody": "We've logged an internal error. Please try reloading the page.",
+    "backHome": "Back to home"
+  }
+}

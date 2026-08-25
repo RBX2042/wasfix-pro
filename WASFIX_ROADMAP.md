@@ -45,11 +45,20 @@ slice:
    bezoek — werkt, maar geen naam/KvK-invoerscherm).
 4. **Digitale werkbon**: start/stop-tijd, foto's, handtekening-capture —
    mobile-first (opdracht §7, §27). **Deels gedaan**: onderdelen/regels
-   toevoegen en monteur-notities werken al op de werkorder-detailpagina
-   (`/monteur/werkorders/[id]`). **Nog niet gedaan**: camera/foto-upload,
-   handtekening-capture, automatische PDF-werkbon.
+   toevoegen, monteur-notities en klant-handtekening (canvas signature
+   pad, opgeslagen als PNG data-URL, getest) werken al op
+   `/monteur/werkorders/[id]`. **Nog niet gedaan**: camera/foto-upload
+   (heeft file-storage nodig — geen `UploadThing`/Supabase Storage key
+   beschikbaar, zie `BLOCKED.md`), start/stop-tijdregistratie.
 5. **Facturatie**: `Invoice`/`InvoiceItem` gegenereerd vanuit een
-   afgeronde werkorder, PDF, e-mail via Resend. Niet gestart.
+   afgeronde werkorder. ✅ **Datalaag + view gedaan** —
+   `POST /api/work-orders/[id]/invoice` genereert een factuur uit de
+   regels + voorrijkosten (21% BTW, end-to-end geverifieerd inclusief
+   bedragen), zet de werkorder op INVOICED, weigert dubbel factureren.
+   `/monteur/facturen/[id]` is een print-vriendelijke read-only weergave
+   (Print/Bewaar-als-PDF via de browser). **Nog niet gedaan**: echte
+   PDF-generatie (library nodig) en e-mail naar de klant (RESEND_API_KEY
+   nodig) — bewust niet half gebouwd, zie `BLOCKED.md`.
 6. **Live Stripe-subscriptions**: echte producten/prijzen, webhook-sync
    naar een echte `Subscription`-tabel (vervangt de huidige losse
    `plan`-string). Niet gestart.

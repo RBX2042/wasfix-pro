@@ -13,7 +13,18 @@ function read(name: string): string | undefined {
   return value && value.trim().length > 0 ? value : undefined;
 }
 
-const isDemoMode = (process.env.DEMO_MODE ?? "true") === "true";
+const IS_PRODUCTION = process.env.NODE_ENV === "production";
+
+// Demo mode must be an explicit, conscious choice in production — never a
+// silent default. Outside production it defaults to "on" for local-dev
+// convenience (no keys needed to run `next dev`).
+//
+// This flag alone does NOT grant the auth bypass — see isDemoMode() in
+// demo-mode.ts, which additionally refuses to fall back to demo mode just
+// because CLERK_SECRET_KEY is missing while running in production.
+const isDemoMode = IS_PRODUCTION
+  ? process.env.DEMO_MODE === "true"
+  : (process.env.DEMO_MODE ?? "true") === "true";
 
 export const env = {
   DATABASE_URL: read("DATABASE_URL") ?? "file:./dev.db",
@@ -36,7 +47,7 @@ export const env = {
   RESEND_FROM_EMAIL: read("RESEND_FROM_EMAIL") ?? "WasFix Pro <noreply@wasfix.nl>",
 
   DEMO_MODE: isDemoMode,
-  IS_PRODUCTION: process.env.NODE_ENV === "production",
+  IS_PRODUCTION,
 } as const;
 
 export function assertEnv(name: keyof typeof env): string {

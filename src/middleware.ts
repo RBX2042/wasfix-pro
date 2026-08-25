@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { locales, defaultLocale, type Locale } from "@/i18n/config";
 import brandsData from "@/data/brands.json";
+import { isDemoMode } from "@/lib/demo-mode";
+import { logger } from "@/lib/logger";
 
-const isDemoMode = process.env.DEMO_MODE === "true" || !process.env.CLERK_SECRET_KEY;
 const FEATURE_I18N = process.env.NEXT_PUBLIC_FEATURE_I18N === "true";
 
 // Brand-page SEO URLs: /bosch-wasmachine-reparatie → /reparatie/bosch (rewrite, not redirect)
@@ -74,7 +75,7 @@ export default async function middleware(req: NextRequest) {
   }
 
   // ─── Auth gating ──────────────────────────────────────────────────
-  if (isDemoMode) return NextResponse.next();
+  if (isDemoMode()) return NextResponse.next();
 
   const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
   if (!isProtected) return NextResponse.next();
@@ -86,8 +87,15 @@ export default async function middleware(req: NextRequest) {
       if (matcher(request)) await auth.protect();
       return undefined;
     })(req);
-  } catch {
-    return NextResponse.next();
+  } catch (err) {
+    // Fail CLOSED on protected routes: if Clerk can't be initialized (bad
+    // keys, package error, ...), never let the request through to
+    // /admin, /dashboard, or /monteur/* — redirect to sign-in instead.
+    logger.error("Auth middleware failed to initialize on a protected route — denying access", err);
+    const url = req.nextUrl.clone();
+    url.pathname = "/inloggen";
+    url.search = "";
+    return NextResponse.redirect(url);
   }
 }
 

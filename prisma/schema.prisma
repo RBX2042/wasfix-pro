@@ -50,6 +50,7 @@ model Company {
   memberships Membership[]
   customers   Customer[]
   workOrders  WorkOrder[]
+  invoices    Invoice[]
 
   @@index([plan])
 }
@@ -87,6 +88,7 @@ model Customer {
   updatedAt   DateTime          @updatedAt
   machines    CustomerMachine[]
   workOrders  WorkOrder[]
+  invoices    Invoice[]
 
   @@index([companyId])
 }
@@ -134,6 +136,7 @@ model WorkOrder {
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
   items          WorkOrderItem[]
+  invoice        Invoice?
 
   @@index([companyId])
   @@index([customerId])
@@ -154,6 +157,43 @@ model WorkOrderItem {
 
   @@index([workOrderId])
   @@index([partId])
+}
+
+// Generated from a COMPLETED work order. No PDF/email yet (tracked as a
+// follow-up — needs a PDF lib + RESEND_API_KEY) but the data layer and a
+// print-friendly HTML view are real and usable today.
+model Invoice {
+  id          String        @id @default(cuid())
+  number      String        @unique
+  companyId   String
+  company     Company       @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId  String
+  customer    Customer      @relation(fields: [customerId], references: [id])
+  workOrderId String?       @unique
+  workOrder   WorkOrder?    @relation(fields: [workOrderId], references: [id])
+  status      String        @default("SENT") // SENT | PAID | CANCELLED
+  subtotalEur Float
+  vatEur      Float
+  totalEur    Float
+  issuedAt    DateTime      @default(now())
+  paidAt      DateTime?
+  items       InvoiceItem[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model InvoiceItem {
+  id          String  @id @default(cuid())
+  invoiceId   String
+  invoice     Invoice @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
+  description String
+  quantity    Int     @default(1)
+  unitPrice   Float   @default(0)
+  vatRate     Float   @default(0.21)
+
+  @@index([invoiceId])
 }
 
 model WashingMachine {

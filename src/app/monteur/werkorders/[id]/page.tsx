@@ -11,6 +11,8 @@ import Link from "next/link";
 import { ArrowLeft, Phone, Mail, MapPin, Wrench } from "lucide-react";
 import { WorkOrderActions } from "./work-order-actions";
 import { AddItemForm } from "./add-item-form";
+import { SignaturePad } from "./signature-pad";
+import { GenerateInvoiceButton } from "./generate-invoice-button";
 
 export const dynamic = "force-dynamic";
 
@@ -31,6 +33,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
       machine: true,
       items: { include: { part: true } },
       technician: { select: { name: true, email: true } },
+      invoice: true,
     },
   });
 
@@ -39,6 +42,7 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
   const itemsTotal = workOrder.items.reduce((sum, item) => sum + item.unitPrice * item.quantity, 0);
   const total = itemsTotal + workOrder.calloutFeeEur;
   const status = workOrder.status as WorkOrderStatus;
+  const canShowSignature = !["NEW", "PRE_DIAGNOSIS", "SCHEDULED", "ON_THE_WAY"].includes(status);
 
   return (
     <DashboardLayout role={user.role}>
@@ -94,6 +98,34 @@ export default async function WorkOrderDetailPage({ params }: { params: Promise<
               <AddItemForm workOrderId={workOrder.id} />
             </CardContent>
           </Card>
+
+          {canShowSignature && (
+            <SignaturePad workOrderId={workOrder.id} existingSignatureUrl={workOrder.signatureUrl} />
+          )}
+
+          {status === "COMPLETED" && !workOrder.invoice && (
+            <Card>
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <h2 className="font-heading font-semibold">Klaar om te factureren</h2>
+                  <p className="text-sm text-muted-foreground">Genereert een factuur van {formatEur(total)} op basis van de regels hierboven.</p>
+                </div>
+                <GenerateInvoiceButton workOrderId={workOrder.id} />
+              </CardContent>
+            </Card>
+          )}
+
+          {workOrder.invoice && (
+            <Card>
+              <CardContent className="p-5 flex items-center justify-between">
+                <div>
+                  <h2 className="font-heading font-semibold">Factuur {workOrder.invoice.number}</h2>
+                  <p className="text-sm text-muted-foreground">{formatEur(workOrder.invoice.totalEur)} — {WORK_ORDER_STATUS_LABELS[status] ?? status}</p>
+                </div>
+                <Link href={`/monteur/facturen/${workOrder.invoice.id}`} className="text-sm text-primary hover:underline">Bekijk factuur →</Link>
+              </CardContent>
+            </Card>
+          )}
         </div>
 
         <div className="space-y-4">

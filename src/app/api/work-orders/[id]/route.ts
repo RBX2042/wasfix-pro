@@ -36,6 +36,10 @@ const PatchSchema = z.object({
   laborHours: z.number().min(0).max(100).optional(),
   calloutFeeEur: z.number().min(0).max(1000).optional(),
   scheduledAt: z.string().datetime().optional(),
+  // A signature-pad PNG data URL. Capped well above what a typical
+  // signature trace produces, to stop someone stuffing arbitrary blobs
+  // into a text column via this field.
+  signatureUrl: z.string().startsWith("data:image/png;base64,").max(200_000).optional(),
 });
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
@@ -53,7 +57,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
   const parsed = PatchSchema.safeParse(body);
   if (!parsed.success) return apiError("Ongeldige gegevens", 400, parsed.error.flatten());
 
-  const { status, technicianNote, aiDiagnosis, laborHours, calloutFeeEur, scheduledAt } = parsed.data;
+  const { status, technicianNote, aiDiagnosis, laborHours, calloutFeeEur, scheduledAt, signatureUrl } = parsed.data;
 
   if (status !== undefined) {
     if (!isWorkOrderStatus(status)) return apiError("Ongeldige status", 400);
@@ -71,6 +75,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
       ...(laborHours !== undefined ? { laborHours } : {}),
       ...(calloutFeeEur !== undefined ? { calloutFeeEur } : {}),
       ...(scheduledAt !== undefined ? { scheduledAt: new Date(scheduledAt) } : {}),
+      ...(signatureUrl !== undefined ? { signatureUrl } : {}),
     },
     include: { customer: true, machine: true, items: { include: { part: true } } },
   });

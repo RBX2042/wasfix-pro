@@ -46,3 +46,16 @@ export async function nextWorkOrderNumber(companyId: string): Promise<string> {
   });
   return `WO-${year}-${String(count + 1).padStart(4, "0")}`;
 }
+
+/** Generates the next sequential invoice number for a company, e.g. F-2026-0001. */
+export async function nextInvoiceNumber(companyId: string): Promise<string> {
+  const year = new Date().getFullYear();
+  const count = await prisma.invoice.count({
+    where: { companyId, number: { startsWith: `F-${year}-` } },
+  });
+  return `F-${year}-${String(count + 1).padStart(4, "0")}`;
+}
+
+// Standard NL VAT rate for repair labor/parts. Not configurable yet —
+// tracked in WASFIX_ROADMAP.md P2 (admin-configurable pricing).
+export const NL_VAT_RATE = 0.21;

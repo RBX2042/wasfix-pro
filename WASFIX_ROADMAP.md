@@ -73,7 +73,11 @@ slice:
 
 ## P2 — belangrijke verbetering
 
-- Planning (dag/week/maand, drag&drop, opdracht §8).
+- Planning. ✅ **Weekweergave gedaan** — `/monteur/planning` toont een
+  Monday-start weekoverzicht van company-gescoopte werkorders +
+  een "niet ingepland"-sectie, met inline inplannen/verplaatsen
+  (getest tegen een lokale Postgres). **Nog niet gedaan**: dag/maand-
+  weergave, drag&drop (nu: datetime-picker per kaart), reistijd/route.
 - Rate limiter naar Upstash Redis (multi-instance correct).
 - `ApiKey`/`ApiUsage`-tabellen + self-service key-issuance (het huidige
   API-platform is een facade, zie `WASFIX_SECURITY.md` §2.4).

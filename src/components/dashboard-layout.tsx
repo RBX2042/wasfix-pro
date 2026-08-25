@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "./site-header";
-import { Home, MessageCircle, Package, Wrench, User, Settings, Shield } from "lucide-react";
+import { Home, MessageCircle, Package, Wrench, User, Settings, Shield, Users, ClipboardList, CalendarDays } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Overzicht", icon: Home },
@@ -11,7 +11,10 @@ const NAV = [
 ];
 
 const PRO_NAV = [
-  { href: "/monteur", label: "Monteur dashboard", icon: Settings },
+  { href: "/monteur/dashboard", label: "Monteur dashboard", icon: Settings },
+  { href: "/monteur/klanten", label: "Klanten", icon: Users },
+  { href: "/monteur/werkorders", label: "Werkorders", icon: ClipboardList },
+  { href: "/monteur/planning", label: "Planning", icon: CalendarDays },
 ];
 
 const ADMIN_NAV = [
@@ -35,7 +38,7 @@ export function DashboardLayout({ children, role = "CONSUMER" }: { children: Rea
                 {item.label}
               </Link>
             ))}
-            {(role === "TECHNICIAN" || role === "ADMIN") && (
+            {(role === "TECHNICIAN" || role === "BUSINESS" || role === "ADMIN") && (
               <>
                 <div className="h-px bg-border my-2" />
                 {PRO_NAV.map((item) => (

@@ -164,11 +164,15 @@ export async function POST(req: NextRequest) {
 
         return apiSuccess({ checkoutUrl: session.url, orderId });
       } catch (stripeErr) {
-        logger.warn("Stripe session create failed — falling back to demo confirmation", stripeErr);
+        // SECURITY: Stripe IS configured — this is a real checkout attempt,
+        // not a demo. A failure here must be a hard error, never a silent
+        // "order placed" response, or customers get free "paid" orders.
+        logger.error("Stripe session create failed on a live checkout attempt", stripeErr);
+        return apiError("Betaling kon niet worden gestart. Probeer het opnieuw of neem contact op.", 502);
       }
     }
 
-    // Demo mode (or Stripe not configured) — mark as paid + deduct stock atomically
+    // Stripe not configured at all (demo/investor deploy) — mark as paid + deduct stock atomically
     if (!demoMode) {
       try {
         await prisma.$transaction(async (tx) => {

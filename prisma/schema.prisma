@@ -23,9 +23,137 @@ model User {
   diagnoses        Diagnosis[]
   orders           Order[]
   savedMachines    SavedMachine[]
+  memberships      Membership[]
+  assignedOrders   WorkOrder[]    @relation("WorkOrderTechnician")
 
   @@index([role])
   @@index([plan])
+}
+
+// ─── Monteur SaaS: multi-tenant foundation ──────────────────────────────
+// A Company is a repair business (solo technician or team). Every monteur
+// user belongs to a Company via a Membership, and all CRM/work-order data
+// is scoped to a companyId to keep tenants isolated from each other.
+model Company {
+  id          String       @id @default(cuid())
+  name        String
+  kvkNumber   String?
+  vatNumber   String?
+  email       String?
+  phone       String?
+  addressLine String?
+  postalCode  String?
+  city        String?
+  plan        String       @default("MONTEUR_SOLO")
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  memberships Membership[]
+  customers   Customer[]
+  workOrders  WorkOrder[]
+
+  @@index([plan])
+}
+
+// Links a User to a Company with a role scoped to that company (distinct
+// from User.role, which is the platform-wide role used for admin access).
+model Membership {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  role      String   @default("OWNER") // OWNER | ADMIN | TECHNICIAN
+  createdAt DateTime @default(now())
+
+  @@unique([userId, companyId])
+  @@index([companyId])
+  @@index([userId])
+}
+
+// A monteur's customer — distinct from the consumer-facing User account.
+// A customer does not need a WasFix login.
+model Customer {
+  id          String            @id @default(cuid())
+  companyId   String
+  company     Company           @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  name        String
+  email       String?
+  phone       String?
+  addressLine String?
+  postalCode  String?
+  city        String?
+  notes       String?
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+  machines    CustomerMachine[]
+  workOrders  WorkOrder[]
+
+  @@index([companyId])
+}
+
+// A physical appliance owned by a customer — distinct from the catalog
+// WashingMachine model above, which describes a make/model in general.
+model CustomerMachine {
+  id            String      @id @default(cuid())
+  customerId    String
+  customer      Customer    @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  brand         String
+  model         String
+  serialNumber  String?
+  purchaseDate  DateTime?
+  warrantyUntil DateTime?
+  notes         String?
+  createdAt     DateTime    @default(now())
+  workOrders    WorkOrder[]
+
+  @@index([customerId])
+}
+
+// Status flow: NEW -> PRE_DIAGNOSIS -> SCHEDULED -> ON_THE_WAY ->
+// IN_PROGRESS -> WAITING_FOR_PART -> COMPLETED -> INVOICED -> PAID ->
+// WARRANTY, with CANCELLED reachable from any non-terminal state.
+model WorkOrder {
+  id             String           @id @default(cuid())
+  number         String           @unique
+  companyId      String
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  customerId     String
+  customer       Customer         @relation(fields: [customerId], references: [id])
+  machineId      String?
+  machine        CustomerMachine? @relation(fields: [machineId], references: [id])
+  technicianId   String?
+  technician     User?            @relation("WorkOrderTechnician", fields: [technicianId], references: [id])
+  complaint      String
+  aiDiagnosis    String?
+  technicianNote String?
+  status         String           @default("NEW")
+  scheduledAt    DateTime?
+  calloutFeeEur  Float            @default(0)
+  laborHours     Float?
+  signatureUrl   String?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  items          WorkOrderItem[]
+
+  @@index([companyId])
+  @@index([customerId])
+  @@index([technicianId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model WorkOrderItem {
+  id          String    @id @default(cuid())
+  workOrderId String
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  partId      String?
+  part        Part?     @relation(fields: [partId], references: [id])
+  description String
+  quantity    Int       @default(1)
+  unitPrice   Float     @default(0)
+
+  @@index([workOrderId])
+  @@index([partId])
 }
 
 model WashingMachine {
@@ -100,21 +228,22 @@ model RepairGuide {
 }
 
 model Part {
-  id          String           @id @default(cuid())
-  sku         String           @unique
-  name        String
-  description String?
-  brand       String
-  category    String           @default("OTHER")
-  priceEur    Float
-  stock       Int              @default(0)
-  imageUrl    String?
-  isOriginal  Boolean          @default(true)
-  supplier    String?
-  machines    PartMachine[]
-  errorCodes  ErrorCodeParts[]
-  guides      GuideParts[]
-  orderItems  OrderItem[]
+  id             String           @id @default(cuid())
+  sku            String           @unique
+  name           String
+  description    String?
+  brand          String
+  category       String           @default("OTHER")
+  priceEur       Float
+  stock          Int              @default(0)
+  imageUrl       String?
+  isOriginal     Boolean          @default(true)
+  supplier       String?
+  machines       PartMachine[]
+  errorCodes     ErrorCodeParts[]
+  guides         GuideParts[]
+  orderItems     OrderItem[]
+  workOrderItems WorkOrderItem[]
 
   @@index([brand])
   @@index([category])
@@ -197,10 +326,10 @@ model Order {
 }
 
 model StripeEvent {
-  id              String   @id @default(cuid())
-  stripeEventId   String   @unique
-  type            String
-  processedAt     DateTime @default(now())
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
 
   @@index([type])
 }

@@ -16,9 +16,8 @@ Per feature, wanneer gebouwd: 1) database → 2) backend → 3) API →
 | # | Item | Status |
 |---|---|---|
 | P0.1 | Auth-bypass / privilege-escalation via impliciete demo-mode | **Fixed in deze PR** — zie `WASFIX_SECURITY.md` §1 |
-| P0.2 | Checkout markeert orders als `PAID` bij Stripe-fout/ontbrekende key | Gedocumenteerd, **niet** in deze PR gefixt — vereist een productbeslissing (harde foutmelding tonen aan klant i.p.v. stille demo-succes) die eerst met de eigenaar afgestemd moet worden, want het raakt de huidige investor-demo-flow. Voorstel: alleen hard falen wanneer `NODE_ENV=production` én `DEMO_MODE=false`. |
+| P0.2 | Checkout markeert orders als `PAID` bij Stripe-fout | **Fixed** — een Stripe-sessie-aanmaakfout geeft nu een harde 502 i.p.v. een stille demo-succes-fallback. De fallback blijft alleen actief wanneer Stripe helemaal niet geconfigureerd is (`!stripe`), niet meer wanneer een geconfigureerde Stripe-call daadwerkelijk faalt. |
 | P0.3 | `DEMO_MODE=true` blijft aan in productie zolang er geen echte klantdata in de DB staat | **Actie voor mens, niet voor code** — moet uit vóór `DATABASE_URL` echt wordt ingevuld. Zie `BLOCKED.md`. |
-| P0.4 | Checkout hard blokkeren wanneer Stripe niet productie-klaar is | Volgt op P0.2, zelfde afweging |
 
 ## P1 — core product / directe omzet (volgende sessies, één voor één)
 
@@ -28,26 +27,40 @@ per de negen-stappen-regel hierboven, telkens één afgeronde verticale
 slice:
 
 1. **Datamodel-fundament**: `Company`, `Membership` (user↔company met rol),
-   `Customer`, `Machine` (klant-apparaat, los van het bestaande
-   catalogus-`WashingMachine`), migraties zonder dataverlies.
+   `Customer`, `CustomerMachine` (klant-apparaat, los van het bestaande
+   catalogus-`WashingMachine`). ✅ **Gedaan** — migratie via `prisma db push`
+   geverifieerd zonder dataverlies tegen een lokale Postgres.
 2. **Werkorder-systeem**: `WorkOrder` + statusflow (opdracht §6),
-   `WorkOrderItem`, gekoppeld aan `Customer`/`Machine`/monteur.
-3. **CRM**: klanten-overzicht + detail (contact, apparaten, historie,
-   facturen) — tenant-gescoped.
-4. **Digitale werkbon**: start/stop-tijd, foto's, onderdelen, diagnose,
-   handtekening-capture — mobile-first (opdracht §7, §27).
+   `WorkOrderItem`, gekoppeld aan `Customer`/`CustomerMachine`/monteur.
+   ✅ **Gedaan** — status-transities worden serverside gevalideerd
+   (`src/lib/work-order.ts`), illegale sprongen (bv. NEW → PAID) worden
+   geweigerd (getest).
+3. **CRM**: klanten-overzicht + detail (contact, apparaten, historie) —
+   tenant-gescoped. ✅ **Gedaan** — `/monteur/klanten` en
+   `/monteur/klanten/[id]` lezen/schrijven nu echte data; elke API-route
+   controleert `companyId`-eigenaarschap (handmatig cross-tenant getest:
+   een klant van bedrijf B geeft 403 voor een monteur van bedrijf A).
+   **Nog niet gedaan**: facturen-tab op klantdetail (wacht op stap 5),
+   een echte company-onboarding-flow (nu: lazy-provisioning bij eerste
+   bezoek — werkt, maar geen naam/KvK-invoerscherm).
+4. **Digitale werkbon**: start/stop-tijd, foto's, handtekening-capture —
+   mobile-first (opdracht §7, §27). **Deels gedaan**: onderdelen/regels
+   toevoegen en monteur-notities werken al op de werkorder-detailpagina
+   (`/monteur/werkorders/[id]`). **Nog niet gedaan**: camera/foto-upload,
+   handtekening-capture, automatische PDF-werkbon.
 5. **Facturatie**: `Invoice`/`InvoiceItem` gegenereerd vanuit een
-   afgeronde werkorder, PDF, e-mail via Resend.
+   afgeronde werkorder, PDF, e-mail via Resend. Niet gestart.
 6. **Live Stripe-subscriptions**: echte producten/prijzen, webhook-sync
    naar een echte `Subscription`-tabel (vervangt de huidige losse
-   `plan`-string).
+   `plan`-string). Niet gestart.
 7. **AI-diagnose-engine v2**: multi-oorzaak-confidence-uitsplitsing +
-   dynamische vervolgvragen (opdracht §9) i.p.v. één antwoord.
+   dynamische vervolgvragen (opdracht §9) i.p.v. één antwoord. Niet gestart.
 8. **Parts-matching met verified compatibility**: `PartCompatibility`
    met een expliciete "zeker/onzeker"-vlag — nooit een onderdeel tonen
-   als compatibiliteit onzeker is (opdracht §11).
+   als compatibiliteit onzeker is (opdracht §11). Niet gestart.
 9. **GDPR-verificatie end-to-end**: data-export/delete-endpoints echt
    testen tegen een live database, niet alleen dat de route bestaat.
+   Niet gestart.
 
 ## P2 — belangrijke verbetering
 
@@ -80,7 +93,7 @@ slice:
 | Fase | Naam | Inhoud | Status |
 |---|---|---|---|
 | 1 | Stability + Security | P0-lijst hierboven | **In uitvoering (deze PR)** |
-| 2 | Monteur SaaS | Datamodel + CRM + werkorders + werkbon + planning (P1.1-P1.4, P2 planning) | Niet gestart |
+| 2 | Monteur SaaS | Datamodel + CRM + werkorders + werkbon + planning (P1.1-P1.4, P2 planning) | **In uitvoering** — datamodel, CRM en werkorder-systeem (P1.1-P1.3) gedaan; werkbon deels (P1.4); planning nog niet gestart |
 | 3 | Parts commerce | Live Stripe checkout, inventory, marge-rapportage | Niet gestart |
 | 4 | Billing | Facturatie + echte subscriptions (P1.5-P1.6) | Niet gestart |
 | 5 | AI engine | Multi-confidence diagnose-engine, verified parts-matching (P1.7-P1.8) | Niet gestart |

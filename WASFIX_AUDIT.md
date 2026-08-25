@@ -75,10 +75,10 @@ Legenda: ✅ werkt in productie · 🟡 werkt alleen in demo-mode / gedeeltelijk
 
 | Feature | Bestaat | Werkt | Productieklaar | Ontbreekt | Prioriteit |
 |---|---|---|---|---|---|
-| Dashboard | 🟡 stub | Toont **alle** orders/omzet van het hele platform, niet tenant-gescoped | Nee | Company-model, tenant-scoping, echte KPI's (first-time-fix, gem. reparatieduur) | P1 |
-| CRM (klanten) | 🔴 | Statische demo-lijst | Nee | `Customer`-model, koppeling aan werkorders/facturen | P1 |
-| Apparaten | 🔴 | — | Nee | Machine-per-klant model, serienummer, garantie, foto's | P1 |
-| Werkorders | 🔴 | Statische demo-lijst | Nee | Volledig `WorkOrder`-model + statusflow (zie opdracht §6) | P1 |
+| Dashboard | ✅ | Echte, per-company gescoopte cijfers (klanten, actieve werkorders, eigen AI-diagnoses) | Ja voor de kern | Facturatie-/omzet-KPI's (wachten op Invoice-model), first-time-fix rate | P1 |
+| CRM (klanten) | ✅ | Echte data, tenant-gescoped, cross-tenant getest (403) | Ja voor de kern | Notities-UI, facturen-tab, company-onboarding-scherm (nu: lazy-provisioning) | P1 |
+| Apparaten | ✅ | `CustomerMachine`-model: merk/model/serienummer, gekoppeld aan klant en werkorders | Ja voor de kern | Foto's, garantie-datum in UI, aankoopdatum in UI | P1 |
+| Werkorders | ✅ | Volledig `WorkOrder`-model + servergevalideerde statusflow (opdracht §6), regels toevoegen, notities | Ja voor de kern | Camera/foto-upload, handtekening-capture, PDF-werkbon, automatische facturatie | P1 |
 | Planning (dag/week/maand, drag&drop) | 🔴 | — | Nee | `Appointment`-model, planner-UI | P2 |
 | Route/reistijd | 🔴 | — | Nee | Maps-integratie | P2 |
 | AI Diagnose (monteur-versie) | 🟡 | Zelfde als consumer | Nee | Monteur-specifieke output (repair time, cost estimate) | P1 |
@@ -138,18 +138,17 @@ Legenda: ✅ werkt in productie · 🟡 werkt alleen in demo-mode / gedeeltelijk
 
 1. **🔴 P0 — Auth-bypass / privilege escalation.** Zie §D.1. Dit is de belangrijkste
    bevinding van dit hele audit.
-2. **🔴 P0 — Orders worden als "PAID" gemarkeerd zonder echte betaling** wanneer
-   Stripe niet geconfigureerd is (`src/app/api/checkout/route.ts:172-184`), en
-   dat pad triggert ook op een Stripe-*fout* (net zo goed als op "geen Stripe
-   key"), dus een tijdelijke Stripe-outage of een verkeerd geconfigureerde
-   sleutel resulteert in gratis "betaalde" bestellingen. Voorraad wordt zelfs
-   al gedecrementeerd. Zodra live Stripe-keys actief zijn moet dit pad een
-   harde fout geven i.p.v. een stille fallback naar "geslaagd".
-3. **🟡 P1 — Monteur-dashboard toont platform-brede data.** `recentOrders` op
-   `/monteur/dashboard` haalt de laatste 8 orders van *alle klanten* op, niet
-   van een tenant. Zonder tenant-model is dit niet op te lossen zonder
-   architectuurwerk (Phase 2 van de roadmap) — voorlopig een reëel datalek
-   zodra er meerdere monteurs-accounts zijn.
+2. **✅ Gefixt — Orders werden als "PAID" gemarkeerd zonder echte betaling**
+   wanneer een Stripe-sessie-aanmaak faalde terwijl Stripe wél geconfigureerd
+   was. Dat pad geeft nu een harde 502 i.p.v. een stille "geslaagd"-fallback.
+   De demo-fallback (Stripe helemaal niet geconfigureerd — investor-deploys)
+   blijft ongewijzigd werken.
+3. **✅ Gefixt — Monteur-dashboard toonde platform-brede data.** `recentOrders`
+   op `/monteur/dashboard` haalde voorheen de laatste orders van *alle
+   klanten* op, niet van een tenant. Met het nieuwe `Company`/`Membership`-
+   model (Phase 2) is deze query verwijderd en vervangen door echte,
+   company-gescoopte werkorder- en klantcijfers; handmatig cross-tenant
+   getest (een klant van bedrijf B geeft 403 voor een monteur van bedrijf A).
 4. **🟡 P1 — In-memory rate limiter reset bij elke serverless cold start** en
    is niet gedeeld tussen Vercel-instanties. `/api/diagnose` en
    `/api/checkout` rate limits zijn dus makkelijk te omzeilen door herhaalde

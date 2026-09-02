@@ -1,14 +1,18 @@
 /**
  * Review data for public pages.
  *
- * Two sources, merged: the curated seed set in `src/data/reviews.json` and
- * moderator-approved rows in the `Review` table. Ratings shown to users and
- * emitted as schema.org AggregateRating are always computed from these real
- * reviews — never invented — so structured data matches what the page shows.
+ * There is exactly one source: moderator-approved rows in the `Review` table.
+ * We ship no seed reviews — a review on this site was written by someone who
+ * actually used the product. Ratings shown to users and emitted as schema.org
+ * AggregateRating are computed from those rows only, so the structured data
+ * always matches what a visitor can read on the page.
+ *
+ * The "geverifieerde aankoop" badge is `Review.verifiedPurchase`, which is set
+ * at submission time by matching the reviewer's e-mail against a paid order
+ * containing that part. It is never set for guide reviews, and never by hand.
  */
 
 import "server-only";
-import reviewsRaw from "@/data/reviews.json";
 import { prisma } from "./prisma";
 import { isDatabaseConfigured } from "./env";
 import { logger } from "./logger";
@@ -26,8 +30,6 @@ export type PublicReview = {
   verified: boolean;
 };
 
-const seedReviews = reviewsRaw as PublicReview[];
-
 export type ReviewStats = { count: number; avgRating: number };
 
 export function reviewStats(reviews: PublicReview[]): ReviewStats {
@@ -36,13 +38,30 @@ export function reviewStats(reviews: PublicReview[]): ReviewStats {
   return { count: reviews.length, avgRating: Math.round((sum / reviews.length) * 10) / 10 };
 }
 
+/**
+ * Does this e-mail have a paid order containing this part? Used to decide
+ * whether a review may carry the verified-purchase badge.
+ */
+export async function hasPurchased(email: string, sku: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) return false;
+  try {
+    const count = await prisma.order.count({
+      where: {
+        email: { equals: email, mode: "insensitive" },
+        status: { in: ["PAID", "SHIPPED", "DELIVERED"] },
+        items: { some: { part: { sku } } },
+      },
+    });
+    return count > 0;
+  } catch (err) {
+    logger.warn("[reviews] purchase check failed — badge withheld", err);
+    return false;
+  }
+}
+
 /** Approved reviews for one part (by sku) or guide (by slug), newest first. */
 export async function getReviews({ sku, slug }: { sku?: string; slug?: string }): Promise<PublicReview[]> {
-  const seeded = seedReviews.filter((r) =>
-    sku ? r.type === "part" && r.targetSku === sku : r.type === "guide" && r.targetSlug === slug
-  );
-
-  if (!isDatabaseConfigured()) return seeded;
+  if (!isDatabaseConfigured()) return [];
 
   try {
     const rows = await prisma.review.findMany({
@@ -53,7 +72,7 @@ export async function getReviews({ sku, slug }: { sku?: string; slug?: string })
       orderBy: { createdAt: "desc" },
       take: 50,
     });
-    const fromDb: PublicReview[] = rows.map((r) => ({
+    return rows.map((r) => ({
       id: r.id,
       type: r.targetType === "part" ? "part" : "guide",
       targetSku: r.targetSku,
@@ -63,12 +82,11 @@ export async function getReviews({ sku, slug }: { sku?: string; slug?: string })
       title: r.title,
       body: r.body,
       publishedAt: r.createdAt.toISOString().slice(0, 10),
-      verified: true,
+      verified: r.verifiedPurchase,
     }));
-    return [...fromDb, ...seeded];
   } catch (err) {
-    logger.warn("[reviews] DB lookup failed — serving seed reviews only", err);
-    return seeded;
+    logger.warn("[reviews] DB lookup failed — showing no reviews", err);
+    return [];
   }
 }
 

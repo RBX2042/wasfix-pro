@@ -48,7 +48,7 @@ export default function RetourPage() {
           </tr>
         </thead>
         <tbody>
-          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Bedenktijd / verkeerd besteld</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Voor jouw rekening (vanaf €4,95)</td></tr>
+          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Bedenktijd / verkeerd besteld</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Voor jouw rekening</td></tr>
           <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Defect / verkeerd geleverd door ons</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Gratis (wij sturen retour-label)</td></tr>
           <tr><td style={{ padding: "10px 12px" }}>Garantieclaim binnen periode</td><td style={{ padding: "10px 12px" }}>Gratis</td></tr>
         </tbody>

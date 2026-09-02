@@ -80,7 +80,7 @@ export default function DisclaimerPage() {
       </ul>
 
       <p style={{ marginTop: 32, padding: "14px 16px", background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 10 }}>
-        <strong>Onthoud:</strong> 80% van de wasmachine-reparaties is veilig en goed te doen door iemand met basis-technisch inzicht. Voor de overige 20% — gewoon een monteur bellen. Wij raden je waar mogelijk een betrouwbare vakman aan via onze <Link href="/monteur">monteur-netwerk</Link>.
+        <strong>Onthoud:</strong> veel wasmachinestoringen — een verstopt filter, een versleten pomp, een kapot deurslot — zijn goed te doen door iemand met basis-technisch inzicht. Zodra het om netspanning, de motor of de besturingsmodule gaat, is een monteur bellen de verstandige keuze. Wij bemiddelen niet in monteurs en houden geen netwerk van vakmensen bij; die keuze is aan jou.
       </p>
     </LegalPage>
   );

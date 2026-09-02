@@ -9,13 +9,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import { VAT_RATE } from "@/lib/plans";
+import { VAT_RATE, SHIPPING, shippingFor } from "@/lib/plans";
 import { ShoppingBag, Truck, Lock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 
-export function CheckoutClient() {
+export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }) {
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clear);
   const router = useRouter();
@@ -23,11 +23,17 @@ export function CheckoutClient() {
   const [mounted, setMounted] = React.useState(false);
   React.useEffect(() => setMounted(true), []);
 
-  const subtotal = cartTotal(items);
-  const shipping = subtotal >= 50 ? 0 : 5.95;
-  const total = subtotal + shipping;
+  // Mirrors /api/checkout exactly — same discount, same shipping rule, same
+  // order of operations — so the summary never quotes a total the card will
+  // not be charged.
+  const round = (n: number) => Math.round(n * 100) / 100;
+  const subtotal = round(cartTotal(items));
+  const discount = round(subtotal * partsDiscount);
+  const shipping = shippingFor(subtotal, discount);
+  const total = round(subtotal - discount + shipping);
   // Catalog prices include 21% btw, so the btw is contained in the total.
-  const vat = Math.round(total * (VAT_RATE / (1 + VAT_RATE)) * 100) / 100;
+  const vat = round(total * (VAT_RATE / (1 + VAT_RATE)));
+  const toFreeShipping = round(SHIPPING.freeFromEur - (subtotal - discount));
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -186,12 +192,18 @@ export function CheckoutClient() {
 
               <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotaal</span><span>{formatEur(subtotal)}</span></div>
+                {discount > 0 && (
+                  <div className="flex justify-between text-emerald-600">
+                    <span>Ledenkorting ({Math.round(partsDiscount * 100)}%)</span>
+                    <span>-{formatEur(discount)}</span>
+                  </div>
+                )}
                 <div className="flex justify-between">
                   <span className="text-muted-foreground flex items-center gap-1"><Truck className="h-3 w-3" /> Verzending</span>
                   <span>{shipping === 0 ? "Gratis" : formatEur(shipping)}</span>
                 </div>
-                {subtotal < 50 && (
-                  <p className="text-xs text-muted-foreground">Voeg {formatEur(50 - subtotal)} toe voor gratis verzending</p>
+                {toFreeShipping > 0 && (
+                  <p className="text-xs text-muted-foreground">Voeg {formatEur(toFreeShipping)} toe voor gratis verzending</p>
                 )}
                 <div className="flex justify-between text-muted-foreground">
                   <span>Waarvan btw {Math.round(VAT_RATE * 100)}%</span>

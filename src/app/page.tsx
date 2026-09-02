@@ -1,5 +1,7 @@
 import WasFixHome from "@/components/redesign/WasFixHome";
 import { staticParts, staticErrorCodes } from "@/lib/static-db";
+import { formatEur } from "@/lib/utils";
+import { SHIPPING } from "@/lib/plans";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
 const STATS = catalogStats();
@@ -89,7 +91,7 @@ export default function HomePage() {
         { "@type": "Question", name: "Is mijn wasmachine nog te repareren of moet ik een nieuwe kopen?",
           acceptedAnswer: { "@type": "Answer", text: "Gebruik onze gratis Repareren-of-Vervangen tool. We berekenen op basis van leeftijd, kosten en levensduur of repareren nog rendabel is. EU Right-to-Repair: onderdelen blijven 10 jaar beschikbaar." } },
         { "@type": "Question", name: "Hoe snel komt mijn onderdeel?",
-          acceptedAnswer: { "@type": "Answer", text: "Voor 22:00 op werkdagen besteld = de volgende werkdag in huis (NL). België 1-2 werkdagen, gratis vanaf €50." } },
+          acceptedAnswer: { "@type": "Answer", text: `We verzenden op werkdagen en je krijgt een track & trace zodra het pakket is aangemeld. Verzending kost ${formatEur(SHIPPING.rateEur)} en is gratis vanaf ${formatEur(SHIPPING.freeFromEur)} in NL en BE.` } },
         { "@type": "Question", name: "Geld terug als de diagnose niet klopt?",
           acceptedAnswer: { "@type": "Answer", text: "30 dagen retourrecht — ook als achteraf blijkt dat het toch een ander onderdeel was. Gratis retour bij defect of fout van onze kant." } },
       ],

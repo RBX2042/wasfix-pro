@@ -35,7 +35,7 @@ export default function PrivacyPage() {
             <h2>2. Welke gegevens verzamelen we</h2>
             <h3>2.1 Bij accountregistratie</h3>
             <ul>
-              <li>Naam, e-mailadres, wachtwoord (gehashed met bcrypt)</li>
+              <li>Naam en e-mailadres. Je wachtwoord komt nooit bij ons binnen: inloggen loopt via Clerk, onze authenticatiepartner, die de inloggegevens beheert.</li>
               <li>Optioneel: telefoonnummer, factuuradres</li>
               <li>Bij monteur-account: KvK-nummer, BTW-nummer, bedrijfsnaam</li>
             </ul>
@@ -109,11 +109,10 @@ export default function PrivacyPage() {
             <h2>8. Beveiliging</h2>
             <p>We nemen technische en organisatorische maatregelen om jouw gegevens te beschermen:</p>
             <ul>
-              <li>HTTPS/TLS 1.3 voor alle verbindingen</li>
-              <li>Wachtwoorden gehashed met bcrypt (rounds=12)</li>
-              <li>Database-encryptie at-rest (AES-256)</li>
-              <li>Toegangscontrole via 2FA voor medewerkers</li>
-              <li>Periodieke security-audits</li>
+              <li>HTTPS/TLS voor alle verbindingen</li>
+              <li>Inloggegevens worden beheerd door Clerk; wij slaan geen wachtwoorden op</li>
+              <li>Versleuteling at-rest door onze hostingpartner</li>
+              <li>Betalingen lopen via Stripe; kaartgegevens komen nooit op onze servers</li>
               <li>Datalek-procedure conform AVG art. 33-34 (melding binnen 72u aan Autoriteit Persoonsgegevens en getroffenen indien risico)</li>
             </ul>
 

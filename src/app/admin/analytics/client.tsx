@@ -96,7 +96,7 @@ export function AnalyticsDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="font-heading text-2xl font-bold">Analytics</h1>
-          <p className="text-muted-foreground text-sm">Realtime traffic, conversies en omzet</p>
+          <p className="text-muted-foreground text-sm">Traffic, conversies en omzet</p>
         </div>
         <div className="flex gap-1 border rounded-md p-1 text-sm">
           {(["24h", "7d", "30d", "90d"] as const).map((p) => (
@@ -110,6 +110,23 @@ export function AnalyticsDashboard() {
           ))}
         </div>
       </div>
+
+      {/* Every number below is invented until PostHog is connected. That has to
+          be impossible to miss: a footnote is not enough when the figures look
+          exactly like real ones. */}
+      {!posthogConnected && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-4">
+          <p className="font-semibold text-sm text-amber-900 dark:text-amber-100">
+            Let op: dit zijn voorbeeldcijfers, geen echte data.
+          </p>
+          <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+            PostHog is niet gekoppeld, dus alles op deze pagina — bezoekers, omzet, funnel, keywords — is
+            verzonnen om de indeling te laten zien. Koppel PostHog om je werkelijke cijfers te zien. Voor
+            echte omzet kijk je zolang bij <span className="font-medium">Bestellingen</span>, die komt uit
+            de database.
+          </p>
+        </div>
+      )}
 
       {/* Status banners */}
       <div className="grid md:grid-cols-2 gap-3">
@@ -277,7 +294,7 @@ export function AnalyticsDashboard() {
       </div>
 
       <p className="text-xs text-muted-foreground border-t pt-4">
-        {posthogConnected ? "Data live van PostHog (cache 30s)" : "Demo-data — connect PostHog voor live metrics"}
+        {posthogConnected ? "Data live van PostHog (cache 30s)" : "Voorbeeldcijfers — koppel PostHog voor je echte metrics"}
       </p>
     </div>
   );

@@ -2,13 +2,14 @@ import { NextResponse, type NextRequest } from "next/server";
 import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { locales, defaultLocale, type Locale } from "@/i18n/config";
 import brandsData from "@/data/brands.json";
+import { isDemoMode } from "@/lib/demo-mode";
 
-// Demo mode = no real auth. Also forced when Clerk keys are missing so the
-// app never locks users out because of a half-configured environment.
-const CLERK_ENABLED =
-  process.env.DEMO_MODE !== "true" &&
-  Boolean(process.env.CLERK_SECRET_KEY) &&
-  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+// Clerk runs whenever we're not in demo mode. isDemoMode() (see
+// lib/demo-mode.ts) is the single source of truth for that decision — in
+// particular, it does NOT let missing Clerk keys silently enable demo mode
+// in production, which would otherwise auto-admin every visitor on a
+// half-configured deploy.
+const CLERK_ENABLED = !isDemoMode();
 const FEATURE_I18N = process.env.NEXT_PUBLIC_FEATURE_I18N === "true";
 
 // Brand-page SEO URLs: /bosch-wasmachine-reparatie → /reparatie/bosch (rewrite, not redirect)

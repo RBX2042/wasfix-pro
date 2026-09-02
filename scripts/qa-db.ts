@@ -141,6 +141,7 @@ async function main() {
     else fail("Relation: ErrorCode→Parts empty");
 
     const guideWithParts = await prisma.repairGuide.findFirst({
+      where: { parts: { some: {} } },
       include: { parts: { include: { part: true } } },
     });
     if (guideWithParts && guideWithParts.parts.length > 0) pass(`Relation: RepairGuide→Parts (${guideWithParts.parts.length})`);
@@ -155,6 +156,9 @@ async function main() {
   } finally {
     console.log(log.join("\n"));
     await prisma.$disconnect();
+    const failures = log.filter((l) => l.startsWith("❌")).length;
+    console.log(`\n${log.length - failures}/${log.length} checks passed`);
+    if (failures > 0) process.exitCode = 1;
   }
 }
 

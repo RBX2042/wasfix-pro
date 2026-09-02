@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { getStripe, STRIPE_PRICES } from "@/lib/stripe";
 import { getCurrentUser } from "@/lib/auth";
-import { env } from "@/lib/env";
+import { env, isDatabaseConfigured } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 
 const SubscribeSchema = z.object({
@@ -27,12 +27,17 @@ export async function POST(req: NextRequest) {
     const stripe = getStripe();
 
     if (!stripe || !priceId) {
-      // Demo mode — direct upgrade
-      await prisma.user.update({
-        where: { id: user.id },
-        data: { plan },
-      });
+      // Demo mode — direct upgrade (persisted when a DB is available)
+      if (isDatabaseConfigured()) {
+        await prisma.user.update({ where: { id: user.id }, data: { plan } }).catch((err) =>
+          logger.warn("Demo upgrade could not be persisted", err)
+        );
+      }
       return apiSuccess({ demo: true, plan });
+    }
+
+    if (!isDatabaseConfigured()) {
+      return apiError("Abonnementen vereisen een database (DATABASE_URL). Zie BLOCKED.md.", 503);
     }
 
     let dbUser = await prisma.user.findUnique({ where: { id: user.id } });
@@ -53,12 +58,14 @@ export async function POST(req: NextRequest) {
     const session = await stripe.checkout.sessions.create(
       {
         mode: "subscription",
-        payment_method_types: ["card", "ideal"],
+        payment_method_types: ["card", "ideal", "bancontact"],
         customer: dbUser.stripeCustomerId!,
         line_items: [{ price: priceId, quantity: 1 }],
+        allow_promotion_codes: true,
         success_url: `${env.APP_URL}/dashboard?upgraded=1`,
         cancel_url: `${env.APP_URL}/prijzen`,
         metadata: { userId: user.id, plan },
+        subscription_data: { metadata: { userId: user.id, plan } },
       },
       { idempotencyKey: `subscribe-${user.id}-${plan}-${Date.now()}` }
     );

@@ -84,16 +84,33 @@ export async function POST(req: NextRequest) {
         break;
       }
 
+      case "customer.subscription.created":
       case "customer.subscription.updated":
       case "customer.subscription.deleted": {
         const sub = event.data.object as Stripe.Subscription;
-        const user = await prisma.user.findFirst({ where: { stripeSubId: sub.id } });
-        if (user && (event.type === "customer.subscription.deleted" || sub.status === "canceled")) {
+        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
+        const user =
+          (await prisma.user.findFirst({ where: { stripeSubId: sub.id } })) ??
+          (sub.metadata?.userId ? await prisma.user.findUnique({ where: { id: sub.metadata.userId } }) : null) ??
+          (customerId ? await prisma.user.findFirst({ where: { stripeCustomerId: customerId } }) : null);
+        if (!user) break;
+
+        const ended = event.type === "customer.subscription.deleted" || ["canceled", "unpaid", "incomplete_expired"].includes(sub.status);
+        if (ended) {
+          await prisma.user.update({ where: { id: user.id }, data: { plan: "FREE", stripeSubId: null } });
+        } else if (["active", "trialing", "past_due"].includes(sub.status)) {
+          const plan = sub.metadata?.plan;
           await prisma.user.update({
             where: { id: user.id },
-            data: { plan: "FREE", stripeSubId: null },
+            data: { stripeSubId: sub.id, ...(plan ? { plan } : {}) },
           });
         }
+        break;
+      }
+
+      case "invoice.payment_failed": {
+        const invoice = event.data.object as Stripe.Invoice;
+        logger.warn("Stripe invoice payment failed", { customer: invoice.customer, invoice: invoice.id });
         break;
       }
 

@@ -1,6 +1,8 @@
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, hasProAccess } from "@/lib/auth";
+import { isDatabaseConfigured } from "@/lib/env";
+import { parts as staticPartList } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,9 +21,7 @@ export default async function MonteurDashboardPage() {
   if (!user) redirect("/inloggen");
 
   // Allow access for TECHNICIAN, MONTEUR_PRO, BEDRIJF, ADMIN
-  const allowedPlans = ["MONTEUR_PRO", "BEDRIJF", "API"];
-  const allowedRoles = ["TECHNICIAN", "BUSINESS", "ADMIN"];
-  const hasAccess = allowedPlans.includes(user.plan) || allowedRoles.includes(user.role);
+  const hasAccess = hasProAccess(user);
 
   if (!hasAccess) {
     return (
@@ -38,15 +38,25 @@ export default async function MonteurDashboardPage() {
     );
   }
 
-  const [partsTotal, recentOrders, totalDiagnoses] = await Promise.all([
-    prisma.part.aggregate({ _sum: { stock: true } }),
-    prisma.order.findMany({
-      take: 8,
-      orderBy: { createdAt: "desc" },
-      include: { items: true },
-    }),
-    prisma.diagnosis.count(),
-  ]);
+  // Live numbers when a DB is connected; static catalog otherwise.
+  let stockTotal = staticPartList.reduce((sum, p) => sum + p.stock, 0);
+  let totalDiagnoses = 0;
+  let recentOrders: Array<{ id: string; totalEur: number; items: Array<{ id: string }> }> = [];
+  if (isDatabaseConfigured()) {
+    try {
+      const [partsTotal, orders, diagCount] = await Promise.all([
+        prisma.part.aggregate({ _sum: { stock: true } }),
+        prisma.order.findMany({ take: 8, orderBy: { createdAt: "desc" }, include: { items: true } }),
+        prisma.diagnosis.count(),
+      ]);
+      stockTotal = partsTotal._sum.stock ?? stockTotal;
+      recentOrders = orders;
+      totalDiagnoses = diagCount;
+    } catch {
+      // DB unreachable — keep static numbers
+    }
+  }
+  const partsTotal = { _sum: { stock: stockTotal } };
 
   return (
     <DashboardLayout role={user.role}>

@@ -1,4 +1,5 @@
-import { isDemoMode } from "./utils";
+import { isDemoMode } from "./demo-mode";
+import { isDatabaseConfigured } from "./env";
 import { prisma } from "./prisma";
 
 export type DemoUser = {
@@ -21,23 +22,30 @@ const STATIC_DEMO_USER: DemoUser = {
   plan: "BEDRIJF",
 };
 
+/**
+ * Resolve the current user.
+ *  - Demo mode: the superadmin (from DB when available, otherwise static).
+ *  - Clerk mode: the signed-in Clerk user, upserted into our User table.
+ * Never throws — returns null when nobody is signed in.
+ */
 export async function getCurrentUser(): Promise<DemoUser | null> {
-  // In demo mode, return the superadmin user (fall back to demo user)
   if (isDemoMode()) {
-    try {
-      const superadmin = await prisma.user.findUnique({ where: { email: SUPERADMIN_EMAIL } });
-      const fallback = !superadmin ? await prisma.user.findUnique({ where: { email: "demo@wasfixpro.nl" } }) : null;
-      const user = superadmin ?? fallback;
-      if (user) {
-        return {
-          id: user.id,
-          email: user.email,
-          name: user.name ?? "Demo User",
-          role: user.role,
-          plan: user.plan,
-        };
-      }
-    } catch { /* DB unreachable — fall through to static user */ }
+    if (isDatabaseConfigured()) {
+      try {
+        const superadmin = await prisma.user.findUnique({ where: { email: SUPERADMIN_EMAIL } });
+        const fallback = !superadmin ? await prisma.user.findUnique({ where: { email: "demo@wasfixpro.nl" } }) : null;
+        const user = superadmin ?? fallback;
+        if (user) {
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name ?? "Demo User",
+            role: user.role,
+            plan: user.plan,
+          };
+        }
+      } catch { /* DB unreachable — fall through to static user */ }
+    }
     return STATIC_DEMO_USER;
   }
 
@@ -48,15 +56,22 @@ export async function getCurrentUser(): Promise<DemoUser | null> {
     if (!userId) return null;
     const cu = await currentUser();
     if (!cu) return null;
-    const email = cu.emailAddresses[0]?.emailAddress ?? "";
-    const dbUser = await prisma.user.upsert({
-      where: { clerkId: userId },
-      update: { email, name: `${cu.firstName ?? ""} ${cu.lastName ?? ""}`.trim() || null },
-      create: {
-        clerkId: userId,
-        email,
-        name: `${cu.firstName ?? ""} ${cu.lastName ?? ""}`.trim() || null,
-      },
+    const email = cu.primaryEmailAddress?.emailAddress ?? cu.emailAddresses[0]?.emailAddress ?? "";
+    const name = `${cu.firstName ?? ""} ${cu.lastName ?? ""}`.trim() || null;
+
+    if (!isDatabaseConfigured()) {
+      // Signed in, but no database yet: still let the user in with a FREE plan.
+      return { id: userId, email, name: name ?? email, role: "CONSUMER", plan: "FREE" };
+    }
+
+    // Link by clerkId first; fall back to email so pre-existing rows
+    // (orders placed as guest, seeded admins) get claimed on first login.
+    const dbUser = await prisma.$transaction(async (tx) => {
+      const byClerk = await tx.user.findUnique({ where: { clerkId: userId } });
+      if (byClerk) return tx.user.update({ where: { id: byClerk.id }, data: { email, name: name ?? byClerk.name } });
+      const byEmail = email ? await tx.user.findUnique({ where: { email } }) : null;
+      if (byEmail) return tx.user.update({ where: { id: byEmail.id }, data: { clerkId: userId, name: name ?? byEmail.name } });
+      return tx.user.create({ data: { clerkId: userId, email, name } });
     });
     return {
       id: dbUser.id,
@@ -80,4 +95,9 @@ export const PLAN_LIMITS = {
 
 export function getPlanLimits(plan: string) {
   return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.FREE;
+}
+
+/** Plans/roles that unlock the Monteur Pro dashboard + B2B API. */
+export function hasProAccess(user: Pick<DemoUser, "plan" | "role">): boolean {
+  return ["MONTEUR_PRO", "BEDRIJF", "API"].includes(user.plan) || ["TECHNICIAN", "BUSINESS", "ADMIN"].includes(user.role);
 }

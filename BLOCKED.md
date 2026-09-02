@@ -2,59 +2,67 @@
 
 Items that cannot be completed autonomously because they require external credentials, real-world signup, or user input. Each entry: what's blocked, why, what unblocks it.
 
+**Status 2026-09-02:** the codebase is feature-complete for every item below — each integration is wired, tested against a local Postgres + demo mode, and activates the moment its environment variable is set in Vercel. Nothing here needs code changes; it needs keys.
+
 ---
 
-## Stripe production keys
-- **Blocked:** Real payment flow end-to-end (test mode works locally)
-- **Need:** `STRIPE_SECRET_KEY` (sk_live_...) + `STRIPE_WEBHOOK_SECRET` + price IDs for the 3 subscription tiers
-- **Unblock:** User creates Stripe account at https://dashboard.stripe.com/, enables iDEAL/Bancontact in payment methods, creates 3 subscription products (Particulier €4,99, Monteur Pro €29, Bedrijf €99), copies keys to Vercel env vars
+## Database connection (highest impact)
+- **Blocked:** persistence in production (orders, users, API keys, reviews, RMA, monteur applications, newsletter, AI feedback). Everything degrades gracefully to demo mode without it.
+- **Need:** `DATABASE_URL` — a Postgres connection string.
+- **Found:** the Supabase MCP connector lists an active project *"RBX2042's Project"* (`mzrxpvrckbrmghwrhulc`, eu-central-2), but it is shared with other apps (homeinn, snaphor, tijdslot tables). Recommended: create a **dedicated** Supabase project for WasFix so the Prisma schema can own the `public` schema.
+- **Unblock:**
+  1. Supabase → new project → Settings → Database → *Connection string (URI, Session pooler)*.
+  2. Set `DATABASE_URL` in Vercel (Production + Preview).
+  3. Run once: `DATABASE_URL=… npm run db:setup` (pushes the schema and seeds the 331 codes / 96 parts / 26 guides with the same IDs as the static catalog).
+  4. Optional check: `DATABASE_URL=… npm run db:smoke` (25 CRUD/relation checks).
 
 ## Clerk production keys
-- **Blocked:** Real auth (currently DEMO_MODE=true)
-- **Need:** `CLERK_SECRET_KEY` (sk_live_...), `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY` (pk_live_...), `CLERK_WEBHOOK_SECRET`
-- **Unblock:** Create Clerk app at https://dashboard.clerk.com/, configure SSO providers, copy keys to Vercel + set `DEMO_MODE=false`
+- **Blocked:** real login/registration (currently `DEMO_MODE=true`, auto-login as demo admin).
+- **Need:** `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`.
+- **Ready in code:** ClerkProvider, `<SignIn/>`/`<SignUp/>` on /inloggen + /registreren, `clerkMiddleware` protecting /dashboard, /admin, /monteur/*, /api/orders, /api/user, /api/account, /api/dashboard; Svix-verified webhook at `/api/webhooks/clerk` (user.created/updated/deleted → User table, welcome e-mail).
+- **Unblock:** create app at https://dashboard.clerk.com/, add the 3 keys to Vercel, set `DEMO_MODE=false`, add a webhook endpoint `https://wasfix.nl/api/webhooks/clerk` (events: user.*). The first login with `jdahoe@hotmail.nl` claims the seeded ADMIN row by e-mail.
+
+## Stripe production keys
+- **Blocked:** real payments (checkout falls back to a "paid" demo order).
+- **Need:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PARTICULIER`, `STRIPE_PRICE_MONTEUR`, `STRIPE_PRICE_BEDRIJF`.
+- **Ready in code:** hosted Checkout (iDEAL/Bancontact/card) for orders and subscriptions, billing portal, webhook handling `checkout.session.completed`, `customer.subscription.{created,updated,deleted}`, `invoice.payment_failed` with idempotency (StripeEvent table).
+- **Unblock:** create 3 recurring products (€4,99 / €29 / €99), enable iDEAL + Bancontact, add webhook `https://wasfix.nl/api/stripe/webhook`, copy keys to Vercel.
 
 ## Gemini API key (real)
-- **Blocked:** Real AI diagnose (currently demo-mode fallback because quota=0)
-- **Need:** Valid `GEMINI_API_KEY` with quota
-- **Unblock:** Generate new key at https://aistudio.google.com/app/apikey (30 sec, free tier 15 RPM is plenty)
+- **Blocked:** real AI diagnose (keyword-based demo fallback answers now).
+- **Need:** `GEMINI_API_KEY` with quota.
+- **Unblock:** https://aistudio.google.com/app/apikey → Vercel env. No code change.
 
 ## Resend API key
-- **Blocked:** Transactional emails (order confirmations, password resets, contact-form replies)
-- **Need:** `RESEND_API_KEY` + verified domain `wasfix.nl`
-- **Unblock:** DKIM/SPF DNS already in place (Resend `_domainkey` records visible). Just create Resend account at https://resend.com/, add `wasfix.nl` domain, verify (instant since DNS is already set), generate API key
+- **Blocked:** transactional e-mail (order confirmation, RMA, monteur application, welcome, lead magnet, newsletter audience).
+- **Need:** `RESEND_API_KEY` (+ optional `RESEND_AUDIENCE_ID`).
+- **Unblock:** https://resend.com/ → add domain wasfix.nl (DKIM/SPF DNS already exist) → API key → Vercel env. Subscribers are also stored in the `NewsletterSubscriber` table, so nothing is lost while Resend is missing.
 
-## Sentry DSN
-- **Blocked:** Error monitoring in production
-- **Need:** `SENTRY_DSN` + `NEXT_PUBLIC_SENTRY_DSN`
-- **Unblock:** Create project at https://sentry.io/, get DSN
+## Upstash Redis (optional)
+- **Blocked:** shared rate limiting across serverless instances (in-memory limiter is used per instance now).
+- **Need:** `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
+- **Ready in code:** `src/lib/ratelimit.ts` switches to the Upstash REST API automatically, fail-open.
 
-## UploadThing keys
-- **Blocked:** Image uploads in /diagnose (for photo-based AI diagnose)
-- **Need:** `UPLOADTHING_SECRET` + `UPLOADTHING_APP_ID`
-- **Unblock:** Sign up at https://uploadthing.com/
+## Sentry DSN (optional)
+- **Need:** `NEXT_PUBLIC_SENTRY_DSN` + `npm i @sentry/nextjs`. `sentry.client.config.ts` is prepared.
 
-## Upstash Redis
-- **Blocked:** Rate limiting on public APIs (currently no rate limit on /api/diagnose)
-- **Need:** `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN`
-- **Unblock:** Free tier at https://upstash.com/, create Redis database
+## Google Search Console (optional)
+- **Need:** `GSC_OAUTH_CLIENT_ID`, `GSC_OAUTH_CLIENT_SECRET`, `GSC_REFRESH_TOKEN`. Step-by-step on `/admin/analytics/connect-gsc`.
 
-## Database connection
-- **Blocked:** Dashboard data persistence, real orders, user profiles, reviews, etc.
-- **Need:** Valid `DATABASE_URL` (Supabase Postgres connection string)
-- **Unblock:** User pastes the real postgres password into Vercel env var (or grants access to update). Connection string format is set up; only password placeholder remains.
+## KvK API (optional)
+- **Need:** `KVK_API_KEY`. Without it `/api/monteur/kvk-lookup` returns a mock company so the form still works.
 
-## Mollie alternative (decided against)
-- **Note:** Audit-prompt requested Mollie. Decision logged in DECISIONS.md — staying with Stripe. If user later wants to switch, full code change is ~4-8 hours.
-
-## Production-quality product images
-- All parts/machines currently use placehold.co placeholders. Real product photography or supplier image-licensing is a separate workstream.
+## Real KvK + BTW number, address, phone
+- Placeholders in /contact, e-mail footers and legal pages (`KvK 12345678`, `Hoofdstraat 1`). Replace once the company is registered.
 
 ## Legal review of Privacy/Voorwaarden by NL advocate
-- Content written based on standard NL e-commerce/AVG templates. Should be reviewed by a Dutch lawyer before going live with real orders.
+- Content based on standard NL e-commerce/AVG templates. Should be reviewed before real orders.
 
-## Real KvK + BTW number for /contact + email footers
-- Currently placeholders. User needs to register company at KvK (if not yet) and add to env or hardcoded constants.
+## Production-quality product images
+- All parts/machines use placehold.co placeholders.
+
+## Mollie alternative (decided against)
+- See DECISIONS.md — staying with Stripe.
 
 ## ASWO / Reparatieshop B2B supplier API
-- Monteur bulk-order feature would integrate with real spare parts wholesaler. No public API; requires partnership negotiation.
+- No public API; requires partnership.

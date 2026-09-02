@@ -3,6 +3,8 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
+import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 
 const Schema = z.object({
   orderId: z.string().min(2).max(60),
@@ -23,7 +25,7 @@ const REASON_LABEL: Record<string, string> = {
 export async function POST(req: NextRequest) {
   try {
     // Rate limit: 5 per hour per IP (anti-spam)
-    if (!rateLimit(`retour:${getClientKey(req)}`, 5, 60 * 60 * 1000)) {
+    if (!(await rateLimit(`retour:${getClientKey(req)}`, 5, 60 * 60 * 1000))) {
       return apiError("Te veel aanvragen — probeer over een uur opnieuw.", 429);
     }
 
@@ -40,6 +42,12 @@ export async function POST(req: NextRequest) {
     const rmaNumber = `RMA-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
 
     logger.info("RMA request received", { rmaNumber, orderId, reason });
+
+    if (isDatabaseConfigured()) {
+      await prisma.rmaRequest
+        .create({ data: { rmaNumber, orderId, name, email, reason, notes } })
+        .catch((err) => logger.warn("RMA persist failed", err));
+    }
 
     // Send notification email via Resend (graceful fallback)
     try {

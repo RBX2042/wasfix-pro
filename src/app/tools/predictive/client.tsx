@@ -1,7 +1,6 @@
 "use client";
 
 import * as React from "react";
-import Link from "next/link";
 import { Icon } from "@/components/redesign/SharedLayout";
 import { computePredictive, type RiskItem } from "@/lib/predictive";
 import { useCart } from "@/components/cart-provider";

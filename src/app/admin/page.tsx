@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { formatEur, formatDate } from "@/lib/utils";
-import { Users, Package, TrendingUp, MessageCircle, BookOpen, AlertCircle } from "lucide-react";
+import { Users, Package, TrendingUp, MessageCircle, BookOpen, AlertCircle, Inbox, BarChart3 } from "lucide-react";
 import RevenueChart from "@/components/charts/RevenueChart";
 import ErrorCodeFrequency from "@/components/charts/ErrorCodeFrequency";
 
@@ -130,6 +130,22 @@ export default async function AdminPage() {
           count={errorCodesCount}
           href="/admin/foutcodes"
         />
+        <ManageCard
+          icon={<Inbox className="h-5 w-5" />}
+          title="Aanvragen & reviews"
+                    href="/admin/aanvragen"
+        />
+        <ManageCard
+          icon={<Users className="h-5 w-5" />}
+          title="Gebruikers"
+          count={usersCount}
+          href="/admin/gebruikers"
+        />
+        <ManageCard
+          icon={<BarChart3 className="h-5 w-5" />}
+          title="Analytics"
+          href="/admin/analytics"
+        />
       </div>
 
       <div className="grid lg:grid-cols-2 gap-6 mb-8">
@@ -210,7 +226,7 @@ function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string
   );
 }
 
-function ManageCard({ icon, title, count, href }: { icon: React.ReactNode; title: string; count: number; href: string }) {
+function ManageCard({ icon, title, count, href }: { icon: React.ReactNode; title: string; count?: number; href: string }) {
   return (
     <Link href={href}>
       <Card className="hover:border-primary transition-colors h-full">
@@ -219,7 +235,7 @@ function ManageCard({ icon, title, count, href }: { icon: React.ReactNode; title
             <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary">{icon}</div>
             <div>
               <h3 className="font-heading font-semibold">{title}</h3>
-              <p className="text-sm text-muted-foreground">{count} items beheren</p>
+              <p className="text-sm text-muted-foreground">{count !== undefined ? `${count} items beheren` : "Openen"}</p>
             </div>
           </div>
           <p className="text-xs text-primary mt-2">Beheren →</p>

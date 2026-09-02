@@ -18,7 +18,7 @@ const Schema = z.object({
 // (brand/model around the QR) is rendered client-side at /tools/qr-sticker
 // via HTML/CSS — this endpoint only returns the QR image itself.
 export async function GET(req: NextRequest) {
-  if (!rateLimit(`qr:${getClientKey(req)}`, 20, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`qr:${getClientKey(req)}`, 20, 60 * 60 * 1000))) {
     return apiError("Te veel QR-aanvragen — probeer over een uur opnieuw.", 429);
   }
 

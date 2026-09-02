@@ -72,3 +72,19 @@ Engineering decisions made during the autonomous production-readiness pass. Each
 **Audit prompt requested:** Algolia or Postgres FTS or Meilisearch.
 **Decision:** Postgres FTS when DATABASE_URL is live. Until then: simple client-side filter on static-db JSON.
 **Reason:** No external service dependency, no extra cost, fast enough for our catalog size.
+
+## 2026-09-02 — Database optioneel, maar één bron van waarheid
+
+**Probleem:** de seed (`prisma/seed.ts`) bevatte een oude subset (18/20/26) met random IDs, terwijl checkout onderdelen uit de statische catalogus resolveert. Met een echte DB zou elke order een FK-fout geven.
+**Decision:** `src/data/*.json` is de canonieke catalogus; de seed upsert die 1-op-1 (zelfde IDs) en raakt gebruikersdata nooit aan. Alles wat een DB nodig heeft, checkt `isDatabaseConfigured()` en degradeert anders naar demo.
+**Trade-off:** content-updates vereisen een deploy + `npm run db:seed`. Acceptabel; admin CRUD-formulieren komen later.
+
+## 2026-09-02 — Clerk alleen actief als volledig geconfigureerd
+
+**Decision:** `CLERK_ENABLED = DEMO_MODE!=="true" && secret && publishable key`, berekend in `next.config.ts` en als `NEXT_PUBLIC_CLERK_ENABLED` aan de client gegeven. ClerkProvider, SignIn/SignUp en clerkMiddleware bestaan alleen in die stand.
+**Reason:** een half-geconfigureerde omgeving (één key) mag nooit de site of het dashboard blokkeren.
+
+## 2026-09-02 — Upstash via REST zonder extra dependency
+
+**Decision:** `fetch` naar de Upstash pipeline-API (INCR + EXPIRE NX) in plaats van `@upstash/ratelimit`.
+**Reason:** nul extra packages, werkt op edge en node, fail-open naar de in-memory limiter bij storing.

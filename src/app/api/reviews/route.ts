@@ -4,6 +4,8 @@ import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { getReviewsFor } from "@/components/Reviews";
+import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 
 const PostSchema = z.object({
   targetType: z.enum(["part", "guide"]),
@@ -22,13 +24,27 @@ export async function GET(req: NextRequest) {
   const sku = sp.get("sku") ?? undefined;
   const slug = sp.get("slug") ?? undefined;
   if (!sku && !slug) return apiError("Vereist: sku of slug parameter", 400);
-  const reviews = getReviewsFor({ sku, slug });
+  const reviews: Array<Record<string, unknown>> = [...getReviewsFor({ sku, slug })];
+  if (isDatabaseConfigured()) {
+    try {
+      const dbReviews = await prisma.review.findMany({
+        where: { status: "APPROVED", ...(sku ? { targetType: "part", targetSku: sku } : { targetType: "guide", targetSlug: slug }) },
+        orderBy: { createdAt: "desc" },
+        take: 50,
+      });
+      for (const r of dbReviews) {
+        reviews.unshift({ id: r.id, type: r.targetType, targetSku: r.targetSku, targetSlug: r.targetSlug, rating: r.rating, title: r.title, body: r.body, author: r.author, date: r.createdAt.toISOString().slice(0, 10), verified: true });
+      }
+    } catch (err) {
+      logger.warn("[reviews] DB lookup failed", err);
+    }
+  }
   return NextResponse.json({ data: reviews, total: reviews.length });
 }
 
 // POST — submit a review (queued for moderation)
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`review:${getClientKey(req)}`, 5, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`review:${getClientKey(req)}`, 5, 60 * 60 * 1000))) {
     return apiError("Te veel reviews — probeer over een uur opnieuw.", 429);
   }
 
@@ -37,8 +53,27 @@ export async function POST(req: NextRequest) {
   const parsed = PostSchema.safeParse(body);
   if (!parsed.success) return apiError("Ongeldige review", 400, parsed.error.flatten());
 
-  // Persist to DB queue — placeholder. Real impl: prisma.review.create({ status: 'PENDING' })
-  const reviewId = `rev-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  let reviewId = `rev-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  if (isDatabaseConfigured()) {
+    try {
+      const created = await prisma.review.create({
+        data: {
+          targetType: parsed.data.targetType,
+          targetSku: parsed.data.targetSku ?? null,
+          targetSlug: parsed.data.targetSlug ?? null,
+          rating: parsed.data.rating,
+          title: parsed.data.title,
+          body: parsed.data.body,
+          author: parsed.data.author,
+          email: parsed.data.email,
+          status: "PENDING",
+        },
+      });
+      reviewId = created.id;
+    } catch (err) {
+      logger.warn("[reviews] persist failed", err);
+    }
+  }
   logger.info("[reviews] new review submitted", { reviewId, target: parsed.data.targetSku ?? parsed.data.targetSlug, rating: parsed.data.rating });
 
   // Notify moderation team

@@ -3,13 +3,15 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
+import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 
 const Schema = z.object({ email: z.string().email() });
 
 // Note: Production newsletter signup requires RESEND_API_KEY + RESEND_AUDIENCE_ID.
 // Without those it logs to console and returns success so the form works in demo.
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`newsletter:${getClientKey(req)}`, 5, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`newsletter:${getClientKey(req)}`, 5, 60 * 60 * 1000))) {
     return apiError("Te veel pogingen — probeer over een uur opnieuw.", 429);
   }
 
@@ -30,6 +32,13 @@ export async function POST(req: NextRequest) {
       // For form posts, redirect back with error param
       return NextResponse.redirect(new URL("/blog?newsletter=error", req.url), 303);
     }
+  }
+
+  // Persist locally so the list survives even without a Resend audience
+  if (isDatabaseConfigured()) {
+    await prisma.newsletterSubscriber
+      .upsert({ where: { email }, update: { unsubscribedAt: null }, create: { email, source: "newsletter" } })
+      .catch((err) => logger.warn("Newsletter persist failed", err));
   }
 
   // Try Resend audience add

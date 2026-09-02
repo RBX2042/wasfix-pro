@@ -23,6 +23,7 @@ model User {
   diagnoses        Diagnosis[]
   orders           Order[]
   savedMachines    SavedMachine[]
+  apiKeys          ApiKey[]
 
   @@index([role])
   @@index([plan])
@@ -197,10 +198,10 @@ model Order {
 }
 
 model StripeEvent {
-  id              String   @id @default(cuid())
-  stripeEventId   String   @unique
-  type            String
-  processedAt     DateTime @default(now())
+  id            String   @id @default(cuid())
+  stripeEventId String   @unique
+  type          String
+  processedAt   DateTime @default(now())
 
   @@index([type])
 }
@@ -213,4 +214,101 @@ model OrderItem {
   part      Part   @relation(fields: [partId], references: [id])
   quantity  Int
   unitPrice Float
+}
+
+// ─── B2B API keys ────────────────────────────────────────────────
+model ApiKey {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  prefix     String
+  hash       String    @unique
+  scopes     String    @default("read:parts,read:errorcodes,read:guides")
+  rateLimit  Int       @default(1000)
+  usageCount Int       @default(0)
+  lastUsedAt DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ─── Reviews (moderated) ─────────────────────────────────────────
+model Review {
+  id         String   @id @default(cuid())
+  targetType String // "part" | "guide"
+  targetSku  String?
+  targetSlug String?
+  rating     Int
+  title      String
+  body       String
+  author     String
+  email      String
+  status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt  DateTime @default(now())
+
+  @@index([targetType, targetSku])
+  @@index([targetType, targetSlug])
+  @@index([status])
+}
+
+// ─── Returns (RMA) ───────────────────────────────────────────────
+model RmaRequest {
+  id        String   @id @default(cuid())
+  rmaNumber String   @unique
+  orderId   String
+  name      String
+  email     String
+  reason    String
+  notes     String
+  status    String   @default("RECEIVED") // RECEIVED | APPROVED | REJECTED | REFUNDED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([status])
+}
+
+// ─── Monteur Pro applications ────────────────────────────────────
+model MonteurApplication {
+  id              String   @id @default(cuid())
+  applicationId   String   @unique
+  companyName     String
+  kvkNumber       String
+  vatNumber       String?
+  email           String
+  phone           String?
+  contactName     String
+  yearsExperience Int?
+  coverageAreas   String?
+  specializations String?
+  status          String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  createdAt       DateTime @default(now())
+
+  @@index([email])
+  @@index([status])
+}
+
+// ─── Newsletter / lead magnets ───────────────────────────────────
+model NewsletterSubscriber {
+  id             String    @id @default(cuid())
+  email          String    @unique
+  source         String?
+  confirmedAt    DateTime?
+  unsubscribedAt DateTime?
+  createdAt      DateTime  @default(now())
+}
+
+// ─── AI quality loop ─────────────────────────────────────────────
+model DiagnosisFeedback {
+  id          String   @id @default(cuid())
+  diagnosisId String?
+  sessionId   String?
+  rating      String // "up" | "down"
+  comment     String?
+  createdAt   DateTime @default(now())
+
+  @@index([rating])
+  @@index([createdAt])
 }

@@ -72,7 +72,7 @@ export default function MonteurLandingPage() {
           <div className="eyebrow">Tijdsbesparing</div>
           <h2 className="h-section">Pre-diagnose <em>vóór</em> het bezoek.</h2>
           <p className="lead" style={{ marginBottom: 24 }}>
-            Klant stuurt foutcode of foto via je portal. Onze AI geeft binnen 60s de top-3 oorzaken + de SKU's van onderdelen je waarschijnlijk nodig hebt. Jij vertrekt met de juiste spullen.
+            Klant stuurt foutcode of foto via je portal. Onze AI geeft binnen 60s de top-3 oorzaken + de SKU&apos;s van onderdelen je waarschijnlijk nodig hebt. Jij vertrekt met de juiste spullen.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
             {[

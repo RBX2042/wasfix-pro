@@ -28,7 +28,18 @@ const CSP = [
   "upgrade-insecure-requests",
 ].join("; ");
 
+// Real auth is on only when DEMO_MODE is off AND both Clerk keys exist.
+// Exposed as a public build-time flag so client components (header, auth
+// pages) can render Clerk UI without importing server-only env.
+const CLERK_ENABLED =
+  process.env.DEMO_MODE !== "true" &&
+  Boolean(process.env.CLERK_SECRET_KEY) &&
+  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
 const nextConfig: NextConfig = {
+  env: {
+    NEXT_PUBLIC_CLERK_ENABLED: CLERK_ENABLED ? "true" : "false",
+  },
   images: {
     remotePatterns: [
       { protocol: "https", hostname: "images.unsplash.com" },
@@ -96,6 +107,9 @@ const nextConfig: NextConfig = {
     return [
       // Trailing-slash normalisation handled by Next, but force https in case
       { source: "/index", destination: "/", permanent: true },
+      { source: "/voor-monteurs", destination: "/monteur", permanent: true },
+      { source: "/login", destination: "/inloggen", permanent: true },
+      { source: "/register", destination: "/registreren", permanent: true },
     ];
   },
 };

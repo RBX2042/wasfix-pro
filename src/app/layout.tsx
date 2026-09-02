@@ -4,6 +4,7 @@ import { Toaster } from "sonner";
 import { Analytics } from "@vercel/analytics/next";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import { ThemeProvider } from "@/components/theme-provider";
+import { AuthProviders } from "@/components/auth-providers";
 import { CartProvider } from "@/components/cart-provider";
 import { CookieConsent } from "@/components/CookieConsent";
 import { ExitIntentModal } from "@/components/ExitIntentModal";
@@ -45,14 +46,16 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="nl" suppressHydrationWarning className={`${inter.variable} ${syne.variable} ${geist.variable} ${geistMono.variable}`}>
       <body className="min-h-screen bg-background font-sans antialiased">
-        <PostHogProvider>
-          <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
-            <CartProvider>
-              {children}
-              <Toaster richColors position="top-right" />
-            </CartProvider>
-          </ThemeProvider>
-        </PostHogProvider>
+        <AuthProviders>
+          <PostHogProvider>
+            <ThemeProvider attribute="class" defaultTheme="light" enableSystem disableTransitionOnChange>
+              <CartProvider>
+                {children}
+                <Toaster richColors position="top-right" />
+              </CartProvider>
+            </ThemeProvider>
+          </PostHogProvider>
+        </AuthProviders>
         <CookieConsent />
         <ExitIntentModal />
         <ReferralTracker />

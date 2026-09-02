@@ -1,14 +1,31 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
 import { locales, defaultLocale, type Locale } from "@/i18n/config";
 import brandsData from "@/data/brands.json";
 
-const isDemoMode = process.env.DEMO_MODE === "true" || !process.env.CLERK_SECRET_KEY;
+// Demo mode = no real auth. Also forced when Clerk keys are missing so the
+// app never locks users out because of a half-configured environment.
+const CLERK_ENABLED =
+  process.env.DEMO_MODE !== "true" &&
+  Boolean(process.env.CLERK_SECRET_KEY) &&
+  Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 const FEATURE_I18N = process.env.NEXT_PUBLIC_FEATURE_I18N === "true";
 
 // Brand-page SEO URLs: /bosch-wasmachine-reparatie → /reparatie/bosch (rewrite, not redirect)
 const BRAND_SLUGS = new Set((brandsData as Array<{ slug: string }>).map((b) => b.slug));
 
-const protectedPaths = ["/dashboard", "/admin", "/monteur/dashboard", "/monteur/klanten", "/monteur/onderdelen", "/monteur/werkorders"];
+const isProtectedRoute = createRouteMatcher([
+  "/dashboard(.*)",
+  "/admin(.*)",
+  "/monteur/dashboard(.*)",
+  "/monteur/klanten(.*)",
+  "/monteur/onderdelen(.*)",
+  "/monteur/werkorders(.*)",
+  "/api/orders(.*)",
+  "/api/user(.*)",
+  "/api/account(.*)",
+  "/api/dashboard(.*)",
+]);
 
 function detectLocale(req: NextRequest): Locale {
   const country = req.headers.get("x-vercel-ip-country") ?? "";
@@ -27,13 +44,12 @@ function detectLocale(req: NextRequest): Locale {
   return defaultLocale;
 }
 
-export default async function middleware(req: NextRequest) {
+/** Everything that is not auth: SEO rewrites + i18n hints. */
+function siteMiddleware(req: NextRequest): NextResponse {
   const { pathname } = req.nextUrl;
 
   // ─── Brand-page SEO URL rewrite ──────────────────────────────────
   // /bosch-wasmachine-reparatie → internally serves /reparatie/bosch
-  // Public URL stays SEO-friendly, generateStaticParams produces the
-  // pages at /reparatie/[merk]/.
   const brandMatch = pathname.match(/^\/([a-z0-9]+)-wasmachine-reparatie\/?$/i);
   if (brandMatch && BRAND_SLUGS.has(brandMatch[1].toLowerCase())) {
     const url = req.nextUrl.clone();
@@ -42,8 +58,6 @@ export default async function middleware(req: NextRequest) {
   }
 
   // ─── i18n geo-detection (feature-flagged) ─────────────────────────
-  // Until pages are migrated under [locale]/, this only sets a hint cookie
-  // so the homepage can show "Try EN version?" banner.
   if (FEATURE_I18N) {
     const segments = pathname.split("/").filter(Boolean);
     const hasLocalePrefix = (locales as readonly string[]).includes(segments[0] ?? "");
@@ -60,39 +74,44 @@ export default async function middleware(req: NextRequest) {
         return res;
       }
     }
-  } else {
-    // Hint cookie for "Try EN" banner
-    const hinted = req.cookies.get("wasfix-locale-suggested")?.value;
-    if (!hinted && !pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
-      const detected = detectLocale(req);
-      if (detected !== defaultLocale) {
-        const res = NextResponse.next();
-        res.cookies.set("wasfix-locale-suggested", detected, { maxAge: 60 * 60 * 24 * 30, path: "/" });
-        return res;
-      }
-    }
-  }
-
-  // ─── Auth gating ──────────────────────────────────────────────────
-  if (isDemoMode) return NextResponse.next();
-
-  const isProtected = protectedPaths.some((p) => pathname.startsWith(p));
-  if (!isProtected) return NextResponse.next();
-
-  try {
-    const { clerkMiddleware, createRouteMatcher } = await import("@clerk/nextjs/server");
-    const matcher = createRouteMatcher(["/dashboard(.*)", "/monteur/dashboard(.*)", "/monteur/klanten(.*)", "/monteur/onderdelen(.*)", "/monteur/werkorders(.*)", "/admin(.*)"]);
-    return (clerkMiddleware as never as (handler: (auth: { protect(): Promise<void> }, request: NextRequest) => Promise<NextResponse | undefined> | NextResponse | undefined) => (req: NextRequest) => Promise<NextResponse | undefined>)(async (auth, request) => {
-      if (matcher(request)) await auth.protect();
-      return undefined;
-    })(req);
-  } catch {
     return NextResponse.next();
   }
+
+  // Hint cookie for "Try EN" banner
+  const hinted = req.cookies.get("wasfix-locale-suggested")?.value;
+  if (!hinted && !pathname.startsWith("/api") && !pathname.startsWith("/_next")) {
+    const detected = detectLocale(req);
+    if (detected !== defaultLocale) {
+      const res = NextResponse.next();
+      res.cookies.set("wasfix-locale-suggested", detected, { maxAge: 60 * 60 * 24 * 30, path: "/" });
+      return res;
+    }
+  }
+  return NextResponse.next();
+}
+
+// With Clerk configured, clerkMiddleware runs on every matched request so
+// auth()/currentUser() work in any server component or route handler, and
+// protected routes redirect to /inloggen when signed out.
+const withClerk = clerkMiddleware(async (auth, req) => {
+  if (isProtectedRoute(req)) {
+    if (req.nextUrl.pathname.startsWith("/api/")) {
+      const { userId } = await auth();
+      if (!userId) return NextResponse.json({ error: "Niet ingelogd" }, { status: 401 });
+    } else {
+      await auth.protect();
+    }
+  }
+  return siteMiddleware(req);
+});
+
+export default function middleware(req: NextRequest, event: Parameters<typeof withClerk>[1]) {
+  if (CLERK_ENABLED) return withClerk(req, event);
+  return siteMiddleware(req);
 }
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico)$).*)",
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html)$).*)",
   ],
 };

@@ -7,6 +7,10 @@ import { CartDrawer } from "@/components/cart-drawer";
 import { toast } from "sonner";
 import "@/app/wasfix-design.css";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+// Derived from the catalog so a headline number can never outrun the product.
+const STATS = catalogStats();
 
 // ─── Icon helper ────────────────────────────────────────────────────────
 type IconName =
@@ -478,10 +482,10 @@ function Hero() {
 
         <div style={{ marginTop: 48 }}>
           <div className="stat-strip">
-            <div className="stat"><div className="stat-n">3.420+</div><div className="stat-l">Modellen ondersteund</div></div>
-            <div className="stat"><div className="stat-n">2.180</div><div className="stat-l">Foutcodes in database</div></div>
-            <div className="stat"><div className="stat-n">5.600+</div><div className="stat-l">Originele onderdelen</div></div>
-            <div className="stat"><div className="stat-n">1.247</div><div className="stat-l">Reparatiegidsen</div></div>
+            <div className="stat"><div className="stat-n">{formatCount(STATS.errorCodes)}</div><div className="stat-l">Foutcodes in database</div></div>
+            <div className="stat"><div className="stat-n">{formatCount(STATS.parts)}</div><div className="stat-l">Onderdelen op voorraad</div></div>
+            <div className="stat"><div className="stat-n">{formatCount(STATS.guides)}</div><div className="stat-l">Reparatiegidsen</div></div>
+            <div className="stat"><div className="stat-n">{formatCount(STATS.brands)}</div><div className="stat-l">Merken gedekt</div></div>
           </div>
         </div>
 
@@ -891,7 +895,7 @@ function CodeExplorer({ codes }: { codes: CodeItem[] }) {
     <section className="section" id="codes">
       <div className="container">
         <div className="eyebrow">Foutcode database</div>
-        <h2 className="h-section">2.180 codes. <em>Eén</em> zoekbalk.</h2>
+        <h2 className="h-section">{formatCount(STATS.errorCodes)} codes. <em>Eén</em> zoekbalk.</h2>
         <p className="lead">Zoek per merk, code of symptoom. Krijg meteen de visuele uitleg van wat er fout gaat — niet alleen tekst.</p>
 
         <div className="codes-grid" style={{ marginTop: 36 }}>
@@ -1183,37 +1187,57 @@ function MonteurPro() {
   );
 }
 
-// ─── Testimonials ───────────────────────────────────────────────────────
-function Testimonials() {
+// ─── What the diagnose actually covers ─────────────────────────────────
+// This slot used to carry testimonials from people who do not exist
+// ("Marieke V., Rotterdam, bespaarde €280") next to a 4.8/5 rating over 1.247
+// reviews that were never collected. Presenting invented customers as real is
+// a misleading commercial practice under the EU Omnibus directive, so the
+// section now shows what the product verifiably does, drawn from the catalog.
+function WhatYouGet() {
   const items = [
-    { saved: "€ 280", q: "Mijn Bosch gaf F21. In 2 minuten wist ik dat het filter verstopt was. Zelf opgelost.", who: "Marieke V., Rotterdam", tag: "Particulier" },
-    { saved: "API", q: "Als ZZP-monteur gebruik ik het dashboard dagelijks. De technische database is echt compleet.", who: "Thomas B., Amsterdam", tag: "Monteur Pro" },
-    { saved: "€ 89", q: "Foto van de display, direct diagnose. Onderdeel besteld, morgen geleverd. Beter dan Coolblue.", who: "Sandra K., Utrecht", tag: "Gratis" },
-    { saved: "€ 400", q: "Dacht dat mijn Miele kapot was. WasFix zei: koolborstels. €10 onderdelen, 45 min werk.", who: "Erik de V., Den Haag", tag: "Particulier" },
-    { saved: "€ 600", q: "Repareren-of-vervangen calculator gaf eerlijk advies. Geen nieuwe machine nodig.", who: "Linda M., Eindhoven", tag: "Gratis" },
-    { saved: "B2B", q: "Onze servicedesk stuurt klanten eerst naar WasFix voor pre-diagnose. Belvolume halveerde.", who: "Pieter W., Groningen", tag: "Bedrijf" },
+    {
+      tag: "Diagnose",
+      n: formatCount(STATS.errorCodes),
+      title: "foutcodes met oorzaak en oplossing",
+      body: `Van ${STATS.brands} merken, gekoppeld aan de onderdelen en gidsen die erbij horen. Voer je code in en je ziet meteen wat het kan zijn.`,
+    },
+    {
+      tag: "Zelf repareren",
+      n: formatCount(STATS.guides),
+      title: "stap-voor-stap reparatiegidsen",
+      body: "Met benodigd gereedschap, tijdsindicatie en veiligheidswaarschuwingen. Geschreven om te volgen met de machine open voor je.",
+    },
+    {
+      tag: "Onderdelen",
+      n: formatCount(STATS.partsInStock),
+      title: "onderdelen op voorraad",
+      body: "Origineel en universeel, met vermelding waar ze op passen. Boven €50 gratis verzonden.",
+    },
+    {
+      tag: "Kosten",
+      n: "€ 0",
+      title: "om te beginnen",
+      body: `Drie diagnoses per maand zonder account. Genoeg om één storing helemaal uit te zoeken, inclusief het onderdeel dat je nodig hebt.`,
+    },
   ];
   return (
     <section className="section-sm">
       <div className="container">
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-end", marginBottom: 20, flexWrap: "wrap", gap: 12 }}>
           <div>
-            <div className="eyebrow">Klanten</div>
-            <h2 className="h-section" style={{ fontSize: "clamp(24px,3vw,32px)" }}>Echte verhalen, <em>echte</em> besparing.</h2>
+            <div className="eyebrow">Wat je krijgt</div>
+            <h2 className="h-section" style={{ fontSize: "clamp(24px,3vw,32px)" }}>Geen praatjes, <em>gewoon</em> de inhoud.</h2>
           </div>
-          <div className="pill"><Icon name="star" size={11} /> 4.8/5 · 1.247 reviews</div>
         </div>
       </div>
       <div className="row-scroll">
         <div className="row-scroll-inner">
-          {[...items, ...items].map((it, i) => (
+          {items.map((it, i) => (
             <div key={i} className="card" style={{ width: 380, padding: 24, flexShrink: 0 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-                <span className="pill pill-acc pill-mono">{it.saved} bespaard</span>
-                <span className="pill pill-mono">{it.tag}</span>
-              </div>
-              <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--text)" }}>&ldquo;{it.q}&rdquo;</div>
-              <div className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>— {it.who}</div>
+              <span className="pill pill-mono">{it.tag}</span>
+              <div style={{ fontSize: 32, fontWeight: 600, marginTop: 14, letterSpacing: "-0.02em" }}>{it.n}</div>
+              <div style={{ fontSize: 14.5, fontWeight: 500, marginTop: 2 }}>{it.title}</div>
+              <div className="muted" style={{ fontSize: 13, lineHeight: 1.55, marginTop: 10 }}>{it.body}</div>
             </div>
           ))}
         </div>
@@ -1372,7 +1396,7 @@ export default function WasFixHome({ parts, codes }: { parts: PartItem[]; codes:
         <Predictive />
         <Impact />
         <MonteurPro />
-        <Testimonials />
+        <WhatYouGet />
         <Pricing />
         <FinalCTA />
         <Footer />

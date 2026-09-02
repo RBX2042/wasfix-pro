@@ -243,7 +243,7 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
           <div style={{ padding: 28, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 14, textAlign: "center" }}>
             <h2 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>Klaar om te integreren?</h2>
             <p className="muted" style={{ marginBottom: 18, fontSize: 13.5 }}>
-              Monteur Pro vanaf €29/mnd — 1.000 calls/maand inbegrepen. Enterprise (€299/mnd) voor witlabel + onbeperkt.
+              Monteur Pro €29/mnd — 1.000 calls per maand inbegrepen. Bedrijf €199/mnd — 10.000 calls per maand plus witlabel. Meer nodig? Neem contact op.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
               <Link className="btn btn-primary" href="/monteur">Word Monteur Pro</Link>

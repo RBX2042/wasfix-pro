@@ -16,10 +16,26 @@ const features = [
   { icon: "chart", title: "MTD omzet + analytics", text: "Welke onderdelen levert wat op? Welke merken vragen het meest tijd? Inzicht in cijfers." },
 ];
 
-const testimonials = [
-  { q: "WasFix bespaart me 2 uur per dag. Klant stuurt foutcode via WhatsApp, ik weet meteen wat ik moet meenemen — geen tweede bezoek meer.", who: "Mark · Mark's Wasmachineservice, Utrecht" },
-  { q: "De API-integratie met onze planning werkt vlekkeloos. Diagnoses staan automatisch in de werkbon. Vroeger 15 min handwerk per klant, nu nul.", who: "Sandra · Witgoed Service West, Den Haag" },
-  { q: "10% korting + nooit een verkeerd onderdeel. Mijn marge per reparatie is met €18 omhoog. Verdient zichzelf 20x terug in een maand.", who: "Tom · Reparatie Tom, Eindhoven" },
+// This page used to quote three repair businesses by name that do not exist,
+// with quantified savings nobody measured. Replaced with what Monteur Pro
+// actually does — claims that can be checked against the product.
+const capabilities = [
+  {
+    title: "Klanten en werkorders op één plek",
+    body: "Leg per klant vast welke machine er staat en wat je er eerder aan deed. Werkorders lopen van open naar voltooid met één klik, en je ziet in één oogopslag wat er nog openstaat.",
+  },
+  {
+    title: "Factuur direct vanaf de werkorder",
+    body: "Vul je bedrijfsgegevens één keer in en elke afgeronde werkorder wordt een factuur met btw-specificatie, in je eigen doorlopende nummerreeks. Printen of opslaan als pdf.",
+  },
+  {
+    title: "10% korting op alle onderdelen",
+    body: "De korting wordt automatisch toegepast in je winkelmand, ook bij bulkbestellingen. Boven €50 verzenden we gratis.",
+  },
+  {
+    title: "B2B API voor je eigen systeem",
+    body: "1.000 calls per maand op diagnose, foutcodes en onderdelen. Koppel het aan je planning of je eigen klantportaal.",
+  },
 ];
 
 export default function MonteurLandingPage() {
@@ -125,16 +141,13 @@ export default function MonteurLandingPage() {
 
       <section className="section" style={{ paddingTop: 0 }}>
         <div className="container">
-          <div className="eyebrow">Monteurs vertellen</div>
-          <h2 className="h-section">Ze gebruiken het <em>elke dag</em>.</h2>
+          <div className="eyebrow">Wat je ervoor krijgt</div>
+          <h2 className="h-section">Voor <em>€29</em> per maand.</h2>
           <div className="testimonials-grid" style={{ marginTop: 32 }}>
-            {testimonials.map((t, i) => (
+            {capabilities.map((c, i) => (
               <div key={i} className="testimonial">
-                <div style={{ display: "flex", gap: 4, marginBottom: 14 }}>
-                  {[...Array(5)].map((_, j) => <Icon key={j} name="star" size={14} className="star-on" />)}
-                </div>
-                <div style={{ fontSize: 14.5, lineHeight: 1.55, color: "var(--text)" }}>&ldquo;{t.q}&rdquo;</div>
-                <div className="muted" style={{ fontSize: 12.5, marginTop: 14 }}>— {t.who}</div>
+                <div style={{ fontSize: 15, fontWeight: 500, marginBottom: 8 }}>{c.title}</div>
+                <div className="muted" style={{ fontSize: 13.5, lineHeight: 1.6 }}>{c.body}</div>
               </div>
             ))}
           </div>

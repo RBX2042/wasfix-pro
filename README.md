@@ -64,6 +64,15 @@ entitlement-checks lezen daaruit, zodat ze niet uit elkaar kunnen lopen.
 - **Marge**: elk onderdeel heeft een inkoopprijs; `/admin` toont netto omzet,
   af te dragen btw, inkoopwaarde en brutomarge.
 
+**Monteurs factureren hun eigen klanten.** Vul de bedrijfsgegevens in op
+`/monteur/instellingen` en elke werkorder met een bedrag wordt een factuur met
+btw-specificatie, in de eigen doorlopende nummerreeks van die monteur. WasFix
+staat er niet op — de monteur is de verkoper.
+
+**Claims komen uit de data.** Elk getal over de omvang van de catalogus wordt
+berekend met `catalogStats()` in `src/lib/catalog-stats.ts`, zodat een
+marketingclaim niet kan afwijken van wat er werkelijk in staat.
+
 Zie `MONETIZATION.md` voor de unit-economics en wat er commercieel nog moet
 gebeuren.
 

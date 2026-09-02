@@ -130,7 +130,7 @@ export function PredictiveClient() {
 
         <div style={{ padding: 18, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text)" }}>Hoe komen we aan deze score?</strong><br />
-          We combineren je merk + leeftijd met statistische MTTF-data per onderdeelcategorie. Brand-betrouwbaarheid is gebaseerd op publieke betrouwbaarheidsonderzoeken (Consumentenbond, Stiftung Warentest) en onze interne diagnose-data (50K+ samples). De score is een waarschijnlijkheid, geen voorspelling — sommige machines gaan jaren langer, sommige korter mee.
+          We combineren je merk en de leeftijd van je machine met de gebruikelijke levensduur per onderdeelcategorie. Dat zijn vuistregels uit de praktijk, geen metingen aan jouw machine en geen eigen onderzoek: zie het als een indicatie van waar slijtage het eerst opduikt. Sommige machines gaan jaren langer mee, andere korter.
         </div>
       </div>
     );

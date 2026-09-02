@@ -124,7 +124,21 @@ veertien dagen gratis, maar het Stripe-abonnement werd zonder proefperiode
 aangemaakt: de klant werd direct afgeschreven. `trial_period_days` staat nu in
 de plan-configuratie en gaat mee naar Stripe.
 
-## 6. Wat de eigenaar nog moet doen
+## 6. De monteur kan nu factureren
+
+Het sterkste argument voor Monteur Pro was tot nu toe de korting, en die kost
+ons meer dan hij oplevert (§3). Facturatie verandert dat: een zelfstandige
+monteur moet toch een factuur sturen, en doet dat vaak in Word of een los
+pakket van tien euro per maand. Vanaf nu wordt elke werkorder met een bedrag
+één klik een factuur met btw-specificatie, in zijn eigen doorlopende
+nummerreeks — een eis van de Belastingdienst die losse Word-documenten
+zelden halen.
+
+Dat is functionaliteit waarvoor iemand blijft betalen, ook in een maand dat
+hij weinig onderdelen koopt. Precies wat §3 mist: een reden om te blijven die
+niet uit de marge komt.
+
+## 7. Wat de eigenaar nog moet doen
 
 Deze punten kan code niet oplossen.
 
@@ -143,6 +157,10 @@ Deze punten kan code niet oplossen.
    fiscaal veilig maar commercieel onaantrekkelijk. Verleggen mag pas na
    VIES-validatie van het nummer; het btw-nummer wordt nu al vastgelegd en op
    de factuur getoond, de validatie zelf is nog niet gebouwd.
-5. **Verzendtarief controleren.** De €5,95 en de gratis-verzendgrens van €50
+5. **Echte gebruikscijfers.** De site claimde 12.000 diagnoses, €2,1M
+   besparing en 847 ton vermeden CO₂; geen daarvan werd gemeten. Ze zijn
+   verwijderd. Wil je dit soort cijfers kunnen tonen — en ze zijn sterk in de
+   pers — dan moet er eerst telling op zitten.
+6. **Verzendtarief controleren.** De €5,95 en de gratis-verzendgrens van €50
    zijn aannames. Leg ze naast het werkelijke PostNL-tarief per gewichtsklasse;
    een trommellager weegt aanzienlijk meer dan een pluizenfilter.

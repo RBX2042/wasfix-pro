@@ -12,6 +12,8 @@ import { splitVatInclusive, money, issueInvoiceForOrder, getInvoiceForOrder } fr
 import { consumeUsage, canReadPremiumGuide } from "../src/lib/entitlements";
 import { PLANS, PLAN_ORDER, BILLABLE_PLANS, getPlan, formatPlanPrice, VAT_RATE } from "../src/lib/plans";
 import { getPlanLimits } from "../src/lib/auth";
+import { issueWorkOrderInvoice, getWorkOrderInvoice, profileGaps } from "../src/lib/monteur-invoicing";
+import { catalogStats } from "../src/lib/catalog-stats";
 
 const prisma = new PrismaClient();
 const log: string[] = [];
@@ -196,6 +198,120 @@ async function main() {
       await prisma.usageCounter.deleteMany({ where: { key: { startsWith: "qa-" } } }).catch(() => null);
       pass("Cleanup: test order, invoice and counters removed");
     }
+
+    // ── Monteur invoicing ───────────────────────────────────────
+    check(
+      profileGaps(null).length === 3,
+      "Monteur: an empty profile is rejected as incomplete",
+      "Monteur: an empty profile was treated as invoice-ready",
+    );
+    check(
+      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).length === 0,
+      "Monteur: a complete profile passes the invoice precondition",
+      "Monteur: a complete profile was still rejected",
+    );
+
+    const monteur = await prisma.user.upsert({
+      where: { email: "qa-monteur@wasfixpro.test" },
+      update: { plan: "MONTEUR_PRO", role: "TECHNICIAN" },
+      create: { email: "qa-monteur@wasfixpro.test", name: "QA Monteur", role: "TECHNICIAN", plan: "MONTEUR_PRO" },
+    });
+    const other = await prisma.user.upsert({
+      where: { email: "qa-monteur2@wasfixpro.test" },
+      update: {},
+      create: { email: "qa-monteur2@wasfixpro.test", name: "QA Monteur 2", role: "TECHNICIAN", plan: "MONTEUR_PRO" },
+    });
+
+    const customer = await prisma.customer.create({
+      data: { ownerId: monteur.id, name: "Klant Jansen", street: "Kerkweg 4", postalCode: "3500 AA", city: "Utrecht" },
+    });
+    const wo = await prisma.workOrder.create({
+      data: { ownerId: monteur.id, customerId: customer.id, reference: "WO-QA1", problem: "Pomp vervangen", machine: "Bosch WAU28T40NL", priceEur: 121, status: "VOLTOOID" },
+    });
+
+    // Without a profile the monteur cannot invoice.
+    const noProfile = await issueWorkOrderInvoice(monteur.id, wo.id);
+    check(
+      !noProfile.ok && Array.isArray(noProfile.missing) && noProfile.missing.length > 0,
+      "Monteur: invoicing is refused until the business details are filled in",
+      "Monteur: an invoice was issued without seller details",
+    );
+
+    await prisma.monteurProfile.upsert({
+      where: { userId: monteur.id },
+      update: {},
+      create: {
+        userId: monteur.id,
+        companyName: "QA Wasmachineservice",
+        kvkNumber: "87654321",
+        vatNumber: "NL123456789B01",
+        street: "Werkplaats 9",
+        postalCode: "3500 BB",
+        city: "Utrecht",
+        iban: "NL00BANK0123456789",
+        vatRate: 0.21,
+        paymentTerms: 14,
+      },
+    });
+
+    const moInv = await issueWorkOrderInvoice(monteur.id, wo.id);
+    check(moInv.ok, `Monteur: invoice issued (${moInv.ok ? moInv.invoice.number : "-"})`, "Monteur: invoice could not be issued");
+    if (moInv.ok) {
+      check(
+        moInv.invoice.vatEur === 21 && money(moInv.invoice.totalEur - moInv.invoice.vatEur) === 100,
+        "Monteur: €121 job splits into €100 + €21 btw",
+        `Monteur: btw split wrong (${moInv.invoice.vatEur})`,
+      );
+      check(
+        moInv.invoice.seller.name === "QA Wasmachineservice" && moInv.invoice.buyer.name === "Klant Jansen",
+        "Monteur: the monteur is the seller and their customer the buyer",
+        "Monteur: seller/buyer are the wrong way around",
+      );
+      const again = await issueWorkOrderInvoice(monteur.id, wo.id);
+      check(
+        again.ok && again.invoice.number === moInv.invoice.number,
+        "Monteur: re-opening the invoice reuses the same number",
+        "Monteur: a second number was allocated",
+      );
+    }
+
+    // Cross-tenant: another monteur must not reach this work order.
+    const stolen = await issueWorkOrderInvoice(other.id, wo.id);
+    check(!stolen.ok, "Monteur: another monteur cannot invoice this work order", "Monteur: cross-tenant invoicing succeeded");
+    const peeked = await getWorkOrderInvoice(other.id, wo.id);
+    check(peeked === null, "Monteur: another monteur cannot read the invoice", "Monteur: cross-tenant invoice read succeeded");
+
+    // Each monteur gets their own series starting at 0001.
+    const wo2 = await prisma.workOrder.create({
+      data: { ownerId: other.id, reference: "WO-QA2", problem: "Lager vervangen", priceEur: 242, status: "VOLTOOID" },
+    });
+    await prisma.monteurProfile.upsert({
+      where: { userId: other.id },
+      update: {},
+      create: { userId: other.id, companyName: "Andere Service", kvkNumber: "11223344", street: "Laan 2", postalCode: "1000 AA", city: "Amsterdam" },
+    });
+    const otherInvoice = await issueWorkOrderInvoice(other.id, wo2.id);
+    check(
+      otherInvoice.ok && otherInvoice.invoice.number.endsWith("-0001"),
+      "Monteur: every monteur has their own series starting at 0001",
+      "Monteur: invoice numbering leaked between monteurs",
+    );
+
+    await prisma.monteurInvoice.deleteMany({ where: { ownerId: { in: [monteur.id, other.id] } } });
+    await prisma.monteurInvoiceSequence.deleteMany({ where: { ownerId: { in: [monteur.id, other.id] } } });
+    await prisma.workOrder.deleteMany({ where: { ownerId: { in: [monteur.id, other.id] } } });
+    await prisma.customer.deleteMany({ where: { ownerId: monteur.id } });
+    await prisma.monteurProfile.deleteMany({ where: { userId: { in: [monteur.id, other.id] } } });
+    await prisma.user.deleteMany({ where: { id: { in: [monteur.id, other.id] } } });
+    pass("Cleanup: monteur test data removed");
+
+    // ── Claims match the catalog ────────────────────────────────
+    const cat = catalogStats();
+    check(
+      cat.errorCodes > 0 && cat.parts > 0 && cat.guides > 0 && cat.brands > 0,
+      `Claims: catalog stats resolve (${cat.errorCodes} codes, ${cat.parts} parts, ${cat.guides} guides, ${cat.brands} brands)`,
+      "Claims: catalog stats came back empty",
+    );
 
     // ── Catalog margin coverage ─────────────────────────────────
     const [withCost, totalParts] = await Promise.all([

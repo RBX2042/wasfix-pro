@@ -3,6 +3,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles, Recycle, Users, Award } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+const STATS = catalogStats();
 
 export const metadata = { title: "Over WasFix Pro" };
 
@@ -28,21 +31,25 @@ export default function OverPage() {
 
         <Card className="bg-primary/5">
           <CardContent className="p-8">
-            <h2 className="font-heading text-2xl font-bold mb-3">In cijfers</h2>
+            <h2 className="font-heading text-2xl font-bold mb-3">Wat er in het platform zit</h2>
             <div className="grid grid-cols-3 gap-4">
               <div>
-                <p className="font-heading text-3xl font-bold text-primary">12.000+</p>
-                <p className="text-xs text-muted-foreground">geslaagde diagnoses</p>
+                <p className="font-heading text-3xl font-bold text-primary">{formatCount(STATS.errorCodes)}</p>
+                <p className="text-xs text-muted-foreground">foutcodes met oorzaak en oplossing</p>
               </div>
               <div>
-                <p className="font-heading text-3xl font-bold text-primary">€2,1M</p>
-                <p className="text-xs text-muted-foreground">bespaard voor klanten</p>
+                <p className="font-heading text-3xl font-bold text-primary">{formatCount(STATS.guides)}</p>
+                <p className="text-xs text-muted-foreground">stap-voor-stap reparatiegidsen</p>
               </div>
               <div>
-                <p className="font-heading text-3xl font-bold text-primary">847 ton</p>
-                <p className="text-xs text-muted-foreground">CO₂ vermeden</p>
+                <p className="font-heading text-3xl font-bold text-primary">{formatCount(STATS.partsInStock)}</p>
+                <p className="text-xs text-muted-foreground">onderdelen op voorraad</p>
               </div>
             </div>
+            <p className="text-xs text-muted-foreground mt-4">
+              Cijfers over gebruik — aantal diagnoses, bespaard bedrag, vermeden CO₂ — publiceren we pas
+              wanneer we ze echt gemeten hebben.
+            </p>
           </CardContent>
         </Card>
 

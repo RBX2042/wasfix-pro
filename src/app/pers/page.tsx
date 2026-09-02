@@ -1,5 +1,6 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
 export const metadata = {
   title: "Pers & media kit · WasFix Pro",
@@ -7,30 +8,35 @@ export const metadata = {
   alternates: { canonical: "/pers" },
 };
 
+const CATALOG = catalogStats();
+
+// Only what the catalog can back up. Usage figures ("50K+ diagnoses sinds
+// launch") were removed: nothing measures them, and a press page is the last
+// place to put a number a journalist might quote.
 const STATS = [
-  { value: "568+", label: "Geïndexeerde pagina's" },
-  { value: "331", label: "Foutcodes in database" },
-  { value: "96", label: "Onderdelen op voorraad" },
-  { value: "26", label: "Reparatiegidsen NL" },
-  { value: "10+", label: "Ondersteunde merken" },
-  { value: "50K+", label: "Diagnoses sinds launch" },
+  { value: formatCount(CATALOG.errorCodes), label: "Foutcodes in database" },
+  { value: formatCount(CATALOG.partsInStock), label: "Onderdelen op voorraad" },
+  { value: formatCount(CATALOG.guides), label: "Reparatiegidsen NL" },
+  { value: formatCount(CATALOG.brands), label: "Ondersteunde merken" },
 ];
 
-const PRESS_RELEASES = [
+// The three "press releases" that stood here were invented, including a
+// research finding ("uit een interne analyse van 50.000 diagnoses blijkt dat
+// 73%…") that no study produced and an adoption claim of 1.000+ monteurs.
+// A journalist quoting those would be repeating fabrications, so the section
+// now carries background a reporter can actually verify against the product.
+const BACKGROUND = [
   {
-    date: "2026-05-22",
-    title: "WasFix Pro lanceert eerste AI-gedreven Right-to-Repair platform NL",
-    excerpt: "Amsterdam — WasFix Pro lanceert vandaag een platform dat consumenten in staat stelt hun wasmachine zelf te repareren met behulp van AI-diagnose en originele onderdelen. Het platform sluit aan op de EU Right-to-Repair Directive 2024/1799.",
+    title: "Wat het platform doet",
+    body: "WasFix Pro combineert een AI-diagnose voor wasmachinestoringen met een foutcodedatabase, stap-voor-stap reparatiegidsen en een onderdelenshop. De diagnose vraagt door op merk en symptoom en verwijst daarna naar de gids en het onderdeel dat bij de waarschijnlijke oorzaak hoort.",
   },
   {
-    date: "2026-04-12",
-    title: "WasFix-onderzoek: 73% van de Nederlandse wasmachine-vervangingen onnodig",
-    excerpt: "Uit een interne analyse van 50.000 diagnoses blijkt dat 73% van de vervangen wasmachines nog gerepareerd had kunnen worden voor minder dan 30% van de aanschafprijs van een nieuwe.",
+    title: "Waarom reparatie in plaats van vervanging",
+    body: "De EU Right-to-Repair-richtlijn (2024/1799) verplicht fabrikanten onderdelen langer beschikbaar te houden. Een wasmachine vervangen kost al snel een veelvoud van de reparatie; het platform maakt zichtbaar welk onderdeel stuk is en wat dat kost, zodat die afweging op cijfers rust.",
   },
   {
-    date: "2026-03-04",
-    title: "Monteurs adopteren AI: 1.000+ vakmensen gebruiken WasFix Pro voor pre-diagnose",
-    excerpt: "In 6 maanden groeide de monteur-community naar duizend abonnees. De AI-pre-diagnose bespaart hen gemiddeld 28 minuten per klantbezoek en verlaagt 'verkeerd onderdeel'-incidents met 84%.",
+    title: "Voor monteurs",
+    body: "Naast consumenten richt het platform zich op zelfstandige monteurs, met een klanten- en werkorderadministratie, facturatie met btw-specificatie, korting op onderdelen en een B2B API voor koppeling met eigen planningssoftware.",
   },
 ];
 
@@ -50,7 +56,7 @@ export default function PressPage() {
             Press <em>kit</em>
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>
-            Logo&apos;s, statistieken, founder-bio en persberichten. Iets specifieks nodig? Mail{" "}
+            Logo&apos;s, cijfers over de database, teambio en achtergrond. Iets specifieks nodig? Mail{" "}
             <a href="mailto:pers@wasfix.nl" style={{ color: "var(--acc-2)", textDecoration: "underline" }}>pers@wasfix.nl</a> — we reageren binnen 4 uur (werkdagen).
           </p>
 
@@ -113,24 +119,22 @@ export default function PressPage() {
           {/* Press releases */}
           <section style={{ marginBottom: 56 }}>
             <h2 className="h-section" style={{ fontSize: 24, marginBottom: 20 }}>
-              Persberichten
+              Achtergrond
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-              {PRESS_RELEASES.map((pr, i) => (
+              {BACKGROUND.map((item, i) => (
                 <article key={i} className="step-card" style={{ padding: "20px 22px" }}>
-                  <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.04em", marginBottom: 6 }}>
-                    {new Date(pr.date).toLocaleDateString("nl-NL", { day: "numeric", month: "long", year: "numeric" })}
-                  </div>
-                  <h3 style={{ fontSize: 17, fontWeight: 500, marginBottom: 8, lineHeight: 1.3 }}>{pr.title}</h3>
-                  <p style={{ color: "var(--text-2)", fontSize: 13.5, lineHeight: 1.6 }}>{pr.excerpt}</p>
+                  <h3 style={{ fontSize: 17, fontWeight: 500, marginBottom: 8, lineHeight: 1.3 }}>{item.title}</h3>
+                  <p style={{ color: "var(--text-2)", fontSize: 13.5, lineHeight: 1.6 }}>{item.body}</p>
                 </article>
               ))}
             </div>
-            <div style={{ marginTop: 14 }}>
-              <a href="mailto:pers@wasfix.nl?subject=Volledig%20persbericht%20opvragen" className="btn btn-sm">
-                Vraag volledig persbericht aan <Icon name="arrow" size={13} />
-              </a>
-            </div>
+            <p className="muted" style={{ fontSize: 12.5, marginTop: 14, lineHeight: 1.6 }}>
+              We publiceren geen gebruikscijfers zolang we ze niet gemeten hebben. Heb je cijfers nodig voor
+              een artikel, mail dan{" "}
+              <a href="mailto:pers@wasfix.nl" style={{ color: "var(--acc-2)", textDecoration: "underline" }}>pers@wasfix.nl</a>{" "}
+              en we vertellen je precies wat we wel en niet weten.
+            </p>
           </section>
 
           {/* Story angles */}
@@ -143,9 +147,8 @@ export default function PressPage() {
             </p>
             <ul style={{ paddingLeft: 22, lineHeight: 1.8, color: "var(--text-2)", fontSize: 14 }}>
               <li>Hoe AI ons in staat stelt 30+ jaar oude wasmachines nog te repareren</li>
-              <li>De CO2-impact van één vermeden wasmachine-vervanging: 320kg</li>
               <li>Right to Repair in praktijk: van politiek naar consumentenkeuze</li>
-              <li>Monteurs + AI = win-win: hoe 1.000 vakmensen 28 min/klant besparen</li>
+              <li>Monteurs + AI: wat pre-diagnose betekent voor een servicebezoek</li>
               <li>Het EU-platform achter de regels: wat de nieuwe Ecodesign-verordening écht betekent</li>
             </ul>
           </section>

@@ -100,6 +100,13 @@ const checks: Check[] = [
   { path: "/upgrade?plan=BEDRIJF", expect: 200, contains: "199" },
   { path: "/upgrade?plan=NONSENSE", expect: 200, contains: "Onbekend plan" },
   { path: "/bestelling/does-not-exist/factuur", expect: 404 },
+  // Claims on public pages must match the catalog, not invented numbers.
+  { path: "/", expect: 200, contains: "331" },
+  { path: "/over", expect: 200, contains: "331" },
+  { path: "/pers", expect: 200, contains: "Achtergrond" },
+  { path: "/monteur", expect: 200, contains: "Factuur direct vanaf de werkorder" },
+  { path: "/monteur/instellingen", expect: [200, 307] },
+  { path: "/wasmachine-kapot/amsterdam", expect: 200 },
 ];
 
 async function run() {

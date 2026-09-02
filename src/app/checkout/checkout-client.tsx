@@ -9,18 +9,19 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import { VAT_RATE } from "@/lib/plans";
-import { ShoppingBag, Truck, Lock, ArrowLeft } from "lucide-react";
+import { VAT_RATE, COMPANY } from "@/lib/plans";
+import { ShoppingBag, Truck, Lock, ArrowLeft, Landmark } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 
-export function CheckoutClient() {
+export function CheckoutClient({ stripeAvailable }: { stripeAvailable: boolean }) {
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clear);
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [paymentMethod, setPaymentMethod] = React.useState<"stripe" | "bank_transfer">(stripeAvailable ? "stripe" : "bank_transfer");
   React.useEffect(() => setMounted(true), []);
 
   const subtotal = cartTotal(items);
@@ -45,6 +46,7 @@ export function CheckoutClient() {
           email: formData.get("email"),
           name: formData.get("name"),
           vatNumber: (formData.get("vatNumber") as string)?.trim() || undefined,
+          paymentMethod,
           address: {
             street: formData.get("street"),
             houseNumber: formData.get("houseNumber"),
@@ -67,8 +69,15 @@ export function CheckoutClient() {
         return;
       }
 
-      // Demo mode — direct success
       clearCart();
+      if (data.paymentMethod === "bank_transfer") {
+        // No "?success=1" — the order page itself shows the payment
+        // instructions (IBAN, invoice number, due date) for this status.
+        router.push(`/bestelling/${data.orderId}`);
+        return;
+      }
+
+      // Demo mode — direct success
       router.push(`/bestelling/${data.orderId}?success=1`);
     } catch {
       toast.error("Er ging iets mis met afrekenen");
@@ -147,13 +156,31 @@ export function CheckoutClient() {
           <Card>
             <CardContent className="p-6">
               <h2 className="font-heading text-lg font-semibold mb-3">Betaling</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                In demo mode wordt geen daadwerkelijke betaling verwerkt. In productie wordt je doorgeleid naar Stripe Checkout (iDEAL, Bancontact, kaart).
-              </p>
-              <div className="flex items-center gap-2 text-sm">
-                <Lock className="h-4 w-4 text-emerald-500" />
-                <span className="text-muted-foreground">Veilig betalen via Stripe</span>
-              </div>
+
+              {stripeAvailable ? (
+                <div className="space-y-2">
+                  <label className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${paymentMethod === "stripe" ? "border-primary bg-primary/5" : ""}`}>
+                    <input type="radio" name="paymentMethodChoice" checked={paymentMethod === "stripe"} onChange={() => setPaymentMethod("stripe")} />
+                    <Lock className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="text-sm">Direct betalen (iDEAL, Bancontact, kaart) via Stripe</span>
+                  </label>
+                  <label className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${paymentMethod === "bank_transfer" ? "border-primary bg-primary/5" : ""}`}>
+                    <input type="radio" name="paymentMethodChoice" checked={paymentMethod === "bank_transfer"} onChange={() => setPaymentMethod("bank_transfer")} />
+                    <Landmark className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm">Op rekening — betaal binnen 14 dagen per bankoverschrijving</span>
+                  </label>
+                </div>
+              ) : (
+                <div className="rounded-md border p-3 flex items-center gap-3">
+                  <Landmark className="h-4 w-4 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Op rekening</p>
+                    <p className="text-xs text-muted-foreground">
+                      Je ontvangt direct een factuur met betaalinstructies ({COMPANY.name}, IBAN {COMPANY.iban}). Betaal binnen 14 dagen.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>

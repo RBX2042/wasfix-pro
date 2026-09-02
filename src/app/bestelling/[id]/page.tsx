@@ -5,7 +5,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatEur, formatDate } from "@/lib/utils";
-import { CheckCircle2, Truck, Package, Mail, ArrowRight, FileText } from "lucide-react";
+import { COMPANY } from "@/lib/plans";
+import { getInvoiceForOrder } from "@/lib/invoicing";
+import { CheckCircle2, Truck, Package, Mail, ArrowRight, FileText, Landmark } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -14,6 +16,7 @@ export const dynamic = "force-dynamic";
 
 const STATUS_LABEL: Record<string, { label: string; variant: any }> = {
   PENDING: { label: "In afwachting", variant: "warning" },
+  OPENSTAAND: { label: "Openstaand — wacht op betaling", variant: "warning" },
   PAID: { label: "Betaald", variant: "success" },
   SHIPPED: { label: "Verzonden", variant: "default" },
   DELIVERED: { label: "Geleverd", variant: "success" },
@@ -91,11 +94,35 @@ export default async function OrderDetailPage({
 
   const address = JSON.parse(order.shippingAddress);
   const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.PENDING;
+  const awaitingBankTransfer = order.status === "OPENSTAAND" && order.paymentMethod === "BANK_TRANSFER";
+  const invoice = awaitingBankTransfer ? await getInvoiceForOrder(order.id) : null;
 
   return (
     <MarketingLayout>
       <div className="container py-12 max-w-3xl">
-        {isSuccess && (
+        {awaitingBankTransfer && (
+          <div className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-6 mb-8 flex items-start gap-4">
+            <Landmark className="h-8 w-8 text-amber-500 shrink-0 mt-0.5" />
+            <div className="w-full">
+              <h2 className="font-heading text-xl font-bold text-amber-900 dark:text-amber-100">Bedankt! Maak het bedrag over om te versturen</h2>
+              <p className="text-sm text-amber-800 dark:text-amber-200 mt-1 mb-4">
+                We versturen je onderdelen zodra de betaling binnen is. Je ontvangt hiervan een bevestiging per e-mail.
+              </p>
+              <div className="bg-white dark:bg-black/20 rounded-md p-4 text-sm space-y-1.5">
+                <div className="flex justify-between"><span className="text-muted-foreground">Factuurnummer</span><span className="font-mono font-semibold">{invoice?.number ?? "—"}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Te betalen</span><span className="font-semibold">{formatEur(order.totalEur)}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono font-semibold">{COMPANY.iban}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Ten name van</span><span>{COMPANY.name}</span></div>
+                <div className="flex justify-between"><span className="text-muted-foreground">Omschrijving</span><span className="font-mono font-semibold">{invoice?.number ?? "—"}</span></div>
+                {order.dueAt && (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Betalen voor</span><span>{formatDate(order.dueAt)}</span></div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {isSuccess && !awaitingBankTransfer && (
           <div className="rounded-lg border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-6 mb-8 flex items-start gap-4">
             <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0 mt-0.5" />
             <div>
@@ -180,7 +207,7 @@ export default async function OrderDetailPage({
         </Card>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          {["PAID", "SHIPPED", "DELIVERED"].includes(order.status) && (
+          {["PAID", "SHIPPED", "DELIVERED", "OPENSTAAND"].includes(order.status) && (
             <Button asChild variant="outline">
               <Link href={`/bestelling/${order.id}/factuur`}><FileText className="h-4 w-4" /> Bekijk factuur</Link>
             </Button>

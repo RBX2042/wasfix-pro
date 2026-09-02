@@ -205,6 +205,14 @@ model Order {
   shippingAddress String
   email           String
   invoice         Invoice?
+  /// STRIPE (card/iDEAL/Bancontact) or BANK_TRANSFER ("op rekening" — no
+  /// Stripe keys required; the customer pays by wire against the invoice).
+  paymentMethod   String      @default("STRIPE")
+  /// Set for BANK_TRANSFER orders: when payment is due.
+  dueAt           DateTime?
+  /// When payment was actually confirmed (Stripe webhook, or an admin
+  /// marking a bank-transfer order paid once the wire arrives).
+  paidAt          DateTime?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -212,6 +220,7 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([stripePaymentId])
+  @@index([paymentMethod, status])
 }
 
 model StripeEvent {

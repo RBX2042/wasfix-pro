@@ -8,9 +8,11 @@ import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { staticPart, staticPartById } from "@/lib/static-db";
-import { money, splitVatInclusive } from "@/lib/invoicing";
-import { VAT_RATE } from "@/lib/plans";
+import { money, splitVatInclusive, issueInvoiceForOrder } from "@/lib/invoicing";
+import { VAT_RATE, COMPANY } from "@/lib/plans";
 import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
+
+const BANK_TRANSFER_TERM_DAYS = 14;
 
 const CheckoutSchema = z.object({
   items: z
@@ -27,6 +29,10 @@ const CheckoutSchema = z.object({
   name: z.string().min(2).max(100),
   // Business buyers can supply their VAT number; it is printed on the invoice.
   vatNumber: z.string().trim().regex(/^[A-Z]{2}[A-Z0-9+*.]{2,13}$/i, "Ongeldig btw-nummer").optional(),
+  // "stripe" = card/iDEAL/Bancontact via Stripe Checkout. "bank_transfer" =
+  // pay by invoice, no Stripe keys required. Defaults to stripe, but the
+  // checkout UI only offers it when Stripe is actually configured.
+  paymentMethod: z.enum(["stripe", "bank_transfer"]).optional().default("stripe"),
   address: z.object({
     street: z.string().min(2).max(100),
     houseNumber: z.string().min(1).max(20),
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest) {
       return apiError("Ongeldige bestelgegevens", 400, parsed.error.flatten());
     }
 
-    const { items, email, name, address, vatNumber } = parsed.data;
+    const { items, email, name, address, vatNumber, paymentMethod } = parsed.data;
 
     // User lookup is optional — falls through to anonymous if DB unreachable
     let user: Awaited<ReturnType<typeof getCurrentUser>> = null;
@@ -110,25 +116,119 @@ export async function POST(req: NextRequest) {
     // Catalog prices are shown including 21% btw, so the VAT is contained in
     // the total rather than added to it — the customer pays the price they saw.
     const vat = splitVatInclusive(total, VAT_RATE);
+    const costEur = costKnownForAll ? money(costOfGoods) : null;
 
-    // Try to persist the order. If DB is unreachable (demo deploy), generate a demo
-    // order id and return success so the customer still sees a confirmation page.
-    let orderId: string;
-    let demoMode = false;
-    try {
-      let userId = user?.id;
-      if (!userId) {
-        const existing = await prisma.user.findUnique({ where: { email } });
-        userId = existing
-          ? existing.id
-          : (await prisma.user.create({
-              data: { email, name, role: "CONSUMER", plan: "FREE" },
-            })).id;
+    const stripe = getStripe();
+    // Bank transfer whenever the customer picked it, or when Stripe isn't
+    // configured at all (today's reality — no live keys yet). A *configured*
+    // Stripe attempt that fails also falls back here, below, instead of
+    // either silently claiming "paid" or dead-ending in a hard error.
+    const wantsBankTransfer = paymentMethod === "bank_transfer" || !stripe;
+
+    // A bank-transfer order is a real invoice with WasFix's real IBAN on it.
+    // Refuse to issue one in production against placeholder company/fiscal
+    // details — customers cannot pay a fake IBAN, and a fake KvK/btw number
+    // is not a valid invoice.
+    if (wantsBankTransfer && env.IS_PRODUCTION && COMPANY.isPlaceholder) {
+      logger.error("Bank-transfer checkout blocked — COMPANY fiscal identity is still a placeholder in production");
+      return apiError(
+        "Betalen op factuur is nog niet beschikbaar. Neem contact op via support@wasfix.nl.",
+        503
+      );
+    }
+
+    const visitorId = await currentVisitorId();
+    if (visitorId) await recordSignup(visitorId);
+
+    async function resolveUserId(): Promise<string> {
+      if (user?.id) return user.id;
+      const existing = await prisma.user.findUnique({ where: { email } });
+      if (existing) return existing.id;
+      const created = await prisma.user.create({ data: { email, name, role: "CONSUMER", plan: "FREE" } });
+      return created.id;
+    }
+
+    if (wantsBankTransfer) {
+      const dueAt = new Date(Date.now() + BANK_TRANSFER_TERM_DAYS * 24 * 60 * 60 * 1000);
+      let orderId: string;
+      try {
+        const userId = await resolveUserId();
+        // The invoice commits the goods for up to 14 days, so stock is
+        // reserved now — same as a paid order — to avoid overselling.
+        const order = await prisma.$transaction(async (tx) => {
+          const created = await tx.order.create({
+            data: {
+              userId,
+              email,
+              subtotalEur: subtotal,
+              discountEur: discount,
+              shippingEur: shipping,
+              totalEur: total,
+              vatRate: vat.vatRate,
+              vatEur: vat.vatEur,
+              vatNumber: vatNumber ?? null,
+              costEur,
+              shippingAddress: JSON.stringify({ name, ...address }),
+              status: "OPENSTAAND",
+              paymentMethod: "BANK_TRANSFER",
+              dueAt,
+              items: { create: orderItems },
+            },
+          });
+          for (const item of resolvedItems) {
+            await tx.part.update({ where: { id: item.dbPart.id }, data: { stock: { decrement: item.quantity } } });
+          }
+          return created;
+        });
+        orderId = order.id;
+      } catch (dbErr) {
+        logger.warn("Order persistence failed (DB unreachable) — cannot issue a real invoice, falling back to demo confirmation", dbErr);
+        return apiSuccess({
+          orderId: "demo-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+          demo: true,
+          paymentMethod: "bank_transfer",
+          totals: { total, vatEur: vat.vatEur, exVatEur: vat.exVatEur, vatRate: vat.vatRate },
+        });
       }
 
+      const invoice = await issueInvoiceForOrder(orderId);
+      if (visitorId) await recordConversion(visitorId);
+
+      try {
+        const { sendBankTransferInstructions } = await import("@/lib/email");
+        if (invoice) {
+          await sendBankTransferInstructions(email, {
+            orderId,
+            name,
+            invoiceNumber: invoice.number,
+            totalEur: total,
+            dueAt,
+            iban: COMPANY.iban,
+            ibanName: COMPANY.name,
+          });
+        }
+      } catch (mailErr) {
+        logger.warn("Failed to send bank-transfer instructions email", mailErr);
+      }
+
+      return apiSuccess({
+        orderId,
+        paymentMethod: "bank_transfer",
+        invoiceNumber: invoice?.number ?? null,
+        iban: COMPANY.iban,
+        ibanName: COMPANY.name,
+        dueAt,
+        totals: { total, vatEur: vat.vatEur, exVatEur: vat.exVatEur, vatRate: vat.vatRate },
+      });
+    }
+
+    // ─── Stripe path (card/iDEAL/Bancontact) ──────────────────────────
+    let orderId: string;
+    try {
+      const userId = await resolveUserId();
       const order = await prisma.order.create({
         data: {
-          userId: userId!,
+          userId,
           email,
           subtotalEur: subtotal,
           discountEur: discount,
@@ -137,103 +237,93 @@ export async function POST(req: NextRequest) {
           vatRate: vat.vatRate,
           vatEur: vat.vatEur,
           vatNumber: vatNumber ?? null,
-          costEur: costKnownForAll ? money(costOfGoods) : null,
+          costEur,
           shippingAddress: JSON.stringify({ name, ...address }),
           status: "PENDING",
+          paymentMethod: "STRIPE",
           items: { create: orderItems },
         },
       });
       orderId = order.id;
     } catch (dbErr) {
       logger.warn("Order persistence failed (DB unreachable) — issuing demo order id", dbErr);
-      // Generate a deterministic demo order id
-      orderId = "demo-" + Math.random().toString(36).slice(2, 10).toUpperCase();
-      demoMode = true;
-    }
-
-    // Referral attribution rides along in Stripe metadata so the webhook can
-    // credit the referrer after the redirect (webhooks receive no cookies).
-    const visitorId = await currentVisitorId();
-    if (visitorId) await recordSignup(visitorId);
-
-    const stripe = getStripe();
-
-    if (stripe && !demoMode) {
-      try {
-        const session = await stripe.checkout.sessions.create(
-          {
-            mode: "payment",
-            payment_method_types: ["card", "ideal", "bancontact"],
-            line_items: resolvedItems.map(({ dbPart, quantity }) => ({
-              price_data: {
-                currency: "eur",
-                product_data: { name: dbPart.name, metadata: { sku: dbPart.sku } },
-                unit_amount: Math.round(dbPart.priceEur * 100),
-              },
-              quantity,
-            })),
-            customer_email: email,
-            success_url: `${env.APP_URL}/bestelling/${orderId}?success=1`,
-            cancel_url: `${env.APP_URL}/checkout`,
-            metadata: { orderId, ...(visitorId ? { refVisitorId: visitorId } : {}) },
-          },
-          { idempotencyKey: `checkout-${orderId}` }
-        );
-
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { stripePaymentId: session.id },
-        }).catch(() => {});
-
-        return apiSuccess({ checkoutUrl: session.url, orderId });
-      } catch (stripeErr) {
-        logger.warn("Stripe session create failed — falling back to demo confirmation", stripeErr);
-      }
-    }
-
-    // Demo mode (or Stripe not configured) — mark as paid + deduct stock atomically
-    if (!demoMode) {
-      try {
-        await prisma.$transaction(async (tx) => {
-          await tx.order.update({ where: { id: orderId }, data: { status: "PAID" } });
-          for (const item of resolvedItems) {
-            await tx.part.update({
-              where: { id: item.dbPart.id },
-              data: { stock: { decrement: item.quantity } },
-            });
-          }
-        });
-        // A paid order needs an invoice with a btw-specification (7y retention).
-        const { issueInvoiceForOrder } = await import("@/lib/invoicing");
-        await issueInvoiceForOrder(orderId);
-      } catch { /* ignore — order still valid */ }
-    }
-
-    // Paid straight away (demo/no-Stripe path) — credit the referrer now.
-    if (visitorId) await recordConversion(visitorId);
-
-    // Send confirmation email if Resend is configured
-    try {
-      const { sendOrderConfirmation } = await import("@/lib/email");
-      await sendOrderConfirmation(email, {
-        orderId,
-        items: resolvedItems.map(({ dbPart, quantity }) => ({
-          name: dbPart.name,
-          quantity,
-          total: dbPart.priceEur * quantity,
-        })),
-        total,
-        name,
+      return apiSuccess({
+        orderId: "demo-" + Math.random().toString(36).slice(2, 10).toUpperCase(),
+        demo: true,
+        totals: { total, vatEur: vat.vatEur, exVatEur: vat.exVatEur, vatRate: vat.vatRate },
       });
-    } catch (mailErr) {
-      logger.warn("Failed to send confirmation email", mailErr);
     }
 
-    return apiSuccess({
-      orderId,
-      demo: true,
-      totals: { total, vatEur: vat.vatEur, exVatEur: vat.exVatEur, vatRate: vat.vatRate },
-    });
+    try {
+      const session = await stripe!.checkout.sessions.create(
+        {
+          mode: "payment",
+          payment_method_types: ["card", "ideal", "bancontact"],
+          line_items: resolvedItems.map(({ dbPart, quantity }) => ({
+            price_data: {
+              currency: "eur",
+              product_data: { name: dbPart.name, metadata: { sku: dbPart.sku } },
+              unit_amount: Math.round(dbPart.priceEur * 100),
+            },
+            quantity,
+          })),
+          customer_email: email,
+          success_url: `${env.APP_URL}/bestelling/${orderId}?success=1`,
+          cancel_url: `${env.APP_URL}/checkout`,
+          metadata: { orderId, ...(visitorId ? { refVisitorId: visitorId } : {}) },
+        },
+        { idempotencyKey: `checkout-${orderId}` }
+      );
+
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { stripePaymentId: session.id },
+      }).catch(() => {});
+
+      return apiSuccess({ checkoutUrl: session.url, orderId });
+    } catch (stripeErr) {
+      // SECURITY: Stripe IS configured — this was a real checkout attempt,
+      // not a demo. A failure here must never silently mark the order paid.
+      // Offer the bank-transfer path instead of leaving the customer stuck.
+      logger.error("Stripe session create failed on a live checkout attempt — offering bank transfer instead", stripeErr);
+
+      if (env.IS_PRODUCTION && COMPANY.isPlaceholder) {
+        return apiError("Betaling kon niet worden gestart. Probeer het later opnieuw of neem contact op.", 502);
+      }
+
+      const dueAt = new Date(Date.now() + BANK_TRANSFER_TERM_DAYS * 24 * 60 * 60 * 1000);
+      await prisma.order.update({
+        where: { id: orderId },
+        data: { status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER", dueAt },
+      }).catch(() => {});
+      for (const item of resolvedItems) {
+        await prisma.part.update({ where: { id: item.dbPart.id }, data: { stock: { decrement: item.quantity } } }).catch(() => {});
+      }
+      const invoice = await issueInvoiceForOrder(orderId);
+      if (visitorId) await recordConversion(visitorId);
+
+      try {
+        const { sendBankTransferInstructions } = await import("@/lib/email");
+        if (invoice) {
+          await sendBankTransferInstructions(email, {
+            orderId, name, invoiceNumber: invoice.number, totalEur: total, dueAt,
+            iban: COMPANY.iban, ibanName: COMPANY.name,
+          });
+        }
+      } catch (mailErr) {
+        logger.warn("Failed to send bank-transfer instructions email", mailErr);
+      }
+
+      return apiSuccess({
+        orderId,
+        paymentMethod: "bank_transfer",
+        invoiceNumber: invoice?.number ?? null,
+        iban: COMPANY.iban,
+        ibanName: COMPANY.name,
+        dueAt,
+        totals: { total, vatEur: vat.vatEur, exVatEur: vat.exVatEur, vatRate: vat.vatRate },
+      });
+    }
   } catch (err) {
     logger.error("Checkout error", err);
     return apiError("Bestelling kon niet worden verwerkt", 500);

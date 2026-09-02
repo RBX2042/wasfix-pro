@@ -169,6 +169,34 @@ export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoi
   }
 }
 
+/**
+ * Confirms a bank-transfer order has been paid (admin action, once the wire
+ * arrives — there is no bank feed to detect this automatically). Idempotent:
+ * an already-paid order is left as-is rather than double-decrementing stock
+ * or re-sending a confirmation.
+ */
+export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isDatabaseConfigured()) return { ok: false, error: "Database niet beschikbaar." };
+  try {
+    const order = await prisma.order.findUnique({ where: { id: orderId } });
+    if (!order) return { ok: false, error: "Bestelling niet gevonden." };
+    if (order.paymentMethod !== "BANK_TRANSFER") {
+      return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
+    }
+    if (order.status === "PAID") return { ok: true };
+
+    await prisma.order.update({
+      where: { id: orderId },
+      data: { status: "PAID", paidAt: new Date() },
+    });
+    logger.info("[invoicing] bank-transfer order marked paid", { orderId });
+    return { ok: true };
+  } catch (err) {
+    logger.error("[invoicing] could not mark order paid", err);
+    return { ok: false, error: "Kon bestelling niet als betaald markeren." };
+  }
+}
+
 export async function getInvoiceForOrder(orderId: string): Promise<IssuedInvoice | null> {
   if (!isDatabaseConfigured()) return null;
   try {

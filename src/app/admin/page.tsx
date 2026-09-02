@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { formatEur, formatDate } from "@/lib/utils";
-import { Users, Package, TrendingUp, MessageCircle, BookOpen, AlertCircle, Inbox, BarChart3 } from "lucide-react";
+import { Users, Package, TrendingUp, MessageCircle, BookOpen, AlertCircle, Inbox, BarChart3, Landmark } from "lucide-react";
 import RevenueChart from "@/components/charts/RevenueChart";
 import ErrorCodeFrequency from "@/components/charts/ErrorCodeFrequency";
 
@@ -175,6 +175,11 @@ export default async function AdminPage() {
           icon={<Inbox className="h-5 w-5" />}
           title="Aanvragen & reviews"
                     href="/admin/aanvragen"
+        />
+        <ManageCard
+          icon={<Landmark className="h-5 w-5" />}
+          title="Bestellingen & facturen"
+          href="/admin/bestellingen"
         />
         <ManageCard
           icon={<Users className="h-5 w-5" />}

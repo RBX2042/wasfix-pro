@@ -89,6 +89,51 @@ export async function sendOrderConfirmation(
   });
 }
 
+export async function sendBankTransferInstructions(
+  email: string,
+  data: {
+    orderId: string;
+    name: string;
+    invoiceNumber: string;
+    totalEur: number;
+    dueAt: Date;
+    iban: string;
+    ibanName: string;
+  }
+) {
+  const resend = getResend();
+  if (!resend) return;
+
+  await resend.emails.send({
+    from: FROM,
+    to: email,
+    subject: `Betaalverzoek — factuur ${data.invoiceNumber}`,
+    html: `
+      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
+        <h1 style="color: #1a6b6b;">Bedankt voor je bestelling, ${data.name}!</h1>
+        <p style="font-size: 16px; line-height: 1.6;">
+          We hebben je bestelling ontvangen. Maak het bedrag hieronder over — zodra de betaling
+          binnen is versturen we je onderdelen.
+        </p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 16px;">
+          <tr><td style="padding:6px 0; color:#666;">Factuurnummer</td><td style="text-align:right; font-weight:bold;">${data.invoiceNumber}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">Te betalen</td><td style="text-align:right; font-weight:bold;">€${data.totalEur.toFixed(2)}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">IBAN</td><td style="text-align:right; font-weight:bold;">${data.iban}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">Ten name van</td><td style="text-align:right;">${data.ibanName}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">Omschrijving</td><td style="text-align:right;">${data.invoiceNumber}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">Betalen voor</td><td style="text-align:right;">${data.dueAt.toLocaleDateString("nl-NL")}</td></tr>
+        </table>
+        <a href="${env.APP_URL}/bestelling/${data.orderId}" style="display: inline-block; background: #1a6b6b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin-top: 24px;">
+          Bekijk bestelling en factuur
+        </a>
+        <p style="margin-top: 24px; font-size: 13px; color: #666;">
+          Vermeld altijd het factuurnummer als omschrijving, zodat we je betaling kunnen koppelen.
+        </p>
+      </div>
+    `,
+  });
+}
+
 export async function sendDiagnosisSummary(
   email: string,
   data: { brand: string; mainCause: string; confidence: number; recommendedAction: string }

@@ -147,6 +147,33 @@ async function main() {
     if (guideWithParts && guideWithParts.parts.length > 0) pass(`Relation: RepairGuide→Parts (${guideWithParts.parts.length})`);
     else fail("Relation: RepairGuide→Parts empty");
 
+    // ── CRM + referrals (models added for the monteur dashboard) ──
+    const owner = await prisma.user.findFirst({ where: { email: "jdahoe@hotmail.nl" } });
+    if (owner) {
+      const cust = await prisma.customer.create({ data: { ownerId: owner.id, name: "QA Klant" } });
+      const wo = await prisma.workOrder.create({ data: { ownerId: owner.id, customerId: cust.id, reference: `QA-${Date.now()}`, problem: "QA test" } });
+      pass("Customer + WorkOrder CREATE");
+
+      const scoped = await prisma.workOrder.updateMany({ where: { id: wo.id, ownerId: owner.id }, data: { status: "VOLTOOID" } });
+      scoped.count === 1 ? pass("WorkOrder UPDATE scoped by owner") : fail("WorkOrder UPDATE scoping");
+
+      await prisma.customer.delete({ where: { id: cust.id } });
+      const kept = await prisma.workOrder.findUnique({ where: { id: wo.id } });
+      kept && kept.customerId === null ? pass("WorkOrder survives customer delete") : fail("WorkOrder lost on customer delete");
+      await prisma.workOrder.delete({ where: { id: wo.id } });
+
+      const visitorId = `qa-${Date.now()}`;
+      await prisma.referral.create({ data: { code: "QATEST", visitorId, referrerId: owner.id } });
+      const dupe = await prisma.referral
+        .create({ data: { code: "QATEST", visitorId, referrerId: owner.id } })
+        .then(() => "created")
+        .catch(() => "rejected");
+      dupe === "rejected" ? pass("Referral unique per (code, visitor)") : fail("duplicate referral allowed");
+      await prisma.referral.deleteMany({ where: { visitorId } });
+    } else {
+      fail("Seeded admin user missing — run npm run db:seed");
+    }
+
     const userWithDiagnoses = await prisma.user.findFirst({
       where: { email: "demo@wasfixpro.nl" },
       include: { diagnoses: true, orders: { include: { items: { include: { part: true } } } } },

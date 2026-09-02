@@ -88,3 +88,32 @@ Engineering decisions made during the autonomous production-readiness pass. Each
 
 **Decision:** `fetch` naar de Upstash pipeline-API (INCR + EXPIRE NX) in plaats van `@upstash/ratelimit`.
 **Reason:** nul extra packages, werkt op edge en node, fail-open naar de in-memory limiter bij storing.
+
+## 2026-09-02 — Ratings alleen uit echte reviews
+
+**Probleem:** home, prijzen en de onderdeelpagina publiceerden `AggregateRating` met
+verzonnen aantallen (1247, 892, 234, 47) plus drie verzonnen `Review`-objecten.
+**Decision:** alle hardgecodeerde rating-markup verwijderd. `src/lib/reviews.ts` berekent
+rating en aantal uit de echte reviews (seed + goedgekeurde DB-rijen) en geeft `undefined`
+terug als er geen zijn, zodat er dan niets wordt gepubliceerd.
+**Reason:** Google's structured-data-beleid verbiedt ratings die niet op de pagina staan of
+niet echt zijn (manual action als sanctie), en de EU Omnibus-richtlijn verplicht dat als
+consumentenreviews gepresenteerde content ook echt van consumenten komt.
+**Open:** de zichtbare testimonial-blokken bevatten nog verzonnen personen. Dat is
+marketingcopy van de eigenaar, dus gemeld in TODO.md in plaats van eenzijdig verwijderd.
+
+## 2026-09-02 — Constanten buiten "use server"-modules
+
+**Probleem:** `WORK_ORDER_STATUSES` en de categorie-arrays werden geëxporteerd uit bestanden
+met `"use server"`. Next.js staat daar alleen async functies toe; de admin- en
+werkorderpagina's gaven daardoor een 500.
+**Decision:** constanten in aparte modules (`_lib/constants.ts`, `_lib/catalog-constants.ts`)
+die zowel de server actions als de client-formulieren importeren.
+
+## 2026-09-02 — Tenant-scoping op elke monteur-mutatie
+
+**Decision:** iedere update/delete van `Customer` en `WorkOrder` gaat via `updateMany`/
+`deleteMany` met `{ id, ownerId }` in de where-clause, niet via `update({ where: { id } })`.
+**Reason:** met alleen het id zou een monteur met een gegokt id een klant van een ander
+kunnen bewerken. Nu levert dat `count: 0` op in plaats van een wijziging; er is een test
+voor in `scripts/qa-db.ts`.

@@ -3,10 +3,10 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Plus, Edit } from "lucide-react";
+import { isDatabaseConfigured } from "@/lib/env";
+import { DeleteButton, EditGuideButton, NewGuideButton, deleteGuide, type GuideRow } from "../_lib/catalog-forms";
 
 export const dynamic = "force-dynamic";
 
@@ -17,20 +17,34 @@ export default async function AdminGuidesPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
-  let guides: Awaited<ReturnType<typeof prisma.repairGuide.findMany>> = [];
+  const hasDb = isDatabaseConfigured();
+  let guides: Array<GuideRow & { views: number }> = [];
   try {
+    if (!hasDb) throw new Error("no database");
     guides = await prisma.repairGuide.findMany({ orderBy: { views: "desc" } });
   } catch {
     const { guides: staticGuideList } = await import("@/lib/static-db");
-    guides = [...staticGuideList].sort((a, b) => b.views - a.views).map((g) => ({ ...g, createdAt: new Date(g.createdAt) })) as typeof guides;
+    guides = [...staticGuideList].sort((a, b) => b.views - a.views) as typeof guides;
   }
 
   return (
     <DashboardLayout role={user.role}>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-heading text-2xl font-bold">Reparatiegidsen beheren</h1>
-        <Button><Plus className="h-4 w-4" /> Nieuwe gids</Button>
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Reparatiegidsen beheren</h1>
+          <p className="text-muted-foreground text-sm">{guides.length} gidsen</p>
+        </div>
+        {hasDb && <NewGuideButton />}
       </div>
+
+      {!hasDb && (
+        <Card className="mb-4">
+          <div className="p-4 text-sm text-muted-foreground">
+            Read-only: zonder <code className="bg-muted px-1 rounded text-xs">DATABASE_URL</code> komen de gidsen uit
+            <code className="bg-muted px-1 rounded text-xs ml-1">src/data</code>.
+          </div>
+        </Card>
+      )}
 
       <Card>
         <table className="w-full text-sm">
@@ -53,7 +67,12 @@ export default async function AdminGuidesPage() {
                 <td className="p-3">{g.isPremium ? <Badge variant="accent">Premium</Badge> : <Badge variant="secondary">Gratis</Badge>}</td>
                 <td className="p-3 text-right font-medium">{g.views.toLocaleString("nl-NL")}</td>
                 <td className="p-3">
-                  <Button size="icon" variant="ghost" className="h-7 w-7"><Edit className="h-3 w-3" /></Button>
+                  {hasDb && (
+                    <div className="flex items-center justify-end gap-1">
+                      <EditGuideButton guide={g} />
+                      <DeleteButton id={g.id} label={g.title} action={deleteGuide} />
+                    </div>
+                  )}
                 </td>
               </tr>
             ))}

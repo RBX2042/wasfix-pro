@@ -24,6 +24,10 @@ model User {
   orders           Order[]
   savedMachines    SavedMachine[]
   apiKeys          ApiKey[]
+  customers        Customer[]     @relation("CustomerOwner")
+  workOrders       WorkOrder[]    @relation("WorkOrderOwner")
+  referrals        Referral[]     @relation("ReferralReferrer")
+  referralCode     String?        @unique
 
   @@index([role])
   @@index([plan])
@@ -311,4 +315,66 @@ model DiagnosisFeedback {
 
   @@index([rating])
   @@index([createdAt])
+}
+
+// ─── Monteur CRM: klanten en werkorders ──────────────────────────
+model Customer {
+  id         String      @id @default(cuid())
+  ownerId    String
+  owner      User        @relation("CustomerOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  name       String
+  email      String?
+  phone      String?
+  street     String?
+  postalCode String?
+  city       String?
+  machine    String?
+  notes      String?
+  createdAt  DateTime    @default(now())
+  updatedAt  DateTime    @updatedAt
+  workOrders WorkOrder[]
+
+  @@index([ownerId])
+  @@index([ownerId, name])
+}
+
+model WorkOrder {
+  id          String    @id @default(cuid())
+  ownerId     String
+  owner       User      @relation("WorkOrderOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  customerId  String?
+  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  reference   String
+  machine     String?
+  errorCode   String?
+  problem     String
+  status      String    @default("OPEN") // OPEN | GEPLAND | WACHT_OP_ONDERDEEL | VOLTOOID | GEANNULEERD
+  urgent      Boolean   @default(false)
+  scheduledAt DateTime?
+  priceEur    Float?
+  notes       String?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@unique([ownerId, reference])
+  @@index([ownerId, status])
+  @@index([customerId])
+}
+
+// ─── Referrals ───────────────────────────────────────────────────
+model Referral {
+  id          String    @id @default(cuid())
+  code        String
+  referrerId  String?
+  referrer    User?     @relation("ReferralReferrer", fields: [referrerId], references: [id], onDelete: SetNull)
+  visitorId   String
+  landingPath String?
+  signedUpAt  DateTime?
+  convertedAt DateTime?
+  rewardEur   Float     @default(0)
+  createdAt   DateTime  @default(now())
+
+  @@unique([code, visitorId])
+  @@index([code])
+  @@index([referrerId])
 }

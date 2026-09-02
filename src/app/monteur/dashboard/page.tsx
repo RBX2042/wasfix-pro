@@ -39,19 +39,54 @@ export default async function MonteurDashboardPage() {
   }
 
   // Live numbers when a DB is connected; static catalog otherwise.
+  const hasDb = isDatabaseConfigured();
   let stockTotal = staticPartList.reduce((sum, p) => sum + p.stock, 0);
   let totalDiagnoses = 0;
   let recentOrders: Array<{ id: string; totalEur: number; items: Array<{ id: string }> }> = [];
-  if (isDatabaseConfigured()) {
+  let customerCount = 0;
+  let customersThisMonth = 0;
+  let activeWorkOrders = 0;
+  let workOrdersThisWeek = 0;
+  let openWorkOrders: Array<{
+    id: string;
+    reference: string;
+    status: string;
+    urgent: boolean;
+    machine: string | null;
+    problem: string;
+    customer: { name: string } | null;
+  }> = [];
+
+  if (hasDb) {
+    const monthAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const weekAhead = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
+    const activeStatuses = ["OPEN", "GEPLAND", "WACHT_OP_ONDERDEEL"];
     try {
-      const [partsTotal, orders, diagCount] = await Promise.all([
+      const [partsTotal, orders, diagCount, custTotal, custRecent, woActive, woWeek, woList] = await Promise.all([
         prisma.part.aggregate({ _sum: { stock: true } }),
         prisma.order.findMany({ take: 8, orderBy: { createdAt: "desc" }, include: { items: true } }),
         prisma.diagnosis.count(),
+        prisma.customer.count({ where: { ownerId: user.id } }),
+        prisma.customer.count({ where: { ownerId: user.id, createdAt: { gte: monthAgo } } }),
+        prisma.workOrder.count({ where: { ownerId: user.id, status: { in: activeStatuses } } }),
+        prisma.workOrder.count({
+          where: { ownerId: user.id, status: { in: activeStatuses }, scheduledAt: { gte: new Date(), lte: weekAhead } },
+        }),
+        prisma.workOrder.findMany({
+          where: { ownerId: user.id, status: { in: activeStatuses } },
+          orderBy: [{ urgent: "desc" }, { createdAt: "desc" }],
+          take: 3,
+          include: { customer: { select: { name: true } } },
+        }),
       ]);
       stockTotal = partsTotal._sum.stock ?? stockTotal;
       recentOrders = orders;
       totalDiagnoses = diagCount;
+      customerCount = custTotal;
+      customersThisMonth = custRecent;
+      activeWorkOrders = woActive;
+      workOrdersThisWeek = woWeek;
+      openWorkOrders = woList;
     } catch {
       // DB unreachable — keep static numbers
     }
@@ -70,15 +105,19 @@ export default async function MonteurDashboardPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1"><Users className="h-4 w-4" /> Klanten</div>
-            <p className="font-heading text-2xl font-bold">12</p>
-            <p className="text-xs text-emerald-600">+3 deze maand</p>
+            <p className="font-heading text-2xl font-bold">{customerCount}</p>
+            <p className="text-xs text-muted-foreground">
+              {customersThisMonth > 0 ? `+${customersThisMonth} deze maand` : hasDb ? "Nog geen nieuwe" : "Database vereist"}
+            </p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1"><Calendar className="h-4 w-4" /> Werkorders</div>
-            <p className="font-heading text-2xl font-bold">5</p>
-            <p className="text-xs text-amber-600">2 deze week</p>
+            <p className="font-heading text-2xl font-bold">{activeWorkOrders}</p>
+            <p className="text-xs text-muted-foreground">
+              {workOrdersThisWeek > 0 ? `${workOrdersThisWeek} deze week gepland` : hasDb ? "Niets gepland" : "Database vereist"}
+            </p>
           </CardContent>
         </Card>
         <Card>
@@ -105,17 +144,24 @@ export default async function MonteurDashboardPage() {
               <Link href="/monteur/werkorders" className="text-sm text-primary hover:underline">Alles →</Link>
             </div>
             <div className="space-y-3">
-              {[
-                { id: "WO-001", klant: "Familie de Vries", machine: "Bosch WAU28T40NL", status: "OPEN", urgent: true },
-                { id: "WO-002", klant: "M. Janssen", machine: "Miele WED 125 WPS", status: "WACHT_OP_ONDERDEEL" },
-                { id: "WO-003", klant: "Familie Bakker", machine: "Samsung WW90T684DLH", status: "GEPLAND" },
-              ].map((wo) => (
-                <div key={wo.id} className="flex items-center justify-between p-3 rounded-md border">
-                  <div>
-                    <p className="font-medium text-sm">{wo.id} · {wo.klant}</p>
-                    <p className="text-xs text-muted-foreground">{wo.machine}</p>
+              {openWorkOrders.length === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {hasDb ? (
+                    <>Geen openstaande werkorders. <Link href="/monteur/werkorders" className="text-primary hover:underline">Maak er een aan →</Link></>
+                  ) : (
+                    "Werkorders vereisen een database (DATABASE_URL)."
+                  )}
+                </p>
+              )}
+              {openWorkOrders.map((wo) => (
+                <div key={wo.id} className="flex items-center justify-between gap-3 p-3 rounded-md border">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm truncate">{wo.reference} · {wo.customer?.name ?? "Geen klant"}</p>
+                    <p className="text-xs text-muted-foreground truncate">{wo.machine ?? wo.problem}</p>
                   </div>
-                  <Badge variant={wo.urgent ? "danger" : wo.status === "GEPLAND" ? "warning" : "secondary"}>{wo.status}</Badge>
+                  <Badge variant={wo.urgent ? "danger" : wo.status === "GEPLAND" ? "warning" : "secondary"} className="shrink-0">
+                    {wo.status.replace(/_/g, " ")}
+                  </Badge>
                 </div>
               ))}
             </div>

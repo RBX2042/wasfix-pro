@@ -1,16 +1,15 @@
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
+import { isDatabaseConfigured } from "@/lib/env";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { formatEur } from "@/lib/utils";
-import { Plus, Edit } from "lucide-react";
+import { DeleteButton, EditPartButton, NewPartButton, deletePart, type PartRow } from "../_lib/catalog-forms";
 
 export const dynamic = "force-dynamic";
-
 
 export const metadata = { title: "Admin: onderdelen" };
 
@@ -18,22 +17,37 @@ export default async function AdminPartsPage() {
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
-  let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
+  const hasDb = isDatabaseConfigured();
+  let parts: PartRow[] = [];
   try {
-    parts = await prisma.part.findMany({ orderBy: { sku: "asc" } });
+    if (hasDb) {
+      parts = await prisma.part.findMany({ orderBy: { sku: "asc" } });
+    } else {
+      throw new Error("no database");
+    }
   } catch {
     const { parts: staticPartList } = await import("@/lib/static-db");
-    parts = [...staticPartList].sort((a, b) => a.sku.localeCompare(b.sku)) as typeof parts;
+    parts = [...staticPartList].sort((a, b) => a.sku.localeCompare(b.sku)) as PartRow[];
   }
 
   return (
     <DashboardLayout role={user.role}>
-      <div className="flex items-center justify-between mb-6">
-        <h1 className="font-heading text-2xl font-bold">Onderdelen beheren</h1>
-        <Button>
-          <Plus className="h-4 w-4" /> Nieuw onderdeel
-        </Button>
+      <div className="flex items-center justify-between mb-6 gap-4">
+        <div>
+          <h1 className="font-heading text-2xl font-bold">Onderdelen beheren</h1>
+          <p className="text-muted-foreground text-sm">{parts.length} onderdelen</p>
+        </div>
+        {hasDb && <NewPartButton />}
       </div>
+
+      {!hasDb && (
+        <Card className="mb-4">
+          <div className="p-4 text-sm text-muted-foreground">
+            Read-only: zonder <code className="bg-muted px-1 rounded text-xs">DATABASE_URL</code> komt de catalogus uit
+            <code className="bg-muted px-1 rounded text-xs ml-1">src/data</code> en kan hij niet in de browser worden bewerkt.
+          </div>
+        </Card>
+      )}
 
       <Card>
         <div className="overflow-x-auto">
@@ -63,7 +77,12 @@ export default async function AdminPartsPage() {
                     {p.stock > 10 ? <span className="text-emerald-600">{p.stock}</span> : p.stock > 0 ? <span className="text-amber-600">{p.stock}</span> : <span className="text-destructive">0</span>}
                   </td>
                   <td className="p-3">
-                    <Button size="icon" variant="ghost" className="h-7 w-7"><Edit className="h-3 w-3" /></Button>
+                    {hasDb && (
+                      <div className="flex items-center justify-end gap-1">
+                        <EditPartButton part={p} />
+                        <DeleteButton id={p.id} label={p.sku} action={deletePart} />
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))}

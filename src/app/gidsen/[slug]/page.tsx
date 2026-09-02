@@ -9,6 +9,8 @@ import Image from "next/image";
 import { Clock, AlertTriangle, ChevronRight, Wrench, Crown, ShoppingCart, BookOpen } from "lucide-react";
 import { pickArr, formatEur } from "@/lib/utils";
 import { GuideStepper } from "./guide-stepper";
+import { Reviews } from "@/components/Reviews";
+import { getReviews, reviewStats, aggregateRatingLd } from "@/lib/reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -35,6 +37,9 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
   const tools = pickArr(guide.tools);
   const parts = guide.parts.map((gp) => gp.part);
 
+  const reviews = await getReviews({ slug: guide.slug });
+  const stats = reviewStats(reviews);
+
   // schema.org HowTo structured data
   const howToLd = {
     "@context": "https://schema.org",
@@ -53,6 +58,7 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
       text: s.description + (s.warning ? ` Let op: ${s.warning}` : ""),
       position: s.stepNum,
     })),
+    aggregateRating: aggregateRatingLd(stats),
   };
 
   const breadcrumbLd = {
@@ -148,6 +154,10 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
               </CardContent>
             </Card>
           </aside>
+        </div>
+
+        <div className="mt-12 max-w-3xl">
+          <Reviews slug={guide.slug} />
         </div>
       </div>
     </MarketingLayout>

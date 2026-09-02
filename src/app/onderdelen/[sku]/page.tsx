@@ -11,6 +11,8 @@ import Link from "next/link";
 import { PartCard } from "@/components/part-card";
 import PartViewer3DWrapper from "@/components/3d/PartViewer3DWrapper";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Reviews } from "@/components/Reviews";
+import { getReviews, reviewStats, aggregateRatingLd, reviewsLd } from "@/lib/reviews";
 
 export const dynamic = "force-dynamic";
 
@@ -40,6 +42,10 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
 
   const compatibleBrands = Array.from(new Set(part.machines.map((m) => m.machine.brand)));
   const relatedParts = staticRelatedParts(part.category, part.id, 4);
+
+  // Ratings come from real reviews only; omitted entirely when there are none.
+  const reviews = await getReviews({ sku: part.sku });
+  const stats = reviewStats(reviews);
 
   // schema.org Product + Offer
   const productLd = {
@@ -78,7 +84,8 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
         returnFees: "https://schema.org/FreeReturn",
       },
     },
-    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.7", reviewCount: "47" },
+    aggregateRating: aggregateRatingLd(stats),
+    review: reviewsLd(reviews),
   };
 
   const breadcrumbLd = {
@@ -208,6 +215,10 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
             </div>
           </div>
         )}
+
+        <div className="mt-16">
+          <Reviews sku={part.sku} />
+        </div>
 
         {relatedParts.length > 0 && (
           <div className="mt-16">

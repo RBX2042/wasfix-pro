@@ -3,7 +3,7 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { getReviewsFor } from "@/components/Reviews";
+import { getReviews } from "@/lib/reviews";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
 
@@ -24,21 +24,8 @@ export async function GET(req: NextRequest) {
   const sku = sp.get("sku") ?? undefined;
   const slug = sp.get("slug") ?? undefined;
   if (!sku && !slug) return apiError("Vereist: sku of slug parameter", 400);
-  const reviews: Array<Record<string, unknown>> = [...getReviewsFor({ sku, slug })];
-  if (isDatabaseConfigured()) {
-    try {
-      const dbReviews = await prisma.review.findMany({
-        where: { status: "APPROVED", ...(sku ? { targetType: "part", targetSku: sku } : { targetType: "guide", targetSlug: slug }) },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-      });
-      for (const r of dbReviews) {
-        reviews.unshift({ id: r.id, type: r.targetType, targetSku: r.targetSku, targetSlug: r.targetSlug, rating: r.rating, title: r.title, body: r.body, author: r.author, date: r.createdAt.toISOString().slice(0, 10), verified: true });
-      }
-    } catch (err) {
-      logger.warn("[reviews] DB lookup failed", err);
-    }
-  }
+  // Single source of truth: seed reviews + moderator-approved rows.
+  const reviews = await getReviews({ sku, slug });
   return NextResponse.json({ data: reviews, total: reviews.length });
 }
 

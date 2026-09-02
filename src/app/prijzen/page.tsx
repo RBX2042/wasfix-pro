@@ -19,7 +19,6 @@ const PRICING_JSONLD = [
     applicationCategory: "UtilitiesApplication",
     operatingSystem: "Web",
     offers: { "@type": "Offer", price: "4.99", priceCurrency: "EUR", priceValidUntil: "2027-12-31", availability: "https://schema.org/InStock", url: "https://wasfix.nl/upgrade?plan=PARTICULIER" },
-    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", reviewCount: "892" },
   },
   {
     "@context": "https://schema.org",
@@ -28,7 +27,6 @@ const PRICING_JSONLD = [
     applicationCategory: "BusinessApplication",
     operatingSystem: "Web",
     offers: { "@type": "Offer", price: "29.00", priceCurrency: "EUR", priceValidUntil: "2027-12-31", availability: "https://schema.org/InStock", url: "https://wasfix.nl/upgrade?plan=MONTEUR_PRO" },
-    aggregateRating: { "@type": "AggregateRating", ratingValue: "4.9", reviewCount: "234" },
   },
 ];
 

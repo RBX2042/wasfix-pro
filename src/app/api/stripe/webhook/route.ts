@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
 import type Stripe from "stripe";
+import { recordConversion } from "@/lib/referrals";
 
 export const runtime = "nodejs";
 
@@ -71,6 +72,10 @@ export async function POST(req: NextRequest) {
             }
           });
         }
+
+        // Referral credit: the visitor id was stashed at checkout time.
+        const refVisitorId = session.metadata?.refVisitorId;
+        if (refVisitorId) await recordConversion(refVisitorId);
 
         if (userId && plan) {
           await prisma.user.update({

@@ -93,9 +93,19 @@ src/
 
 ## Data model
 
-Catalogus: `WashingMachine`, `ErrorCode`, `RepairGuide`, `Part` + junctietabellen.
+Catalogus: `WashingMachine`, `ErrorCode`, `RepairGuide`, `Part` + junctietabellen — bewerkbaar via `/admin/onderdelen`, `/admin/gidsen` en `/admin/foutcodes`.
 Gebruikers: `User`, `SavedMachine`, `Diagnosis`, `Order`/`OrderItem`, `StripeEvent`, `ApiKey`.
+Monteur-CRM: `Customer` en `WorkOrder` — per monteur afgeschermd (`ownerId`), beheerd op `/monteur/klanten` en `/monteur/werkorders`.
+Groei: `Referral` (klik → aanmelding → conversie, €5 per betalende klant, 30 dagen attributie).
 Inbox: `Review` (moderatie), `RmaRequest`, `MonteurApplication`, `NewsletterSubscriber`, `DiagnosisFeedback` — beheer via `/admin/aanvragen`.
+
+### Reviews en ratings
+
+Reviews komen uit twee bronnen: de curated set in `src/data/reviews.json` en door een
+moderator goedgekeurde rijen in de `Review`-tabel. Sterbeoordelingen op de pagina én in
+schema.org `AggregateRating` worden **altijd** uit die echte reviews berekend; is er geen
+review, dan publiceren we geen rating. Verzin hier nooit cijfers: dat is in strijd met het
+schema.org-beleid van Google en met de EU Omnibus-richtlijn over consumentenreviews.
 
 ## Routes (selectie)
 

@@ -8,6 +8,7 @@ import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { staticPart, staticPartById } from "@/lib/static-db";
+import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
 
 const CheckoutSchema = z.object({
   items: z
@@ -133,6 +134,11 @@ export async function POST(req: NextRequest) {
       demoMode = true;
     }
 
+    // Referral attribution rides along in Stripe metadata so the webhook can
+    // credit the referrer after the redirect (webhooks receive no cookies).
+    const visitorId = await currentVisitorId();
+    if (visitorId) await recordSignup(visitorId);
+
     const stripe = getStripe();
 
     if (stripe && !demoMode) {
@@ -152,7 +158,7 @@ export async function POST(req: NextRequest) {
             customer_email: email,
             success_url: `${env.APP_URL}/bestelling/${orderId}?success=1`,
             cancel_url: `${env.APP_URL}/checkout`,
-            metadata: { orderId },
+            metadata: { orderId, ...(visitorId ? { refVisitorId: visitorId } : {}) },
           },
           { idempotencyKey: `checkout-${orderId}` }
         );
@@ -182,6 +188,9 @@ export async function POST(req: NextRequest) {
         });
       } catch { /* ignore — order still valid */ }
     }
+
+    // Paid straight away (demo/no-Stripe path) — credit the referrer now.
+    if (visitorId) await recordConversion(visitorId);
 
     // Send confirmation email if Resend is configured
     try {

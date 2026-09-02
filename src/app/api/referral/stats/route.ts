@@ -1,29 +1,26 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
+import { env } from "@/lib/env";
+import { referralCodeFor, referralStats } from "@/lib/referrals";
 
-// Returns referral stats for the current user (or by ?code= for testing).
-// Real implementation: query Referral table with attribution-window logic.
-// Demo: returns zeros + the user's code.
+export const dynamic = "force-dynamic";
 
+/**
+ * Referral stats for the signed-in user. A ?code= is only honoured when it
+ * matches the caller's own code, so nobody can read someone else's numbers.
+ */
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url);
-  const code = url.searchParams.get("code");
-
-  // Either get from user session or from query param (for own-link only)
   const user = await getCurrentUser().catch(() => null);
-  if (!user && !code) {
+  if (!user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });
   }
 
-  // Demo data — replace with real DB query when Referral model exists
-  return NextResponse.json({
-    data: {
-      link: `https://wasfix.nl/?ref=${code ?? user?.id?.slice(0, 6).toUpperCase() ?? "DEMO"}`,
-      clicks: 0,
-      signups: 0,
-      conversions: 0,
-      earningsEur: 0,
-    },
-    meta: { note: "Statistics are populated once referral conversions accumulate. Demo shows zeros." },
-  });
+  const ownCode = await referralCodeFor(user.id);
+  const requested = req.nextUrl.searchParams.get("code");
+  if (requested && requested.toUpperCase() !== ownCode) {
+    return NextResponse.json({ error: "Geen toegang tot deze referral-code" }, { status: 403 });
+  }
+
+  const stats = await referralStats(ownCode, env.APP_URL);
+  return NextResponse.json({ data: stats });
 }

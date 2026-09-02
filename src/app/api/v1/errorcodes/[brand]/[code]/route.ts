@@ -26,7 +26,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ bran
     return NextResponse.json({ error: "Insufficient scope: requires 'read:errorcodes'" }, { status: 403, headers: CORS });
   }
 
-  if (!rateLimit(`v1:codes:${auth.keyId}`, auth.rateLimit, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`v1:codes:${auth.keyId}`, auth.rateLimit, 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Rate limit exceeded", retry_after: 3600 }, { status: 429, headers: CORS });
   }
 

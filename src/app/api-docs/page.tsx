@@ -1,4 +1,4 @@
-import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
+import { WasFixShell } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 
 export const metadata = {

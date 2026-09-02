@@ -26,7 +26,6 @@ jobs:
         run: npm run typecheck
       - name: ESLint
         run: npm run lint
-        continue-on-error: true # Warn-only for now while we settle
 
   build:
     name: Build
@@ -50,3 +49,42 @@ jobs:
             .next/server/app/
             .next/static/
           retention-days: 7
+
+  database:
+    name: Schema + seed + smoke (Postgres)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    needs: lint-typecheck
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: wasfix
+          POSTGRES_DB: wasfix
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      DATABASE_URL: postgresql://postgres:wasfix@localhost:5432/wasfix
+      DEMO_MODE: "true"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Push schema + seed catalog
+        run: npm run db:setup
+      - name: Database smoke test
+        run: npm run db:smoke
+      - name: Build
+        run: npm run build
+      - name: HTTP smoke test (demo mode + DB)
+        run: |
+          npm run start -- --port 3000 &
+          for i in $(seq 1 30); do curl -sf http://localhost:3000/api/v1/health && break; sleep 2; done
+          npm run smoke

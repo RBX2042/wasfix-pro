@@ -10,7 +10,7 @@ const Schema = z.object({ kvkNumber: z.string().regex(/^\d{8}$/, "KvK-nummer is 
 // Without key, returns 503 with helpful message.
 // Real API: https://developers.kvk.nl/documentation/zoeken-api
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`kvk:${getClientKey(req)}`, 20, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`kvk:${getClientKey(req)}`, 20, 60 * 60 * 1000))) {
     return apiError("Te veel KvK-lookups — probeer over een uur opnieuw.", 429);
   }
 

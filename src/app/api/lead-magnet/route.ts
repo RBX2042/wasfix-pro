@@ -4,6 +4,8 @@ import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { leadMagnetEmail } from "@/lib/emails/templates";
+import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 
 const Schema = z.object({
   email: z.string().email(),
@@ -19,7 +21,7 @@ const MAGNET_PDFS: Record<string, string> = {
 };
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`leadmagnet:${getClientKey(req)}`, 10, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`leadmagnet:${getClientKey(req)}`, 10, 60 * 60 * 1000))) {
     return apiError("Te veel aanvragen — probeer over een uur opnieuw.", 429);
   }
 
@@ -32,6 +34,12 @@ export async function POST(req: NextRequest) {
   const pdfUrl = MAGNET_PDFS[magnetId] ?? MAGNET_PDFS["foutcodes-cheatsheet"];
 
   logger.info("[lead-magnet] requested", { email, magnetId, source });
+
+  if (isDatabaseConfigured()) {
+    await prisma.newsletterSubscriber
+      .upsert({ where: { email }, update: {}, create: { email, source: `lead-magnet:${magnetId}` } })
+      .catch((err) => logger.warn("[lead-magnet] persist failed", err));
+  }
 
   // Send the magnet via Resend (graceful if not configured)
   try {

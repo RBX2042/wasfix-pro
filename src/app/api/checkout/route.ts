@@ -35,7 +35,7 @@ export async function POST(req: NextRequest) {
   try {
     // Rate limit: 10 orders/hour per IP+user
     const clientKey = getClientKey(req);
-    if (!rateLimit(`checkout:${clientKey}`, 10, 60 * 60 * 1000)) {
+    if (!(await rateLimit(`checkout:${clientKey}`, 10, 60 * 60 * 1000))) {
       return apiError("Te veel bestelpogingen. Probeer het over een uur opnieuw.", 429);
     }
 

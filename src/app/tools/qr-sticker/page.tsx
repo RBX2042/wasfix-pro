@@ -17,7 +17,7 @@ export default function QrStickerPage() {
             QR sticker <em>generator</em>
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>
-            Plak deze QR op je wasmachine. Bij toekomstige problemen scan je 'm met je telefoon en kom je direct bij diagnose, onderdelen en reparatiegidsen voor jouw machine. Voor monteurs: één sticker per klant = klantbinding + 1-click pre-diagnose.
+            Plak deze QR op je wasmachine. Bij toekomstige problemen scan je &apos;m met je telefoon en kom je direct bij diagnose, onderdelen en reparatiegidsen voor jouw machine. Voor monteurs: één sticker per klant = klantbinding + 1-click pre-diagnose.
           </p>
           <QrStickerClient />
         </div>

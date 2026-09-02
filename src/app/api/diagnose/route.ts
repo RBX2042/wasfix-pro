@@ -47,7 +47,7 @@ export async function POST(req: NextRequest) {
 
     // IP rate-limit (separate from monthly quota): 60/min/IP
     const ipKey = getClientKey(req, user?.id);
-    if (!rateLimit(`diagnose:ip:${ipKey}`, 60, 60_000)) {
+    if (!(await rateLimit(`diagnose:ip:${ipKey}`, 60, 60_000))) {
       return apiError("Te veel verzoeken. Probeer het over een minuut opnieuw.", 429);
     }
 

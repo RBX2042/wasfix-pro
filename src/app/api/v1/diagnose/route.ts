@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
   }
 
   // Diagnose is more expensive — lower rate limit
-  if (!rateLimit(`v1:diagnose:${auth.keyId}`, Math.floor(auth.rateLimit / 10), 60 * 60 * 1000)) {
+  if (!(await rateLimit(`v1:diagnose:${auth.keyId}`, Math.floor(auth.rateLimit / 10), 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Rate limit exceeded", retry_after: 3600 }, { status: 429, headers: CORS });
   }
 

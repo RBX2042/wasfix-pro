@@ -12,50 +12,43 @@ type ApiKey = {
   usageCount: number;
 };
 
-// Demo keys — replaced with real DB-backed list when ApiKey Prisma model is wired up.
-const DEMO_KEYS: ApiKey[] = [];
-
 export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit }: { userPlan: string; apiCallLimit: number }) {
-  const [keys, setKeys] = React.useState<ApiKey[]>(DEMO_KEYS);
+  const [keys, setKeys] = React.useState<ApiKey[]>([]);
+  const [loading, setLoading] = React.useState(true);
   const [showNewKey, setShowNewKey] = React.useState<string | null>(null);
   const [creating, setCreating] = React.useState(false);
   const [keyName, setKeyName] = React.useState("");
+
+  // Load existing keys from the server (empty list in demo mode without DB).
+  React.useEffect(() => {
+    let cancelled = false;
+    fetch("/api/dashboard/api-keys")
+      .then((r) => (r.ok ? r.json() : { keys: [] }))
+      .then((data) => { if (!cancelled) setKeys(data.keys ?? []); })
+      .catch(() => { /* keep empty list */ })
+      .finally(() => { if (!cancelled) setLoading(false); });
+    return () => { cancelled = true; };
+  }, []);
 
   async function createKey(e: React.FormEvent) {
     e.preventDefault();
     if (!keyName.trim()) return;
     setCreating(true);
 
-    // Mock: generate a key client-side for demo, real impl posts to /api/dashboard/api-keys
     try {
-      // Try real endpoint first
       const res = await fetch("/api/dashboard/api-keys", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: keyName }),
-      }).catch(() => null);
-
-      if (res?.ok) {
-        const data = await res.json();
-        setShowNewKey(data.fullKey);
-        setKeys((k) => [...k, data.key]);
-      } else {
-        // Demo fallback
-        const rand = Array.from(crypto.getRandomValues(new Uint8Array(24)))
-          .map((b) => b.toString(36).padStart(2, "0")).join("").slice(0, 32);
-        const fullKey = `wf_test_${rand}`;
-        const newKey: ApiKey = {
-          id: `demo-${Date.now()}`,
-          name: keyName,
-          prefix: fullKey.slice(0, 14),
-          createdAt: new Date().toISOString(),
-          lastUsedAt: null,
-          usageCount: 0,
-        };
-        setKeys((k) => [...k, newKey]);
-        setShowNewKey(fullKey);
-        toast.info("Demo key gegenereerd (geen DB beschikbaar)");
+      });
+      const data = await res.json().catch(() => ({}));
+      if (!res.ok) {
+        toast.error(data.error ?? "Kon key niet aanmaken");
+        return;
       }
+      setShowNewKey(data.fullKey);
+      setKeys((k) => [data.key, ...k]);
+      if (data.demo) toast.info("Demo key gegenereerd — wordt niet opgeslagen zonder database");
       setKeyName("");
     } catch {
       toast.error("Kon key niet aanmaken");
@@ -64,10 +57,20 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
     }
   }
 
-  function revoke(id: string) {
+  async function revoke(id: string) {
     if (!confirm("Deze key wordt direct gerevoceerd. Alle integraties die hem gebruiken stoppen met werken. Doorgaan?")) return;
-    setKeys((k) => k.filter((x) => x.id !== id));
-    toast.success("Key gerevoceerd");
+    try {
+      const res = await fetch(`/api/dashboard/api-keys?id=${encodeURIComponent(id)}`, { method: "DELETE" });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        toast.error(data.error ?? "Revoke mislukt");
+        return;
+      }
+      setKeys((k) => k.filter((x) => x.id !== id));
+      toast.success("Key gerevoceerd");
+    } catch {
+      toast.error("Revoke mislukt");
+    }
   }
 
   return (
@@ -80,7 +83,7 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
             <div className="flex-1">
               <p className="font-semibold mb-1">Nieuwe API key — kopieer NU</p>
               <p className="text-sm text-muted-foreground mb-3">
-                Dit is de enige keer dat we de volledige key tonen. Sla 'm veilig op (bv. in een password manager).
+                Dit is de enige keer dat we de volledige key tonen. Sla &apos;m veilig op (bv. in een password manager).
               </p>
               <div className="flex gap-2 items-stretch">
                 <code className="flex-1 px-3 py-2 bg-background border rounded font-mono text-xs overflow-auto whitespace-nowrap">
@@ -94,7 +97,7 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
                 </button>
               </div>
               <button onClick={() => setShowNewKey(null)} className="text-xs text-muted-foreground mt-3 hover:underline">
-                Ik heb 'm bewaard, sluit melding
+                Ik heb &apos;m bewaard, sluit melding
               </button>
             </div>
           </div>
@@ -137,7 +140,9 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
             </tr>
           </thead>
           <tbody>
-            {keys.length === 0 ? (
+            {loading ? (
+              <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">Laden…</td></tr>
+            ) : keys.length === 0 ? (
               <tr><td colSpan={6} className="p-8 text-center text-muted-foreground">
                 Nog geen API keys. Maak je eerste key hierboven aan.
               </td></tr>

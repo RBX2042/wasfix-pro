@@ -15,12 +15,21 @@ function read(name: string): string | undefined {
 
 const isDemoMode = (process.env.DEMO_MODE ?? "true") === "true";
 
+// A DATABASE_URL is only "real" when it is a Postgres connection string
+// without the Supabase placeholder password.
+const rawDatabaseUrl = read("DATABASE_URL");
+const databaseConfigured =
+  !!rawDatabaseUrl &&
+  /^postgres(ql)?:\/\//i.test(rawDatabaseUrl) &&
+  !/\[YOUR-PASSWORD\]|<your-password-here>|\[password\]/i.test(rawDatabaseUrl);
+
 export const env = {
-  DATABASE_URL: read("DATABASE_URL") ?? "file:./dev.db",
+  DATABASE_URL: rawDatabaseUrl,
   APP_URL: read("NEXT_PUBLIC_APP_URL") ?? "http://localhost:3000",
 
   CLERK_SECRET_KEY: read("CLERK_SECRET_KEY"),
   CLERK_PUBLISHABLE_KEY: read("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY"),
+  CLERK_WEBHOOK_SECRET: read("CLERK_WEBHOOK_SECRET") ?? read("CLERK_WEBHOOK_SIGNING_SECRET"),
 
   GEMINI_API_KEY: read("GEMINI_API_KEY") ?? read("GOOGLE_AI_API_KEY"),
   GEMINI_MODEL: read("GEMINI_MODEL") ?? "gemini-2.0-flash",
@@ -34,6 +43,12 @@ export const env = {
 
   RESEND_API_KEY: read("RESEND_API_KEY"),
   RESEND_FROM_EMAIL: read("RESEND_FROM_EMAIL") ?? "WasFix Pro <noreply@wasfix.nl>",
+  RESEND_AUDIENCE_ID: read("RESEND_AUDIENCE_ID"),
+
+  UPSTASH_REDIS_REST_URL: read("UPSTASH_REDIS_REST_URL"),
+  UPSTASH_REDIS_REST_TOKEN: read("UPSTASH_REDIS_REST_TOKEN"),
+
+  INTERNAL_API_KEY: read("INTERNAL_API_KEY"),
 
   DEMO_MODE: isDemoMode,
   IS_PRODUCTION: process.env.NODE_ENV === "production",
@@ -45,6 +60,11 @@ export function assertEnv(name: keyof typeof env): string {
     throw new Error(`Missing required environment variable: ${String(name)}`);
   }
   return String(value);
+}
+
+/** True when a usable Postgres DATABASE_URL is present. */
+export function isDatabaseConfigured(): boolean {
+  return databaseConfigured;
 }
 
 export function isGeminiConfigured(): boolean {
@@ -60,5 +80,9 @@ export function isResendConfigured(): boolean {
 }
 
 export function isClerkConfigured(): boolean {
-  return Boolean(env.CLERK_SECRET_KEY);
+  return Boolean(env.CLERK_SECRET_KEY && env.CLERK_PUBLISHABLE_KEY);
+}
+
+export function isUpstashConfigured(): boolean {
+  return Boolean(env.UPSTASH_REDIS_REST_URL && env.UPSTASH_REDIS_REST_TOKEN);
 }

@@ -1,4 +1,4 @@
-import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
+import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import postsData from "@/data/blog-posts.json";

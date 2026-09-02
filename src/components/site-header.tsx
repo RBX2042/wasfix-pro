@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { ShoppingCart, Menu, X, Sparkles } from "lucide-react";
 import * as React from "react";
 import { CartDrawer } from "./cart-drawer";
+import { AuthButtons } from "./auth-buttons";
 
 const navItems = [
   { href: "/diagnose", label: "AI Diagnose", desc: "Wat is er mis?", hot: true },
@@ -57,9 +58,9 @@ export function SiteHeader() {
                 </span>
               )}
             </Button>
-            <Button asChild variant="outline" size="sm" className="hidden sm:inline-flex">
-              <Link href="/inloggen">Inloggen</Link>
-            </Button>
+            <div className="hidden sm:flex items-center gap-2">
+              <AuthButtons />
+            </div>
             <Button asChild size="sm" className="hidden sm:inline-flex">
               <Link href="/diagnose">Start diagnose</Link>
             </Button>
@@ -91,10 +92,8 @@ export function SiteHeader() {
                   </div>
                 </Link>
               ))}
-              <div className="flex gap-2 pt-2">
-                <Button asChild variant="outline" size="sm" className="flex-1">
-                  <Link href="/inloggen" onClick={() => setMobileOpen(false)}>Inloggen</Link>
-                </Button>
+              <div className="flex gap-2 pt-2 items-center">
+                <AuthButtons onNavigate={() => setMobileOpen(false)} />
                 <Button asChild size="sm" className="flex-1">
                   <Link href="/diagnose" onClick={() => setMobileOpen(false)}>Start diagnose</Link>
                 </Button>

@@ -3,6 +3,8 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
+import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 
 const Schema = z.object({
   companyName: z.string().min(2).max(120),
@@ -18,7 +20,7 @@ const Schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  if (!rateLimit(`monteur-signup:${getClientKey(req)}`, 3, 60 * 60 * 1000)) {
+  if (!(await rateLimit(`monteur-signup:${getClientKey(req)}`, 3, 60 * 60 * 1000))) {
     return apiError("Te veel aanmeldingen — probeer over een uur opnieuw.", 429);
   }
 
@@ -32,6 +34,25 @@ export async function POST(req: NextRequest) {
   // Generate application ID
   const applicationId = `MNT-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
   logger.info("[monteur-signup] application received", { applicationId, kvkNumber: data.kvkNumber });
+
+  if (isDatabaseConfigured()) {
+    await prisma.monteurApplication
+      .create({
+        data: {
+          applicationId,
+          companyName: data.companyName,
+          kvkNumber: data.kvkNumber,
+          vatNumber: data.vatNumber ?? null,
+          email: data.email,
+          phone: data.phone ?? null,
+          contactName: data.contactName,
+          yearsExperience: data.yearsExperience ?? null,
+          coverageAreas: data.coverageAreas?.join(",") ?? null,
+          specializations: data.specializations?.join(",") ?? null,
+        },
+      })
+      .catch((err) => logger.warn("[monteur-signup] persist failed", err));
+  }
 
   // Notify admin via Resend
   try {

@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { useCart, cartCount } from "@/components/cart-provider";
 import { CartDrawer } from "@/components/cart-drawer";
+import { AuthButtons } from "@/components/auth-buttons";
 import "@/app/wasfix-design.css";
 
 // Re-usable Icon (same set as WasFixHome)
@@ -93,7 +94,7 @@ export function WasFixNav() {
               }}>{count}</span>
             )}
           </button>
-          <Link className="btn btn-ghost btn-sm" href="/inloggen">Inloggen</Link>
+          <AuthButtons variant="dark" />
           <Link className="btn btn-primary btn-sm" href="/diagnose">
             Start gratis <Icon name="arrow" size={14} />
           </Link>
@@ -152,7 +153,7 @@ export function WasFixFooter() {
               <Link href="/garantie">Garantie</Link>
               <Link href="/retour/start">Retour starten</Link>
               <Link href="/klachten">Klachten</Link>
-              <Link href="/voor-monteurs">Voor monteurs</Link>
+              <Link href="/monteur">Voor monteurs</Link>
             </div>
           </div>
           <div>

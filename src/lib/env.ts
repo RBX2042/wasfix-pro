@@ -50,6 +50,18 @@ export const env = {
 
   INTERNAL_API_KEY: read("INTERNAL_API_KEY"),
 
+  // Company / fiscal identity printed on invoices and legal pages.
+  // Placeholders live in src/lib/plans.ts until these are configured.
+  COMPANY_NAME: read("COMPANY_NAME"),
+  COMPANY_STREET: read("COMPANY_STREET"),
+  COMPANY_POSTAL_CODE: read("COMPANY_POSTAL_CODE"),
+  COMPANY_CITY: read("COMPANY_CITY"),
+  COMPANY_KVK: read("COMPANY_KVK"),
+  COMPANY_VAT: read("COMPANY_VAT"),
+  COMPANY_IBAN: read("COMPANY_IBAN"),
+  COMPANY_EMAIL: read("COMPANY_EMAIL"),
+  COMPANY_PHONE: read("COMPANY_PHONE"),
+
   DEMO_MODE: isDemoMode,
   IS_PRODUCTION: process.env.NODE_ENV === "production",
 } as const;

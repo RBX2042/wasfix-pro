@@ -10,7 +10,8 @@
     "stock": 42,
     "imageUrl": "https://placehold.co/600x600/1a6b6b/ffffff/png?text=Pomp&font=oswald",
     "isOriginal": false,
-    "supplier": "Askoll"
+    "supplier": "Askoll",
+    "costEur": 12.48
   },
   {
     "id": "cmohrri47000jaaf9w7xzw5h0",
@@ -23,7 +24,8 @@
     "stock": 12,
     "imageUrl": "https://placehold.co/600x600/1a6b6b/ffffff/png?text=Pomp&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 45.05
   },
   {
     "id": "cmohrri49000kaaf98uk5389j",
@@ -36,7 +38,8 @@
     "stock": 23,
     "imageUrl": "https://placehold.co/600x600/c94b2a/ffffff/png?text=Deur&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 19.95
   },
   {
     "id": "cmohrri49000laaf9a9bj3v27",
@@ -49,7 +52,8 @@
     "stock": 38,
     "imageUrl": "https://placehold.co/600x600/c94b2a/ffffff/png?text=Deur&font=oswald",
     "isOriginal": false,
-    "supplier": "Gorenje"
+    "supplier": "Gorenje",
+    "costEur": 10.73
   },
   {
     "id": "cmohrri4a000maaf9tjl976o4",
@@ -62,7 +66,8 @@
     "stock": 67,
     "imageUrl": "https://placehold.co/600x600/4a5568/ffffff/png?text=Lager&font=oswald",
     "isOriginal": false,
-    "supplier": "SKF"
+    "supplier": "SKF",
+    "costEur": 8.9
   },
   {
     "id": "cmohrri4b000naaf9twfk5qi5",
@@ -75,7 +80,8 @@
     "stock": 89,
     "imageUrl": "https://placehold.co/600x600/805ad5/ffffff/png?text=Snaar&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 4.85
   },
   {
     "id": "cmohrri4b000oaaf9mc17u9ou",
@@ -88,7 +94,8 @@
     "stock": 124,
     "imageUrl": "https://placehold.co/600x600/805ad5/ffffff/png?text=Snaar&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 3.03
   },
   {
     "id": "cmohrri4c000paaf94glja5pf",
@@ -101,7 +108,8 @@
     "stock": 56,
     "imageUrl": "https://placehold.co/600x600/e53e3e/ffffff/png?text=Verwarming&font=oswald",
     "isOriginal": false,
-    "supplier": "Irca"
+    "supplier": "Irca",
+    "costEur": 10.91
   },
   {
     "id": "cmohrri4d000qaaf9cmhamrc2",
@@ -114,7 +122,8 @@
     "stock": 28,
     "imageUrl": "https://placehold.co/600x600/e53e3e/ffffff/png?text=Verwarming&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 22.93
   },
   {
     "id": "cmohrri4d000raaf9bjrvrota",
@@ -127,7 +136,8 @@
     "stock": 78,
     "imageUrl": "https://placehold.co/600x600/3182ce/ffffff/png?text=Ventiel&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 6.53
   },
   {
     "id": "cmohrri4e000saaf9i7v38bm2",
@@ -140,7 +150,8 @@
     "stock": 19,
     "imageUrl": "https://placehold.co/600x600/3182ce/ffffff/png?text=Ventiel&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 13.79
   },
   {
     "id": "cmohrri4f000taaf917dim5wd",
@@ -153,7 +164,8 @@
     "stock": 156,
     "imageUrl": "https://placehold.co/600x600/2d3748/ffffff/png?text=Motor&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 4.75
   },
   {
     "id": "cmohrri4h000uaaf9v4n6x2ew",
@@ -166,7 +178,8 @@
     "stock": 8,
     "imageUrl": "https://placehold.co/600x600/d69e2e/ffffff/png?text=Elektronica&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 52.22
   },
   {
     "id": "cmohrri4i000vaaf9z93yeo2y",
@@ -179,7 +192,8 @@
     "stock": 201,
     "imageUrl": "https://placehold.co/600x600/38a169/ffffff/png?text=Filter&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 2.95
   },
   {
     "id": "cmohrri4i000waaf98nvxu3qj",
@@ -192,7 +206,8 @@
     "stock": 87,
     "imageUrl": "https://placehold.co/600x600/319795/ffffff/png?text=Slang&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 5.51
   },
   {
     "id": "cmohrri4j000xaaf9hc8ozjz3",
@@ -205,7 +220,8 @@
     "stock": 42,
     "imageUrl": "https://placehold.co/600x600/319795/ffffff/png?text=Slang&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 10.91
   },
   {
     "id": "cmohrri4k000yaaf9yvfobiff",
@@ -218,7 +234,8 @@
     "stock": 6,
     "imageUrl": "https://placehold.co/600x600/2d3748/ffffff/png?text=Motor&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 96.82
   },
   {
     "id": "cmohrri4k000zaaf99dtykgdw",
@@ -231,7 +248,8 @@
     "stock": 21,
     "imageUrl": "https://placehold.co/600x600/c94b2a/ffffff/png?text=Deur&font=oswald",
     "isOriginal": true,
-    "supplier": null
+    "supplier": null,
+    "costEur": 18
   },
   {
     "id": "cmohrri4l0010aaf95lz5b5va",
@@ -244,7 +262,8 @@
     "stock": 95,
     "imageUrl": "https://placehold.co/600x600/d69e2e/ffffff/png?text=Elektronica&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 5.95
   },
   {
     "id": "cmohrri4m0011aaf9hnwb2n5v",
@@ -257,7 +276,8 @@
     "stock": 64,
     "imageUrl": "https://placehold.co/600x600/4a5568/ffffff/png?text=Lager&font=oswald",
     "isOriginal": false,
-    "supplier": null
+    "supplier": null,
+    "costEur": 7.64
   },
   {
     "id": "wfpart_788828ef2c6a2f331bdf",
@@ -271,7 +291,8 @@
     "description": "Originele Miele afvoerpomp 60W voor W1/W2/W3 series. Hogere capaciteit voor diepere centrifuges. Inclusief afdichtringen.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Afvoerpomp%20Plaset%2060W%20(Miele)&font=oswald",
     "oemNumbers": "6239562|6239561",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 50.02
   },
   {
     "id": "wfpart_40047ac3b4ccbe98530f",
@@ -285,7 +306,8 @@
     "description": "Originele Samsung afvoerpomp voor EcoBubble en WW-series. 2-pins connector, draairichting links.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Afvoerpomp%20Hanyu%2030W%20(Samsung)&font=oswald",
     "oemNumbers": "DC31-00054A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 21.54
   },
   {
     "id": "wfpart_ba674f71a696c48d131b",
@@ -299,7 +321,8 @@
     "description": "Originele LG afvoerpomp met geïntegreerde anti-blokkeerring. Voor F-serie Direct Drive wasmachines.",
     "imageUrl": "https://placehold.co/800x800/9f1c1c/ffffff/png?text=Afvoerpomp%20LG%20(Direct%20Drive)&font=oswald",
     "oemNumbers": "5859ER1006K|5859ER1006A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 26.73
   },
   {
     "id": "wfpart_0375fe314519c57df88a",
@@ -313,7 +336,8 @@
     "description": "Origineel AEG/Electrolux afvoerpomp 25W. Past op L-serie en LR-serie wasmachines.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=Afvoerpomp%20AEG%20Electrolux%2025W&font=oswald",
     "oemNumbers": "1326630009|8581326630016",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 22.93
   },
   {
     "id": "wfpart_29b22f20834fc30028bb",
@@ -327,7 +351,8 @@
     "description": "Universele afvoerpomp voor Whirlpool, Indesit, Hotpoint, Ariston. 4-pins connector.",
     "imageUrl": "https://placehold.co/800x800/0064bf/ffffff/png?text=Afvoerpomp%20Whirlpool%2FIndesit%2030W&font=oswald",
     "oemNumbers": "481010585015|C00141034",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 13.66
   },
   {
     "id": "wfpart_7d0b09449129ade50092",
@@ -341,7 +366,8 @@
     "description": "Recirculatie / spray-pomp voor moderne wasmachines. Verbeterde wasprestatie door waterspatpatroon op de trommel.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Recirculatiepomp%20universeel&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 25.44
   },
   {
     "id": "wfpart_a9e9ee02bad1a61a8b56",
@@ -355,7 +381,8 @@
     "description": "Hoogwaardig SKF 6203 ZZ kogellager. Standaard maat voor veel oudere wasmachines (jaren 90-2010). Per stuk geleverd — bij vervanging altijd beide lagers + asafdichting vervangen.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Trommellager%206203%20ZZ&font=oswald",
     "oemNumbers": "6203-ZZ|6203 2RS",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 3.51
   },
   {
     "id": "wfpart_ad76715ffdbe6bfd748b",
@@ -369,7 +396,8 @@
     "description": "SKF 6204 ZZ kogellager. Gemeengoed voor Bosch/Siemens en LG. Per stuk — vervang in paar.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Trommellager%206204%20ZZ&font=oswald",
     "oemNumbers": "6204-ZZ",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 4.56
   },
   {
     "id": "wfpart_cceab862f957403c8c5c",
@@ -383,7 +411,8 @@
     "description": "SKF 6205 ZZ. Veel toegepast op Bosch/Siemens medium-load wasmachines.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Trommellager%206205%20ZZ&font=oswald",
     "oemNumbers": "6205-ZZ",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 5.12
   },
   {
     "id": "wfpart_f89f73bd93870f5416a8",
@@ -397,7 +426,8 @@
     "description": "SKF/FAG 6206 ZZ kogellager. Voor zwaardere belasting (8-10kg machines).",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Trommellager%206206%20ZZ&font=oswald",
     "oemNumbers": "6206-ZZ",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 5.75
   },
   {
     "id": "wfpart_6e3503ea67cf0a8d3b76",
@@ -411,7 +441,8 @@
     "description": "Originele Miele lager voor W1/W2 serie. Zwaarder uitgevoerd voor langere levensduur.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Trommellager%206306%20ZZ%20(Miele)&font=oswald",
     "oemNumbers": "6306-2RS",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 17.12
   },
   {
     "id": "wfpart_e5d2291dbdca65fa9ea5",
@@ -425,7 +456,8 @@
     "description": "Trommel-as afdichtring (oliekeerring) 40x72x10mm. Verplicht bij lager-vervanging. Vetbestendig, hittebestendig tot 90°C.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Asafdichting%20trommel%2040x72x10&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 6.71
   },
   {
     "id": "wfpart_f625b750136287ae892e",
@@ -439,7 +471,8 @@
     "description": "V-snaar 1196mm met 5 ribbels, ElastoTec. Voor wasmachines met indirecte aandrijving. Past op veel oudere Bosch/Siemens/AEG modellen.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=V-snaar%201196%20J5%20EL&font=oswald",
     "oemNumbers": "1196 J5",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 5.17
   },
   {
     "id": "wfpart_e65a2e5d9f1930128fb8",
@@ -453,7 +486,8 @@
     "description": "V-snaar 1270mm 5 ribbels. Voor Whirlpool/Indesit en sommige Bosch modellen.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=V-snaar%201270%20J5&font=oswald",
     "oemNumbers": "1270 J5",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 6.45
   },
   {
     "id": "wfpart_4440e3a5c1abcfe0f46f",
@@ -467,7 +501,8 @@
     "description": "V-snaar 1280mm 5 ribbels.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=V-snaar%201280%20J5&font=oswald",
     "oemNumbers": "1280 J5",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 6.58
   },
   {
     "id": "wfpart_53dc8c6f143fde8d8394",
@@ -481,7 +516,8 @@
     "description": "V-snaar 1290mm 5 ribbels. Voor moderne high-efficiency machines.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=V-snaar%201290%20J5&font=oswald",
     "oemNumbers": "1290 J5",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 6.47
   },
   {
     "id": "wfpart_b5ac59bc6dedf29b7400",
@@ -495,7 +531,8 @@
     "description": "V-snaar 1885mm 7 ribbels (H-profiel). Voor industriële en grotere capaciteit machines.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=V-snaar%201885%20H7&font=oswald",
     "oemNumbers": "1885 H7",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 7.91
   },
   {
     "id": "wfpart_6f39bb3d08fcc66c1a96",
@@ -509,7 +546,8 @@
     "description": "Universele wasmachinemotor met koolborstels, 380W. 4-pins connector. Geschikt voor de meeste merken met indirecte aandrijving (riem). Inclusief borstels.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Universele%20koolmotor%20380W&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 38.98
   },
   {
     "id": "wfpart_0f28c31d5ac84e3bc7a8",
@@ -523,7 +561,8 @@
     "description": "Originele Samsung Direct Drive inverter motor voor EcoBubble en moderne WW-series. 8-pins connector.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Inverter%20motor%20Samsung%20DD&font=oswald",
     "oemNumbers": "DC93-00322A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 111.2
   },
   {
     "id": "wfpart_44dbdf9f6728a3ac4590",
@@ -537,7 +576,8 @@
     "description": "Origineel Whirlpool wasmachine-motor met koolborstels, 320W.",
     "imageUrl": "https://placehold.co/800x800/0064bf/ffffff/png?text=Whirlpool%20koolmotor%20320W&font=oswald",
     "oemNumbers": "481236158340",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 51.7
   },
   {
     "id": "wfpart_901a3598ca9557d40ffc",
@@ -551,7 +591,8 @@
     "description": "Originele AEG inverter motor voor L7 en L8 series. Permanent-magneet motor zonder koolborstels.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=AEG%20inverter%20motor%201300rpm&font=oswald",
     "oemNumbers": "1327542017",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 119.05
   },
   {
     "id": "wfpart_567b72a3dce205779aee",
@@ -565,7 +606,8 @@
     "description": "Set van 2 koolborstels 5x12.5x32mm met houder. Past op de meeste universele wasmachinemotoren. Vervang in paar.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Koolborstel-set%20universeel%205x12.5mm&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 4.71
   },
   {
     "id": "wfpart_02b29a7e51aa40ebbb90",
@@ -579,7 +621,8 @@
     "description": "Originele Bosch besturingsprint voor EDW-platform (Serie 4, 6). Geprogrammeerd of leeg leverbaar — geef serienummer door bij bestelling.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Hoofdmodule%20Bosch%20EDW-platform&font=oswald",
     "oemNumbers": "00657090",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 126.69
   },
   {
     "id": "wfpart_45c8a3b325514cc4f727",
@@ -593,7 +636,8 @@
     "description": "Origineel display + bedieningspaneel voor Bosch Serie 6 WAT/WAU 2018-2024.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Display%20module%20Bosch%20Serie%206&font=oswald",
     "oemNumbers": "00646014",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 83.88
   },
   {
     "id": "wfpart_3bf8ade88abdbe4e46f1",
@@ -607,7 +651,8 @@
     "description": "Originele Miele EDPL elektronicamodule voor W1 Classic-serie. Vervanging met service-config tool.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Hoofdmodule%20Miele%20EDPL&font=oswald",
     "oemNumbers": "10527571",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 168.22
   },
   {
     "id": "wfpart_434b799b58907c4a21a5",
@@ -621,7 +666,8 @@
     "description": "AEG EWM2300 hoofdmodule. Voor L7/L8-serie. Inclusief montage-handleiding.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=AEG%20EWM%20hoofdmodule&font=oswald",
     "oemNumbers": "973914912320001",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 106.21
   },
   {
     "id": "wfpart_088d9eb352ffef30a86f",
@@ -635,7 +681,8 @@
     "description": "Whirlpool 8 Sense / FFD-serie hoofdmodule.",
     "imageUrl": "https://placehold.co/800x800/0064bf/ffffff/png?text=Whirlpool%208%20Sense%20module&font=oswald",
     "oemNumbers": "481010743440",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 93.58
   },
   {
     "id": "wfpart_c03c7674f4997a3712f3",
@@ -649,7 +696,8 @@
     "description": "Samsung EcoBubble PCB / hoofdprint. Voor WW-serie 2020-2024.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Samsung%20PCB%20EcoBubble&font=oswald",
     "oemNumbers": "DC92-01803A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 111.36
   },
   {
     "id": "wfpart_79c169bd128d6a6f3871",
@@ -663,7 +711,8 @@
     "description": "LG hoofdmodule voor Direct Drive F4-series. Inclusief inverter.",
     "imageUrl": "https://placehold.co/800x800/9f1c1c/ffffff/png?text=LG%20Direct%20Drive%20PCB&font=oswald",
     "oemNumbers": "EBR75195134",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 103.64
   },
   {
     "id": "wfpart_8c1dd22157fd6e7f7907",
@@ -677,7 +726,8 @@
     "description": "Bosch/Siemens deurslot model ZV-446. Mechanisch met PTC-vergrendeling. Past op Serie 4/6/8 en Constructa.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Deurslot%20Bosch%20ZV-446&font=oswald",
     "oemNumbers": "00633765|00638259",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 18.8
   },
   {
     "id": "wfpart_350f225f3e01bdb9a289",
@@ -691,7 +741,8 @@
     "description": "Miele origineel deurslot voor W1/W2 series. Geïntegreerde veiligheidsschakelaar.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Deurslot%20Miele%20original&font=oswald",
     "oemNumbers": "6611450",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 37.02
   },
   {
     "id": "wfpart_8e264cb9f0a4129aa157",
@@ -705,7 +756,8 @@
     "description": "Samsung origineel deurslot. 3-pins connector, voor WW8/WW9 series.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Deurslot%20Samsung%203-pins&font=oswald",
     "oemNumbers": "DC34-00025D",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 16.25
   },
   {
     "id": "wfpart_22454138d7a49af0f231",
@@ -719,7 +771,8 @@
     "description": "LG origineel deurslot. Voor F-serie Direct Drive.",
     "imageUrl": "https://placehold.co/800x800/9f1c1c/ffffff/png?text=Deurslot%20LG%20(E-vergrendeling)&font=oswald",
     "oemNumbers": "6601EN1003D",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 17.42
   },
   {
     "id": "wfpart_92a870c47286de07997b",
@@ -733,7 +786,8 @@
     "description": "Metalflex deurslot voor AEG L-serie en Electrolux. Universele vervanger.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=Deurslot%20AEG%2FElectrolux%20Metalflex&font=oswald",
     "oemNumbers": "1249434114",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 13.39
   },
   {
     "id": "wfpart_bef27b83ec4646b5b26a",
@@ -747,7 +801,8 @@
     "description": "Universeel verwarmingselement 1800W, U-vorm, met geïntegreerde NTC-sensor en thermische beveiliging. Past op de meeste 6kg machines.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Verwarmingselement%201800W%20met%20NTC&font=oswald",
     "oemNumbers": "482000022116",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 15.38
   },
   {
     "id": "wfpart_d060252c0030ace8208e",
@@ -761,7 +816,8 @@
     "description": "Universeel element 1900W voor 8kg wasmachines. Inclusief NTC en pakking.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Verwarmingselement%201900W%20(8kg)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 16.32
   },
   {
     "id": "wfpart_b3e8c2ff4189a88ae0cc",
@@ -775,7 +831,8 @@
     "description": "Universele NTC-sensor voor Bosch/Siemens. 6mm korte sonde, 2-pins connector. Weerstand 10K Ohm bij 25°C.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=NTC%20temperatuursensor%20Bosch&font=oswald",
     "oemNumbers": "00170961",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 4.14
   },
   {
     "id": "wfpart_cb3dfcb2123a70f653b3",
@@ -789,7 +846,8 @@
     "description": "Originele Miele NTC voor W1-serie.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=NTC%20sensor%20Miele&font=oswald",
     "oemNumbers": "6611630",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 11.16
   },
   {
     "id": "wfpart_a93835dd4e41f5b0bbba",
@@ -803,7 +861,8 @@
     "description": "Samsung NTC voor WW-serie. 2-pins JST connector.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=NTC%20sensor%20Samsung&font=oswald",
     "oemNumbers": "DC32-00007A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 5.63
   },
   {
     "id": "wfpart_c0c6cd0cf3b17e5807da",
@@ -817,7 +876,8 @@
     "description": "Universele NTC 10K @ 25°C. Voor onderbouw met multimeter te testen.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=NTC%20sensor%20universeel%2010K&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 3.01
   },
   {
     "id": "wfpart_42741d3eb9b6463e9d73",
@@ -831,7 +891,8 @@
     "description": "Originele Bosch deurmanchet voor Serie 6 (2018+). EPDM rubber, gevulkaniseerd.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Deurpakking%20Bosch%20Serie%206&font=oswald",
     "oemNumbers": "00772658",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 36.5
   },
   {
     "id": "wfpart_65f24c65b98f14f62d22",
@@ -845,7 +906,8 @@
     "description": "Miele deurmanchet voor W1 Classic. Met geïntegreerde water-strip.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Deurpakking%20Miele%20Classic&font=oswald",
     "oemNumbers": "7138400",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 50.02
   },
   {
     "id": "wfpart_779127b82795340815a6",
@@ -859,7 +921,8 @@
     "description": "Samsung deurmanchet voor WW-serie EcoBubble.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Deurpakking%20Samsung%20EcoBubble&font=oswald",
     "oemNumbers": "DC97-15309A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 29.9
   },
   {
     "id": "wfpart_bc09a98063edf02c4a6f",
@@ -873,7 +936,8 @@
     "description": "LG deurmanchet voor F-serie DD.",
     "imageUrl": "https://placehold.co/800x800/9f1c1c/ffffff/png?text=Deurpakking%20LG%20Direct%20Drive&font=oswald",
     "oemNumbers": "MDS47123604",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 31.5
   },
   {
     "id": "wfpart_3fe78929d3f63747746b",
@@ -887,7 +951,8 @@
     "description": "AEG/Electrolux deurmanchet voor L7/L8 series.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=Deurpakking%20AEG%20L-serie&font=oswald",
     "oemNumbers": "1108580702",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 35.17
   },
   {
     "id": "wfpart_cde7ec651f4880d89fcc",
@@ -901,7 +966,8 @@
     "description": "Set van 2 schokdempers 120N voor Bosch/Siemens. Vervang altijd als paar.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Schokdemper%20Bosch%20120N%20(set%202)&font=oswald",
     "oemNumbers": "00673541",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 18.84
   },
   {
     "id": "wfpart_5e45d50ec024ab2dff4e",
@@ -915,7 +981,8 @@
     "description": "Origineel Miele schokdemper-paar voor W1.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Schokdemper%20Miele%2080N%20(set%202)&font=oswald",
     "oemNumbers": "8027811",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 40.2
   },
   {
     "id": "wfpart_b570bb1da6c04f32ddee",
@@ -929,7 +996,8 @@
     "description": "Set Samsung schokdempers WW-serie.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Schokdemper%20Samsung%20(set%202)&font=oswald",
     "oemNumbers": "DC66-00343F",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 19.83
   },
   {
     "id": "wfpart_c05f8613240da183507d",
@@ -943,7 +1011,8 @@
     "description": "Universeel schokdemper-paar voor AEG/Electrolux L-serie.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=Schokdemper%20AEG%20(set%202)&font=oswald",
     "oemNumbers": "1322553605",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 16.25
   },
   {
     "id": "wfpart_698dcdb3decbb7f634af",
@@ -957,7 +1026,8 @@
     "description": "Set van 4 schokdempers voor Whirlpool/Indesit FFD-serie.",
     "imageUrl": "https://placehold.co/800x800/0064bf/ffffff/png?text=Schokdemper%20Whirlpool%20(set%204)&font=oswald",
     "oemNumbers": "480111100174",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 22.61
   },
   {
     "id": "wfpart_98680fbd7be0c2e5a62d",
@@ -971,7 +1041,8 @@
     "description": "Universeel 1-weg waterinlaatventiel. 90° aansluiting, 12mm slang-uitgang.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Magneetventiel%20enkel%20(1-weg)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 9.17
   },
   {
     "id": "wfpart_6dd7034b48e6639a12ae",
@@ -985,7 +1056,8 @@
     "description": "Origineel Bosch 2-weg ventiel voor scheiding warm/koud water.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Magneetventiel%202-weg%20Bosch&font=oswald",
     "oemNumbers": "00606001",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 17.9
   },
   {
     "id": "wfpart_965a04d05ed3863e390c",
@@ -999,7 +1071,8 @@
     "description": "Miele 3-weg verdelerventiel voor W1.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Magneetventiel%203-weg%20Miele&font=oswald",
     "oemNumbers": "6261820",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 26.38
   },
   {
     "id": "wfpart_f17c08b749958594311e",
@@ -1013,7 +1086,8 @@
     "description": "Aquastop-slang 1,5m met magneetventiel-aansluiting. Voorkomt waterschade bij slangbreuk.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Aquastop%20slang%20complete&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 11.74
   },
   {
     "id": "wfpart_bbaaa7fefad3a45524b9",
@@ -1027,7 +1101,8 @@
     "description": "AEG/Electrolux 4-weg ventiel voor L8-serie met automatische dispensering.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=Magneetventiel%204-weg%20AEG&font=oswald",
     "oemNumbers": "1325186404",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 23.24
   },
   {
     "id": "wfpart_53e14d4084837528c83a",
@@ -1041,7 +1116,8 @@
     "description": "Origineel pluizenfilter Bosch met knipsluiting.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Pluizenfilter%20Bosch&font=oswald",
     "oemNumbers": "00614351",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 7.44
   },
   {
     "id": "wfpart_567396cc3ea76515da16",
@@ -1055,7 +1131,8 @@
     "description": "Samsung origineel pluizenfilter WW-serie.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Pluizenfilter%20Samsung&font=oswald",
     "oemNumbers": "DC97-09928B",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 6.45
   },
   {
     "id": "wfpart_a55a79c7121f6f97faab",
@@ -1069,7 +1146,8 @@
     "description": "LG origineel pluizenfilter voor F-serie.",
     "imageUrl": "https://placehold.co/800x800/9f1c1c/ffffff/png?text=Pluizenfilter%20LG%20DD&font=oswald",
     "oemNumbers": "MCK62791001",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 7.81
   },
   {
     "id": "wfpart_88e14f836868b6c4107e",
@@ -1083,7 +1161,8 @@
     "description": "Set van 3 mini-filters voor wateraansluiting (kraan-kant). Past in 3/4&apos;&apos; aansluiting.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Inlaatslang-filter%20(set%203)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 1.93
   },
   {
     "id": "wfpart_9a21c982ed3c425196d2",
@@ -1097,7 +1176,8 @@
     "description": "Bosch programma-keuze-knop, chrome-look.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Programmaknop%20Bosch%20chrome&font=oswald",
     "oemNumbers": "00606445",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 9.95
   },
   {
     "id": "wfpart_152bed05133c3ca1a880",
@@ -1111,7 +1191,8 @@
     "description": "Miele bedienings-draaiknop.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Knop%20wasprogramma%20Miele&font=oswald",
     "oemNumbers": "7378892",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 14.28
   },
   {
     "id": "wfpart_f89f32fe78727a3c44fb",
@@ -1125,7 +1206,8 @@
     "description": "AEG aan/uit drukknop. Vervangbaar zonder demontage paneel.",
     "imageUrl": "https://placehold.co/800x800/353535/ffffff/png?text=Aan%2Fuit-knop%20AEG&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 4.24
   },
   {
     "id": "wfpart_1c070050681da955e675",
@@ -1139,7 +1221,8 @@
     "description": "Universele knoppen-set voor diverse merken (3 maten).",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Knop%20set%20universeel%20(3%20stuks)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 6.35
   },
   {
     "id": "wfpart_64566d78120111a94d06",
@@ -1153,7 +1236,8 @@
     "description": "Display-LCD voor Bosch Serie 6 wasmachine. Inclusief flatcable.",
     "imageUrl": "https://placehold.co/800x800/1a6b6b/ffffff/png?text=Display-LCD%20Bosch&font=oswald",
     "oemNumbers": "00640923",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 44.76
   },
   {
     "id": "wfpart_ff3f0a38fa4d13b9599d",
@@ -1167,7 +1251,8 @@
     "description": "Samsung display + touch-overlay WW80/90T-serie.",
     "imageUrl": "https://placehold.co/800x800/1f4e9c/ffffff/png?text=Display%20Samsung%20WW-serie&font=oswald",
     "oemNumbers": "DC97-19612A",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 40.46
   },
   {
     "id": "wfpart_7f8189e023dae1d6234f",
@@ -1181,7 +1266,8 @@
     "description": "LG capacitive touchpanel voor F4-serie. Inclusief montage-clip.",
     "imageUrl": "https://placehold.co/800x800/9f1c1c/ffffff/png?text=Touchpanel%20LG%20F4-serie&font=oswald",
     "oemNumbers": "EBR89004001",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 37.93
   },
   {
     "id": "wfpart_8f14cc972dcb0c4fa924",
@@ -1195,7 +1281,8 @@
     "description": "Universele aanvoerslang 1,5m, 3/4&apos;&apos; aansluiting. Drukbestendig tot 70 bar.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Aanvoerslang%201%2C5m%203%2F4%20inch&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 4.16
   },
   {
     "id": "wfpart_d07c0e02cb23bef3cda0",
@@ -1209,7 +1296,8 @@
     "description": "Aanvoerslang 2,5m voor verder van kraan staande machines.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Aanvoerslang%202%2C5m&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 5.16
   },
   {
     "id": "wfpart_eb9f77f4e32a27c402bc",
@@ -1223,7 +1311,8 @@
     "description": "Universele afvoerslang. 22mm aansluiting met sifon-bocht.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Afvoerslang%20flexibel%201%2C5m&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 4.85
   },
   {
     "id": "wfpart_bba3af35e4ec8920faf8",
@@ -1237,7 +1326,8 @@
     "description": "Aquastop slang met geïntegreerd magneetventiel. Sluit watertoevoer bij slangbreuk.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Aquastop-slang%20met%20magneetventiel&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 13.43
   },
   {
     "id": "wfpart_7edd35c838ed3fe74684",
@@ -1251,7 +1341,8 @@
     "description": "Verbindingsslang trommel naar pomp.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Manchet%20slang%20trommel-pomp&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 7.19
   },
   {
     "id": "wfpart_90cb1845068651b33120",
@@ -1265,7 +1356,8 @@
     "description": "Set transportbouten met dop. Voor verhuizing — borgt trommel.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Transport-bouten%20set&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 3.53
   },
   {
     "id": "wfpart_20d70a84b1740fe1cd9e",
@@ -1279,7 +1371,8 @@
     "description": "Set van 4 anti-vibratie stelvoeten. Past op de meeste wasmachines. Reduceert geluid met 3-5dB.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Stelvoet%20(set%204)%20anti-vibratie&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 9.02
   },
   {
     "id": "wfpart_92fb005c60e6e9646db0",
@@ -1293,7 +1386,8 @@
     "description": "1L ontkalker speciaal voor wasmachines. 1x per 6 maanden gebruiken.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Wasmachine-ontkalker%20(1L)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 3.86
   },
   {
     "id": "wfpart_946c2f4437b214bbd382",
@@ -1307,7 +1401,8 @@
     "description": "Wasmachine-reinigingstabletten — verwijdert kalk, vet en geur. 1 per maand.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Reinigingstabletten%20(12%20stuks)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 5.13
   },
   {
     "id": "wfpart_9c00c5cdc9cd94d63269",
@@ -1321,6 +1416,7 @@
     "description": "Lager-trekkerset voor wasmachine-reparatie. Voor demontage van lagers uit trommellade.",
     "imageUrl": "https://placehold.co/800x800/5d97ff/ffffff/png?text=Lager-trekker%20(gereedschap)&font=oswald",
     "oemNumbers": "",
-    "weightGrams": null
+    "weightGrams": null,
+    "costEur": 21.68
   }
 ]

@@ -14,6 +14,7 @@ export function getStripe(): Stripe | null {
   return _stripe;
 }
 
+/** @deprecated Use stripePriceIdFor() from src/lib/plans.ts. */
 export const STRIPE_PRICES = {
   PARTICULIER: env.STRIPE_PRICE_PARTICULIER ?? "",
   MONTEUR_PRO: env.STRIPE_PRICE_MONTEUR ?? "",

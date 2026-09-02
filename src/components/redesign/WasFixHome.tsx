@@ -6,6 +6,7 @@ import { useCart, cartCount } from "@/components/cart-provider";
 import { CartDrawer } from "@/components/cart-drawer";
 import { toast } from "sonner";
 import "@/app/wasfix-design.css";
+import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
 
 // ─── Icon helper ────────────────────────────────────────────────────────
 type IconName =
@@ -1223,23 +1224,23 @@ function Testimonials() {
 
 // ─── Pricing ────────────────────────────────────────────────────────────
 function Pricing() {
-  const tiers = [
-    {
-      name: "Gratis", price: "€ 0", per: "voor altijd",
-      feats: ["3 diagnoses per maand", "Basis foutcode database", "Toegang tot gratis gidsen", "Community support"],
-      cta: "Probeer gratis", featured: false, badge: undefined as string | undefined,
-    },
-    {
-      name: "Particulier", price: "€ 4,99", per: "per maand", featured: true, badge: "Populair",
-      feats: ["Onbeperkte diagnoses", "Predictive maintenance dashboard", "5% korting op onderdelen", "QR-sticker voor je machine", "Prioriteit support", "Garantie-check automatisch"],
-      cta: "Start 14 dagen gratis",
-    },
-    {
-      name: "Monteur Pro", price: "€ 29", per: "per maand · ex BTW", featured: false, badge: undefined,
-      feats: ["Alles uit Particulier", "10% korting op onderdelen", "Klanten dashboard + CRM", "B2B API toegang", "Service-handleidingen library", "Witlabel optie"],
-      cta: "Voor monteurs",
-    },
-  ];
+  const tiers = PLAN_ORDER.map((id) => {
+    const plan = PLANS[id];
+    return {
+      name: plan.name,
+      price: formatPlanPrice(plan),
+      per: planPriceSuffix(plan),
+      featured: plan.highlight ?? false,
+      badge: plan.highlight ? "Populair" : (undefined as string | undefined),
+      feats: plan.features,
+      cta: plan.priceCents === 0
+        ? "Probeer gratis"
+        : plan.trialDays > 0
+          ? `Start ${plan.trialDays} dagen gratis`
+          : `Word ${plan.name}`,
+      href: plan.priceCents === 0 ? "/diagnose" : `/upgrade?plan=${plan.id}`,
+    };
+  });
   return (
     <section className="section" id="pricing">
       <div className="container">
@@ -1264,7 +1265,7 @@ function Pricing() {
                   <li key={f}><Icon name="check" size={14} /> {f}</li>
                 ))}
               </ul>
-              <Link className={`btn ${t.featured ? "btn-primary" : ""} btn-lg`} style={{ justifyContent: "center" }} href="/prijzen">{t.cta}</Link>
+              <Link className={`btn ${t.featured ? "btn-primary" : ""} btn-lg`} style={{ justifyContent: "center" }} href={t.href}>{t.cta}</Link>
             </div>
           ))}
         </div>

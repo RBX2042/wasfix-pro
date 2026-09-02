@@ -30,6 +30,8 @@ type Part = {
   brand: string;
   category: string;
   priceEur: number;
+  /** Purchase price ex VAT; drives margin reporting. */
+  costEur?: number | null;
   stock: number;
   imageUrl: string | null;
   isOriginal: boolean;

@@ -59,6 +59,7 @@ export default async function AdminPartsPage() {
                 <th className="p-3">Merk</th>
                 <th className="p-3">Categorie</th>
                 <th className="p-3 text-right">Prijs</th>
+                <th className="p-3 text-right">Marge</th>
                 <th className="p-3 text-right">Voorraad</th>
                 <th className="p-3"></th>
               </tr>
@@ -73,6 +74,21 @@ export default async function AdminPartsPage() {
                   <td className="p-3"><Badge variant="outline">{p.brand}</Badge></td>
                   <td className="p-3 text-muted-foreground">{p.category}</td>
                   <td className="p-3 text-right font-medium">{formatEur(p.priceEur)}</td>
+                  <td className="p-3 text-right tabular-nums">
+                    {(() => {
+                      const cost = (p as { costEur?: number | null }).costEur;
+                      if (typeof cost !== "number") {
+                        return <span className="text-xs text-amber-600">geen inkoop</span>;
+                      }
+                      const net = p.priceEur / 1.21;
+                      const pct = net > 0 ? ((net - cost) / net) * 100 : 0;
+                      return (
+                        <span className={pct < 20 ? "text-amber-600" : "text-emerald-600"}>
+                          {pct.toFixed(0)}%
+                        </span>
+                      );
+                    })()}
+                  </td>
                   <td className="p-3 text-right">
                     {p.stock > 10 ? <span className="text-emerald-600">{p.stock}</span> : p.stock > 0 ? <span className="text-amber-600">{p.stock}</span> : <span className="text-destructive">0</span>}
                   </td>

@@ -6,11 +6,13 @@ import {
   parseDiagnosisFromResponse,
   demoModeReply,
 } from "@/lib/gemini";
-import { getCurrentUser, getPlanLimits } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { staticErrorCodeByCode, staticParts, staticGuides } from "@/lib/static-db";
+import { anonymousKey, consumeUsage, getOrCreateVisitorId } from "@/lib/entitlements";
+import { getPlan } from "@/lib/plans";
 
 export const runtime = "nodejs";
 
@@ -51,32 +53,28 @@ export async function POST(req: NextRequest) {
       return apiError("Te veel verzoeken. Probeer het over een minuut opnieuw.", 429);
     }
 
-    // Monthly quota for non-paid users
-    if (user) {
-      try {
-        const limits = getPlanLimits(user.plan);
-        if (limits.diagnosesPerMonth !== -1) {
-          const dbUser = await prisma.user.findUnique({ where: { id: user.id } });
-          if (dbUser) {
-            const resetAt = new Date(dbUser.diagnosesResetAt);
-            const now = new Date();
-            const monthMs = 30 * 24 * 60 * 60 * 1000;
-            if (now.getTime() - resetAt.getTime() > monthMs) {
-              await prisma.user.update({
-                where: { id: user.id },
-                data: { diagnosesUsed: 0, diagnosesResetAt: now },
-              });
-            } else if (dbUser.diagnosesUsed >= limits.diagnosesPerMonth) {
-              return apiError(
-                "Je hebt je gratis diagnoses voor deze maand opgebruikt. Upgrade voor onbeperkte diagnoses.",
-                429,
-                { code: "limit_reached" }
-              );
-            }
-          }
-        }
-      } catch {
-        // DB unreachable — skip quota check
+    // Monthly quota. This is the paywall: without it a signed-out visitor
+    // gets unlimited AI diagnoses and the paid plans sell nothing. Metered per
+    // account when signed in, per visitor cookie (IP-hash fallback) otherwise.
+    const plan = getPlan(user?.plan ?? "FREE");
+    const quotaLimit = plan.diagnosesPerMonth;
+    let quotaKey = "";
+    if (quotaLimit !== -1) {
+      if (user) {
+        quotaKey = `user:${user.id}`;
+      } else {
+        const visitorId = await getOrCreateVisitorId().catch(() => null);
+        quotaKey = anonymousKey(req, visitorId);
+      }
+      const quota = await consumeUsage("diagnose", quotaKey, quotaLimit, { commit: false });
+      if (!quota.allowed) {
+        return apiError(
+          user
+            ? "Je hebt je gratis diagnoses voor deze maand opgebruikt. Upgrade voor onbeperkte diagnoses."
+            : "Je hebt je 3 gratis diagnoses voor deze maand gebruikt. Maak een gratis account of upgrade voor onbeperkte diagnoses.",
+          429,
+          { code: "limit_reached", signedIn: Boolean(user), used: quota.used, limit: quota.limit },
+        );
       }
     }
 
@@ -181,6 +179,11 @@ export async function POST(req: NextRequest) {
         /^(miele|bosch|samsung|lg|aeg|whirlpool|electrolux|siemens|beko|indesit)/i.test(m.content)
       )?.content.split(/\s+/)[0] ??
       "Onbekend";
+
+    // Meter the answer we just produced (not the clarifying questions).
+    if (quotaLimit !== -1 && quotaKey) {
+      await consumeUsage("diagnose", quotaKey, quotaLimit).catch(() => null);
+    }
 
     if (diagResult) {
       try {

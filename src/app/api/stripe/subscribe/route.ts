@@ -2,14 +2,15 @@ import { NextRequest } from "next/server";
 import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
-import { getStripe, STRIPE_PRICES } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
+import { BILLABLE_PLANS, getPlan, stripePriceIdFor, type PlanId } from "@/lib/plans";
 import { getCurrentUser } from "@/lib/auth";
 import { env, isDatabaseConfigured } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
 
 const SubscribeSchema = z.object({
-  plan: z.enum(["PARTICULIER", "MONTEUR_PRO", "BEDRIJF"]),
+  plan: z.enum(BILLABLE_PLANS as [PlanId, ...PlanId[]]),
 });
 
 export async function POST(req: NextRequest) {
@@ -24,7 +25,8 @@ export async function POST(req: NextRequest) {
     if (!parsed.success) return apiError("Ongeldig plan", 400, parsed.error.flatten());
 
     const { plan } = parsed.data;
-    const priceId = STRIPE_PRICES[plan];
+    const planConfig = getPlan(plan);
+    const priceId = stripePriceIdFor(plan);
     const stripe = getStripe();
     const visitorId = await currentVisitorId();
     if (visitorId) await recordSignup(visitorId);
@@ -69,7 +71,12 @@ export async function POST(req: NextRequest) {
         success_url: `${env.APP_URL}/dashboard?upgraded=1`,
         cancel_url: `${env.APP_URL}/prijzen`,
         metadata: { userId: user.id, plan, ...(visitorId ? { refVisitorId: visitorId } : {}) },
-        subscription_data: { metadata: { userId: user.id, plan } },
+        subscription_data: {
+          metadata: { userId: user.id, plan },
+          // The trial is advertised on the homepage, the pricing page and in
+          // the terms; without this the customer is charged immediately.
+          ...(planConfig.trialDays > 0 ? { trial_period_days: planConfig.trialDays } : {}),
+        },
       },
       { idempotencyKey: `subscribe-${user.id}-${plan}-${Date.now()}` }
     );

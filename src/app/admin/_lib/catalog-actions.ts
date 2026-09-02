@@ -37,6 +37,9 @@ const PartSchema = z.object({
   brand: z.string().trim().min(2, "Merk is verplicht").max(60),
   category: z.enum(PART_CATEGORIES),
   priceEur: z.number({ message: "Prijs is verplicht" }).min(0).max(10000),
+  // Purchase price ex btw. Optional, but without it the order carries no
+  // margin and drops out of the profit reporting on /admin.
+  costEur: z.number().min(0).max(10000).nullable().optional(),
   stock: z.number().int().min(0).max(100000),
 });
 
@@ -50,6 +53,7 @@ export async function savePart(_prev: ActionResult | null, fd: FormData): Promis
     brand: str(fd, "brand") ?? "",
     category: str(fd, "category") ?? "OTHER",
     priceEur: num(fd, "priceEur"),
+    costEur: num(fd, "costEur") ?? null,
     stock: num(fd, "stock") ?? 0,
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ongeldige gegevens" };

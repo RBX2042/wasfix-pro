@@ -115,14 +115,24 @@ export function DiagnoseClient() {
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         if (res.status === 429) {
-          toast.error(data.message ?? "Limiet bereikt");
-          setMessages((prev) => [
-            ...prev,
-            {
-              role: "assistant",
-              content: "⚠️ Je hebt je gratis diagnoses voor deze maand bereikt. [Upgrade naar Particulier voor onbeperkte diagnoses](/prijzen) voor maar €4,99/maand.",
-            },
-          ]);
+          const details = (data.details ?? {}) as { code?: string; signedIn?: boolean };
+          if (details.code === "limit_reached") {
+            // Out of free diagnoses. A visitor without an account gets the
+            // cheaper ask first (create one) before being sold a plan.
+            toast.error(data.error ?? "Limiet bereikt");
+            setMessages((prev) => [
+              ...prev,
+              {
+                role: "assistant",
+                content: details.signedIn
+                  ? "⚠️ Je hebt je 3 gratis diagnoses van deze maand gebruikt. [Word Particulier voor €4,99 per maand](/upgrade?plan=PARTICULIER) en stel onbeperkt vragen — de eerste 14 dagen gratis."
+                  : "⚠️ Je hebt je 3 gratis diagnoses van deze maand gebruikt. [Maak een gratis account](/registreren) om je diagnoses te bewaren, of [word Particulier voor €4,99 per maand](/upgrade?plan=PARTICULIER) voor onbeperkte diagnoses — de eerste 14 dagen gratis.",
+              },
+            ]);
+          } else {
+            // Short-window rate limit, not the monthly quota.
+            toast.error(data.error ?? "Te veel verzoeken. Probeer het zo opnieuw.");
+          }
         } else {
           toast.error("Er ging iets mis. Probeer het opnieuw.");
         }

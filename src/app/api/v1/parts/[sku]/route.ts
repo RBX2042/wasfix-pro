@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { extractApiKey, validateApiKey } from "@/lib/api-auth";
 import { staticPart, staticPartFull } from "@/lib/static-db";
 import { rateLimit } from "@/lib/ratelimit";
+import { consumeUsage } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -27,8 +28,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sku:
   }
 
   // Rate limit
-  if (!(await rateLimit(`v1:parts:${auth.keyId}`, auth.rateLimit, 60 * 60 * 1000))) {
+  if (!(await rateLimit(`v1:parts:${auth.keyId}`, Math.max(10, Math.ceil(auth.monthlyCalls / 100)), 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Rate limit exceeded", retry_after: 3600 }, { status: 429, headers: CORS });
+  }
+
+  // The plan sells a monthly allowance; without this the hourly guard alone
+  // let a Monteur Pro key make roughly 720x the calls it paid for.
+  const monthly = await consumeUsage("api", auth.keyId, auth.monthlyCalls);
+  if (!monthly.allowed) {
+    return NextResponse.json(
+      { error: "Monthly call allowance exhausted", used: monthly.used, limit: monthly.limit, docs: "https://wasfix.nl/api-docs" },
+      { status: 429, headers: CORS },
+    );
   }
 
   const { sku } = await params;

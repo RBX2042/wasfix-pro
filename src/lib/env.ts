@@ -13,7 +13,11 @@ function read(name: string): string | undefined {
   return value && value.trim().length > 0 ? value : undefined;
 }
 
-const isDemoMode = (process.env.DEMO_MODE ?? "true") === "true";
+// Absent means OFF, matching src/middleware.ts. Defaulting this to ON while
+// the middleware defaulted it OFF meant a deployment with Clerk keys but no
+// DEMO_MODE var authenticated users through Clerk and then handed every one of
+// them the hardcoded superadmin account.
+const isDemoMode = process.env.DEMO_MODE === "true";
 
 // A DATABASE_URL is only "real" when it is a Postgres connection string
 // without the Supabase placeholder password.

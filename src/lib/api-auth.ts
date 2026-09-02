@@ -12,17 +12,38 @@ export type ApiKeyInfo = {
   keyId: string;
   userId: string;
   prefix: string;
+  /** Hourly burst allowance. */
   rateLimit: number;
+  /** Included calls per 30-day window. */
+  monthlyCalls: number;
   scopes: string[];
 };
 
 export const DEFAULT_SCOPES = ["read:parts", "read:errorcodes", "read:guides"];
 
-export const PLAN_API_RATE_LIMIT: Record<string, number> = {
+/**
+ * Monthly included calls per plan — the figure the pricing page sells.
+ * Kept in sync with apiCallsPerMonth in src/lib/plans.ts.
+ */
+export const PLAN_API_MONTHLY_CALLS: Record<string, number> = {
   MONTEUR_PRO: 1000,
   BEDRIJF: 10000,
   API: 100000,
 };
+
+/**
+ * Burst guard, per hour. This is deliberately NOT the monthly allowance:
+ * passing the monthly number to an hourly limiter granted roughly 720x what
+ * was sold.
+ */
+export const PLAN_API_HOURLY_BURST: Record<string, number> = {
+  MONTEUR_PRO: 120,
+  BEDRIJF: 600,
+  API: 2000,
+};
+
+/** @deprecated Use PLAN_API_MONTHLY_CALLS or PLAN_API_HOURLY_BURST. */
+export const PLAN_API_RATE_LIMIT = PLAN_API_MONTHLY_CALLS;
 
 const DEMO_KEYS: Record<string, ApiKeyInfo> = {
   "wf_demo_FREE_PUBLIC_DEMO_KEY_ONLY_LIMITED": {
@@ -30,6 +51,7 @@ const DEMO_KEYS: Record<string, ApiKeyInfo> = {
     userId: "demo-user",
     prefix: "wf_demo",
     rateLimit: 10,
+    monthlyCalls: 100,
     scopes: DEFAULT_SCOPES,
   },
 };
@@ -69,6 +91,7 @@ export async function validateApiKey(key: string | null): Promise<ApiKeyInfo | n
       userId: record.userId,
       prefix: record.prefix,
       rateLimit: record.rateLimit,
+      monthlyCalls: record.rateLimit,
       scopes: record.scopes.split(",").map((s) => s.trim()).filter(Boolean),
     };
   } catch (err) {

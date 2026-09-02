@@ -85,20 +85,8 @@ function sellerParty(): InvoiceParty {
   };
 }
 
-/**
- * Allocate the next gapless invoice number for the year, inside a transaction
- * so two concurrent orders can never receive the same number.
- */
-async function nextInvoiceNumber(year: number): Promise<{ number: string; seq: number }> {
-  const seq = await prisma.$transaction(async (tx) => {
-    const row = await tx.invoiceSequence.upsert({
-      where: { year },
-      update: { last: { increment: 1 } },
-      create: { year, last: 1 },
-    });
-    return row.last;
-  });
-  return { number: `${year}-${String(seq).padStart(5, "0")}`, seq };
+function formatInvoiceNumber(year: number, seq: number): string {
+  return `${year}-${String(seq).padStart(5, "0")}`;
 }
 
 /**
@@ -118,6 +106,7 @@ export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoi
       include: { items: { include: { part: true } } },
     });
     if (!order) return null;
+
 
     const address = safeJson<{ name?: string; street?: string; houseNumber?: string; postalCode?: string; city?: string; country?: string }>(
       order.shippingAddress,
@@ -141,13 +130,25 @@ export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoi
       vatNumber: order.vatNumber ?? undefined,
     };
 
-    const { number } = await nextInvoiceNumber(new Date().getFullYear());
     const seller = sellerParty();
+    const year = new Date().getFullYear();
 
-    const created = await prisma.invoice.create({
+    // Allocate the number and write the invoice in ONE transaction. Doing the
+    // allocation first and the insert after meant a losing race consumed a
+    // number and then failed on the unique orderId, leaving a permanent hole
+    // in a series the Belastingdienst requires to be gapless.
+    const created = await prisma.$transaction(async (tx) => {
+      const already = await tx.invoice.findUnique({ where: { orderId: order.id } });
+      if (already) return already;
+      const seqRow = await tx.invoiceSequence.upsert({
+        where: { year },
+        update: { last: { increment: 1 } },
+        create: { year, last: 1 },
+      });
+      return tx.invoice.create({
       data: {
-        number,
-        year: new Date().getFullYear(),
+        number: formatInvoiceNumber(year, seqRow.last),
+        year,
         orderId: order.id,
         subtotalEur: order.subtotalEur,
         discountEur: order.discountEur,
@@ -159,13 +160,18 @@ export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoi
         buyerJson: JSON.stringify(buyer),
         linesJson: JSON.stringify(lines),
       },
+      });
     });
 
-    logger.info("[invoicing] invoice issued", { number, orderId });
+    logger.info("[invoicing] invoice issued", { number: created.number, orderId });
     return deserializeInvoice(created);
   } catch (err) {
+    // A concurrent writer may have won the race; return their invoice rather
+    // than reporting failure.
+    const raced = await prisma.invoice.findUnique({ where: { orderId } }).catch(() => null);
+    if (raced) return deserializeInvoice(raced);
     logger.error("[invoicing] could not issue invoice", err);
-    return null;
+    throw err instanceof Error ? err : new Error("invoice_failed");
   }
 }
 

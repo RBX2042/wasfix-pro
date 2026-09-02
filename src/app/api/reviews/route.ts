@@ -18,6 +18,16 @@ const PostSchema = z.object({
   email: z.string().email(),
 });
 
+/** Escape user text before it goes into an HTML e-mail body. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 // GET — list reviews for a target
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -77,13 +87,13 @@ export async function POST(req: NextRequest) {
           <div style="font-family: system-ui, sans-serif; max-width: 600px;">
             <h2>Nieuwe review</h2>
             <table style="width: 100%; font-size: 14px;">
-              <tr><td><strong>ID:</strong></td><td>${reviewId}</td></tr>
-              <tr><td><strong>Target:</strong></td><td>${parsed.data.targetType} ${parsed.data.targetSku ?? parsed.data.targetSlug}</td></tr>
+              <tr><td><strong>ID:</strong></td><td>${esc(reviewId)}</td></tr>
+              <tr><td><strong>Target:</strong></td><td>${esc(parsed.data.targetType)} ${esc(parsed.data.targetSku ?? parsed.data.targetSlug ?? "")}</td></tr>
               <tr><td><strong>Rating:</strong></td><td>${"★".repeat(parsed.data.rating)}</td></tr>
-              <tr><td><strong>Auteur:</strong></td><td>${parsed.data.author} (${parsed.data.email})</td></tr>
+              <tr><td><strong>Auteur:</strong></td><td>${esc(parsed.data.author)} (${esc(parsed.data.email)})</td></tr>
             </table>
-            <h3 style="margin-top: 16px;">${parsed.data.title}</h3>
-            <div style="padding: 12px; background: #f7f7f9; border-left: 3px solid #1a6b6b; border-radius: 4px;">${parsed.data.body.replace(/\n/g, "<br>")}</div>
+            <h3 style="margin-top: 16px;">${esc(parsed.data.title)}</h3>
+            <div style="padding: 12px; background: #f7f7f9; border-left: 3px solid #1a6b6b; border-radius: 4px;">${esc(parsed.data.body).replace(/\n/g, "<br>")}</div>
             <p style="margin-top: 20px; font-size: 12px; color: #888;">Modereer in /admin/reviews.</p>
           </div>
         `,

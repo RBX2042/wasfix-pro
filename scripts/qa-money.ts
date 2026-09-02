@@ -14,6 +14,7 @@ import { PLANS, PLAN_ORDER, BILLABLE_PLANS, getPlan, formatPlanPrice, VAT_RATE }
 import { getPlanLimits } from "../src/lib/auth";
 import { issueWorkOrderInvoice, getWorkOrderInvoice, profileGaps } from "../src/lib/monteur-invoicing";
 import { catalogStats } from "../src/lib/catalog-stats";
+import { PLAN_API_MONTHLY_CALLS, PLAN_API_HOURLY_BURST } from "../src/lib/api-auth";
 
 const prisma = new PrismaClient();
 const log: string[] = [];
@@ -312,6 +313,63 @@ async function main() {
       `Claims: catalog stats resolve (${cat.errorCodes} codes, ${cat.parts} parts, ${cat.guides} guides, ${cat.brands} brands)`,
       "Claims: catalog stats came back empty",
     );
+
+    // ── Regressions the security audit surfaced ─────────────────
+    // The monthly allowance must never be used as an hourly budget: that
+    // granted a Monteur Pro key roughly 720x the calls it paid for.
+    check(
+      Object.entries(PLAN_API_HOURLY_BURST).every(([plan, burst]) => burst < (PLAN_API_MONTHLY_CALLS[plan] ?? 0)),
+      "API: hourly burst is well below the monthly allowance",
+      "API: the hourly limiter is using the monthly number again",
+    );
+    check(
+      PLAN_API_MONTHLY_CALLS.MONTEUR_PRO === PLANS.MONTEUR_PRO.apiCallsPerMonth &&
+        PLAN_API_MONTHLY_CALLS.BEDRIJF === PLANS.BEDRIJF.apiCallsPerMonth,
+      "API: the metered allowance equals what the pricing page sells",
+      "API: metered allowance drifted from the plan config",
+    );
+
+    // Invoice numbering must stay gapless even under concurrency: the number
+    // used to be allocated before the insert, so a losing race burned one.
+    const seqPart = await prisma.part.findFirst({ where: { costEur: { not: null } } });
+    if (seqPart) {
+      const raceUser = await prisma.user.upsert({
+        where: { email: "qa-race@wasfixpro.test" },
+        update: {},
+        create: { email: "qa-race@wasfixpro.test", name: "QA Race", role: "CONSUMER", plan: "FREE" },
+      });
+      const raceOrder = await prisma.order.create({
+        data: {
+          userId: raceUser.id,
+          email: "qa-race@wasfixpro.test",
+          subtotalEur: 50, totalEur: 50, vatRate: VAT_RATE, vatEur: splitVatInclusive(50).vatEur,
+          status: "PAID",
+          shippingAddress: JSON.stringify({ name: "QA Race" }),
+          items: { create: [{ partId: seqPart.id, quantity: 1, unitPrice: 50 }] },
+        },
+      });
+      const before = await prisma.invoiceSequence.findUnique({ where: { year: new Date().getFullYear() } });
+      // Five concurrent issue attempts on one order.
+      const results = await Promise.all(Array.from({ length: 5 }, () => issueInvoiceForOrder(raceOrder.id).catch(() => null)));
+      const numbers = new Set(results.filter(Boolean).map((r) => r!.number));
+      const after = await prisma.invoiceSequence.findUnique({ where: { year: new Date().getFullYear() } });
+      check(
+        numbers.size === 1,
+        `Invoice: 5 concurrent issues produced one number (${[...numbers][0]})`,
+        `Invoice: concurrency produced ${numbers.size} different numbers`,
+      );
+      check(
+        (after?.last ?? 0) - (before?.last ?? 0) <= 1,
+        "Invoice: the sequence advanced at most once — no burned numbers",
+        `Invoice: sequence jumped by ${(after?.last ?? 0) - (before?.last ?? 0)}, leaving gaps`,
+      );
+      const invoiceCount = await prisma.invoice.count({ where: { orderId: raceOrder.id } });
+      check(invoiceCount === 1, "Invoice: exactly one invoice exists for the order", `Invoice: ${invoiceCount} invoices for one order`);
+
+      await prisma.invoice.deleteMany({ where: { orderId: raceOrder.id } });
+      await prisma.order.delete({ where: { id: raceOrder.id } }).catch(() => null);
+      await prisma.user.delete({ where: { id: raceUser.id } }).catch(() => null);
+    }
 
     // ── Catalog margin coverage ─────────────────────────────────
     const [withCost, totalParts] = await Promise.all([

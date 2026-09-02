@@ -16,7 +16,14 @@ Items that cannot be completed autonomously because they require external creden
   3. Run once: `DATABASE_URL=… npm run db:setup` (pushes the schema and seeds the 331 codes / 96 parts / 26 guides with the same IDs as the static catalog).
   4. Optional check: `DATABASE_URL=… npm run db:smoke` (25 CRUD/relation checks).
 
-## Clerk production keys
+## Clerk production keys — nu blokkerend voor het dashboard
+
+**Let op:** sinds de veiligheidsfix is demo-modus uitgeschakeld in productie.
+Zolang er geen Clerk-keys staan, is op de live site niemand ingelogd en zijn
+`/dashboard`, `/monteur/*` en `/admin` niet bereikbaar. Dat is met opzet: in de
+oude situatie kreeg *elke* bezoeker van wasfix.nl het superadmin-account,
+inclusief de catalogus-CRUD en de gebruikerslijst.
+
 - **Blocked:** real login/registration (currently `DEMO_MODE=true`, auto-login as demo admin).
 - **Need:** `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `CLERK_WEBHOOK_SECRET`.
 - **Ready in code:** ClerkProvider, `<SignIn/>`/`<SignUp/>` on /inloggen + /registreren, `clerkMiddleware` protecting /dashboard, /admin, /monteur/*, /api/orders, /api/user, /api/account, /api/dashboard; Svix-verified webhook at `/api/webhooks/clerk` (user.created/updated/deleted → User table, welcome e-mail).

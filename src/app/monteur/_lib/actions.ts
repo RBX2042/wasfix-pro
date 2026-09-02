@@ -100,6 +100,9 @@ export async function deleteCustomer(_prev: ActionResult | null, formData: FormD
 }
 
 const WorkOrderSchema = z.object({
+  machine: z.string().trim().max(120).nullable().optional(),
+  errorCode: z.string().trim().max(20).nullable().optional(),
+  notes: z.string().trim().max(2000).nullable().optional(),
   problem: z.string().trim().min(3, "Omschrijf het probleem").max(500),
   status: z.enum(WORK_ORDER_STATUSES),
   priceEur: z.number().min(0).max(100000).optional(),
@@ -126,6 +129,9 @@ export async function saveWorkOrder(_prev: ActionResult | null, formData: FormDa
     problem: formData.get("problem") ?? "",
     status: formData.get("status") ?? "OPEN",
     priceEur: rawPrice ? Number(rawPrice.replace(",", ".")) : undefined,
+    machine: blankToNull(formData.get("machine")),
+    errorCode: blankToNull(formData.get("errorCode")),
+    notes: blankToNull(formData.get("notes")),
   });
   if (!parsed.success) {
     return { ok: false, error: parsed.error.issues[0]?.message ?? "Ongeldige gegevens" };
@@ -145,14 +151,14 @@ export async function saveWorkOrder(_prev: ActionResult | null, formData: FormDa
 
   const data = {
     customerId,
-    machine: blankToNull(formData.get("machine")) ?? null,
-    errorCode: blankToNull(formData.get("errorCode"))?.toUpperCase() ?? null,
+    machine: parsed.data.machine ?? null,
+    errorCode: parsed.data.errorCode?.toUpperCase() ?? null,
     problem: parsed.data.problem,
     status: parsed.data.status,
     urgent: formData.get("urgent") === "on" || formData.get("urgent") === "true",
     scheduledAt,
     priceEur: parsed.data.priceEur ?? null,
-    notes: blankToNull(formData.get("notes")) ?? null,
+    notes: parsed.data.notes ?? null,
   };
 
   const id = blankToNull(formData.get("id"));
@@ -161,9 +167,21 @@ export async function saveWorkOrder(_prev: ActionResult | null, formData: FormDa
       const res = await prisma.workOrder.updateMany({ where: { id, ownerId: auth.user.id }, data });
       if (res.count === 0) return { ok: false, error: "Werkorder niet gevonden" };
     } else {
-      await prisma.workOrder.create({
-        data: { ...data, ownerId: auth.user.id, reference: await nextReference(auth.user.id) },
-      });
+      // The reference is derived from the newest row, so two simultaneous
+      // creates compute the same one. Retry on the unique-constraint violation
+      // rather than telling the monteur it failed.
+      let created = false;
+      for (let attempt = 0; attempt < 4 && !created; attempt++) {
+        try {
+          await prisma.workOrder.create({
+            data: { ...data, ownerId: auth.user.id, reference: await nextReference(auth.user.id) },
+          });
+          created = true;
+        } catch (err) {
+          const code = (err as { code?: string })?.code;
+          if (code !== "P2002" || attempt === 3) throw err;
+        }
+      }
     }
   } catch (err) {
     logger.error("[monteur] work order save failed", err);

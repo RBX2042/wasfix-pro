@@ -55,8 +55,11 @@ export function CheckoutClient() {
         }),
       });
 
-      const data = await res.json();
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
+        // 409 = a part sold out between viewing and paying; 503 = we could not
+        // record the order. Both mean nothing was charged, and saying so stops
+        // the customer from trying to pay twice.
         toast.error(data.error ?? "Bestelling mislukt");
         return;
       }

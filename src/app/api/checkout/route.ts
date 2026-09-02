@@ -4,7 +4,7 @@ import { logger } from "@/lib/logger";
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { getCurrentUser, getPlanLimits } from "@/lib/auth";
-import { env } from "@/lib/env";
+import { env, isDatabaseConfigured } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { staticPart, staticPartById } from "@/lib/static-db";
@@ -75,11 +75,33 @@ export async function POST(req: NextRequest) {
       return apiError("Sommige onderdelen zijn niet meer beschikbaar. Verwijder ze uit de winkelmand.", 400);
     }
 
-    // Stock validation
-    for (const item of resolvedItems) {
-      const part = item.dbPart;
-      if (part.stock < item.quantity) {
-        return apiError(`Onvoldoende voorraad voor ${part.name} (${part.stock} beschikbaar)`, 400);
+    // Stock validation. The static catalog is a fixed file, so checking
+    // against it always passes however much has already sold; with a database
+    // the live figure decides.
+    if (isDatabaseConfigured()) {
+      try {
+        const live = await prisma.part.findMany({
+          where: { id: { in: resolvedItems.map((i) => i.dbPart.id) } },
+          select: { id: true, name: true, stock: true },
+        });
+        const stockById = new Map(live.map((p) => [p.id, p]));
+        for (const item of resolvedItems) {
+          const current = stockById.get(item.dbPart.id);
+          if (!current) return apiError(`${item.dbPart.name} is niet meer beschikbaar.`, 400);
+          if (current.stock < item.quantity) {
+            return apiError(`Onvoldoende voorraad voor ${current.name} (${current.stock} beschikbaar)`, 400);
+          }
+        }
+      } catch (err) {
+        logger.error("Stock check failed", err);
+        return apiError("Voorraad kon niet worden gecontroleerd. Probeer het zo opnieuw.", 503);
+      }
+    } else {
+      for (const item of resolvedItems) {
+        const part = item.dbPart;
+        if (part.stock < item.quantity) {
+          return apiError(`Onvoldoende voorraad voor ${part.name} (${part.stock} beschikbaar)`, 400);
+        }
       }
     }
 
@@ -145,8 +167,15 @@ export async function POST(req: NextRequest) {
       });
       orderId = order.id;
     } catch (dbErr) {
-      logger.warn("Order persistence failed (DB unreachable) — issuing demo order id", dbErr);
-      // Generate a deterministic demo order id
+      // Only a deployment without a database may fall back to a demo order.
+      // When a database IS configured and the write failed, telling the
+      // customer "bedankt voor je bestelling" hides a lost order: no row, no
+      // payment, no fulfilment.
+      if (isDatabaseConfigured()) {
+        logger.error("Order persistence failed while a database is configured", dbErr);
+        return apiError("We konden je bestelling niet vastleggen. Er is niets afgeschreven — probeer het zo opnieuw.", 503);
+      }
+      logger.warn("No database configured — issuing demo order id", dbErr);
       orderId = "demo-" + Math.random().toString(36).slice(2, 10).toUpperCase();
       demoMode = true;
     }
@@ -160,22 +189,49 @@ export async function POST(req: NextRequest) {
 
     if (stripe && !demoMode) {
       try {
+        // Stripe must charge exactly what the order and the invoice record.
+        // Previously the session listed catalog prices only: the plan discount
+        // was never given and shipping was never collected, so the card
+        // settlement, Order.totalEur and the btw on the invoice were three
+        // different numbers. The discount is spread across the line items so
+        // the sum matches `total` to the cent.
+        const discountRatio = subtotal > 0 ? discount / subtotal : 0;
+        const lineItems = resolvedItems.map(({ dbPart, quantity }) => ({
+          price_data: {
+            currency: "eur",
+            product_data: { name: dbPart.name, metadata: { sku: dbPart.sku } },
+            unit_amount: Math.round(dbPart.priceEur * (1 - discountRatio) * 100),
+          },
+          quantity,
+        }));
+        // Rounding per line can drift a cent or two from the stored total;
+        // correct it on the last line so the charge reconciles exactly.
+        const lineSum = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
+        const targetSum = Math.round((subtotal - discount) * 100);
+        if (lineItems.length > 0 && lineSum !== targetSum) {
+          const last = lineItems[lineItems.length - 1];
+          last.price_data.unit_amount += Math.round((targetSum - lineSum) / last.quantity);
+        }
+        if (shipping > 0) {
+          lineItems.push({
+            price_data: {
+              currency: "eur",
+              product_data: { name: "Verzendkosten", metadata: { sku: "SHIPPING" } },
+              unit_amount: Math.round(shipping * 100),
+            },
+            quantity: 1,
+          });
+        }
+
         const session = await stripe.checkout.sessions.create(
           {
             mode: "payment",
             payment_method_types: ["card", "ideal", "bancontact"],
-            line_items: resolvedItems.map(({ dbPart, quantity }) => ({
-              price_data: {
-                currency: "eur",
-                product_data: { name: dbPart.name, metadata: { sku: dbPart.sku } },
-                unit_amount: Math.round(dbPart.priceEur * 100),
-              },
-              quantity,
-            })),
+            line_items: lineItems,
             customer_email: email,
             success_url: `${env.APP_URL}/bestelling/${orderId}?success=1`,
             cancel_url: `${env.APP_URL}/checkout`,
-            metadata: { orderId, ...(visitorId ? { refVisitorId: visitorId } : {}) },
+            metadata: { orderId },
           },
           { idempotencyKey: `checkout-${orderId}` }
         );
@@ -197,16 +253,27 @@ export async function POST(req: NextRequest) {
         await prisma.$transaction(async (tx) => {
           await tx.order.update({ where: { id: orderId }, data: { status: "PAID" } });
           for (const item of resolvedItems) {
-            await tx.part.update({
-              where: { id: item.dbPart.id },
+            // Conditional: two simultaneous orders for the last unit cannot
+            // both succeed and drive the stock negative.
+            const claimed = await tx.part.updateMany({
+              where: { id: item.dbPart.id, stock: { gte: item.quantity } },
               data: { stock: { decrement: item.quantity } },
             });
+            if (claimed.count === 0) throw new Error(`out_of_stock:${item.dbPart.sku}`);
           }
         });
         // A paid order needs an invoice with a btw-specification (7y retention).
         const { issueInvoiceForOrder } = await import("@/lib/invoicing");
         await issueInvoiceForOrder(orderId);
-      } catch { /* ignore — order still valid */ }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "";
+        if (message.startsWith("out_of_stock:")) {
+          await prisma.order.update({ where: { id: orderId }, data: { status: "CANCELLED" } }).catch(() => {});
+          return apiError("Een onderdeel raakte net uitverkocht. Er is niets afgeschreven.", 409);
+        }
+        logger.error("Could not finalise order", err);
+        return apiError("Bestelling kon niet worden afgerond. Er is niets afgeschreven.", 503);
+      }
     }
 
     // Paid straight away (demo/no-Stripe path) — credit the referrer now.

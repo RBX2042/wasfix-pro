@@ -78,9 +78,15 @@ gebeuren.
 
 ## Modes
 
-| | `DEMO_MODE=true` (default) | `DEMO_MODE=false` + Clerk keys |
+> **Demo-modus werkt niet meer in productie.** `getCurrentUser()` gaf in
+> demo-modus iedereen het superadmin-account. Met `NODE_ENV=production` stond
+> daarmee `/admin` open voor elke bezoeker. Demo-modus is nu alleen actief
+> buiten productie; op een productie-deployment zonder Clerk is niemand
+> ingelogd en zijn dashboard, monteur en admin afgeschermd.
+
+| | `DEMO_MODE=true` (alleen buiten productie) | `DEMO_MODE=false` + Clerk keys |
 |---|---|---|
-| Auth | Iedereen is de demo-admin | Echte login via Clerk (`/inloggen`, `/registreren`), middleware beschermt dashboard/admin/monteur/API |
+| Auth | Lokaal: iedereen is de demo-admin | Echte login via Clerk (`/inloggen`, `/registreren`), middleware beschermt dashboard/admin/monteur/API |
 | Betalen | Order wordt direct "PAID" | Stripe Checkout + webhook |
 | AI | Keyword-fallback tenzij `GEMINI_API_KEY` | idem |
 | E-mail | No-op tenzij `RESEND_API_KEY` | idem |

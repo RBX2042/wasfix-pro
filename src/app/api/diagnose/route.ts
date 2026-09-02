@@ -8,10 +8,12 @@ import {
 } from "@/lib/gemini";
 import { getCurrentUser } from "@/lib/auth";
 import { logger } from "@/lib/logger";
+import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { staticErrorCodeByCode, staticParts, staticGuides } from "@/lib/static-db";
-import { anonymousKey, consumeUsage, getOrCreateVisitorId } from "@/lib/entitlements";
+import { anonymousKey, consumeUsage } from "@/lib/entitlements";
+import { VISITOR_COOKIE } from "@/lib/visitor";
 import { getPlan } from "@/lib/plans";
 
 export const runtime = "nodejs";
@@ -56,14 +58,19 @@ export async function POST(req: NextRequest) {
     // Monthly quota. This is the paywall: without it a signed-out visitor
     // gets unlimited AI diagnoses and the paid plans sell nothing. Metered per
     // account when signed in, per visitor cookie (IP-hash fallback) otherwise.
+    // B2B API traffic is metered against its API key, not the consumer quota.
+    const meteredUpstream = req.headers.get("x-api-metered") === "1" && Boolean(env.INTERNAL_API_KEY) && req.headers.get("x-internal-auth") === env.INTERNAL_API_KEY;
     const plan = getPlan(user?.plan ?? "FREE");
-    const quotaLimit = plan.diagnosesPerMonth;
+    const quotaLimit = meteredUpstream ? -1 : plan.diagnosesPerMonth;
     let quotaKey = "";
     if (quotaLimit !== -1) {
       if (user) {
         quotaKey = `user:${user.id}`;
       } else {
-        const visitorId = await getOrCreateVisitorId().catch(() => null);
+        // Read the cookie, never mint one here: minting handed every
+        // cookie-less caller a fresh bucket, so a plain curl loop had no limit
+        // at all and the IP fallback below was dead code.
+        const visitorId = req.cookies.get(VISITOR_COOKIE)?.value ?? null;
         quotaKey = anonymousKey(req, visitorId);
       }
       const quota = await consumeUsage("diagnose", quotaKey, quotaLimit, { commit: false });

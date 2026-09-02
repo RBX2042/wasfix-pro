@@ -25,6 +25,7 @@ const isProtectedRoute = createRouteMatcher([
   "/api/user(.*)",
   "/api/account(.*)",
   "/api/dashboard(.*)",
+  "/api/admin(.*)",
 ]);
 
 function detectLocale(req: NextRequest): Locale {

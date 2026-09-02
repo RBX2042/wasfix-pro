@@ -1,4 +1,7 @@
 import { ImageResponse } from "next/og";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+const STATS = catalogStats();
 
 export const alt = "WasFix Pro — AI wasmachine diagnose";
 export const size = { width: 1200, height: 630 };
@@ -96,7 +99,7 @@ export default function OGImage() {
           <div style={{ display: "flex", gap: 24 }}>
             <span>Powered by Gemini</span>
             <span>·</span>
-            <span>3.420+ modellen</span>
+            <span>{formatCount(STATS.errorCodes)} foutcodes</span>
             <span>·</span>
             <span>EU Right to Repair</span>
           </div>

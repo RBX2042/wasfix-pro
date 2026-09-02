@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { SiteHeader } from "./site-header";
-import { Home, MessageCircle, Package, Wrench, User, Settings, Shield } from "lucide-react";
+import { Home, MessageCircle, Package, Wrench, User, Settings, Shield, Users, ClipboardList, Building2 } from "lucide-react";
 
 const NAV = [
   { href: "/dashboard", label: "Overzicht", icon: Home },
@@ -11,7 +11,10 @@ const NAV = [
 ];
 
 const PRO_NAV = [
-  { href: "/monteur", label: "Monteur dashboard", icon: Settings },
+  { href: "/monteur/dashboard", label: "Monteur dashboard", icon: Settings },
+  { href: "/monteur/klanten", label: "Klanten", icon: Users },
+  { href: "/monteur/werkorders", label: "Werkorders", icon: ClipboardList },
+  { href: "/monteur/instellingen", label: "Bedrijfsgegevens", icon: Building2 },
 ];
 
 const ADMIN_NAV = [

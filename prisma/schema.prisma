@@ -8,26 +8,28 @@ datasource db {
 }
 
 model User {
-  id               String         @id @default(cuid())
-  clerkId          String?        @unique
-  email            String         @unique
+  id               String           @id @default(cuid())
+  clerkId          String?          @unique
+  email            String           @unique
   name             String?
-  role             String         @default("CONSUMER")
-  plan             String         @default("FREE")
+  role             String           @default("CONSUMER")
+  plan             String           @default("FREE")
   stripeCustomerId String?
   stripeSubId      String?
-  diagnosesUsed    Int            @default(0)
-  diagnosesResetAt DateTime       @default(now())
-  createdAt        DateTime       @default(now())
-  updatedAt        DateTime       @updatedAt
+  diagnosesUsed    Int              @default(0)
+  diagnosesResetAt DateTime         @default(now())
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
   diagnoses        Diagnosis[]
   orders           Order[]
   savedMachines    SavedMachine[]
   apiKeys          ApiKey[]
-  customers        Customer[]     @relation("CustomerOwner")
-  workOrders       WorkOrder[]    @relation("WorkOrderOwner")
-  referrals        Referral[]     @relation("ReferralReferrer")
-  referralCode     String?        @unique
+  monteurProfile   MonteurProfile?
+  monteurInvoices  MonteurInvoice[] @relation("MonteurInvoiceOwner")
+  customers        Customer[]       @relation("CustomerOwner")
+  workOrders       WorkOrder[]      @relation("WorkOrderOwner")
+  referrals        Referral[]       @relation("ReferralReferrer")
+  referralCode     String?          @unique
 
   @@index([role])
   @@index([plan])
@@ -349,23 +351,82 @@ model Customer {
   @@index([ownerId, name])
 }
 
-model WorkOrder {
+// ─── Monteur invoicing ───────────────────────────────────────────
+// A monteur invoices their own customer, so they are the seller here — not
+// WasFix. Their business identity and their own gapless invoice series live
+// separately from ours.
+model MonteurProfile {
+  id            String   @id @default(cuid())
+  userId        String   @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  companyName   String
+  contactName   String?
+  kvkNumber     String?
+  vatNumber     String?
+  street        String?
+  postalCode    String?
+  city          String?
+  iban          String?
+  email         String?
+  phone         String?
+  /// Most one-person repair businesses charge the standard 21% rate.
+  vatRate       Float    @default(0.21)
+  hourlyRateEur Float?
+  paymentTerms  Int      @default(14)
+  invoiceFooter String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model MonteurInvoice {
   id          String    @id @default(cuid())
   ownerId     String
-  owner       User      @relation("WorkOrderOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  owner       User      @relation("MonteurInvoiceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
+  workOrderId String    @unique
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  number      String
+  year        Int
+  issuedAt    DateTime  @default(now())
+  dueAt       DateTime?
+  subtotalEur Float
+  vatRate     Float
+  vatEur      Float
+  totalEur    Float
+  sellerJson  String
+  buyerJson   String
+  linesJson   String
+
+  @@unique([ownerId, number])
+  @@index([ownerId, year])
+}
+
+// Per-monteur, per-year counter so each monteur has their own unbroken series.
+model MonteurInvoiceSequence {
+  ownerId String
+  year    Int
+  last    Int    @default(0)
+
+  @@id([ownerId, year])
+}
+
+model WorkOrder {
+  id          String          @id @default(cuid())
+  ownerId     String
+  owner       User            @relation("WorkOrderOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   customerId  String?
-  customer    Customer? @relation(fields: [customerId], references: [id], onDelete: SetNull)
+  customer    Customer?       @relation(fields: [customerId], references: [id], onDelete: SetNull)
   reference   String
   machine     String?
   errorCode   String?
   problem     String
-  status      String    @default("OPEN") // OPEN | GEPLAND | WACHT_OP_ONDERDEEL | VOLTOOID | GEANNULEERD
-  urgent      Boolean   @default(false)
+  status      String          @default("OPEN") // OPEN | GEPLAND | WACHT_OP_ONDERDEEL | VOLTOOID | GEANNULEERD
+  urgent      Boolean         @default(false)
   scheduledAt DateTime?
   priceEur    Float?
   notes       String?
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  invoice     MonteurInvoice?
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
 
   @@unique([ownerId, reference])
   @@index([ownerId, status])

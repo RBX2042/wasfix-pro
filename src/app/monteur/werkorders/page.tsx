@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Calendar, MapPin, ClipboardList } from "lucide-react";
+import { Calendar, MapPin, ClipboardList, FileText } from "lucide-react";
 import { formatEur } from "@/lib/utils";
 import { setWorkOrderStatus } from "../_lib/actions";
 import { DeleteWorkOrderButton, EditWorkOrderButton, NewWorkOrderButton, type WorkOrderRow } from "./workorder-forms";
@@ -137,6 +137,13 @@ export default async function WerkordersPage() {
                         → {(NEXT_STATUS[w.status] ?? "OPEN").replace(/_/g, " ")}
                       </Button>
                     </form>
+                    {w.priceEur != null && w.priceEur > 0 && (
+                      <Button asChild variant="ghost" size="sm" className="text-xs" title="Factuur voor je klant">
+                        <Link href={`/monteur/werkorders/${w.id}/factuur`}>
+                          <FileText className="h-3 w-3" /> Factuur
+                        </Link>
+                      </Button>
+                    )}
                     <EditWorkOrderButton order={w} customers={customers} />
                     <DeleteWorkOrderButton id={w.id} reference={w.reference} />
                   </div>

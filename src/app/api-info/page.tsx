@@ -38,7 +38,7 @@ export default function ApiPage() {
             <CardContent className="p-5">
               <BarChart className="h-5 w-5 text-primary mb-2" />
               <h3 className="font-heading font-semibold mb-1">Schaalbaar</h3>
-              <p className="text-sm text-muted-foreground">Van 1.000 calls/maand tot enterprise volumes met SLA.</p>
+              <p className="text-sm text-muted-foreground">Van 1.000 calls per maand bij Monteur Pro tot 10.000 bij Bedrijf.</p>
             </CardContent>
           </Card>
           <Card>
@@ -83,7 +83,7 @@ export default function ApiPage() {
           <CardContent className="p-6 text-center">
             <h2 className="font-heading text-xl font-bold mb-2">Klaar om te integreren?</h2>
             <p className="text-sm text-muted-foreground mb-4">
-              Vanaf €99/maand voor 5.000 calls. Enterprise vanaf €499/maand voor onbeperkt + SLA.
+              Monteur Pro €29/maand voor 1.000 calls, Bedrijf €199/maand voor 10.000 calls. Hogere volumes op aanvraag.
             </p>
             <Button asChild>
               <Link href="/contact?subject=API">Contact verkoop</Link>

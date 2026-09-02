@@ -1,5 +1,8 @@
 import Link from "next/link";
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+const STATS = catalogStats();
 
 export const metadata = {
   title: "Pagina niet gevonden",
@@ -8,8 +11,8 @@ export const metadata = {
 
 const popularLinks = [
   { href: "/diagnose", title: "AI Diagnose", desc: "Start in 60s een gratis diagnose", icon: "sparkle" as const },
-  { href: "/foutcodes", title: "Foutcodes database", desc: "2.180+ foutcodes per merk", icon: "code" as const },
-  { href: "/onderdelen", title: "Onderdelen-shop", desc: "5.600+ originele onderdelen", icon: "package" as const },
+  { href: "/foutcodes", title: "Foutcodes database", desc: `${formatCount(STATS.errorCodes)} foutcodes per merk`, icon: "code" as const },
+  { href: "/onderdelen", title: "Onderdelen-shop", desc: `${formatCount(STATS.partsInStock)} onderdelen op voorraad`, icon: "package" as const },
   { href: "/gidsen", title: "Reparatiegidsen", desc: "Stap-voor-stap met foto's", icon: "book" as const },
 ];
 

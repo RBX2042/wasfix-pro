@@ -5,6 +5,11 @@
 // then re-implement these as JSX. Current templates are inline HTML for zero
 // dependencies and fast Resend send-time.
 
+import { catalogStats } from "../catalog-stats";
+
+// Claims in outbound email must match the catalog too.
+const CATALOG = catalogStats();
+
 const FOOTER_HTML = `
   <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 18px 0;" />
   <table style="width: 100%; font-size: 11.5px; color: #888; line-height: 1.5;">
@@ -57,10 +62,10 @@ export function welcomeEmail(name: string) {
         Bedankt voor je aanmelding. Je hebt nu toegang tot:
       </p>
       <ul style="font-size: 14.5px; line-height: 1.8; color: #4a5568; padding-left: 20px;">
-        <li>Onbeperkte AI-diagnoses (€4,99/mnd Particulier)</li>
-        <li>26 stap-voor-stap reparatiegidsen</li>
-        <li>331 foutcodes per merk</li>
-        <li>5.600+ originele onderdelen — voor 22:00 = morgen in huis</li>
+        <li>3 gratis AI-diagnoses per maand — onbeperkt met Particulier (€4,99/mnd)</li>
+        <li>${CATALOG.guides} stap-voor-stap reparatiegidsen</li>
+        <li>${CATALOG.errorCodes} foutcodes van ${CATALOG.brands} merken</li>
+        <li>${CATALOG.partsInStock} onderdelen op voorraad — voor 22:00 besteld, morgen in huis</li>
       </ul>
       <div style="margin: 28px 0;">
         <a href="https://wasfix.nl/diagnose" style="display: inline-block; background: linear-gradient(180deg, #5d97ff, #3b7aff); color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; font-size: 14px;">

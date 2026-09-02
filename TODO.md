@@ -58,9 +58,36 @@ Alle code-side werk is af en geverifieerd (crawl van 227 routes zonder én met d
 - [ ] Statistieken als "3.420+ modellen" en "1.247 reviews" in de FAQ/marketingteksten
       controleren op juistheid
 
+## ✅ Afgerond (2 sep 2026, avond)
+
+- [x] Werkorder-factuur voor monteurs — bedrijfsgegevens op `/monteur/instellingen`,
+      factuur met btw-specificatie per werkorder, eigen doorlopende nummerreeks
+      per monteur, afgeschermd per monteur (cross-tenant test)
+- [x] Alle verzonnen claims van de site verwijderd (zie hieronder)
+
 ## ⏳ Volgende iteratie (nice-to-have)
 
 - [ ] i18n content-vertaling (scaffold staat, feature-flag)
-- [ ] Werkorder-PDF / factuur voor monteurs
-- [ ] Video-embeds in premium gidsen
+- [ ] Video-embeds in premium gidsen (er is nog geen videomateriaal)
 - [ ] Referral-uitbetaling (nu wordt het tegoed alleen geregistreerd)
+- [ ] Onderdelen meenemen op de monteur-factuur (nu alleen het werkorderbedrag)
+
+## 🧹 Verwijderde onwaarheden
+
+De site claimde structureel meer dan hij waarmaakte. Alles hieronder is
+vervangen door cijfers die uit `src/data/*.json` komen (via `catalogStats()`),
+of geschrapt omdat er geen meting onder lag.
+
+| Waar | Stond er | Werkelijk |
+|---|---|---|
+| Homepage stat-strip | 3.420+ modellen, 2.180 foutcodes, 5.600+ onderdelen, 1.247 gidsen | 18 machines, 331 codes, 96 onderdelen, 26 gidsen |
+| Homepage + /monteur | Testimonials van niet-bestaande personen en bedrijven | Vervangen door wat het product aantoonbaar doet |
+| Homepage | "4.8/5 · 1.247 reviews" | Verwijderd; ratings komen uit echte reviews |
+| /over | 12.000+ diagnoses, €2,1M bespaard, 847 ton CO₂ | Catalogus-cijfers + notitie dat gebruikscijfers pas volgen na meting |
+| /pers | Drie verzonnen persberichten, incl. "onderzoek" over 50.000 diagnoses | Feitelijke achtergrond |
+| /pers | "50K+ diagnoses sinds launch" | Geschrapt |
+| OG-image + FAQ JSON-LD | 3.420+ modellen | Afgeleide cijfers |
+| 404 + 51 stadspagina's | 2.180+ codes, 5.600+ onderdelen | Afgeleide cijfers |
+| Welkomstmail | 5.600+ onderdelen | Afgeleide cijfers |
+| /tools/predictive | "onze interne diagnose-data (50K+ samples)" | Eerlijk: vuistregels, geen dataset |
+| /api-docs, /api-info | Enterprise €299 / €99 / €499 — bestond niet | Monteur Pro €29, Bedrijf €199 |

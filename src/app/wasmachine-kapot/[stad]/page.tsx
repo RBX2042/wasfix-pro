@@ -2,6 +2,9 @@ import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import citiesData from "@/data/cities.json";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+const STATS = catalogStats();
 
 type City = { slug: string; name: string; province: string; population: number };
 const cities = citiesData as City[];
@@ -67,7 +70,7 @@ export default async function CityPage({ params }: { params: Promise<{ stad: str
             <Stat label="Inwoners" value={city.population.toLocaleString("nl-NL")} />
             <Stat label="Provincie" value={city.province} />
             <Stat label="Levertijd" value="Volgende werkdag" />
-            <Stat label="Onderdelen op voorraad" value="5.600+" />
+            <Stat label="Onderdelen op voorraad" value={formatCount(STATS.partsInStock)} />
           </div>
 
           <h2 className="h-section" style={{ fontSize: 26, marginBottom: 14 }}>

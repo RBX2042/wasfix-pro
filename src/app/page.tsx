@@ -1,5 +1,8 @@
 import WasFixHome from "@/components/redesign/WasFixHome";
 import { staticParts, staticErrorCodes } from "@/lib/static-db";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+const STATS = catalogStats();
 
 export const dynamic = "force-dynamic";
 
@@ -80,7 +83,7 @@ export default function HomePage() {
       "@type": "FAQPage",
       mainEntity: [
         { "@type": "Question", name: "Werkt WasFix Pro voor mijn wasmachine?",
-          acceptedAnswer: { "@type": "Answer", text: "Ja, we ondersteunen alle grote merken: Miele, Bosch, Siemens, Samsung, LG, AEG, Electrolux, Whirlpool, Beko, Indesit en meer. 3.420+ specifieke modellen zijn opgenomen." } },
+          acceptedAnswer: { "@type": "Answer", text: `Ja, we ondersteunen alle grote merken: Miele, Bosch, Siemens, Samsung, LG, AEG, Electrolux, Whirlpool, Beko en Indesit. De database bevat ${formatCount(STATS.errorCodes)} foutcodes en ${formatCount(STATS.guides)} reparatiegidsen.` } },
         { "@type": "Question", name: "Hoeveel kost een diagnose?",
           acceptedAnswer: { "@type": "Answer", text: "De eerste 3 diagnoses per maand zijn gratis. Voor onbeperkte diagnoses + voordelen: Particulier €4,99/mnd of Monteur Pro €29/mnd." } },
         { "@type": "Question", name: "Is mijn wasmachine nog te repareren of moet ik een nieuwe kopen?",

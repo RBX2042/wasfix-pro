@@ -1,6 +1,8 @@
 // Predictive maintenance — health-score per part-category based on machine
-// age, brand reliability and known failure rates from our 50K+ diagnose
-// dataset. Pure deterministic calculation, no ML — fully autonomous.
+// age, a brand-reliability multiplier and typical service life per component.
+// Pure deterministic arithmetic, no ML and no dataset behind it: the constants
+// below are engineering rules of thumb, not measurements. Anything shown to
+// the user must say so.
 //
 // Output: per-category health % + estimated time-to-failure + recommended SKUs.
 

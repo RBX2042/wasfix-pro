@@ -71,6 +71,10 @@ export async function POST(req: NextRequest) {
               });
             }
           });
+          // Idempotent: a replayed webhook returns the existing invoice
+          // rather than burning a second sequential number.
+          const { issueInvoiceForOrder } = await import("@/lib/invoicing");
+          await issueInvoiceForOrder(orderId);
         }
 
         // Referral credit: the visitor id was stashed at checkout time.

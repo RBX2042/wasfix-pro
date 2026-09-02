@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
+import { VAT_RATE } from "@/lib/plans";
 import { ShoppingBag, Truck, Lock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -25,6 +26,8 @@ export function CheckoutClient() {
   const subtotal = cartTotal(items);
   const shipping = subtotal >= 50 ? 0 : 5.95;
   const total = subtotal + shipping;
+  // Catalog prices include 21% btw, so the btw is contained in the total.
+  const vat = Math.round(total * (VAT_RATE / (1 + VAT_RATE)) * 100) / 100;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -41,6 +44,7 @@ export function CheckoutClient() {
           items: items.map((i) => ({ partId: i.partId, sku: i.sku, quantity: i.quantity })),
           email: formData.get("email"),
           name: formData.get("name"),
+          vatNumber: (formData.get("vatNumber") as string)?.trim() || undefined,
           address: {
             street: formData.get("street"),
             houseNumber: formData.get("houseNumber"),
@@ -106,6 +110,10 @@ export function CheckoutClient() {
               <div>
                 <Label htmlFor="name">Volledige naam</Label>
                 <Input id="name" name="name" required placeholder="Jan de Vries" />
+              </div>
+              <div>
+                <Label htmlFor="vatNumber">Btw-nummer <span className="text-muted-foreground font-normal">(optioneel, voor op de factuur)</span></Label>
+                <Input id="vatNumber" name="vatNumber" placeholder="NL123456789B01" />
               </div>
             </CardContent>
           </Card>
@@ -182,6 +190,10 @@ export function CheckoutClient() {
                 {subtotal < 50 && (
                   <p className="text-xs text-muted-foreground">Voeg {formatEur(50 - subtotal)} toe voor gratis verzending</p>
                 )}
+                <div className="flex justify-between text-muted-foreground">
+                  <span>Waarvan btw {Math.round(VAT_RATE * 100)}%</span>
+                  <span>{formatEur(vat)}</span>
+                </div>
               </div>
 
               <div className="border-t pt-3 flex justify-between items-baseline">
@@ -194,7 +206,7 @@ export function CheckoutClient() {
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">
-                Door te bestellen ga je akkoord met onze voorwaarden.
+                Prijzen incl. btw. Je ontvangt een factuur met btw-specificatie. Door te bestellen ga je akkoord met onze voorwaarden.
               </p>
             </CardContent>
           </Card>

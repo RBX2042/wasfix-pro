@@ -5,7 +5,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatEur, formatDate } from "@/lib/utils";
-import { CheckCircle2, Truck, Package, Mail, ArrowRight } from "lucide-react";
+import { CheckCircle2, Truck, Package, Mail, ArrowRight, FileText } from "lucide-react";
 import Image from "next/image";
 import Link from "next/link";
 
@@ -143,6 +143,12 @@ export default async function OrderDetailPage({
                 <div className="flex justify-between text-emerald-600"><span>Korting</span><span>-{formatEur(order.discountEur)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Verzending</span><span>{order.shippingEur === 0 ? "Gratis" : formatEur(order.shippingEur)}</span></div>
+              {order.vatEur > 0 && (
+                <>
+                  <div className="flex justify-between border-t pt-2 mt-2"><span className="text-muted-foreground">Bedrag excl. btw</span><span>{formatEur(order.totalEur - order.vatEur)}</span></div>
+                  <div className="flex justify-between"><span className="text-muted-foreground">Btw {Math.round(order.vatRate * 100)}%</span><span>{formatEur(order.vatEur)}</span></div>
+                </>
+              )}
               <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Totaal</span><span>{formatEur(order.totalEur)}</span></div>
             </div>
           </CardContent>
@@ -174,6 +180,11 @@ export default async function OrderDetailPage({
         </Card>
 
         <div className="mt-8 flex flex-wrap gap-3">
+          {["PAID", "SHIPPED", "DELIVERED"].includes(order.status) && (
+            <Button asChild variant="outline">
+              <Link href={`/bestelling/${order.id}/factuur`}><FileText className="h-4 w-4" /> Bekijk factuur</Link>
+            </Button>
+          )}
           <Button asChild>
             <Link href="/diagnose">Nieuwe diagnose <ArrowRight className="h-4 w-4" /></Link>
           </Button>

@@ -47,6 +47,7 @@ export function DiagnoseDark() {
   const [messages, setMessages] = React.useState<Message[]>([]);
   const [input, setInput] = React.useState(prefill);
   const [loading, setLoading] = React.useState(false);
+  const [quotaReached, setQuotaReached] = React.useState<"anon" | "user" | null>(null);
   const [diagnosis, setDiagnosis] = React.useState<Diagnosis | null>(null);
   const [parts, setParts] = React.useState<RecommendedPart[]>([]);
   const [guides, setGuides] = React.useState<RecommendedGuide[]>([]);
@@ -73,7 +74,20 @@ export function DiagnoseDark() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error ?? "AI-fout — probeer opnieuw");
+        const details = (data.details ?? {}) as { code?: string; signedIn?: boolean };
+        if (res.status === 429 && details.code === "limit_reached") {
+          // The free tier is used up. Show the choice in the thread itself so
+          // the answer they were waiting for is replaced by the way to get it.
+          setQuotaReached(details.signedIn ? "user" : "anon");
+          setMessages([...newMessages, {
+            role: "assistant",
+            content: details.signedIn
+              ? "Je hebt je 3 gratis diagnoses van deze maand gebruikt. Met Particulier stel je onbeperkt vragen — de eerste 14 dagen gratis."
+              : "Je hebt je 3 gratis diagnoses van deze maand gebruikt. Maak een gratis account om je diagnoses te bewaren, of ga voor onbeperkt met Particulier — de eerste 14 dagen gratis.",
+          }]);
+        } else {
+          toast.error(data.error ?? "AI-fout — probeer opnieuw");
+        }
         setLoading(false);
         return;
       }
@@ -195,15 +209,40 @@ export function DiagnoseDark() {
                 </div>
               )}
             </div>
+            {quotaReached && (
+              <div style={{
+                margin: "0 12px 12px", padding: "14px 16px", borderRadius: 12,
+                border: "1px solid rgba(79,140,255,0.35)",
+                background: "linear-gradient(135deg, rgba(79,140,255,0.10), rgba(0,212,255,0.06))",
+              }}>
+                <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>
+                  Je gratis diagnoses zijn op
+                </div>
+                <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 12 }}>
+                  {quotaReached === "anon"
+                    ? "Maak een gratis account om je diagnoses te bewaren, of ga onbeperkt met Particulier."
+                    : "Met Particulier stel je onbeperkt vragen, inclusief alle premium reparatiegidsen."}
+                </div>
+                <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                  <Link className="btn btn-primary btn-sm" href="/upgrade?plan=PARTICULIER">
+                    14 dagen gratis proberen
+                  </Link>
+                  {quotaReached === "anon" && (
+                    <Link className="btn btn-sm" href="/registreren">Gratis account</Link>
+                  )}
+                  <Link className="btn btn-sm" href="/prijzen">Bekijk plannen</Link>
+                </div>
+              </div>
+            )}
             <form className="chat-input" onSubmit={handleSubmit}>
               <Icon name="plus" size={14} className="dim" />
               <input
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder={messages.length === 0 ? "Bv. Bosch E18 — water staat in de trommel..." : "Stel een vervolgvraag..."}
-                disabled={loading}
+                disabled={loading || quotaReached !== null}
               />
-              <button type="submit" className="btn btn-sm btn-primary" disabled={loading || !input.trim()} style={{ padding: "6px 10px" }}>
+              <button type="submit" className="btn btn-sm btn-primary" disabled={loading || !input.trim() || quotaReached !== null} style={{ padding: "6px 10px" }}>
                 <Icon name="send" size={13} />
               </button>
             </form>

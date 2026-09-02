@@ -4,26 +4,14 @@ import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { CheckCircle2, ArrowLeft } from "lucide-react";
 import { UpgradeButton } from "./upgrade-button";
+import { BILLABLE_PLANS, PLANS, formatPlanPrice, planPriceSuffix, type PlanId } from "@/lib/plans";
 
 export const metadata = { title: "Upgrade abonnement" };
 
-const PLAN_DETAILS: Record<string, { name: string; price: string; features: string[] }> = {
-  PARTICULIER: {
-    name: "Particulier",
-    price: "€4,99/maand",
-    features: ["Onbeperkte AI diagnoses", "Alle premium gidsen", "5% korting onderdelen", "Diagnoses geschiedenis"],
-  },
-  MONTEUR_PRO: {
-    name: "Monteur Pro",
-    price: "€29/maand",
-    features: ["Alles in Particulier", "10% korting onderdelen", "Klanten dashboard", "API toegang"],
-  },
-};
-
 export default async function UpgradePage({ searchParams }: { searchParams: Promise<{ plan?: string }> }) {
   const sp = await searchParams;
-  const plan = sp.plan ?? "PARTICULIER";
-  const detail = PLAN_DETAILS[plan];
+  const plan = (sp.plan ?? "PARTICULIER").toUpperCase();
+  const detail = BILLABLE_PLANS.includes(plan as PlanId) ? PLANS[plan as PlanId] : undefined;
 
   if (!detail) {
     return (
@@ -49,8 +37,8 @@ export default async function UpgradePage({ searchParams }: { searchParams: Prom
             <h1 className="font-heading text-2xl md:text-3xl font-bold">Upgrade naar {detail.name}</h1>
 
             <div className="flex items-baseline gap-2">
-              <span className="font-heading text-4xl font-bold text-primary">{detail.price.split("/")[0]}</span>
-              <span className="text-muted-foreground">/{detail.price.split("/")[1]}</span>
+              <span className="font-heading text-4xl font-bold text-primary">{formatPlanPrice(detail)}</span>
+              <span className="text-muted-foreground">{planPriceSuffix(detail)}</span>
             </div>
 
             <ul className="space-y-2.5">
@@ -65,7 +53,9 @@ export default async function UpgradePage({ searchParams }: { searchParams: Prom
             <UpgradeButton plan={plan} />
 
             <p className="text-xs text-muted-foreground text-center">
-              Maandelijks opzegbaar. Veilig betalen via Stripe.
+              {detail.trialDays > 0
+                ? `Eerste ${detail.trialDays} dagen gratis — je betaalt pas daarna. Maandelijks opzegbaar, veilig betalen via Stripe.`
+                : "Maandelijks opzegbaar. Veilig betalen via Stripe."}
             </p>
           </CardContent>
         </Card>

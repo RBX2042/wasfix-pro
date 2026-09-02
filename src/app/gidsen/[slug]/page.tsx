@@ -11,6 +11,9 @@ import { pickArr, formatEur } from "@/lib/utils";
 import { GuideStepper } from "./guide-stepper";
 import { Reviews } from "@/components/Reviews";
 import { getReviews, reviewStats, aggregateRatingLd } from "@/lib/reviews";
+import { getCurrentUser } from "@/lib/auth";
+import { canReadPremiumGuide } from "@/lib/entitlements";
+import { PLANS, formatPlanPrice } from "@/lib/plans";
 
 export const dynamic = "force-dynamic";
 
@@ -33,7 +36,20 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
 
   if (!guide) notFound();
 
-  const steps = JSON.parse(guide.steps) as Array<{ stepNum: number; title: string; description: string; warning?: string; imageUrl?: string }>;
+  const allSteps = JSON.parse(guide.steps) as Array<{ stepNum: number; title: string; description: string; warning?: string; imageUrl?: string }>;
+
+  // Premium guides are a paid feature ("alle premium gidsen" sells the
+  // Particulier plan), so the full text is gated. Everyone still gets the
+  // first steps: enough to judge the guide, and enough for the page to carry
+  // real content for search. The structured data below is built from the
+  // steps actually shown, so the markup never promises more than the page has.
+  const user = await getCurrentUser().catch(() => null);
+  const hasPremiumAccess = canReadPremiumGuide(user?.plan);
+  const isLocked = guide.isPremium && !hasPremiumAccess;
+  const FREE_STEPS = 2;
+  const steps = isLocked ? allSteps.slice(0, FREE_STEPS) : allSteps;
+  const lockedStepCount = allSteps.length - steps.length;
+
   const tools = pickArr(guide.tools);
   const parts = guide.parts.map((gp) => gp.part);
 
@@ -120,6 +136,37 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
             )}
 
             <GuideStepper steps={steps} />
+
+            {isLocked && lockedStepCount > 0 && (
+              <Card className="mt-6 border-primary/40 border-2 bg-gradient-to-br from-primary/5 to-accent/5">
+                <CardContent className="p-6 text-center">
+                  <div className="mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full bg-primary/10 text-primary">
+                    <Crown className="h-5 w-5" />
+                  </div>
+                  <h2 className="font-heading text-xl font-bold">
+                    Nog {lockedStepCount} {lockedStepCount === 1 ? "stap" : "stappen"} te gaan
+                  </h2>
+                  <p className="text-sm text-muted-foreground mt-2 max-w-md mx-auto">
+                    Deze premium gids gaat verder met de demontage, de meetwaarden en de afstelling.
+                    Word Particulier voor {formatPlanPrice(PLANS.PARTICULIER)} per maand en lees alle
+                    {" "}premium gidsen — de eerste {PLANS.PARTICULIER.trialDays} dagen gratis.
+                  </p>
+                  <div className="mt-5 flex flex-wrap gap-2 justify-center">
+                    <Button asChild>
+                      <Link href="/upgrade?plan=PARTICULIER">Ontgrendel deze gids</Link>
+                    </Button>
+                    <Button asChild variant="outline">
+                      <Link href="/prijzen">Bekijk de plannen</Link>
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-4">
+                    Liever zelf klussen zonder abonnement? De{" "}
+                    <Link href="/gidsen" className="text-primary hover:underline">gratis gidsen</Link>{" "}
+                    dekken de meest voorkomende storingen.
+                  </p>
+                </CardContent>
+              </Card>
+            )}
           </div>
 
           <aside className="space-y-4">

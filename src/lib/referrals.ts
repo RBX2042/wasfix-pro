@@ -13,7 +13,9 @@ import { isDatabaseConfigured } from "./env";
 import { logger } from "./logger";
 
 export const REF_COOKIE = "wasfix-ref";
-export const VISITOR_COOKIE = "wasfix-vid";
+// Defined in ./visitor so scripts can import it without server-only.
+import { VISITOR_COOKIE } from "./visitor";
+export { VISITOR_COOKIE };
 export const REWARD_EUR = 5;
 /** Attribution window: a signup counts for the referrer for this long. */
 export const ATTRIBUTION_DAYS = 30;

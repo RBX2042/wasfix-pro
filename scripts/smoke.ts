@@ -93,6 +93,13 @@ const checks: Check[] = [
     contains: "moderatie",
   },
   { path: "/api/stripe/webhook", method: "POST", body: {}, expect: [200, 400] },
+  // Commercial surfaces: prices must render from the shared config, and the
+  // invoice route must refuse to expose someone else's order.
+  { path: "/prijzen", expect: 200, contains: "4,99" },
+  { path: "/upgrade?plan=MONTEUR_PRO", expect: 200, contains: "29" },
+  { path: "/upgrade?plan=BEDRIJF", expect: 200, contains: "199" },
+  { path: "/upgrade?plan=NONSENSE", expect: 200, contains: "Onbekend plan" },
+  { path: "/bestelling/does-not-exist/factuur", expect: 404 },
 ];
 
 async function run() {

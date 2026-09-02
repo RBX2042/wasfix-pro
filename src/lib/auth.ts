@@ -1,5 +1,6 @@
 import { isDemoMode } from "./demo-mode";
 import { isDatabaseConfigured } from "./env";
+import { getPlan } from "./plans";
 import { prisma } from "./prisma";
 
 export type DemoUser = {
@@ -85,16 +86,20 @@ export async function getCurrentUser(): Promise<DemoUser | null> {
   }
 }
 
-export const PLAN_LIMITS = {
-  FREE: { diagnosesPerMonth: 3, partsDiscount: 0, premiumGuides: false, technicianDashboard: false },
-  PARTICULIER: { diagnosesPerMonth: -1, partsDiscount: 0.05, premiumGuides: true, technicianDashboard: false },
-  MONTEUR_PRO: { diagnosesPerMonth: -1, partsDiscount: 0.10, premiumGuides: true, technicianDashboard: true },
-  BEDRIJF: { diagnosesPerMonth: -1, partsDiscount: 0.15, premiumGuides: true, technicianDashboard: true },
-  API: { diagnosesPerMonth: -1, partsDiscount: 0.10, premiumGuides: true, technicianDashboard: true },
-} as const;
-
+/**
+ * Plan limits come from src/lib/plans.ts so pricing pages, Stripe and
+ * entitlement checks can never drift apart. API is a legacy internal plan
+ * that behaves like MONTEUR_PRO.
+ */
 export function getPlanLimits(plan: string) {
-  return PLAN_LIMITS[plan as keyof typeof PLAN_LIMITS] ?? PLAN_LIMITS.FREE;
+  const resolved = plan === "API" ? "MONTEUR_PRO" : plan;
+  const p = getPlan(resolved);
+  return {
+    diagnosesPerMonth: p.diagnosesPerMonth,
+    partsDiscount: p.partsDiscount,
+    premiumGuides: p.premiumGuides,
+    technicianDashboard: p.technicianDashboard,
+  };
 }
 
 /** Plans/roles that unlock the Monteur Pro dashboard + B2B API. */

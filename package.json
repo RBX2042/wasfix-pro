@@ -15,7 +15,8 @@
     "postinstall": "prisma generate",
     "analyze": "ANALYZE=true next build",
     "typecheck": "tsc --noEmit",
-    "smoke": "tsx scripts/smoke.ts"
+    "smoke": "tsx scripts/smoke.ts",
+    "money:smoke": "tsx scripts/qa-money.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",

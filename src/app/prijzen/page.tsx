@@ -4,6 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CheckCircle2, X, Sparkles } from "lucide-react";
+import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
 
 export const metadata = {
   title: "Prijzen — Gratis tot €29/mnd · WasFix Pro abonnementen",
@@ -11,92 +12,44 @@ export const metadata = {
   alternates: { canonical: "/prijzen" },
 };
 
-const PRICING_JSONLD = [
-  {
+const PRICING_JSONLD = PLAN_ORDER.filter((id) => PLANS[id].priceCents > 0).map((id) => {
+  const plan = PLANS[id];
+  return {
     "@context": "https://schema.org",
     "@type": "SoftwareApplication",
-    name: "WasFix Pro Particulier",
-    applicationCategory: "UtilitiesApplication",
+    name: `WasFix Pro ${plan.name}`,
+    applicationCategory: plan.audience === "business" ? "BusinessApplication" : "UtilitiesApplication",
     operatingSystem: "Web",
-    offers: { "@type": "Offer", price: "4.99", priceCurrency: "EUR", priceValidUntil: "2027-12-31", availability: "https://schema.org/InStock", url: "https://wasfix.nl/upgrade?plan=PARTICULIER" },
-  },
-  {
-    "@context": "https://schema.org",
-    "@type": "SoftwareApplication",
-    name: "WasFix Monteur Pro",
-    applicationCategory: "BusinessApplication",
-    operatingSystem: "Web",
-    offers: { "@type": "Offer", price: "29.00", priceCurrency: "EUR", priceValidUntil: "2027-12-31", availability: "https://schema.org/InStock", url: "https://wasfix.nl/upgrade?plan=MONTEUR_PRO" },
-  },
-];
+    offers: {
+      "@type": "Offer",
+      price: (plan.priceCents / 100).toFixed(2),
+      priceCurrency: "EUR",
+      availability: "https://schema.org/InStock",
+      url: `https://wasfix.nl/upgrade?plan=${plan.id}`,
+    },
+  };
+});
 
-const PLANS = [
-  {
-    name: "Gratis",
-    price: "€0",
-    period: "voor altijd",
-    description: "Ideaal om te proeven",
-    cta: "Probeer gratis",
-    href: "/diagnose",
+const FREE_MISSING = ["Premium reparatiegidsen", "Korting op onderdelen", "Prioriteit support"];
+
+const TIERS = PLAN_ORDER.map((id) => {
+  const plan = PLANS[id];
+  return {
+    id,
+    name: plan.name,
+    price: formatPlanPrice(plan),
+    period: planPriceSuffix(plan),
+    description: plan.tagline,
+    highlight: plan.highlight ?? false,
+    trialDays: plan.trialDays,
+    cta: plan.priceCents === 0 ? "Probeer gratis" : `Word ${plan.name}`,
+    href: plan.priceCents === 0 ? "/diagnose" : `/upgrade?plan=${plan.id}`,
     features: [
-      { included: true, text: "3 AI diagnoses per maand" },
-      { included: true, text: "Basis foutcode database" },
-      { included: true, text: "Toegang tot gratis gidsen" },
-      { included: false, text: "Premium reparatiegidsen" },
-      { included: false, text: "Korting op onderdelen" },
-      { included: false, text: "Prioriteit support" },
+      ...plan.features.map((text) => ({ included: true, text })),
+      ...(plan.id === "FREE" ? FREE_MISSING.map((text) => ({ included: false, text })) : []),
     ],
-  },
-  {
-    name: "Particulier",
-    price: "€4,99",
-    period: "/maand",
-    description: "Voor de slimme klusser",
-    highlight: true,
-    cta: "Word Particulier",
-    href: "/upgrade?plan=PARTICULIER",
-    features: [
-      { included: true, text: "Onbeperkte AI diagnoses" },
-      { included: true, text: "Volledige foutcode database" },
-      { included: true, text: "Alle premium gidsen (incl. video)" },
-      { included: true, text: "5% korting op alle onderdelen" },
-      { included: true, text: "Diagnoses geschiedenis" },
-      { included: true, text: "Prioriteit e-mail support" },
-    ],
-  },
-  {
-    name: "Monteur Pro",
-    price: "€29",
-    period: "/maand",
-    description: "Voor zelfstandige monteurs",
-    cta: "Voor monteurs",
-    href: "/upgrade?plan=MONTEUR_PRO",
-    features: [
-      { included: true, text: "Alles in Particulier" },
-      { included: true, text: "10% korting onderdelen" },
-      { included: true, text: "Klanten dashboard" },
-      { included: true, text: "Werkorder management" },
-      { included: true, text: "Bulk parts ordering" },
-      { included: true, text: "API toegang (1000 calls/mnd)" },
-    ],
-  },
-  {
-    name: "Bedrijf",
-    price: "€199",
-    period: "/maand",
-    description: "Voor reparatiebedrijven",
-    cta: "Contact verkoop",
-    href: "/contact?plan=BEDRIJF",
-    features: [
-      { included: true, text: "Alles in Monteur Pro" },
-      { included: true, text: "Tot 20 gebruikers" },
-      { included: true, text: "15% korting onderdelen" },
-      { included: true, text: "White-label optie" },
-      { included: true, text: "Dedicated account manager" },
-      { included: true, text: "Onbeperkte API calls" },
-    ],
-  },
-];
+  };
+});
 
 export default function PrijzenPage() {
   return (
@@ -114,7 +67,7 @@ export default function PrijzenPage() {
 
       <div className="container py-12">
         <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
-          {PLANS.map((plan) => (
+          {TIERS.map((plan) => (
             <Card key={plan.name} className={plan.highlight ? "border-primary border-2 relative shadow-xl" : ""}>
               {plan.highlight && (
                 <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">Meest gekozen</Badge>
@@ -125,8 +78,11 @@ export default function PrijzenPage() {
                   <p className="text-sm text-muted-foreground">{plan.description}</p>
                   <div className="flex items-baseline mt-3">
                     <span className="font-heading text-4xl font-bold">{plan.price}</span>
-                    <span className="text-muted-foreground ml-1.5 text-sm">{plan.period}</span>
+                    <span className="text-muted-foreground ml-1.5 text-xs">{plan.period}</span>
                   </div>
+                  {plan.trialDays > 0 && (
+                    <p className="text-xs text-primary mt-1.5">Eerste {plan.trialDays} dagen gratis</p>
+                  )}
                 </div>
 
                 <ul className="space-y-2.5 flex-1">
@@ -156,7 +112,7 @@ export default function PrijzenPage() {
             <Faq q="Kan ik op elk moment opzeggen?" a="Ja, opzeggen kan maandelijks zonder vragen. Je behoudt toegang tot het einde van je betaalperiode." />
             <Faq q="Hoe werkt de korting op onderdelen?" a="Particulier krijgt 5% korting, Monteur Pro 10%, Bedrijf 15%. De korting wordt automatisch toegepast in je winkelmand." />
             <Faq q="Welke betaalmethoden zijn er?" a="iDEAL, creditcard (Visa, Mastercard, Amex), Bancontact. Voor zakelijke klanten ook factuur." />
-            <Faq q="Is er een setup fee?" a="Nee, geen setup fee voor Particulier en Monteur Pro. Voor Bedrijf neem je contact op voor een offerte op maat." />
+            <Faq q="Is er een setup fee?" a="Nee. Elk plan is direct online af te sluiten en maandelijks opzegbaar, zonder setup fee. Voor meer dan 20 gebruikers of maatwerk maken we een offerte." />
           </div>
         </div>
       </div>

@@ -44,8 +44,28 @@ De seed maakt 4 demo-accounts: `jdahoe@hotmail.nl` (ADMIN/BEDRIJF, auto-login in
 | `npm run db:setup` | Schema pushen + catalogus seeden |
 | `npm run db:seed` | Alleen seeden (upsert, veilig bij content-updates) |
 | `npm run db:smoke` | Database QA (`scripts/qa-db.ts`) |
+| `npm run money:smoke` | Btw, facturen, quota en marge (`scripts/qa-money.ts`) |
 | `npm run smoke` | HTTP smoke test tegen `BASE_URL` (default localhost:3000) |
 | `npm run db:studio` | Prisma Studio |
+
+## Verdienmodel
+
+Prijzen, plangrenzen, btw-tarief en bedrijfsgegevens staan op één plek:
+`src/lib/plans.ts`. De prijspagina, de homepage, de upgradepagina, Stripe en de
+entitlement-checks lezen daaruit, zodat ze niet uit elkaar kunnen lopen.
+
+- **Gratis**: 3 AI-diagnoses per maand, gemeten per account en anders per
+  bezoeker. Premium gidsen tonen de eerste twee stappen.
+- **Particulier €4,99**, **Monteur Pro €29**, **Bedrijf €199** — alle drie
+  direct af te sluiten, met 14 dagen proefperiode.
+- **Onderdelen**: catalogusprijzen zijn inclusief 21% btw. Elke betaalde
+  bestelling krijgt een doorlopend genummerde factuur met btw-specificatie op
+  `/bestelling/[id]/factuur`.
+- **Marge**: elk onderdeel heeft een inkoopprijs; `/admin` toont netto omzet,
+  af te dragen btw, inkoopwaarde en brutomarge.
+
+Zie `MONETIZATION.md` voor de unit-economics en wat er commercieel nog moet
+gebeuren.
 
 ## Modes
 

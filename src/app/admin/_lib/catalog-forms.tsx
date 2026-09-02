@@ -42,6 +42,7 @@ export type PartRow = {
   brand: string;
   category: string;
   priceEur: number;
+  costEur?: number | null;
   stock: number;
   description: string | null;
   imageUrl: string | null;
@@ -61,7 +62,8 @@ function PartFields({ part, close }: { part?: PartRow; close: () => void }) {
       <Field label="Naam" name="name" defaultValue={part?.name} required placeholder="Afvoerpomp universeel" />
       <div className="grid grid-cols-3 gap-3">
         <Select label="Categorie" name="category" options={opts(PART_CATEGORIES)} defaultValue={part?.category} />
-        <Field label="Prijs (€)" name="priceEur" type="number" defaultValue={part ? String(part.priceEur) : ""} required placeholder="28.50" />
+        <Field label="Verkoopprijs (€, incl. btw)" name="priceEur" type="number" defaultValue={part ? String(part.priceEur) : ""} required placeholder="28.50" />
+        <Field label="Inkoopprijs (€, excl. btw)" name="costEur" type="number" defaultValue={part?.costEur != null ? String(part.costEur) : ""} placeholder="12.00" />
         <Field label="Voorraad" name="stock" type="number" defaultValue={part ? String(part.stock) : "0"} required />
       </div>
       <TextArea label="Omschrijving" name="description" defaultValue={part?.description} />

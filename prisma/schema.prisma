@@ -112,6 +112,8 @@ model Part {
   brand       String
   category    String           @default("OTHER")
   priceEur    Float
+  /// Wholesale/purchase price excluding VAT. Null = unknown, margin unreported.
+  costEur     Float?
   stock       Int              @default(0)
   imageUrl    String?
   isOriginal  Boolean          @default(true)
@@ -189,9 +191,18 @@ model Order {
   discountEur     Float       @default(0)
   shippingEur     Float       @default(0)
   totalEur        Float
+  /// VAT rate applied to this order (0.21 = 21%).
+  vatRate         Float       @default(0.21)
+  /// VAT contained in totalEur. Catalog prices are VAT-inclusive.
+  vatEur          Float       @default(0)
+  /// Buyer's VAT number when they ordered as a business.
+  vatNumber       String?
+  /// Sum of costEur * quantity at time of order; null when any cost is unknown.
+  costEur         Float?
   stripePaymentId String?
   shippingAddress String
   email           String
+  invoice         Invoice?
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -377,4 +388,50 @@ model Referral {
   @@unique([code, visitorId])
   @@index([code])
   @@index([referrerId])
+}
+
+// ─── Invoices ────────────────────────────────────────────────────
+// NL law requires a sequential, gapless invoice number and a VAT
+// specification per order, retained for 7 years. Seller and buyer details are
+// snapshotted so a later change of address never rewrites history.
+model Invoice {
+  id          String   @id @default(cuid())
+  number      String   @unique
+  year        Int
+  orderId     String   @unique
+  order       Order    @relation(fields: [orderId], references: [id])
+  issuedAt    DateTime @default(now())
+  subtotalEur Float
+  discountEur Float    @default(0)
+  shippingEur Float    @default(0)
+  vatRate     Float
+  vatEur      Float
+  totalEur    Float
+  sellerJson  String
+  buyerJson   String
+  linesJson   String
+
+  @@index([year])
+  @@index([issuedAt])
+}
+
+// Allocates gapless invoice numbers per year under a transaction.
+model InvoiceSequence {
+  year Int @id
+  last Int @default(0)
+}
+
+// ─── Metered free usage ──────────────────────────────────────────
+// Enforces the free tier for visitors who are not signed in, so the paid
+// plans mean something. Keyed on a hash of the visitor cookie or IP.
+model UsageCounter {
+  id        String   @id @default(cuid())
+  scope     String
+  key       String
+  count     Int      @default(0)
+  windowEnd DateTime
+  updatedAt DateTime @updatedAt
+
+  @@unique([scope, key])
+  @@index([windowEnd])
 }

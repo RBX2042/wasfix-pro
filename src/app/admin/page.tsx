@@ -31,7 +31,7 @@ export default async function AdminPage() {
   }
 
   let usersCount = 0, partsCount = 20, ordersCount = 0, diagnosesCount = 0, guidesCount = 6, errorCodesCount = 26;
-  let revenue: { _sum: { totalEur: number | null } } = { _sum: { totalEur: 0 } };
+  let revenue: { _sum: { totalEur: number | null; vatEur: number | null; costEur: number | null } } = { _sum: { totalEur: 0, vatEur: 0, costEur: 0 } };
   let recentOrders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
   let recentUsers: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
   let allOrders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
@@ -45,7 +45,7 @@ export default async function AdminPage() {
       prisma.diagnosis.count(),
       prisma.repairGuide.count(),
       prisma.errorCode.count(),
-      prisma.order.aggregate({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } }, _sum: { totalEur: true } }),
+      prisma.order.aggregate({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } }, _sum: { totalEur: true, vatEur: true, costEur: true } }),
       prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
       prisma.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
       prisma.order.findMany({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } } }),
@@ -60,6 +60,20 @@ export default async function AdminPage() {
     guidesCount = s.guidesCount;
     errorCodesCount = s.errorCodesCount;
   }
+
+  // Turnover is not profit. Net revenue strips the btw we merely collect for
+  // the tax office, and gross margin subtracts what the parts cost us. An
+  // order whose parts have no cost price is excluded from the margin figure
+  // rather than silently counted as pure profit.
+  const grossTurnover = revenue._sum.totalEur ?? 0;
+  const vatCollected = revenue._sum.vatEur ?? 0;
+  const netRevenue = grossTurnover - vatCollected;
+  const costOfGoods = revenue._sum.costEur ?? 0;
+  const ordersWithCost = allOrders.filter((o) => typeof o.costEur === "number");
+  const netRevenueWithCost = ordersWithCost.reduce((s, o) => s + Number(o.totalEur) - Number(o.vatEur), 0);
+  const grossMargin = netRevenueWithCost - costOfGoods;
+  const marginPct = netRevenueWithCost > 0 ? (grossMargin / netRevenueWithCost) * 100 : 0;
+  const marginCoverage = allOrders.length > 0 ? (ordersWithCost.length / allOrders.length) * 100 : 100;
 
   // Build revenue chart data — group orders by day, last 30 days
   const now = new Date();
@@ -107,9 +121,36 @@ export default async function AdminPage() {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard icon={<Users className="h-4 w-4" />} label="Gebruikers" value={usersCount.toString()} />
         <StatCard icon={<Package className="h-4 w-4" />} label="Bestellingen" value={ordersCount.toString()} />
-        <StatCard icon={<TrendingUp className="h-4 w-4" />} label="Omzet" value={formatEur(revenue._sum.totalEur ?? 0)} />
+        <StatCard icon={<TrendingUp className="h-4 w-4" />} label="Omzet incl. btw" value={formatEur(grossTurnover)} />
         <StatCard icon={<MessageCircle className="h-4 w-4" />} label="Diagnoses" value={diagnosesCount.toString()} />
       </div>
+
+      <Card className="mb-8">
+        <CardContent className="p-6">
+          <h2 className="font-heading text-lg font-semibold mb-1">Wat verdienen we hieraan?</h2>
+          <p className="text-sm text-muted-foreground mb-4">
+            Omzet is geen winst. De btw dragen we af, de inkoop is al betaald.
+          </p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <MoneyStat label="Netto omzet" value={formatEur(netRevenue)} hint="excl. btw" />
+            <MoneyStat label="Af te dragen btw" value={formatEur(vatCollected)} hint="niet van ons" />
+            <MoneyStat label="Inkoopwaarde" value={formatEur(costOfGoods)} hint="kostprijs verkochte onderdelen" />
+            <MoneyStat
+              label="Brutomarge"
+              value={formatEur(grossMargin)}
+              hint={netRevenueWithCost > 0 ? `${marginPct.toFixed(1)}% van netto omzet` : "nog geen betaalde orders"}
+              accent
+            />
+          </div>
+          {marginCoverage < 100 && (
+            <p className="text-xs text-amber-600 mt-4">
+              Let op: {(100 - marginCoverage).toFixed(0)}% van de bestellingen bevat onderdelen zonder kostprijs.
+              Die orders tellen niet mee in de marge. Vul de inkoopprijs aan bij{" "}
+              <Link href="/admin/onderdelen" className="underline">onderdelen</Link>.
+            </p>
+          )}
+        </CardContent>
+      </Card>
 
       <div className="grid md:grid-cols-3 gap-4 mb-8">
         <ManageCard
@@ -212,6 +253,16 @@ export default async function AdminPage() {
         </Card>
       </div>
     </DashboardLayout>
+  );
+}
+
+function MoneyStat({ label, value, hint, accent }: { label: string; value: string; hint: string; accent?: boolean }) {
+  return (
+    <div className={`rounded-md border p-4 ${accent ? "border-primary/40 bg-primary/5" : ""}`}>
+      <p className="text-xs uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="font-heading text-xl font-bold mt-1 tabular-nums">{value}</p>
+      <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
+    </div>
   );
 }
 

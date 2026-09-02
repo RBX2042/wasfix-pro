@@ -2,7 +2,7 @@
 
 Live: https://wasfix.nl · Repo: https://github.com/RBX2042/wasfix-pro
 
-## Status: FEATURE-COMPLETE — 2 sep 2026
+## Status: FEATURE-COMPLETE — 2 sep 2026 (ronde 2)
 
 Alle code-side werk is af en geverifieerd (crawl van 227 routes zonder én met database: 0 crashes; 25/25 DB-checks; 42/42 HTTP smoke checks; `next build` groen, 138 statische pagina's). Wat overblijft zijn uitsluitend **credentials/keuzes van de eigenaar** — zie `BLOCKED.md`.
 
@@ -31,11 +31,36 @@ Alle code-side werk is af en geverifieerd (crawl van 227 routes zonder én met d
 - [x] Ontbrekende pagina's: `/admin/analytics/connect-gsc`, redirect `/voor-monteurs` → `/monteur`
 - [x] Lint 0 errors/0 warnings, typecheck groen, CI met Postgres-job + smoke tests
 
+## ✅ Afgerond in ronde 2 (2 sep 2026)
+
+- [x] Monteur-CRM: `Customer` + `WorkOrder` modellen, volledige CRUD op /monteur/klanten en
+      /monteur/werkorders, per monteur afgeschermd; dashboard toont echte aantallen
+      (was: hardgecodeerd 12 klanten / 5 werkorders)
+- [x] Admin catalogus-CRUD: aanmaken, bewerken en verwijderen van onderdelen, gidsen en
+      foutcodes (de knoppen deden voorheen niets); onderdeel op een bestelling wordt op
+      voorraad 0 gezet in plaats van verwijderd
+- [x] Reviews zichtbaar op /onderdelen/[sku] en /gidsen/[slug], met formulier dat naar
+      moderatie gaat
+- [x] **Verzonnen reviews verwijderd uit structured data** — home (4.8/1247), prijzen
+      (4.8/892 en 4.9/234) en onderdeelpagina (4.7/47) publiceerden ratings die nergens op
+      gebaseerd waren. Ratings komen nu uitsluitend uit echte reviews
+- [x] Referral-attributie persistent: klik → aanmelding → conversie met €5 beloning,
+      visitor-id reist mee in Stripe-metadata zodat de webhook kan crediteren
+- [x] 29 database-checks, 53 HTTP-smoke checks, 228 routes gecrawld met én zonder database
+
+## ⚠️ Aandacht van de eigenaar gevraagd
+
+- [ ] **Zichtbare testimonials zijn verzonnen personen.** Op de homepage en /monteur staan
+      quotes van "Marieke V. uit Rotterdam" e.d. met bespaarde bedragen. Als reclame-uiting
+      voor echte klanten zijn die in strijd met de Wet oneerlijke handelspraktijken
+      (EU Omnibus). Vervang ze door echte, verifieerbare klantquotes, of label het blok
+      duidelijk als voorbeeld. Ik heb de marketingtekst laten staan — dit is jouw keuze.
+- [ ] Statistieken als "3.420+ modellen" en "1.247 reviews" in de FAQ/marketingteksten
+      controleren op juistheid
+
 ## ⏳ Volgende iteratie (nice-to-have)
 
-- [ ] Monteur werkorders/klanten persistent maken (nu demo-data in de UI)
-- [ ] Admin CRUD-formulieren voor catalogus (nu read-only tabellen; content leeft in `src/data`)
-- [ ] Referral-attributie in DB
 - [ ] i18n content-vertaling (scaffold staat, feature-flag)
-- [ ] Reviews tonen op onderdeel/gids-pagina's vanuit DB (API levert ze al)
+- [ ] Werkorder-PDF / factuur voor monteurs
 - [ ] Video-embeds in premium gidsen
+- [ ] Referral-uitbetaling (nu wordt het tegoed alleen geregistreerd)

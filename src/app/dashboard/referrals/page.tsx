@@ -2,6 +2,7 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { getCurrentUser } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { ReferralWidget } from "@/components/ReferralWidget";
+import { referralCodeFor } from "@/lib/referrals";
 
 export const metadata = { title: "Refereer vrienden — verdien €5 · WasFix Pro" };
 export const dynamic = "force-dynamic";
@@ -10,7 +11,7 @@ export default async function ReferralsPage() {
   const user = await getCurrentUser().catch(() => null);
   if (!user) redirect("/inloggen?next=/dashboard/referrals");
 
-  const referralCode = user.id.slice(0, 6).toUpperCase();
+  const referralCode = await referralCodeFor(user.id);
 
   return (
     <DashboardLayout role={user.role}>

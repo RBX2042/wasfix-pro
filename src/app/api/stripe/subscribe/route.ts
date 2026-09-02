@@ -6,6 +6,7 @@ import { getStripe, STRIPE_PRICES } from "@/lib/stripe";
 import { getCurrentUser } from "@/lib/auth";
 import { env, isDatabaseConfigured } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
+import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
 
 const SubscribeSchema = z.object({
   plan: z.enum(["PARTICULIER", "MONTEUR_PRO", "BEDRIJF"]),
@@ -25,6 +26,8 @@ export async function POST(req: NextRequest) {
     const { plan } = parsed.data;
     const priceId = STRIPE_PRICES[plan];
     const stripe = getStripe();
+    const visitorId = await currentVisitorId();
+    if (visitorId) await recordSignup(visitorId);
 
     if (!stripe || !priceId) {
       // Demo mode — direct upgrade (persisted when a DB is available)
@@ -33,6 +36,7 @@ export async function POST(req: NextRequest) {
           logger.warn("Demo upgrade could not be persisted", err)
         );
       }
+      if (visitorId) await recordConversion(visitorId);
       return apiSuccess({ demo: true, plan });
     }
 
@@ -64,7 +68,7 @@ export async function POST(req: NextRequest) {
         allow_promotion_codes: true,
         success_url: `${env.APP_URL}/dashboard?upgraded=1`,
         cancel_url: `${env.APP_URL}/prijzen`,
-        metadata: { userId: user.id, plan },
+        metadata: { userId: user.id, plan, ...(visitorId ? { refVisitorId: visitorId } : {}) },
         subscription_data: { metadata: { userId: user.id, plan } },
       },
       { idempotencyKey: `subscribe-${user.id}-${plan}-${Date.now()}` }

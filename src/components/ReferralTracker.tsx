@@ -17,9 +17,16 @@ export function ReferralTracker() {
     if (!ref) return;
     if (!/^[A-Z0-9]{4,20}$/.test(ref)) return; // basic validation
 
-    // Set cookie
+    // Set cookie immediately so attribution survives even if the API call fails
     const maxAge = COOKIE_DAYS * 24 * 60 * 60;
     document.cookie = `${COOKIE_NAME}=${encodeURIComponent(ref)}; Max-Age=${maxAge}; Path=/; SameSite=Lax`;
+
+    // Record the click server-side (also issues the anonymous visitor cookie)
+    fetch("/api/referral/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ code: ref, landingPath: window.location.pathname }),
+    }).catch(() => { /* attribution is best-effort */ });
 
     // Fire-and-forget analytics ping
     try {

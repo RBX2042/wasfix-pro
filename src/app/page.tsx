@@ -73,7 +73,6 @@ export default function HomePage() {
       applicationCategory: "UtilitiesApplication",
       operatingSystem: "Web",
       offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
-      aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", reviewCount: "1247" },
     },
     // FAQ schema for homepage — answers Google searches directly
     {
@@ -92,19 +91,10 @@ export default function HomePage() {
           acceptedAnswer: { "@type": "Answer", text: "30 dagen retourrecht — ook als achteraf blijkt dat het toch een ander onderdeel was. Gratis retour bij defect of fout van onze kant." } },
       ],
     },
-    // Real customer reviews — these match the testimonials block visually rendered below
-    {
-      "@context": "https://schema.org",
-      "@type": "Product",
-      name: "WasFix Pro AI Diagnose abonnement",
-      brand: { "@type": "Brand", name: "WasFix Pro" },
-      aggregateRating: { "@type": "AggregateRating", ratingValue: "4.8", reviewCount: "1247", bestRating: "5", worstRating: "1" },
-      review: [
-        { "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" }, author: { "@type": "Person", name: "Marieke" }, datePublished: "2026-04-18", reviewBody: "Bespaarde €280 door zelf de afvoerpomp te vervangen. AI wees direct het juiste onderdeel aan." },
-        { "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" }, author: { "@type": "Person", name: "Mark" }, datePublished: "2026-04-22", reviewBody: "Bespaart me 2 uur per dag als monteur. Klant stuurt foutcode via WhatsApp, ik weet meteen wat ik moet meenemen." },
-        { "@type": "Review", reviewRating: { "@type": "Rating", ratingValue: "5", bestRating: "5" }, author: { "@type": "Person", name: "Sandra" }, datePublished: "2026-05-02", reviewBody: "API-integratie met onze planning werkt vlekkeloos. Diagnoses staan automatisch in de werkbon. Vroeger 15 min handwerk per klant, nu nul." },
-      ],
-    },
+    // NOTE: no AggregateRating/Review markup here. Ratings may only be published
+    // once they are backed by verifiable customer reviews (schema.org policy +
+    // EU Omnibus Directive art. 7 on consumer reviews). Real per-product ratings
+    // are emitted on /onderdelen/[sku] and /gidsen/[slug] from the Review table.
   ];
 
   return (

@@ -34,11 +34,11 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
           {/* Say up front how much of this database we have actually checked.
               A visitor should not have to open a detail page to find out. */}
           <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
-            Van de {formatCount(STATS.errorCodes)} codes hier hebben we er{" "}
+            Van de {formatCount(STATS.errorCodes)} codes hier zijn er{" "}
             <strong>{formatCount(STATS.verifiedErrorCodes)}</strong> gecontroleerd tegen een openbare
-            bron, met de link erbij op de detailpagina. De rest komt uit servicedocumentatie en
-            reparatiefora en is nog niet nagelopen — bij die codes zeggen we dat er ook bij. Fabrikanten
-            wijzigen codes per serie, dus controleer bij twijfel altijd de handleiding van jouw model.
+            bron, met de link erbij op de detailpagina. Bij de overige codes zeggen we op de pagina zelf
+            waarom niet — meestal omdat bronnen elkaar tegenspreken. Fabrikanten wijzigen codes per
+            serie, dus controleer bij twijfel altijd de handleiding van jouw model.
           </p>
           <form className="mt-6 max-w-xl" action="/foutcodes">
             <div className="relative">

@@ -130,7 +130,9 @@ you lean on them:
   circuit, fill). The row carries the best-sourced reading, says on the page
   that sources disagree, and stays REPORTED.
 
-Codes still marked REPORTED have not been checked at all. To work them:
+Three codes stay REPORTED because sources disagree about them, not because
+nobody looked: Bosch E01, Siemens E01 and Miele F21. Their text carries the
+best-sourced reading and the page says the sources conflict.
 
 ## Error-code verification method
 

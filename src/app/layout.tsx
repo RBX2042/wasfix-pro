@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Syne, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProviders } from "@/components/auth-providers";
 import { CartProvider } from "@/components/cart-provider";
@@ -64,8 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <MobileBottomNav />
         <SearchModal />
         <ServiceWorkerRegister />
-        <Analytics />
-        <SpeedInsights />
+        <ConsentedAnalytics />
       </body>
     </html>
   );

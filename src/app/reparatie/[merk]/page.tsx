@@ -170,7 +170,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
                 Populaire {brand.brand} <em>onderdelen</em>
               </h2>
               <p className="lead" style={{ fontSize: 15, marginBottom: 20 }}>
-                Voor 22:00 besteld = morgen in huis. 30 dagen retour.
+                We verzenden op werkdagen, met track &amp; trace zodra je pakket is aangemeld. 30 dagen retour.
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                 {brandParts.map((p) => (

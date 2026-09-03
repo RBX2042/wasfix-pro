@@ -47,7 +47,7 @@ export default async function QRScanPage({ params }: { params: Promise<{ code: s
             <Link href="/onderdelen" className="step-card" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>🔧</div>
               <div style={{ fontWeight: 500, fontSize: 14 }}>Bestel onderdeel</div>
-              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Morgen in huis</div>
+              <div className="muted" style={{ fontSize: 12, marginTop: 4 }}>Verzending op werkdagen</div>
             </Link>
             <Link href="/gidsen" className="step-card" style={{ textDecoration: "none", color: "inherit", display: "block" }}>
               <div style={{ fontSize: 28, marginBottom: 8 }}>📖</div>

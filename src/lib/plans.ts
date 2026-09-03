@@ -194,12 +194,15 @@ export const PLANS: Record<PlanId, Plan> = {
     premiumGuides: true,
     technicianDashboard: true,
     apiCallsPerMonth: 10000,
+    // "Tot 20 gebruikers" en "Witlabel optie" stonden hier, maar er bestaat geen
+    // organisatie-, team- of rollenmodel (elk zakelijk object hangt aan één
+    // ownerId) en geen witlabel-implementatie. Een feature verkopen die niet
+    // bestaat is een misleidende handelspraktijk (art. 6:193c BW); zet ze pas
+    // terug als ze echt gebouwd zijn.
     features: [
       "Alles in Monteur Pro",
       "15% korting op onderdelen",
-      "Tot 20 gebruikers",
       "B2B API (10.000 calls/maand)",
-      "Witlabel optie",
     ],
   },
 };

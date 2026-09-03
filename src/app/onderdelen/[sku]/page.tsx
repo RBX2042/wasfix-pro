@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
   if (!part) return { title: "Onderdeel niet gevonden" };
   return {
     title: `${part.name} (${part.sku}) — ${formatEur(part.priceEur)} · WasFix Pro`,
-    description: `${part.name} kopen bij WasFix Pro. ${part.isOriginal ? "Origineel onderdeel" : "Universele vervanger"} voor ${part.brand}. Voor 22:00 besteld = morgen in huis. 30 dagen retourrecht.`,
+    description: `${part.name} kopen bij WasFix Pro. ${part.isOriginal ? "Origineel onderdeel" : "Universele vervanger"} voor ${part.brand}. We verzenden op werkdagen, met track & trace. 30 dagen retourrecht.`,
     alternates: { canonical: `/onderdelen/${part.sku}` },
     openGraph: {
       title: part.name,
@@ -162,7 +162,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
               <CardContent className="p-4 grid grid-cols-3 gap-3 text-center">
                 <div>
                   <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
-                  <p className="text-xs text-muted-foreground">Voor 22:00 besteld<br/>morgen in huis</p>
+                  <p className="text-xs text-muted-foreground">Verzending op werkdagen<br/>met track &amp; trace</p>
                 </div>
                 <div>
                   <ShieldCheck className="h-5 w-5 mx-auto mb-1 text-primary" />

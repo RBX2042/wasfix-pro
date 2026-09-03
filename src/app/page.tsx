@@ -10,8 +10,11 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "WasFix Pro — AI wasmachine diagnose in 60 seconden",
+  // Geen "gemiddeld €140 bespaard": dat bedrag is nooit gemeten. Een
+  // besparingsclaim moet onderbouwd kunnen worden (art. 6:193c BW), en wat een
+  // reparatie in een concreet geval scheelt rekent de calculator uit.
   description:
-    "Foto of foutcode → diagnose, juist onderdeel, stap-voor-stap reparatie. Geen voorrijkosten. Gemiddeld €140 bespaard per reparatie.",
+    "Foto of foutcode → diagnose, juist onderdeel, stap-voor-stap reparatie. Geen voorrijkosten, geen wachtweken.",
   openGraph: {
     title: "WasFix Pro — AI wasmachine diagnose",
     description: "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.",

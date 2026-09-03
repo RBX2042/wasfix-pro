@@ -84,7 +84,10 @@ export default async function OrderDetailPage({
                 <Package className="h-12 w-12 text-primary mx-auto mb-3" />
                 <h2 className="font-heading text-lg font-semibold mb-2">Wat gebeurt er nu?</h2>
                 <p className="text-sm text-muted-foreground mb-4">
-                  Je ontvangt direct een e-mailbevestiging. Voor 22:00 besteld = morgen in huis. Bij vragen mail je support@wasfix.nl.
+                  {/* Geen "morgen in huis": er is geen vervoerderskoppeling en
+                      geen cut-off, en de voorwaarden noemen de levertijd een
+                      indicatie. Beloof hier niets wat we niet kunnen waarmaken. */}
+                  Je ontvangt direct een e-mailbevestiging. We verzenden op werkdagen en sturen je een track &amp; trace zodra het pakket is aangemeld. Bij vragen mail je support@wasfix.nl.
                 </p>
               </CardContent>
             </Card>
@@ -148,7 +151,7 @@ export default async function OrderDetailPage({
             <div>
               <h2 className="font-heading text-xl font-bold text-emerald-900 dark:text-emerald-100">Bedankt voor je bestelling!</h2>
               <p className="text-sm text-emerald-800 dark:text-emerald-200 mt-1">
-                We hebben een bevestiging gestuurd naar <strong>{order.email}</strong>. Je onderdeel is morgen in huis.
+                We hebben een bevestiging gestuurd naar <strong>{order.email}</strong>. We verzenden op werkdagen en melden je het pakket zodra het onderweg is.
               </p>
             </div>
           </div>

@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Klachtenprocedure · WasFix Pro",
-  description: "Hoe dien je een klacht in bij WasFix Pro — procedure, termijnen en het Europese ODR-platform.",
+  description: "Hoe dien je een klacht in bij WasFix Pro — procedure, termijnen en welke stappen je daarna nog hebt.",
 };
 
 export default function KlachtenPage() {
@@ -35,19 +35,20 @@ export default function KlachtenPage() {
 
       <h2>Stap 3 — Niet tevreden met onze oplossing?</h2>
       <p>
-        Als we er samen niet uitkomen, kun je gebruikmaken van onafhankelijke geschillenbeslechting.
-      </p>
-
-      <h3>Europese ODR-platform</h3>
-      <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
-        Voor consumenten binnen de EU is er het online geschillenbeslechtings-platform (ODR) van de Europese Commissie:<br />
-        <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr →</a><br />
-        Verwijs naar e-mailadres: klachten@wasfix.nl
+        Als we er samen niet uitkomen, blijven de volgende routes voor je open.
       </p>
 
       <h3>Gang naar de rechter</h3>
       <p>
-        Je hebt altijd het recht een geschil voor te leggen aan de bevoegde rechter. Op alle overeenkomsten is Nederlands recht van toepassing. Geschillen worden behandeld door de rechtbank Amsterdam, tenzij de wet anders dwingend voorschrijft.
+        Je hebt altijd het recht een geschil voor te leggen aan de bevoegde rechter. Op alle overeenkomsten is Nederlands recht van toepassing. Geschillen worden behandeld door de rechtbank Amsterdam, tenzij de wet anders dwingend voorschrijft. Vorderingen tot € 25.000 behandelt de kantonrechter; daar heb je geen advocaat voor nodig.
+      </p>
+
+      <h3>Onafhankelijke geschillenbeslechting</h3>
+      <p>
+        WasFix Pro is op dit moment <strong>niet aangesloten</strong> bij een erkende Geschillencommissie. Wij kunnen een geschil dus niet eenzijdig daarheen doorverwijzen; voorleggen aan een geschilleninstantie kan alleen als wij daar in dat concrete geval samen mee instemmen. Gratis en onafhankelijk advies over je rechten krijg je wel bij <a href="https://www.consuwijzer.nl" target="_blank" rel="noopener noreferrer">ACM ConsuWijzer</a> en <a href="https://www.juridischloket.nl" target="_blank" rel="noopener noreferrer">Het Juridisch Loket</a>.
+      </p>
+      <p>
+        Kom je elders nog een verwijzing tegen naar het Europese ODR-platform van de Europese Commissie: dat platform is opgeheven. Het nam vanaf 20 maart 2025 geen klachten meer aan en is op 20 juli 2025 gesloten (Verordening (EU) 2024/3228). Die route bestaat dus niet meer.
       </p>
 
       <h2>Klacht over een AVG-kwestie?</h2>

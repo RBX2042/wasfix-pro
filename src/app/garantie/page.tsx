@@ -40,7 +40,7 @@ export default function GarantiePage() {
 
       <h2>3. EU Right-to-Repair</h2>
       <p>
-        Sinds 2024 vereist EU-verordening 2023/1670 dat fabrikanten van huishoudelijke apparaten reserve-onderdelen tot <strong>minimaal 10 jaar</strong> na de laatste verkoopdatum beschikbaar houden. Als WasFix Pro houden wij dit aan: alle onderdelen in onze catalogus blijven minimaal 10 jaar vanaf opname leverbaar.
+        Verordening (EU) 2019/2023 (bijlage II) verplicht fabrikanten van wasmachines en was-droogcombinaties om reserve-onderdelen nog <strong>10 jaar</strong> beschikbaar te houden nadat het laatste exemplaar van een model op de markt is gebracht. Die eis geldt sinds 1 maart 2021 en rust op de <strong>fabrikant</strong>, niet op WasFix: wij kunnen dus niet beloven dat elk onderdeel uit onze catalogus tien jaar leverbaar blijft. Wat je precies mag verwachten, en van wie, staat op <Link href="/right-to-repair">right to repair</Link>.
       </p>
 
       <h2>4. Wat valt buiten de garantie?</h2>

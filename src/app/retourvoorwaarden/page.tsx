@@ -1,4 +1,5 @@
 import { LegalPage } from "@/components/redesign/LegalPage";
+import { COMPANY, realOrNull } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
@@ -7,6 +8,14 @@ export const metadata = {
 };
 
 export default function RetourPage() {
+  // Het retouradres liep buiten realOrNull() om en drukte daardoor het stand-in
+  // adres uit lib/plans af. Wie daar een pakket heen stuurt, raakt het kwijt —
+  // dus zolang het echte vestigingsadres niet is geconfigureerd noemen we het
+  // niet en krijg je het adres bij je RMA-nummer.
+  const street = realOrNull(COMPANY.street);
+  const postalCode = realOrNull(COMPANY.postalCode);
+  const address = street && postalCode ? `${street}, ${postalCode} ${COMPANY.city}` : null;
+
   return (
     <LegalPage title="Retour" emphasis="voorwaarden">
       <p>
@@ -16,8 +25,8 @@ export default function RetourPage() {
       <h2>1. Wanneer kun je retour sturen?</h2>
       <ul>
         <li>Binnen <strong>30 dagen</strong> na ontvangst van je bestelling</li>
-        <li>Het product is <strong>ongebruikt</strong> en in <strong>originele verpakking</strong></li>
-        <li>Eventuele zegels en plastic zijn niet verbroken</li>
+        <li>Je mag het onderdeel uitpakken, bekijken en beoordelen zoals je in een winkel zou doen (art. 6:230s lid 2 BW). Een geopende verpakking of een verbroken zegel kost je je herroepingsrecht dus niet — stuur het wel zo compleet mogelijk terug, met de originele verpakking als je die nog hebt.</li>
+        <li>Ga je verder dan nodig is om aard en werking vast te stellen — bijvoorbeeld door het onderdeel echt te monteren en te gebruiken — en is het daardoor minder waard, dan verrekenen we alleen die waardevermindering met je terugbetaling.</li>
         <li>Je hebt de orderbevestiging of factuur paraat</li>
       </ul>
 
@@ -25,8 +34,7 @@ export default function RetourPage() {
       <p>De volgende producten zijn uitgesloten van retour:</p>
       <ul>
         <li>Op maat gemaakte onderdelen of voor jou speciaal besteld bij de fabrikant</li>
-        <li>Onderdelen waarvan de verpakking om hygiënische redenen niet geretourneerd kan worden (na openen)</li>
-        <li>Producten met sporen van montage of gebruik</li>
+        <li>Verzegelde producten die om gezondheids- of hygiënische redenen niet teruggestuurd kunnen worden, als je het zegel hebt verbroken (art. 6:230p sub f BW). Onderdelen als pompen, deurrubbers en filters vallen daar niet onder, dus daarop beroepen wij ons niet.</li>
         <li>Digitale producten (abonnementen na activatie — wel mogelijk via opzegging volgens <Link href="/voorwaarden">voorwaarden</Link>)</li>
       </ul>
 
@@ -56,7 +64,7 @@ export default function RetourPage() {
 
       <h2>5. Wanneer krijg je je geld terug?</h2>
       <p>
-        Wij betalen binnen <strong>14 dagen</strong> na ontvangst en goedkeuring van de retour het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (op het laagste tarief, conform wet). Restitutie gebeurt op dezelfde betaalmethode waarmee je hebt betaald (iDEAL, kaart).
+        Wij betalen binnen <strong>14 dagen</strong> na je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (op het laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3); daarom is je verzendbewijs genoeg om de betaling in gang te zetten. Restitutie gebeurt op dezelfde betaalmethode waarmee je hebt betaald.
       </p>
 
       <h2>6. Modelformulier voor herroeping</h2>
@@ -64,9 +72,8 @@ export default function RetourPage() {
         Je hoeft het niet te gebruiken (een mail volstaat), maar als je liever het wettelijk modelformulier invult:
       </p>
       <pre style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.6, color: "var(--text-2)", overflowX: "auto", margin: "12px 0" }}>
-{`Aan: WasFix Pro B.V.
-   Hoofdstraat 1, 1234 AB Amsterdam
-   retour@wasfix.nl
+{`Aan: ${COMPANY.name}
+${address ? `   ${address}\n` : ""}   retour@wasfix.nl
 
 Ik/Wij* deel/delen* hierbij mee dat ik/wij* onze
 overeenkomst betreffende de verkoop van de volgende
@@ -84,13 +91,19 @@ Handtekening: ___________  Datum: ___________
       </pre>
 
       <h2>7. Retouradres</h2>
-      <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
-        WasFix Pro B.V.<br />
-        T.a.v. Retouren (RMA-nummer op buitenkant)<br />
-        Hoofdstraat 1<br />
-        1234 AB Amsterdam<br />
-        Nederland
-      </p>
+      {address ? (
+        <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+          {COMPANY.name}<br />
+          T.a.v. Retouren (RMA-nummer op buitenkant)<br />
+          {street}<br />
+          {postalCode} {COMPANY.city}<br />
+          {COMPANY.country}
+        </p>
+      ) : (
+        <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+          Het retouradres staat in de e-mail met je RMA-nummer. Stuur nog niets terug voordat je die hebt: {COMPANY.name} is nog in oprichting en het vestigingsadres staat daarom nog niet op deze pagina.
+        </p>
+      )}
 
       <p style={{ marginTop: 32 }}>
         <strong>Vragen?</strong> Mail <a href="mailto:retour@wasfix.nl">retour@wasfix.nl</a> of bekijk de <Link href="/help">help-pagina</Link>.

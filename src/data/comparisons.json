@@ -3,80 +3,213 @@
     "slug": "coolblue",
     "competitor": "Coolblue",
     "tagline": "Onderdelen of een nieuwe wasmachine?",
-    "intro": "Coolblue is dé Nederlandse webwinkel voor nieuwe wasmachines. Wij focussen op reparatie en onderdelen. Hier de eerlijke vergelijking — wanneer Coolblue beter past, en wanneer reparatie via WasFix Pro verstandiger is.",
+    "intro": "Coolblue verkoopt nieuwe wasmachines. Wij verkopen onderdelen en publiceren reparatiegidsen. Hier staat wanneer een nieuwe machine logischer is, en wanneer repareren dat is. We doen geen uitspraken over Coolblue's prijzen of service — kijk daarvoor op hun eigen site.",
     "winsTable": [
-      { "topic": "Nieuwe wasmachine kopen", "us": "Niet ons ding", "them": "Brede selectie, snelle levering", "winner": "them" },
-      { "topic": "AI-diagnose bij defect", "us": "Gratis in 60 seconden", "them": "Geen", "winner": "us" },
-      { "topic": "Onderdelen (originele + universele)", "us": "5.600+ items, voor 22:00 = morgen", "them": "Beperkt", "winner": "us" },
-      { "topic": "Reparatiegidsen + foutcodes", "us": "Gratis stap-voor-stap, 26 gidsen + 331 codes", "them": "Geen", "winner": "us" },
-      { "topic": "Monteur-bemiddeling", "us": "Verifieerd netwerk", "them": "Coolblue Repair service", "winner": "tie" },
-      { "topic": "Garantie nieuwe machine", "us": "n.v.t.", "them": "2 jaar standaard", "winner": "them" },
-      { "topic": "EU Right to Repair info", "us": "Uitgebreid + tools", "them": "Beperkt", "winner": "us" },
-      { "topic": "Levertijd onderdeel", "us": "Volgende werkdag", "them": "Wisselend", "winner": "us" },
-      { "topic": "Prijs onderdelen", "us": "Concurrerend + monteur-korting", "them": "Vaak duurder dan specialisten", "winner": "us" }
+      {
+        "topic": "Nieuwe wasmachine kopen",
+        "us": "Verkopen we niet",
+        "them": "Kernactiviteit",
+        "winner": "them"
+      },
+      {
+        "topic": "Garantie op een nieuwe machine",
+        "us": "n.v.t.",
+        "them": "Minimaal de wettelijke garantie",
+        "winner": "them"
+      },
+      {
+        "topic": "Diagnose bij een defect",
+        "us": "Gratis, op basis van je foutcode en klacht",
+        "them": "n.v.t.",
+        "winner": "us"
+      },
+      {
+        "topic": "Losse reserve-onderdelen",
+        "us": "{PARTS} onderdelen in de catalogus",
+        "them": "n.v.t.",
+        "winner": "us"
+      },
+      {
+        "topic": "Reparatiegidsen en foutcodes",
+        "us": "{GUIDES} gidsen en {CODES} foutcodes, gratis te lezen",
+        "them": "n.v.t.",
+        "winner": "us"
+      },
+      {
+        "topic": "Informatie over je reparatierechten",
+        "us": "Uitleg met verwijzing naar de EU-regelgeving",
+        "them": "n.v.t.",
+        "winner": "us"
+      }
     ],
     "scenarios": [
       {
         "title": "Wanneer kies je Coolblue",
-        "options": ["Je wasmachine is >10 jaar oud en valt vaak uit", "Je wilt nieuwste eco-functies (A-klasse)", "Defect is duurder dan 50% van een nieuwe", "Je hebt geen tijd/zin voor reparatie"]
+        "options": [
+          "Je wasmachine is meer dan tien jaar oud en valt vaak uit",
+          "De reparatie kost meer dan de helft van een vergelijkbare nieuwe machine",
+          "Je wilt de zuinigste energieklasse",
+          "Je hebt geen tijd of zin om zelf te repareren"
+        ]
       },
       {
         "title": "Wanneer kies je WasFix Pro",
-        "options": ["Je wasmachine is <10 jaar en goed onderhouden", "Defect = pomp, pakking, slang, filter (< €60)", "Je wilt CO2-impact verlagen via reparatie", "Je bent een huurder of monteur", "Je weet de foutcode maar niet de oplossing"]
+        "options": [
+          "Je wasmachine is <10 jaar en goed onderhouden",
+          "Defect = pomp, pakking, slang, filter (< €60)",
+          "Je wilt CO2-impact verlagen via reparatie",
+          "Je bent een huurder of monteur",
+          "Je weet de foutcode maar niet de oplossing"
+        ]
       }
     ],
-    "verdict": "Eerlijk verhaal: Coolblue is uitstekend voor een nieuwe wasmachine. WasFix Pro is dé plek als je je huidige machine wilt repareren. Eerst gratis diagnoseren bij ons — daarna beslissen of reparatie of vervanging."
+    "verdict": "Kort samengevat: is je machine echt aan vervanging toe, koop dan een nieuwe — daar zijn wij niet voor. Twijfel je nog, doe dan eerst een gratis diagnose bij ons en beslis daarna."
   },
   {
     "slug": "repaircafe",
     "competitor": "Repair Café",
     "tagline": "Lokale vrijwilligers of online AI-tools?",
-    "intro": "Repair Cafés zijn fantastische initiatieven — vrijwilligers helpen je gratis. WasFix Pro biedt 24/7 AI-diagnose, originele onderdelen en uitgebreide kennishub. Hier hoe beide elkaar aanvullen.",
+    "intro": "Repair Cafés zijn prachtige initiatieven waar vrijwilligers je gratis helpen. Wij zijn een webshop met reparatiegidsen. Dit vult elkaar aan — hieronder wat elk van de twee je oplevert.",
     "winsTable": [
-      { "topic": "Kosten", "us": "Gratis diagnose + onderdelen op cost", "them": "Gratis, vrijwilligers", "winner": "them" },
-      { "topic": "Beschikbaarheid", "us": "24/7 online", "them": "Meestal 1x per maand, lokale agenda", "winner": "us" },
-      { "topic": "Onderdelen ter plaatse", "us": "Volgende werkdag", "them": "Wat ze toevallig hebben", "winner": "us" },
-      { "topic": "Persoonlijke begeleiding", "us": "AI + ervaring", "them": "Echte ervaren vrijwilliger", "winner": "them" },
-      { "topic": "Foutcode database", "us": "331 codes per merk", "them": "Geen", "winner": "us" },
-      { "topic": "Stap-voor-stap gidsen", "us": "26 gedetailleerde gidsen + foto's", "them": "Mondeling ter plaatse", "winner": "us" },
-      { "topic": "Voor monteurs/B2B", "us": "API + dashboard", "them": "Niet van toepassing", "winner": "us" },
-      { "topic": "Community + duurzaamheid", "us": "Online + EU R2R info", "them": "Lokale community", "winner": "them" }
+      {
+        "topic": "Kosten",
+        "us": "Diagnose en gidsen gratis; je betaalt alleen het onderdeel",
+        "them": "Gratis, door vrijwilligers",
+        "winner": "them"
+      },
+      {
+        "topic": "Iemand die meekijkt",
+        "us": "Geen — je doet het zelf",
+        "them": "Een ervaren vrijwilliger naast je",
+        "winner": "them"
+      },
+      {
+        "topic": "Beschikbaarheid",
+        "us": "Altijd online",
+        "them": "Op de dagen dat het café open is",
+        "winner": "us"
+      },
+      {
+        "topic": "Onderdelen",
+        "us": "{PARTS} onderdelen te bestellen",
+        "them": "Wat er toevallig ligt",
+        "winner": "us"
+      },
+      {
+        "topic": "Foutcodes opzoeken",
+        "us": "{CODES} codes met bronvermelding",
+        "them": "n.v.t.",
+        "winner": "us"
+      },
+      {
+        "topic": "Stap-voor-stap gidsen",
+        "us": "{GUIDES} gidsen om thuis te volgen",
+        "them": "Uitleg ter plekke",
+        "winner": "tie"
+      },
+      {
+        "topic": "Voor monteurs",
+        "us": "Dashboard en API",
+        "them": "n.v.t.",
+        "winner": "us"
+      }
     ],
     "scenarios": [
       {
         "title": "Wanneer Repair Café?",
-        "options": ["Je bent niet handig en wilt iemand laten kijken", "Je vindt sociale community belangrijk", "Je hebt geduld + flexibele agenda", "Er is een Repair Café in jouw stad deze week"]
+        "options": [
+          "Je bent niet handig en wilt iemand laten kijken",
+          "Je vindt sociale community belangrijk",
+          "Je hebt geduld + flexibele agenda",
+          "Er is een Repair Café in jouw stad deze week"
+        ]
       },
       {
         "title": "Wanneer WasFix Pro?",
-        "options": ["Je wilt nu vannacht diagnose", "Je bent comfortabel met basis-techniek", "Je hebt specifiek onderdeel nodig", "Je bent monteur of repareert vaker"]
+        "options": [
+          "Je wilt nu vannacht diagnose",
+          "Je bent comfortabel met basis-techniek",
+          "Je hebt specifiek onderdeel nodig",
+          "Je bent monteur of repareert vaker"
+        ]
       }
     ],
-    "verdict": "Beide zijn complementair. Begin met onze gratis online diagnose om te weten wat er mis is. Bezoek het lokale Repair Café als je hulp wilt bij de uitvoering. Bestel onderdelen bij ons als je zelf wilt repareren maar niet kunt wachten op het Repair Café."
+    "verdict": "Ze vullen elkaar aan. Doe eerst onze gratis diagnose zodat je weet wat er stuk is. Wil je hulp bij het sleutelen, ga dan naar het Repair Café in je buurt. Wil je zelf aan de slag maar heb je het onderdeel nu nodig, bestel het dan hier."
   },
   {
     "slug": "monteur",
     "competitor": "Een monteur inhuren",
     "tagline": "Zelf repareren of een vakman bellen?",
-    "intro": "Voorrijkosten €70-120, uurtarief €60-90, plus onderdelen — een monteur kost al snel €200+. Wanneer is dat waardevol, en wanneer kun je hetzelfde voor €30 zelf doen? Eerlijke analyse.",
+    "intro": "Een monteur rekent voorrijkosten plus een uurtarief, bovenop het onderdeel. Voor sommige klussen is dat het volledig waard, voor andere betaal je vooral voor iets wat je zelf in een half uur doet. Hieronder waar de grens ligt. De genoemde tarieven zijn indicaties uit de markt, geen prijzen van ons.",
     "winsTable": [
-      { "topic": "Kosten reparatie €40 onderdeel", "us": "€40 + jouw tijd", "them": "€40 + €70 voorrij + €60 arbeid = €170", "winner": "us" },
-      { "topic": "Tijd tot oplossing", "us": "Vandaag besteld = morgen, repareren 30-90 min", "them": "Vaak 3-7 dagen wachten op afspraak", "winner": "us" },
-      { "topic": "Garantie op werk", "us": "Op onderdeel, niet op werk", "them": "Vaak 3-6 maanden op werk", "winner": "them" },
-      { "topic": "Complexe diagnoses (PCB, lagers)", "us": "Onze gidsen, je doet het zelf", "them": "Expertise + speciaal gereedschap", "winner": "them" },
-      { "topic": "Onder garantie (apparaat < 2j)", "us": "Niet doen — vervalt garantie", "them": "Officiële monteur via fabrikant", "winner": "them" },
-      { "topic": "Verzekering / risico", "us": "Op eigen risico", "them": "Verzekerd via monteur", "winner": "them" },
-      { "topic": "AI vooraf-diagnose", "us": "Ja, 60s, gratis", "them": "Geen", "winner": "us" },
-      { "topic": "B2B / huiseigenaar / verhuurder", "us": "Niet aansprakelijkheidstype klant", "them": "Ze sturen factuur naar verhuurder", "winner": "them" }
+      {
+        "topic": "Kosten reparatie €40 onderdeel",
+        "us": "€40 + jouw tijd",
+        "them": "€40 + €70 voorrij + €60 arbeid = €170",
+        "winner": "us"
+      },
+      {
+        "topic": "Tijd tot oplossing",
+        "us": "Vandaag besteld = morgen, repareren 30-90 min",
+        "them": "Vaak 3-7 dagen wachten op afspraak",
+        "winner": "us"
+      },
+      {
+        "topic": "Garantie op werk",
+        "us": "Op onderdeel, niet op werk",
+        "them": "Vaak 3-6 maanden op werk",
+        "winner": "them"
+      },
+      {
+        "topic": "Complexe diagnoses (PCB, lagers)",
+        "us": "Onze gidsen, je doet het zelf",
+        "them": "Expertise + speciaal gereedschap",
+        "winner": "them"
+      },
+      {
+        "topic": "Onder garantie (apparaat < 2j)",
+        "us": "Niet doen — vervalt garantie",
+        "them": "Officiële monteur via fabrikant",
+        "winner": "them"
+      },
+      {
+        "topic": "Verzekering / risico",
+        "us": "Op eigen risico",
+        "them": "Verzekerd via monteur",
+        "winner": "them"
+      },
+      {
+        "topic": "AI vooraf-diagnose",
+        "us": "Ja, 60s, gratis",
+        "them": "Geen",
+        "winner": "us"
+      },
+      {
+        "topic": "B2B / huiseigenaar / verhuurder",
+        "us": "Niet aansprakelijkheidstype klant",
+        "them": "Ze sturen factuur naar verhuurder",
+        "winner": "them"
+      }
     ],
     "scenarios": [
       {
         "title": "Bel een monteur als",
-        "options": ["Apparaat is < 2 jaar oud (garantie!)", "Lekkage met gevaar voor water-schade", "Elektrische problemen (rook, brandlucht)", "Je twijfelt over je eigen vaardigheden", "Je een huurder bent en kosten aan verhuurder kan factureren"]
+        "options": [
+          "Apparaat is < 2 jaar oud (garantie!)",
+          "Lekkage met gevaar voor water-schade",
+          "Elektrische problemen (rook, brandlucht)",
+          "Je twijfelt over je eigen vaardigheden",
+          "Je een huurder bent en kosten aan verhuurder kan factureren"
+        ]
       },
       {
         "title": "Doe het zelf met WasFix Pro als",
-        "options": ["Defect is pomp, deurslot, filter, riem, schokdempers (60% van alle defecten)", "Je een schroevendraaier kunt vasthouden", "Je €100-150 wilt besparen", "Je het ziet als leuk klusje"]
+        "options": [
+          "Defect is pomp, deurslot, filter, riem, schokdempers (60% van alle defecten)",
+          "Je een schroevendraaier kunt vasthouden",
+          "Je €100-150 wilt besparen",
+          "Je het ziet als leuk klusje"
+        ]
       }
     ],
     "verdict": "Onze AI-diagnose vertelt je in 60 seconden of je dit zelf kunt. Bij DIY-friendly defecten (60% van alle defecten) bespaar je €100-150 in 1 uur werk. Bij complexe diagnoses raden we juist een monteur aan — we gunnen ze de business."

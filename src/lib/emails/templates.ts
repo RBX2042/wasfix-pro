@@ -65,7 +65,7 @@ export function welcomeEmail(name: string) {
         <li>3 gratis AI-diagnoses per maand — onbeperkt met Particulier (€4,99/mnd)</li>
         <li>${CATALOG.guides} stap-voor-stap reparatiegidsen</li>
         <li>${CATALOG.errorCodes} foutcodes van ${CATALOG.brands} merken</li>
-        <li>${CATALOG.partsInStock} onderdelen op voorraad — voor 22:00 besteld, morgen in huis</li>
+        <li>${CATALOG.partsInStock} onderdelen op voorraad, met verzending op werkdagen</li>
       </ul>
       <div style="margin: 28px 0;">
         <a href="https://wasfix.nl/diagnose" style="display: inline-block; background: linear-gradient(180deg, #5d97ff, #3b7aff); color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; font-size: 14px;">
@@ -111,31 +111,33 @@ export function cartAbandon1hEmail(name: string, items: Array<{ name: string; pr
   };
 }
 
-// ─── 3. Cart abandonment 24u (laatste reminder met 10% korting) ──────
-export function cartAbandon24hEmail(name: string, recoverUrl: string, discountCode = "TERUG10") {
+// ─── 3. Cart abandonment 24u (laatste reminder) ─────────────────────
+/**
+ * No discount code is offered here. Checkout has no coupon redemption — the
+ * only discount it applies is the plan-based one — so an e-mail promising
+ * "TERUG10 geeft je 10% korting" was promising something the checkout would
+ * refuse. Add coupon support first if you want a code back in this mail.
+ */
+export function cartAbandon24hEmail(name: string, recoverUrl: string) {
   return {
-    subject: "Laatste kans: 10% korting op je bestelling",
+    subject: "Laatste reminder: je winkelmand",
     html: wrap(`
       <h1 style="font-size: 22px; font-weight: 500; margin: 0 0 16px; color: #0b1224;">Hi ${name},</h1>
       <p style="font-size: 15px; line-height: 1.7; color: #4a5568;">
         Je winkelmand wordt vandaag leeggegooid (geen zorgen — de onderdelen blijven beschikbaar, alleen je selectie verdwijnt).
       </p>
       <p style="font-size: 15px; line-height: 1.7; color: #4a5568;">
-        Om je over de streep te trekken: <strong>10% korting</strong> bij afrekenen. Geen verplichting.
+        Wil je hem nog afronden? Eén klik en je staat weer waar je gebleven was.
       </p>
-      <div style="margin: 20px 0; padding: 16px 20px; background: #f0f9ff; border-radius: 10px; text-align: center;">
-        <div style="font-size: 12px; color: #6a7488; margin-bottom: 4px;">Vul deze code in bij afrekenen:</div>
-        <div style="font-family: monospace; font-size: 22px; font-weight: 600; color: #3b7aff; letter-spacing: 0.05em;">${discountCode}</div>
-      </div>
       <div style="margin: 24px 0;">
         <a href="${recoverUrl}" style="display: inline-block; background: linear-gradient(180deg, #5d97ff, #3b7aff); color: #fff; text-decoration: none; padding: 12px 24px; border-radius: 8px; font-weight: 500; font-size: 14px;">
-          Activeer korting + bestel →
+          Terug naar je winkelmand →
         </a>
       </div>
       <p style="font-size: 11.5px; color: #888;">
-        Code is 24u geldig vanaf nu, geldt op alle onderdelen, niet combineerbaar met andere kortingen.
+        Twijfel je nog over het juiste onderdeel? Beantwoord deze mail — we kijken met je mee.
       </p>
-    `, `Laatste reminder — ${discountCode} geeft je 10% korting`),
+    `, "Laatste reminder — je winkelmand wordt vandaag geleegd"),
   };
 }
 

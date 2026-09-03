@@ -9,7 +9,7 @@ import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { staticPart, staticPartById } from "@/lib/static-db";
 import { money, splitVatInclusive } from "@/lib/invoicing";
-import { VAT_RATE } from "@/lib/plans";
+import { VAT_RATE, shippingFor } from "@/lib/plans";
 import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
 
 const CheckoutSchema = z.object({
@@ -126,7 +126,7 @@ export async function POST(req: NextRequest) {
       const limits = getPlanLimits(user.plan);
       discount = money(subtotal * limits.partsDiscount);
     }
-    const shipping = subtotal - discount >= 50 ? 0 : 5.95;
+    const shipping = shippingFor(subtotal, discount);
     const total = money(subtotal - discount + shipping);
 
     // Catalog prices are shown including 21% btw, so the VAT is contained in

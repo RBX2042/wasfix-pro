@@ -263,6 +263,9 @@ model Review {
   author     String
   email      String
   status     String   @default("PENDING") // PENDING | APPROVED | REJECTED
+  /// True only when this e-mail has a PAID order containing the reviewed part.
+  /// Drives the "geverifieerde aankoop" badge, so it is never set by hand.
+  verifiedPurchase Boolean @default(false)
   createdAt  DateTime @default(now())
 
   @@index([targetType, targetSku])

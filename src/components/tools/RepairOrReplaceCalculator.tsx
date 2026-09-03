@@ -48,7 +48,14 @@ function calculate(input: CalcInput): CalcResult {
   const recommendation = score >= 60 ? "REPAIR" : score >= 40 ? "BORDERLINE" : "REPLACE";
 
   const lifeExtensionYears = Math.max(1, 12 - input.machineAge);
-  const co2Saved = Math.round(80 * (lifeExtensionYears / 10));
+  // Producing a washing machine costs roughly 300 kg CO2e (LCA studies put the
+  // manufacturing phase at 300-400 kg). Repairing does not avoid all of that —
+  // it defers it — so we credit the share of a ~12-year design life that the
+  // repair buys back. The old formula used an unsourced 80 kg, which
+  // understated it by roughly four times.
+  const NEW_MACHINE_CO2_KG = 300;
+  const DESIGN_LIFE_YEARS = 12;
+  const co2Saved = Math.round(NEW_MACHINE_CO2_KG * Math.min(1, lifeExtensionYears / DESIGN_LIFE_YEARS));
 
   const newAvg = 650;
   const energySavingsPerYear = input.energyLabel === "C" || input.energyLabel === "B" ? 40 : 0;
@@ -62,7 +69,7 @@ function calculate(input: CalcInput): CalcResult {
   if (repairPct <= 25) reasoning.push(`Reparatiekosten zijn slechts ${Math.round(repairPct)}% van aankoopprijs`);
   if (repairPct > 50) reasoning.push(`Reparatie kost ${Math.round(repairPct)}% van aankoopprijs — vervanging overwegen`);
   if (input.issueFrequency >= 3) reasoning.push(`${input.issueFrequency}x storing in 2 jaar wijst op structureel probleem`);
-  if (co2Saved > 20) reasoning.push(`Repareren bespaart ±${co2Saved}kg CO₂ vs. nieuwe machine produceren`);
+  if (co2Saved > 20) reasoning.push(`Repareren stelt naar schatting ${co2Saved} kg CO₂ uit die het maken van een nieuwe machine kost`);
   if (energySavingsPerYear > 0) reasoning.push(`Een nieuwe A+++ machine bespaart €${energySavingsPerYear}/jaar aan energie`);
 
   return {
@@ -144,7 +151,9 @@ export default function RepairOrReplaceCalculator() {
             <div>
               <p className="font-semibold text-sm text-emerald-900 dark:text-emerald-100">Milieu-impact</p>
               <p className="text-xs text-emerald-800 dark:text-emerald-200">
-                Repareren bespaart ±{result.co2Saved}kg CO₂ — gelijk aan {Math.round(result.co2Saved / 0.21)} km autorijden.
+                Repareren stelt naar schatting {result.co2Saved} kg CO₂ uit. Dat is de schatting op basis van ±300 kg
+                voor het produceren van een nieuwe machine, verdeeld over de jaren die je erbij wint — geen meting van
+                jouw machine.
               </p>
             </div>
           </CardContent>

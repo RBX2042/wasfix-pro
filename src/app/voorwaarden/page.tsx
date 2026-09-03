@@ -1,4 +1,6 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
+import { formatEur } from "@/lib/utils";
+import { SHIPPING, COMPANY, realOrNull } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
@@ -7,6 +9,12 @@ export const metadata = {
 };
 
 export default function VoorwaardenPage() {
+  const kvk = realOrNull(COMPANY.kvk);
+  const vat = realOrNull(COMPANY.vatNumber);
+  const street = realOrNull(COMPANY.street);
+  const postalCode = realOrNull(COMPANY.postalCode);
+  const address = street && postalCode ? `${street}, ${postalCode} ${COMPANY.city}` : null;
+
   return (
     <WasFixShell>
       <section className="section" style={{ paddingTop: 56 }}>
@@ -26,7 +34,7 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 1 — Definities</h2>
             <ul>
-              <li><strong>WasFix:</strong> WasFix Pro B.V., Hoofdstraat 1, 1234 AB Amsterdam, KvK 12345678, BTW NL123456789B01.</li>
+              <li><strong>WasFix:</strong> {COMPANY.name}{address ? `, ${address}` : ""}{kvk ? `, KvK ${kvk}` : ""}{vat ? `, BTW ${vat}` : ""}. {COMPANY.isPlaceholder && "De inschrijving bij de Kamer van Koophandel is nog niet afgerond; zodra dat zo is staan het KvK- en btw-nummer hier."}</li>
               <li><strong>Gebruiker / Klant:</strong> iedere natuurlijke persoon of rechtspersoon die gebruikmaakt van een dienst of een product koopt.</li>
               <li><strong>Consument:</strong> natuurlijke persoon die niet handelt in de uitoefening van beroep of bedrijf.</li>
               <li><strong>Diensten:</strong> AI-diagnose, reparatiegidsen, foutcodes-database, monteur-tools, API-toegang, abonnementen.</li>
@@ -51,9 +59,9 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 4 — Levering</h2>
             <ul>
-              <li>Bestellingen geplaatst vóór 22:00 op werkdagen worden de volgende werkdag bezorgd in Nederland (door PostNL of DHL).</li>
+              <li>Bestellingen worden op werkdagen verzonden. De bezorgtijd hangt af van de vervoerder; je ontvangt een track &amp; trace zodra je pakket is aangemeld.</li>
               <li>Levertijd is een indicatie, geen fatale termijn. Bij vertraging informeren we je per e-mail.</li>
-              <li>Verzendkosten: gratis vanaf €50 in NL/BE, anders €4,95.</li>
+              <li>Verzendkosten: gratis vanaf {formatEur(SHIPPING.freeFromEur)} in NL/BE, anders {formatEur(SHIPPING.rateEur)}.</li>
               <li>Levering geschiedt op het door jou opgegeven adres. Onjuiste adresinformatie komt voor jouw rekening.</li>
               <li>Het risico van beschadiging of verlies gaat over op het moment van bezorging (consumenten) of overdracht aan de vervoerder (zakelijke afnemers, art. 7:11 BW).</li>
             </ul>
@@ -133,7 +141,7 @@ export default function VoorwaardenPage() {
             <h2>Artikel 13 — Klachten en geschillen</h2>
             <ul>
               <li>Klachten kun je indienen via <a href="mailto:klachten@wasfix.nl">klachten@wasfix.nl</a>. We reageren binnen 7 werkdagen, met een oplossing binnen 30 dagen.</li>
-              <li>Kom je er met ons niet uit? Je kunt een geschil voorleggen aan Stichting WebwinkelKeur (waar wij bij aangesloten zijn) of via het Europese ODR-platform: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.</li>
+              <li>Kom je er met ons niet uit? Je kunt een geschil voorleggen via het Europese ODR-platform: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.</li>
               <li>Op alle overeenkomsten is Nederlands recht van toepassing.</li>
               <li>Geschillen tussen partijen worden voorgelegd aan de bevoegde rechter in het arrondissement Amsterdam, tenzij de wet anders dwingend voorschrijft.</li>
             </ul>
@@ -152,7 +160,6 @@ export default function VoorwaardenPage() {
             <ul>
               <li>Als een bepaling van deze voorwaarden ongeldig of onuitvoerbaar is, blijven de overige bepalingen onverkort van kracht.</li>
               <li>De Nederlandse tekst van deze voorwaarden is leidend boven eventuele vertalingen.</li>
-              <li>Wij houden ons aan de gedragscode van Stichting WebwinkelKeur.</li>
             </ul>
 
             <p style={{ marginTop: 36, fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 18 }}>

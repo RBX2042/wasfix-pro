@@ -64,6 +64,7 @@ export default async function AdminErrorCodesPage() {
               <th className="p-3">Titel</th>
               <th className="p-3">Severity</th>
               <th className="p-3">DIY</th>
+              <th className="p-3">Bron</th>
               <th className="p-3"></th>
             </tr>
           </thead>
@@ -75,6 +76,13 @@ export default async function AdminErrorCodesPage() {
                 <td className="p-3">{ec.title}</td>
                 <td className="p-3"><Badge variant={ec.severity === "HIGH" ? "danger" : ec.severity === "MEDIUM" ? "warning" : "secondary"}>{ec.severity}</Badge></td>
                 <td className="p-3">{ec.diyFriendly ? "✓" : "✗"}</td>
+                <td className="p-3">
+                  {ec.provenance === "VERIFIED" ? (
+                    <Badge variant="success">Gecontroleerd</Badge>
+                  ) : (
+                    <Badge variant="secondary">Nog nalopen</Badge>
+                  )}
+                </td>
                 <td className="p-3">
                   {hasDb && (
                     <div className="flex items-center justify-end gap-1">

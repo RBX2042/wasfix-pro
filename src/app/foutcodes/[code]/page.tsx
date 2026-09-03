@@ -212,6 +212,29 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
                 </dl>
               </CardContent>
             </Card>
+
+            {/* Where this meaning comes from. Publishing a code without saying
+                whether we checked it leaves the reader to assume we did. */}
+            <Card>
+              <CardContent className="p-5">
+                <h3 className="font-heading font-semibold mb-2">Bron</h3>
+                {errorCode.provenance === "VERIFIED" && errorCode.sourceUrl ? (
+                  <p className="text-sm text-muted-foreground">
+                    Betekenis gecontroleerd tegen{" "}
+                    <a href={errorCode.sourceUrl} target="_blank" rel="noopener noreferrer nofollow" className="text-primary hover:underline">
+                      {errorCode.sourceName ?? "een openbare bron"}
+                    </a>
+                    . Fabrikanten wijzigen codes soms per serie — controleer bij twijfel de handleiding van jouw model.
+                  </p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">
+                    Deze betekenis circuleert bij monteurs en op reparatiefora, maar we hebben hem niet kunnen
+                    bevestigen in openbare {errorCode.machine.brand}-documentatie. Behandel hem als een aanwijzing,
+                    niet als vaststaand, en controleer de handleiding van jouw model.
+                  </p>
+                )}
+              </CardContent>
+            </Card>
           </aside>
         </div>
       </div>

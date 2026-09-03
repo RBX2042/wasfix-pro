@@ -60,7 +60,8 @@ inclusief de catalogus-CRUD en de gebruikerslijst.
 - **Need:** `KVK_API_KEY`. Without it `/api/monteur/kvk-lookup` returns a mock company so the form still works.
 
 ## Real KvK + BTW number, address, phone
-- Placeholders in /contact, e-mail footers and legal pages (`KvK 12345678`, `Hoofdstraat 1`). Replace once the company is registered.
+- Set `COMPANY_KVK`, `COMPANY_VAT`, `COMPANY_STREET`, `COMPANY_POSTAL_CODE`, `COMPANY_IBAN`, `COMPANY_PHONE` once the company is registered.
+- Until then the public pages print "volgt na inschrijving" instead of the placeholder — `realOrNull()` in `src/lib/plans.ts` decides. Do **not** hardcode a number back into a page: showing `KvK 12345678` as fact is the thing that guard exists to prevent.
 
 ## Legal review of Privacy/Voorwaarden by NL advocate
 - Content based on standard NL e-commerce/AVG templates. Should be reviewed before real orders.
@@ -73,3 +74,44 @@ inclusief de catalogus-CRUD en de gebruikerslijst.
 
 ## ASWO / Reparatieshop B2B supplier API
 - No public API; requires partnership.
+
+## One-time: clear invented guide view counts on an existing database
+
+`src/data/guides.json` now seeds every guide at 0 views and the guide page
+counts for real, but the seed does not overwrite `views` on update (that would
+wipe genuine counts on every deploy). A database seeded before this change
+still holds the invented numbers, so run once against it:
+
+```
+DATABASE_URL=... npx tsx scripts/reset-fabricated-guide-views.ts
+```
+
+It is safe to run twice (the second run reports nothing to do), but after real
+views accumulate it would destroy data — so run it once, now, and not again.
+
+## Error-code verification (315 of 331 codes still to check)
+
+Every error code carries `provenance`, `sourceUrl` and `sourceName`. Today 16
+codes are `VERIFIED` — each cites the page it was checked against — and 315 are
+`REPORTED`, which the public page states plainly rather than implying we
+checked them.
+
+To work the backlog:
+
+1. `src/data/error-codes.json` is the source; `/admin/foutcodes` edits the same
+   fields against the database (a code cannot be saved as VERIFIED without a
+   source URL — enforced in `ErrorCodeSchema`).
+2. Prefer the manufacturer's own support pages (samsung.com/nl/support,
+   bosch-home.nl, lg.com/nl) over reseller blogs. Where two sources disagree,
+   leave it `REPORTED` — a disagreement is exactly when we must not claim to
+   have checked. Samsung `8E` (unbalance vs. inter-component communication) and
+   LG `LE` (locked motor vs. door lock) are open cases of this.
+3. Codes that cannot be sourced for that brand should be deleted, not kept.
+   Suspicion falls hardest on the long sequential runs (Bosch/Siemens E01-E09,
+   Miele F100-F105) where nothing distinguishes a real code from a filled gap.
+4. `scripts/qa-money.ts` fails the build if a VERIFIED code has no source URL,
+   or if a code marked DIY names the heating circuit, motor or control module
+   in its title.
+
+Note: this container's egress proxy blocks the appliance-repair sites, so the
+research has to run through search rather than fetching those pages directly.

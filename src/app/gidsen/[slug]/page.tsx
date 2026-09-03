@@ -14,6 +14,9 @@ import { getReviews, reviewStats, aggregateRatingLd } from "@/lib/reviews";
 import { getCurrentUser } from "@/lib/auth";
 import { canReadPremiumGuide } from "@/lib/entitlements";
 import { PLANS, formatPlanPrice } from "@/lib/plans";
+import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
+import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
 
@@ -55,6 +58,16 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
 
   const reviews = await getReviews({ slug: guide.slug });
   const stats = reviewStats(reviews);
+
+  // Count the view for real. The seed used to ship invented counts (900-4000
+  // per guide) which /gidsen printed as "N keer bekeken"; they now start at
+  // zero and only go up when someone actually opens the page. Best-effort:
+  // a failed counter must never take the guide down with it.
+  if (isDatabaseConfigured()) {
+    prisma.repairGuide
+      .update({ where: { id: guide.id }, data: { views: { increment: 1 } } })
+      .catch((err) => logger.warn("[guides] view counter failed", err));
+  }
 
   // schema.org HowTo structured data
   const howToLd = {

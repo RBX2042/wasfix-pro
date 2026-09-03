@@ -1,0 +1,123 @@
+[
+  {
+    "code": "E01",
+    "title": "NTC-sensor open of kortgesloten",
+    "description": "De temperatuursensor (NTC) die de watertemperatuur meet geeft geen geldige waarde; de machine kan de temperatuur niet regelen. Zelfde storing als servicecode H1.",
+    "likelyCauses": "Defecte NTC-sensor|Onderbroken bedrading of connector naar de NTC|Defecte printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairaid.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "RepairAid - Beko washing machine error codes",
+    "brand": "Beko"
+  },
+  {
+    "code": "E02",
+    "title": "Verwarmingselement onderbroken",
+    "description": "Het verwarmingscircuit is elektrisch onderbroken, waardoor het water niet opwarmt. Zelfde storing als servicecode H2.",
+    "likelyCauses": "Doorgebrand verwarmingselement|Onderbroken bedrading naar het element|Defecte printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairaid.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "RepairAid - Beko washing machine error codes",
+    "brand": "Beko"
+  },
+  {
+    "code": "E03",
+    "title": "Verwarming blijft continu aan",
+    "description": "Het verwarmingselement wordt permanent gevoed, ook wanneer dat niet mag. Zelfde storing als servicecode H3.",
+    "likelyCauses": "Doorgeslagen relais of triac op de printplaat|Defecte printplaat|Kortsluiting in het verwarmingselement",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairaid.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "RepairAid - Beko washing machine error codes",
+    "brand": "Beko"
+  },
+  {
+    "code": "E04",
+    "title": "Storing waterinlaatventiel",
+    "description": "De machine vult niet (of ongecontroleerd) met water door een fout in de aansturing van het inlaatventiel. Zelfde storing als servicecode H4.",
+    "likelyCauses": "Defect inlaatventiel|Doorgeslagen ventiel-triac op de printplaat|Onderbroken bedrading naar het ventiel",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E05",
+    "title": "Afvoerpomp-circuit onderbroken",
+    "description": "De printplaat ziet de afvoerpomp niet: het pompcircuit is elektrisch onderbroken. Zelfde storing als servicecode H5.",
+    "likelyCauses": "Onderbroken bedrading of connector naar de pomp|Doorgebrande pompwikkeling|Defecte printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E06",
+    "title": "Motoraansturing (triac) defect",
+    "description": "Fout in de aansturing van de motor: de motor-triac op de module is kortgesloten. Zelfde storing als servicecode H6.",
+    "likelyCauses": "Doorgeslagen motor-triac op de printplaat|Defecte printplaat|Kortsluiting in de motor",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E07",
+    "title": "Waterniveau / druksensor",
+    "description": "De machine krijgt geen betrouwbare waterniveaumeting van de druksensor. Zelfde storing als servicecode H7.",
+    "likelyCauses": "Verstopte of geknikte drukslang|Vervuilde compressiekamer|Defecte druksensor",
+    "severity": "MEDIUM",
+    "diyFriendly": true,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E09",
+    "title": "Deurslot open circuit",
+    "description": "Het circuit van het deurslot is onderbroken; de machine krijgt geen bevestiging dat de deur vergrendeld is.",
+    "likelyCauses": "Defect deurslot|Onderbroken bedrading naar het slot|Defect deurrelais op de printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E10",
+    "title": "Deur vergrendelt niet",
+    "description": "De deur sluit of vergrendelt niet correct, waardoor het programma niet start.",
+    "likelyCauses": "Verkeerd uitgelijnde of beschadigde deurhaak|Defect deurslot|Onderbroken bedrading naar het slot",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E11",
+    "title": "Motorstoring",
+    "description": "De motor draait niet of niet correct; de besturing detecteert een fout in de motor.",
+    "likelyCauses": "Versleten koolborstels|Defecte motor|Onderbroken bedrading of defecte printplaat",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  },
+  {
+    "code": "E18",
+    "title": "Onevenwichtige waslading",
+    "description": "Tijdens de cyclus is een onevenwichtige lading gedetecteerd, waardoor de machine niet (goed) kan centrifugeren.",
+    "likelyCauses": "Was klit samen of ligt aan een kant|Te kleine of te grote lading|Machine staat niet waterpas",
+    "severity": "LOW",
+    "diyFriendly": true,
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines",
+    "brand": "Beko"
+  }
+]

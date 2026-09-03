@@ -95,7 +95,52 @@ DATABASE_URL=... npx tsx scripts/reset-fabricated-guide-views.ts
 It is safe to run twice (the second run reports nothing to do), but after real
 views accumulate it would destroy data — so run it once, now, and not again.
 
-## Error-code verification (315 of 331 codes still to check)
+## One-time: prune unsourceable error codes on an existing database
+
+The seed upserts; it never deletes. Codes removed from
+`src/data/error-codes.json` because verification could not place them on the
+brand they were filed under are gone from a fresh database but still stand in
+one that already had them. Run once against such a database:
+
+```
+DATABASE_URL=... npx tsx scripts/prune-unsourceable-error-codes.ts --dry-run
+DATABASE_URL=... npx tsx scripts/prune-unsourceable-error-codes.ts
+```
+
+It deletes only the ids that `data/verification/*.json` marks UNVERIFIED —
+never "everything missing from the seed", which would also destroy codes an
+admin added through /admin/foutcodes. Re-run it after each new batch of
+verdicts lands.
+
+## Error-code verification: what still deserves a second look
+
+The verification pass ran through `WebSearch`, which returns a synthesised
+summary of pages rather than the pages themselves — this container's egress
+proxy blocks the appliance-repair and manufacturer sites, so no source table
+was read verbatim. Every `sourceUrl` in `data/verification/` is a real URL that
+came back in results, and the attributed meaning is what those results reported,
+but three things are worth a spot-check against an actual service manual before
+you lean on them:
+
+- **Whirlpool.** Our old table was a mixture of platforms and twelve of
+  twenty-four entries were wrong, so the corrections are a clear improvement.
+  But Whirlpool genuinely runs several incompatible Fxx tables (European
+  Whirlpool/Laden/Bauknecht, 6th Sense, FSCR, US Duet), and the corrections
+  rest on agreement between four or five sites rather than one authoritative
+  document. Worth checking against an FFD-platform service manual.
+- **Beko E08.** Deliberately not published. Two contradictory Beko E-code
+  families circulate (one maps E01-E07 onto the H1-H7 service codes, the other
+  gives E01 = door lock, E03 = drain, E04 = fill) and they disagree about E08.
+  The eleven Beko codes that were added are ones both families agree on.
+- **Bosch/Siemens E01.** Three sources, three meanings (door lock, heating
+  circuit, fill). The row carries the best-sourced reading, says on the page
+  that sources disagree, and stays REPORTED.
+
+Three codes stay REPORTED because sources disagree about them, not because
+nobody looked: Bosch E01, Siemens E01 and Miele F21. Their text carries the
+best-sourced reading and the page says the sources conflict.
+
+## Error-code verification method
 
 Every error code carries `provenance`, `sourceUrl` and `sourceName`. Today 16
 codes are `VERIFIED` — each cites the page it was checked against — and 315 are

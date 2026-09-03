@@ -4,7 +4,16 @@
  *
  * Usage: BASE_URL=http://localhost:3000 npx tsx scripts/smoke.ts
  */
+import { catalogStats, formatCount } from "../src/lib/catalog-stats";
+import { PLANS, formatPlanPrice } from "../src/lib/plans";
+
 const BASE = process.env.BASE_URL ?? "http://localhost:3000";
+
+// The pages that quote catalogue sizes must quote the CURRENT ones. This used
+// to assert the literal "331", which meant the test enforced a stale number
+// and broke the moment the catalogue was corrected — the same hardcoded-count
+// problem the pages themselves had.
+const STATS = catalogStats();
 
 type Check = { path: string; expect: number | number[]; method?: "GET" | "POST"; body?: unknown; contains?: string };
 
@@ -95,14 +104,14 @@ const checks: Check[] = [
   { path: "/api/stripe/webhook", method: "POST", body: {}, expect: [200, 400] },
   // Commercial surfaces: prices must render from the shared config, and the
   // invoice route must refuse to expose someone else's order.
-  { path: "/prijzen", expect: 200, contains: "4,99" },
-  { path: "/upgrade?plan=MONTEUR_PRO", expect: 200, contains: "29" },
-  { path: "/upgrade?plan=BEDRIJF", expect: 200, contains: "199" },
+  { path: "/prijzen", expect: 200, contains: formatPlanPrice(PLANS.PARTICULIER) },
+  { path: "/upgrade?plan=MONTEUR_PRO", expect: 200, contains: formatPlanPrice(PLANS.MONTEUR_PRO) },
+  { path: "/upgrade?plan=BEDRIJF", expect: 200, contains: formatPlanPrice(PLANS.BEDRIJF) },
   { path: "/upgrade?plan=NONSENSE", expect: 200, contains: "Onbekend plan" },
   { path: "/bestelling/does-not-exist/factuur", expect: 404 },
   // Claims on public pages must match the catalog, not invented numbers.
-  { path: "/", expect: 200, contains: "331" },
-  { path: "/over", expect: 200, contains: "331" },
+  { path: "/", expect: 200, contains: formatCount(STATS.errorCodes) },
+  { path: "/over", expect: 200, contains: formatCount(STATS.errorCodes) },
   { path: "/pers", expect: 200, contains: "Achtergrond" },
   { path: "/monteur", expect: 200, contains: "Factuur direct vanaf de werkorder" },
   { path: "/monteur/instellingen", expect: [200, 307] },

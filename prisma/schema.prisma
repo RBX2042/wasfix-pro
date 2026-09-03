@@ -136,7 +136,6 @@ model Part {
 
   @@index([brand])
   @@index([category])
-  @@index([stock])
 }
 
 model PartMachine {
@@ -230,6 +229,7 @@ model Order {
   @@index([createdAt])
   @@index([stripePaymentId])
   @@index([paymentMethod, status])
+  @@index([email])
 }
 
 model StripeEvent {
@@ -249,6 +249,12 @@ model OrderItem {
   part      Part   @relation(fields: [partId], references: [id])
   quantity  Int
   unitPrice Float
+
+  /// Postgres does not index foreign keys automatically, and this table had no
+  /// index at all beyond its primary key. Both columns are read on every order
+  /// page, every invoice, every webhook and the delete-part guard.
+  @@index([orderId])
+  @@index([partId])
 }
 
 // ─── B2B API keys ────────────────────────────────────────────────
@@ -404,7 +410,12 @@ model MonteurInvoice {
   ownerId     String
   owner       User      @relation("MonteurInvoiceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   workOrderId String    @unique
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: deleting a work order used to delete the invoice
+  /// issued from it while leaving MonteurInvoiceSequence advanced — a
+  /// permanent hole in a series the Belastingdienst requires to be gapless,
+  /// and a sent invoice vanishing from the books. deleteWorkOrder() refuses
+  /// when an invoice exists.
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
   number      String
   year        Int
   issuedAt    DateTime  @default(now())
@@ -470,6 +481,10 @@ model Referral {
   @@unique([code, visitorId])
   @@index([code])
   @@index([referrerId])
+  /// recordSignup/recordConversion filter on visitorId alone, which cannot use
+  /// the (code, visitorId) unique index — it was a sequential scan on every
+  /// checkout.
+  @@index([visitorId])
 }
 
 // ─── Invoices ────────────────────────────────────────────────────

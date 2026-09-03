@@ -229,9 +229,9 @@
     "likelyCauses": "Defecte hoofdmodule|Vochtindringing op module|Spanningsstoring",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://dewitgoedcentrale.nl/wasmachines/whirlpool-bauknecht-wasmachine-f01-foutcode-motorstoring-bedrading-of-tachosensor/",
+    "sourceName": "De Witgoed Centrale"
   },
   {
     "id": "cmohrri520023aaf9ol1i53kw",
@@ -242,9 +242,9 @@
     "likelyCauses": "Defect verwarmingselement|Defecte NTC sensor|Onderbroken kabel naar element",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.ersatzteilbestellung.de/fehlercodes-bauknecht-whirlpool-hausgeraete",
+    "sourceName": "Ersatzteilbestellung.de - Fehlercodes Bauknecht/Whirlpool"
   },
   {
     "id": "cmohrri520025aaf9vb9gscpl",
@@ -302,14 +302,14 @@
     "id": "cmohrri55002daaf9ki3xsgf8",
     "code": "H1",
     "machineId": "cmohrri44000gaaf9dw1xyoxk",
-    "title": "Verwarmingselement / NTC fout",
-    "description": "Probleem met verwarmen tijdens cyclus.",
-    "likelyCauses": "Defect verwarmingselement|NTC sensor defect|Bekabeling onderbroken",
+    "title": "NTC-sensor open of kortgesloten",
+    "description": "De temperatuursensor (NTC) meldt een open circuit of kortsluiting.",
+    "likelyCauses": "Defecte NTC-sensor|Onderbroken bedrading naar de NTC|Slechte connector op de module",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "cmohrri56002faaf9yhmc6ud5",
@@ -320,9 +320,9 @@
     "likelyCauses": "Verstopt filter|Defecte pomp|Defecte drukschakelaar",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-f05-fault-f05-or-f11-not-draining-error/",
+    "sourceName": "How-To-Repair - Indesit F05/F11 not draining"
   },
   {
     "id": "cmohrri57002haaf9cygkymnj",
@@ -333,9 +333,9 @@
     "likelyCauses": "Defect element|Kalkaanslag op element|NTC defect",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://indesitservice.co.uk/washing-machine-repair/error-codes",
+    "sourceName": "Indesit Service UK (officieel)"
   },
   {
     "id": "wfec_50a260a58f3794f78302",
@@ -3643,53 +3643,53 @@
     "id": "wfec_02abe91eeba930035c60",
     "code": "F02",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Afvoer",
-    "description": "Pomp werkt niet.",
-    "likelyCauses": "Filter|Pomp",
-    "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "Aquastop / lekkagebeveiliging geactiveerd",
+    "description": "De waterbeveiliging heeft water in de bodembak gedetecteerd en de toevoer geblokkeerd (F02 = FA).",
+    "likelyCauses": "Lek in kuip of slangen|Water in de bodembak|Defecte vlotter-/aquastopschakelaar",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_e33f2b5a058a7a6144e6",
     "code": "F03",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Verwarming",
-    "description": "Element of NTC defect.",
-    "likelyCauses": "Element|NTC",
+    "title": "Afvoerprobleem",
+    "description": "De machine pompt het water niet of onvoldoende weg (F03 = FP).",
+    "likelyCauses": "Verstopt pompfilter|Verstopte afvoer- of kuipslang|Defecte afvoerpomp",
     "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_88806230059325bd727e",
     "code": "F04",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Watertoevoer",
-    "description": "Geen watertoevoer.",
-    "likelyCauses": "Kraan|Ventiel",
-    "severity": "LOW",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "Verwarmingsduur te lang",
+    "description": "Het water bereikt niet binnen de voorziene tijd de ingestelde temperatuur.",
+    "likelyCauses": "Defect verwarmingselement|Defecte NTC-sensor|Aansturing verwarming op de module",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.cyberpieces.com/57-codes-panne-lave-linge-whirlpool-bauknecht",
+    "sourceName": "Cyberpieces - Codes panne lave-linge Whirlpool Bauknecht"
   },
   {
     "id": "wfec_8d9fd44373f5c970fe84",
     "code": "F05",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Drukschakelaar",
-    "description": "Niveau-meting fout.",
-    "likelyCauses": "Slang|Sensor",
+    "title": "Temperatuursensor (NTC) defect",
+    "description": "De NTC levert geen correcte weerstandswaarde meer (ca. 10 kOhm bij 30 C, 5 kOhm bij 50 C).",
+    "likelyCauses": "Defecte NTC-sensor|Onderbroken bedrading naar NTC|Slechte connector op de module",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_0c1e7ee3db81f8326634",
@@ -3700,9 +3700,9 @@
     "likelyCauses": "Tacho",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_5281d6380b3ec2300004",
@@ -3713,9 +3713,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_f1220127762aee9d1e71",
@@ -3726,35 +3726,22 @@
     "likelyCauses": "Ventiel blijft open",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
-  },
-  {
-    "id": "wfec_3946abe72f0cfceb2d1a",
-    "code": "F10",
-    "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Drukschakelaar kalibratie",
-    "description": "Drukschakelaars geven verschillende waarden.",
-    "likelyCauses": "Sensor",
-    "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.cyberpieces.com/57-codes-panne-lave-linge-whirlpool-bauknecht",
+    "sourceName": "Cyberpieces - Codes panne lave-linge Whirlpool Bauknecht"
   },
   {
     "id": "wfec_05e7644aa8cfafa5c0d0",
     "code": "F11",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Pompcircuit",
-    "description": "Pomp-relais probleem.",
-    "likelyCauses": "Module|Pomp",
-    "severity": "MEDIUM",
+    "title": "Datacommunicatiefout module",
+    "description": "Slechte datacommunicatie op de elektronische kaart.",
+    "likelyCauses": "Losse of gecorrodeerde connector op de module|Defecte hoofdmodule|Onderbroken bedrading",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_bcf9da76c58461c63beb",
@@ -3765,22 +3752,22 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.cyberpieces.com/57-codes-panne-lave-linge-whirlpool-bauknecht",
+    "sourceName": "Cyberpieces - Codes panne lave-linge Whirlpool Bauknecht"
   },
   {
     "id": "wfec_e392d8186c39e01af1d2",
     "code": "F13",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Droger-fan",
-    "description": "Bij was/droogcombinatie: blower-circuit fout.",
-    "likelyCauses": "Blower-motor|Module",
+    "title": "Waterverdeler of deurvergrendeling",
+    "description": "Probleem met de waterverdeler in de wasmiddellade (uitvoering 1) of met de deurvergrendeling (uitvoering 2).",
+    "likelyCauses": "Defecte waterverdeler in de zeepbak|Defecte deurvergrendeling|Onderbroken bedrading",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_5e3f8bb1ef9dc4930625",
@@ -3791,22 +3778,22 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.cyberpieces.com/57-codes-panne-lave-linge-whirlpool-bauknecht",
+    "sourceName": "Cyberpieces - Codes panne lave-linge Whirlpool Bauknecht"
   },
   {
     "id": "wfec_e665ad4364e352e1b771",
     "code": "F15",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Motor triac aansturing",
-    "description": "Aansturing motor blokkeert.",
-    "likelyCauses": "Module",
-    "severity": "HIGH",
+    "title": "Trommelpositiesensor",
+    "description": "Fout op de detector voor trommelpositionering.",
+    "likelyCauses": "Defecte positiesensor|Onderbroken bedrading|Hoofdmodule",
+    "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_cdc51f893e43086b504f",
@@ -3817,9 +3804,9 @@
     "likelyCauses": "Module reset",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_5b9457401a8d44bca33c",
@@ -3830,61 +3817,61 @@
     "likelyCauses": "Net|Module-voeding",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.cyberpieces.com/57-codes-panne-lave-linge-whirlpool-bauknecht",
+    "sourceName": "Cyberpieces - Codes panne lave-linge Whirlpool Bauknecht"
   },
   {
     "id": "wfec_81affba0bde137b29692",
     "code": "F20",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Water-aansturing",
-    "description": "Magneetventiel niet aangestuurd.",
-    "likelyCauses": "Module|Ventiel",
-    "severity": "MEDIUM",
+    "title": "Elektronische storing",
+    "description": "Storing op de elektronische module.",
+    "likelyCauses": "Defecte hoofdmodule|Onderbroken bedrading naar de module",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_b0d8705ded2388beaa24",
     "code": "F23",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Bedrading drukschakelaar",
-    "description": "Verbinding druk-sensor onderbroken.",
-    "likelyCauses": "Bedrading",
+    "title": "Verwarming / drukschakelaar",
+    "description": "Op frontladers: controleer verwarmingselement, drukschakelaar en compressiekamer.",
+    "likelyCauses": "Defect verwarmingselement|Defecte drukschakelaar|Verstopte compressiekamer of drukslang",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_d065077b946fac07be34",
     "code": "F24",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "NTC kortsluiting",
-    "description": "NTC sensor heeft short.",
-    "likelyCauses": "NTC",
+    "title": "Drukschakelaar - waterniveau te hoog",
+    "description": "Op frontladers wordt een te hoog waterniveau gedetecteerd; controleer drukschakelaar en compressiekamer.",
+    "likelyCauses": "Defecte drukschakelaar|Verstopte compressiekamer|Geknikte of vuile drukslang",
     "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.cyberpieces.com/57-codes-panne-lave-linge-whirlpool-bauknecht",
+    "sourceName": "Cyberpieces - Codes panne lave-linge Whirlpool Bauknecht"
   },
   {
     "id": "wfec_47cef76736ac6fd8aa74",
     "code": "F26",
     "machineId": "cmohrri42000caaf9llklphk6",
-    "title": "Triac motor stuck",
-    "description": "Triac blijft geleidend.",
-    "likelyCauses": "Module",
+    "title": "Afvoerpomp permanent aangestuurd",
+    "description": "De afvoerpomp wordt continu gevoed; de triac van de pompaansturing of de module is defect.",
+    "likelyCauses": "Doorgeslagen pomp-triac|Defecte hoofdmodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://tout-electromenager.fr/106/documentation-technique/codes-pannes-lave-linge/lave-linge-top-et-frontal-whirlpool-laden-bauknecht-radiola",
+    "sourceName": "Tout-Electromenager (Whirlpool/Laden/Bauknecht codetabel)"
   },
   {
     "id": "wfec_09b1dcad32d95946b5c8",
@@ -3895,9 +3882,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://removeandreplace.com/2014/10/28/whirlpool-washing-machine-error-codes/",
+    "sourceName": "RemoveandReplace - Whirlpool Washing Machine Error Fault Codes"
   },
   {
     "id": "wfec_3e5f7b2341dcfe554c2f",
@@ -3907,10 +3894,10 @@
     "description": "Deurslot kan niet sluiten.",
     "likelyCauses": "Slot",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://producthelp.whirlpool.com/Laundry/Washers/Compact_Front_Load_Washer/Error_Codes/FdL_or_F29_-_Error_Code_-_Compact_Front_Load_Washer",
+    "sourceName": "Whirlpool Product Help (officieel)"
   },
   {
     "id": "wfec_f6d439daae4b4be99f8f",
@@ -3920,23 +3907,23 @@
     "description": "Deurslot kan niet openen.",
     "likelyCauses": "Slot",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.justanswer.com/appliance/4fcbo-hi-getting-fdu-error-code-whirlpool-front-load.html",
+    "sourceName": "JustAnswer - Whirlpool FdU error code"
   },
   {
     "id": "wfec_d67b05e54fdccaf04696",
     "code": "H2",
     "machineId": "cmohrri44000gaaf9dw1xyoxk",
-    "title": "Verwarming",
-    "description": "Verwarmings-element of NTC fout.",
-    "likelyCauses": "Element|NTC",
+    "title": "Verwarmingselement onderbroken",
+    "description": "Het verwarmingselement is elektrisch onderbroken (open circuit).",
+    "likelyCauses": "Doorgebrand verwarmingselement|Onderbroken bedrading naar het element|Aansluiting op de module",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "wfec_261a8024b07cd20302d2",
@@ -3947,35 +3934,35 @@
     "likelyCauses": "Relais|NTC short",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "wfec_56f4d1e0e9c3a0da3a57",
     "code": "H4",
     "machineId": "cmohrri44000gaaf9dw1xyoxk",
-    "title": "Spanning-error",
-    "description": "Voedingsspanning instabiel.",
-    "likelyCauses": "Net|Module",
-    "severity": "MEDIUM",
+    "title": "Triac inlaatventiel kortgesloten",
+    "description": "De triac die het waterinlaatventiel aanstuurt is kortgesloten, waardoor de machine ongecontroleerd water inneemt.",
+    "likelyCauses": "Doorgeslagen ventiel-triac op de module|Defecte hoofdmodule|Defect inlaatventiel",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "wfec_ea4ffee7990ce2e20321",
     "code": "H5",
     "machineId": "cmohrri44000gaaf9dw1xyoxk",
-    "title": "Pomp afvoer",
-    "description": "Afvoerpomp werkt niet.",
-    "likelyCauses": "Filter|Pomp",
+    "title": "Afvoerpomp-circuit onderbroken",
+    "description": "Het circuit van de afvoerpomp is elektrisch onderbroken (open circuit).",
+    "likelyCauses": "Onderbroken bedrading of connector naar de pomp|Doorgebrande pompwikkeling|Aansturing op de module",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "wfec_1af018c219bd6df2cd8d",
@@ -3986,9 +3973,9 @@
     "likelyCauses": "Module|Motor",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "wfec_723ff3bd4757f69c07b1",
@@ -3999,9 +3986,9 @@
     "likelyCauses": "Sensor|Slang",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help - Beko error codes"
   },
   {
     "id": "wfec_b9e72d4a3d1f7d317966",
@@ -4012,9 +3999,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-error-codes-diagnostic-test-mode/",
+    "sourceName": "How-To-Repair - Indesit/Hotpoint error codes"
   },
   {
     "id": "wfec_acee6f2aeee4c368f514",
@@ -4025,9 +4012,9 @@
     "likelyCauses": "Tacho",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-error-codes-diagnostic-test-mode/",
+    "sourceName": "How-To-Repair - Indesit/Hotpoint error codes"
   },
   {
     "id": "wfec_a048545d7d82fe25caca",
@@ -4037,10 +4024,10 @@
     "description": "Temperatuursensor.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-error-codes-diagnostic-test-mode/",
+    "sourceName": "How-To-Repair - Indesit/Hotpoint error codes"
   },
   {
     "id": "wfec_0443d690a48fcc4a1c59",
@@ -4051,22 +4038,22 @@
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://indesitservice.co.uk/washing-machine-repair/error-codes",
+    "sourceName": "Indesit Service UK (officieel)"
   },
   {
     "id": "wfec_dd340f265c58ffc7c7cd",
     "code": "F06",
     "machineId": "cmohrri45000haaf9plyvs5w5",
-    "title": "Drukschakelaar reset",
-    "description": "Pressostat blijft hangen.",
-    "likelyCauses": "Sensor",
+    "title": "Deurslotfout",
+    "description": "De deur kan niet vergrendeld of ontgrendeld worden, of het programma start niet met gesloten deur.",
+    "likelyCauses": "Defect deurslot|Obstructie of verzakte deur|Onderbroken bedrading naar het slot",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.wasmachinestoringscodes.nl/code/f06-indesit/",
+    "sourceName": "Wasmachinestoringscodes.nl"
   },
   {
     "id": "wfec_ad5bbeb49638da0b2b21",
@@ -4077,9 +4064,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-error-codes-diagnostic-test-mode/",
+    "sourceName": "How-To-Repair - Indesit/Hotpoint error codes"
   },
   {
     "id": "wfec_658906738615dea741b4",
@@ -4090,9 +4077,9 @@
     "likelyCauses": "Module reset",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-error-codes-diagnostic-test-mode/",
+    "sourceName": "How-To-Repair - Indesit/Hotpoint error codes"
   },
   {
     "id": "wfec_0be5bf54f74c92902bd0",
@@ -4103,22 +4090,22 @@
     "likelyCauses": "Slang|Sensor",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.witgoedserviceholland.nl/foutcodes-indesit-wasmachine/",
+    "sourceName": "Witgoedservice Holland"
   },
   {
     "id": "wfec_fdd388a2c4cb2855bfb9",
     "code": "F11",
     "machineId": "cmohrri45000haaf9plyvs5w5",
-    "title": "Pomp",
-    "description": "Afvoerpomp.",
-    "likelyCauses": "Filter|Pomp",
+    "title": "Afvoerpomp-circuit onderbroken",
+    "description": "De module ziet de afvoerpomp niet: het pompcircuit is elektrisch onderbroken (open circuit).",
+    "likelyCauses": "Onderbroken bedrading of connector naar de pomp|Doorgebrande pompwikkeling|Aansturing op de hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.how-to-repair.com/indesit-hotpoint-washing-machine-f05-fault-f05-or-f11-not-draining-error/",
+    "sourceName": "How-To-Repair - Indesit F05/F11 not draining"
   },
   {
     "id": "wfec_1f0707a6aaa20802e93c",
@@ -4129,9 +4116,9 @@
     "likelyCauses": "Bedrading|Display",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.witgoedserviceholland.nl/foutcodes-indesit-wasmachine/",
+    "sourceName": "Witgoedservice Holland"
   },
   {
     "id": "wfec_24275c92b2aede7bd59e",
@@ -4142,9 +4129,9 @@
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://indesitservice.co.uk/washer-dryer-repair/error-codes",
+    "sourceName": "Indesit Service UK - washer dryer error codes"
   },
   {
     "id": "wfec_305b2fe7cf9f815bf43b",
@@ -4155,22 +4142,22 @@
     "likelyCauses": "Element droger",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://indesitservice.co.uk/washer-dryer-repair/error-codes",
+    "sourceName": "Indesit Service UK - washer dryer error codes"
   },
   {
     "id": "wfec_b958d7657490c6be5aa5",
     "code": "F15",
     "machineId": "cmohrri45000haaf9plyvs5w5",
-    "title": "Watertoevoer",
-    "description": "Watertoevoer fout.",
-    "likelyCauses": "Ventiel",
-    "severity": "LOW",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "Relais droogverwarming",
+    "description": "Fout in de aansturing van het droogverwarmingselement: het relais op de module schakelt niet correct.",
+    "likelyCauses": "Defect relais op de hoofdmodule|Defecte hoofdmodule|Defect droogverwarmingselement",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://nationalappliancerepair.co.uk/indesit-washer-dryer-issue-error-code-f15/",
+    "sourceName": "National Appliance Repair - Indesit F15"
   },
   {
     "id": "wfec_ba08371c711bc4e16b9b",
@@ -4181,9 +4168,9 @@
     "likelyCauses": "Lock",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.witgoedserviceholland.nl/foutcodes-indesit-wasmachine/",
+    "sourceName": "Witgoedservice Holland"
   },
   {
     "id": "wfec_6d9591888d54002096fb",
@@ -4193,10 +4180,10 @@
     "description": "Slot.",
     "likelyCauses": "Slot",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.witgoedserviceholland.nl/foutcodes-indesit-wasmachine/",
+    "sourceName": "Witgoedservice Holland"
   },
   {
     "id": "wfec_f7302740e2f8968d17ac",
@@ -4207,8 +4194,151 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.witgoedserviceholland.nl/foutcodes-indesit-wasmachine/",
+    "sourceName": "Witgoedservice Holland"
+  },
+  {
+    "id": "wfec_add_beko_e01",
+    "code": "E01",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "NTC-sensor open of kortgesloten",
+    "description": "De temperatuursensor (NTC) die de watertemperatuur meet geeft geen geldige waarde; de machine kan de temperatuur niet regelen. Zelfde storing als servicecode H1.",
+    "likelyCauses": "Defecte NTC-sensor|Onderbroken bedrading of connector naar de NTC|Defecte printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairaid.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "RepairAid - Beko washing machine error codes"
+  },
+  {
+    "id": "wfec_add_beko_e02",
+    "code": "E02",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Verwarmingselement onderbroken",
+    "description": "Het verwarmingscircuit is elektrisch onderbroken, waardoor het water niet opwarmt. Zelfde storing als servicecode H2.",
+    "likelyCauses": "Doorgebrand verwarmingselement|Onderbroken bedrading naar het element|Defecte printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairaid.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "RepairAid - Beko washing machine error codes"
+  },
+  {
+    "id": "wfec_add_beko_e03",
+    "code": "E03",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Verwarming blijft continu aan",
+    "description": "Het verwarmingselement wordt permanent gevoed, ook wanneer dat niet mag. Zelfde storing als servicecode H3.",
+    "likelyCauses": "Doorgeslagen relais of triac op de printplaat|Defecte printplaat|Kortsluiting in het verwarmingselement",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairaid.co.uk/beko-washing-machine-error-codes/",
+    "sourceName": "RepairAid - Beko washing machine error codes"
+  },
+  {
+    "id": "wfec_add_beko_e04",
+    "code": "E04",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Storing waterinlaatventiel",
+    "description": "De machine vult niet (of ongecontroleerd) met water door een fout in de aansturing van het inlaatventiel. Zelfde storing als servicecode H4.",
+    "likelyCauses": "Defect inlaatventiel|Doorgeslagen ventiel-triac op de printplaat|Onderbroken bedrading naar het ventiel",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e05",
+    "code": "E05",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Afvoerpomp-circuit onderbroken",
+    "description": "De printplaat ziet de afvoerpomp niet: het pompcircuit is elektrisch onderbroken. Zelfde storing als servicecode H5.",
+    "likelyCauses": "Onderbroken bedrading of connector naar de pomp|Doorgebrande pompwikkeling|Defecte printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e06",
+    "code": "E06",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Motoraansturing (triac) defect",
+    "description": "Fout in de aansturing van de motor: de motor-triac op de module is kortgesloten. Zelfde storing als servicecode H6.",
+    "likelyCauses": "Doorgeslagen motor-triac op de printplaat|Defecte printplaat|Kortsluiting in de motor",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e07",
+    "code": "E07",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Waterniveau / druksensor",
+    "description": "De machine krijgt geen betrouwbare waterniveaumeting van de druksensor. Zelfde storing als servicecode H7.",
+    "likelyCauses": "Verstopte of geknikte drukslang|Vervuilde compressiekamer|Defecte druksensor",
+    "severity": "MEDIUM",
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e09",
+    "code": "E09",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Deurslot open circuit",
+    "description": "Het circuit van het deurslot is onderbroken; de machine krijgt geen bevestiging dat de deur vergrendeld is.",
+    "likelyCauses": "Defect deurslot|Onderbroken bedrading naar het slot|Defect deurrelais op de printplaat",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e10",
+    "code": "E10",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Deur vergrendelt niet",
+    "description": "De deur sluit of vergrendelt niet correct, waardoor het programma niet start.",
+    "likelyCauses": "Verkeerd uitgelijnde of beschadigde deurhaak|Defect deurslot|Onderbroken bedrading naar het slot",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e11",
+    "code": "E11",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Motorstoring",
+    "description": "De motor draait niet of niet correct; de besturing detecteert een fout in de motor.",
+    "likelyCauses": "Versleten koolborstels|Defecte motor|Onderbroken bedrading of defecte printplaat",
+    "severity": "HIGH",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
+  },
+  {
+    "id": "wfec_add_beko_e18",
+    "code": "E18",
+    "machineId": "cmohrri44000gaaf9dw1xyoxk",
+    "title": "Onevenwichtige waslading",
+    "description": "Tijdens de cyclus is een onevenwichtige lading gedetecteerd, waardoor de machine niet (goed) kan centrifugeren.",
+    "likelyCauses": "Was klit samen of ligt aan een kant|Te kleine of te grote lading|Machine staat niet waterpas",
+    "severity": "LOW",
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.repairprofessionals.nl/foutcodes-van-beko-wasmachines-alles-wat-u-moet-weten/",
+    "sourceName": "Repair Professionals - Foutcodes Beko wasmachines"
   }
 ]

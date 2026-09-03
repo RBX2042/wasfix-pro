@@ -106,7 +106,33 @@ never "everything missing from the seed", which would also destroy codes an
 admin added through /admin/foutcodes. Re-run it after each new batch of
 verdicts lands.
 
-## Error-code verification (remaining codes still to check)
+## Error-code verification: what still deserves a second look
+
+The verification pass ran through `WebSearch`, which returns a synthesised
+summary of pages rather than the pages themselves — this container's egress
+proxy blocks the appliance-repair and manufacturer sites, so no source table
+was read verbatim. Every `sourceUrl` in `data/verification/` is a real URL that
+came back in results, and the attributed meaning is what those results reported,
+but three things are worth a spot-check against an actual service manual before
+you lean on them:
+
+- **Whirlpool.** Our old table was a mixture of platforms and twelve of
+  twenty-four entries were wrong, so the corrections are a clear improvement.
+  But Whirlpool genuinely runs several incompatible Fxx tables (European
+  Whirlpool/Laden/Bauknecht, 6th Sense, FSCR, US Duet), and the corrections
+  rest on agreement between four or five sites rather than one authoritative
+  document. Worth checking against an FFD-platform service manual.
+- **Beko E08.** Deliberately not published. Two contradictory Beko E-code
+  families circulate (one maps E01-E07 onto the H1-H7 service codes, the other
+  gives E01 = door lock, E03 = drain, E04 = fill) and they disagree about E08.
+  The eleven Beko codes that were added are ones both families agree on.
+- **Bosch/Siemens E01.** Three sources, three meanings (door lock, heating
+  circuit, fill). The row carries the best-sourced reading, says on the page
+  that sources disagree, and stays REPORTED.
+
+Codes still marked REPORTED have not been checked at all. To work them:
+
+## Error-code verification method
 
 Every error code carries `provenance`, `sourceUrl` and `sourceName`. Today 16
 codes are `VERIFIED` — each cites the page it was checked against — and 315 are

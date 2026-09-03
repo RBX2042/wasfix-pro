@@ -20,6 +20,12 @@
  * a verdict claiming VERIFIED without one is refused, because the whole point
  * of the field is that the claim is checkable.
  *
+ * A file named additions-*.json holds codes verification found MISSING from the
+ * catalogue rather than wrong in it. Each carries a brand, the code, its text
+ * and the source it was taken from; it is attached to that brand's first
+ * machine and inserted with provenance VERIFIED. A code already present for
+ * that brand is skipped rather than duplicated.
+ *
  * Idempotent: it reads the verdicts, not the current state, so re-running after
  * more verdicts arrive is safe.
  *
@@ -44,6 +50,20 @@ type Verdict = {
   conflicted?: boolean;
   note?: string;
 };
+
+type Addition = {
+  brand: string;
+  code: string;
+  title: string;
+  description: string;
+  likelyCauses: string;
+  severity: string;
+  diyFriendly: boolean;
+  sourceUrl: string;
+  sourceName: string;
+};
+
+type Machine = { id: string; brand: string };
 
 type ErrorCode = {
   id: string;
@@ -83,7 +103,14 @@ function main() {
   }
 
   const verdicts: Verdict[] = [];
+  const additions: Addition[] = [];
   for (const file of readdirSync(VERDICT_DIR).filter((f) => f.endsWith(".json")).sort()) {
+    if (file.startsWith("additions-")) {
+      const rows = readJson<Addition[]>(join(VERDICT_DIR, file));
+      additions.push(...rows);
+      console.log(`  read ${rows.length.toString().padStart(3)} additions from ${file}`);
+      continue;
+    }
     const rows = readJson<Verdict[]>(join(VERDICT_DIR, file));
     verdicts.push(...rows);
     console.log(`  read ${rows.length.toString().padStart(3)} verdicts from ${file}`);
@@ -137,6 +164,43 @@ function main() {
     ec.sourceName = v.sourceName ?? null;
     return true;
   });
+
+  // Codes verification found missing. Attached to the brand's first machine —
+  // the same convention the existing rows use — and skipped when that brand
+  // already carries the code, so re-running never duplicates.
+  const machines = readJson<Machine[]>(join(ROOT, "src/data/machines.json"));
+  const added: string[] = [];
+  for (const a of additions) {
+    if (!isHttpUrl(a.sourceUrl)) {
+      refused.push(`${a.brand} ${a.code} (addition, no source URL)`);
+      continue;
+    }
+    const machine = machines.find((m) => m.brand === a.brand);
+    if (!machine) {
+      refused.push(`${a.brand} ${a.code} (addition, no machine for that brand)`);
+      continue;
+    }
+    const brandMachineIds = new Set(machines.filter((m) => m.brand === a.brand).map((m) => m.id));
+    if (kept.some((ec) => ec.code === a.code && brandMachineIds.has(ec.machineId))) continue;
+    kept.push({
+      id: `wfec_add_${a.brand.toLowerCase()}_${a.code.toLowerCase()}`,
+      code: a.code,
+      machineId: machine.id,
+      title: a.title,
+      description: a.description,
+      likelyCauses: a.likelyCauses,
+      severity: a.severity,
+      diyFriendly: a.diyFriendly,
+      provenance: "VERIFIED",
+      sourceUrl: a.sourceUrl,
+      sourceName: a.sourceName,
+    });
+    added.push(`${a.brand} ${a.code} — ${a.title}`);
+  }
+  if (added.length) {
+    console.log(`\n  ${added.length} code(s) added that the catalogue was missing:`);
+    for (const a of added) console.log(`    + ${a}`);
+  }
 
   // Relations pointing at a deleted code would seed a foreign-key failure.
   const liveIds = new Set(kept.map((ec) => ec.id));

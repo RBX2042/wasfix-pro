@@ -165,10 +165,17 @@ export async function referralStats(code: string, appUrl: string): Promise<Refer
   const empty: ReferralStats = { code, link: `${appUrl}/?ref=${code}`, clicks: 0, signups: 0, conversions: 0, earningsEur: 0 };
   if (!isDatabaseConfigured()) return empty;
   try {
+    // referrerId non-null on all three, the same rule attributableReferral()
+    // applies. Rows keep their code when the referrer's account is deleted
+    // (Referral.referrer is onDelete: SetNull), so a code that comes free and
+    // is later handed to someone else would show them the previous owner's
+    // clicks, conversions and euros. newCode() makes that collision remote,
+    // but the clause costs nothing and this is a payout figure.
+    const attributed = { code, referrerId: { not: null } };
     const [clicks, signups, converted] = await Promise.all([
-      prisma.referral.count({ where: { code } }),
-      prisma.referral.count({ where: { code, signedUpAt: { not: null } } }),
-      prisma.referral.aggregate({ where: { code, convertedAt: { not: null } }, _count: { _all: true }, _sum: { rewardEur: true } }),
+      prisma.referral.count({ where: attributed }),
+      prisma.referral.count({ where: { ...attributed, signedUpAt: { not: null } } }),
+      prisma.referral.aggregate({ where: { ...attributed, convertedAt: { not: null } }, _count: { _all: true }, _sum: { rewardEur: true } }),
     ]);
     return {
       ...empty,

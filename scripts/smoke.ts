@@ -108,7 +108,12 @@ const checks: Check[] = [
   { path: "/upgrade?plan=MONTEUR_PRO", expect: 200, contains: formatPlanPrice(PLANS.MONTEUR_PRO) },
   { path: "/upgrade?plan=BEDRIJF", expect: 200, contains: formatPlanPrice(PLANS.BEDRIJF) },
   { path: "/upgrade?plan=NONSENSE", expect: 200, contains: "Onbekend plan" },
-  { path: "/bestelling/does-not-exist/factuur", expect: 404 },
+  // /bestelling/* is in the middleware matcher now, so an unauthenticated
+  // caller is redirected before the page runs. That is the point: it used to
+  // answer 404 for a stranger and render for an owner, which told an
+  // unauthenticated caller whether an order id existed. Signed in, the page's
+  // own ownership check still returns 404 for someone else's order.
+  { path: "/bestelling/does-not-exist/factuur", expect: [307, 404] },
   // Claims on public pages must match the catalog, not invented numbers.
   { path: "/", expect: 200, contains: formatCount(STATS.errorCodes) },
   { path: "/over", expect: 200, contains: formatCount(STATS.errorCodes) },

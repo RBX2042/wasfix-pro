@@ -45,19 +45,22 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium line-clamp-2">{i.name}</p>
                     <p className="text-xs text-muted-foreground">{i.sku} · {i.brand}</p>
-                    <div className="flex items-center justify-between mt-2">
+                    {/* 44px targets: these were 28px and icon-only, so a screen reader
+                        announced three nameless buttons per row. flex-wrap keeps the row
+                        inside the drawer on a 390px screen now that they are wider. */}
+                    <div className="flex flex-wrap items-center justify-between gap-y-2 mt-2">
                       <div className="flex items-center gap-1">
-                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setQty(i.partId, i.quantity - 1)}>
+                        <Button size="icon" variant="outline" aria-label={`Aantal verlagen voor ${i.name}`} className="h-11 w-11" onClick={() => setQty(i.partId, i.quantity - 1)}>
                           <Minus className="h-3 w-3" />
                         </Button>
                         <span className="w-8 text-center text-sm">{i.quantity}</span>
-                        <Button size="icon" variant="outline" className="h-7 w-7" onClick={() => setQty(i.partId, i.quantity + 1)}>
+                        <Button size="icon" variant="outline" aria-label={`Aantal verhogen voor ${i.name}`} className="h-11 w-11" onClick={() => setQty(i.partId, i.quantity + 1)}>
                           <Plus className="h-3 w-3" />
                         </Button>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-1">
                         <span className="font-semibold">{formatEur(i.priceEur * i.quantity)}</span>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-destructive" onClick={() => remove(i.partId)}>
+                        <Button size="icon" variant="ghost" aria-label={`${i.name} uit winkelmand verwijderen`} className="h-11 w-11 text-destructive" onClick={() => remove(i.partId)}>
                           <Trash2 className="h-3 w-3" />
                         </Button>
                       </div>

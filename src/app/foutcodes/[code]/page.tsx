@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticErrorCode } from "@/lib/static-db";
+import { dbErrorCode } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,7 +16,7 @@ export async function generateMetadata({ params }: { params: Promise<{ code: str
   const { code } = await params;
   const decoded = decodeURIComponent(code);
   const [brand, ec] = decoded.split("-");
-  const errorCode = staticErrorCode(brand, ec);
+  const errorCode = await dbErrorCode(brand, ec);
   if (!errorCode) {
     return { title: `${brand} ${ec} foutcode — oorzaak & oplossing` };
   }
@@ -43,7 +43,7 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
   const decoded = decodeURIComponent(code);
   const [brand, codeValue] = decoded.split("-");
 
-  const errorCode = staticErrorCode(brand, codeValue);
+  const errorCode = await dbErrorCode(brand, codeValue);
 
   if (!errorCode) notFound();
 

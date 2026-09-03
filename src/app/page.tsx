@@ -1,5 +1,5 @@
 import WasFixHome from "@/components/redesign/WasFixHome";
-import { staticParts, staticErrorCodes } from "@/lib/static-db";
+import { dbParts, dbErrorCodes } from "@/lib/static-db";
 import { formatEur } from "@/lib/utils";
 import { SHIPPING } from "@/lib/plans";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
@@ -10,8 +10,11 @@ export const dynamic = "force-dynamic";
 
 export const metadata = {
   title: "WasFix Pro — AI wasmachine diagnose in 60 seconden",
+  // Geen "gemiddeld €140 bespaard": dat bedrag is nooit gemeten. Een
+  // besparingsclaim moet onderbouwd kunnen worden (art. 6:193c BW), en wat een
+  // reparatie in een concreet geval scheelt rekent de calculator uit.
   description:
-    "Foto of foutcode → diagnose, juist onderdeel, stap-voor-stap reparatie. Geen voorrijkosten. Gemiddeld €140 bespaard per reparatie.",
+    "Foto of foutcode → diagnose, juist onderdeel, stap-voor-stap reparatie. Geen voorrijkosten, geen wachtweken.",
   openGraph: {
     title: "WasFix Pro — AI wasmachine diagnose",
     description: "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.",
@@ -27,9 +30,9 @@ export const metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
   // Featured parts for the catalogue strip (8 with stock, ordered by stock)
-  const partItems = staticParts({ where: { minStock: 0 }, orderBy: "stock-desc", take: 8 }).map((p) => ({
+  const partItems = (await dbParts({ where: { minStock: 0 }, orderBy: "stock-desc", take: 8 })).map((p) => ({
     id: p.id,
     sku: p.sku,
     name: p.name,
@@ -40,7 +43,7 @@ export default function HomePage() {
   }));
 
   // Top error codes for the explorer — first 12 by severity
-  const codeItems = staticErrorCodes({ take: 12 }).map((ec) => ({
+  const codeItems = (await dbErrorCodes({ take: 12 })).map((ec) => ({
     id: ec.code,
     brand: ec.machine.brand,
     desc: ec.title,

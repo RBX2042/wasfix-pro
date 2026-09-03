@@ -1,6 +1,6 @@
 # MONETIZATION.md — hoe WasFix Pro geld verdient
 
-Analyse op de echte catalogus en de code zoals die nu draait (2 september 2026).
+Analyse op de echte catalogus en de code zoals die nu draait (bijgewerkt 3 september 2026).
 Alle bedragen komen uit `src/data/parts.json` en `src/lib/plans.ts`; de
 berekeningen zitten in `scripts/qa-money.ts` en zijn dus reproduceerbaar.
 
@@ -11,7 +11,7 @@ berekeningen zitten in `scripts/qa-money.ts` en zijn dus reproduceerbaar.
 | Stroom | Status vóór deze wijziging | Status nu |
 |---|---|---|
 | Onderdelenverkoop | Werkte, maar zonder btw-administratie, zonder factuur en zonder kostprijs | Compleet: btw-specificatie, doorlopende facturen, marge per order |
-| Abonnementen | Onverkoopbaar: de gratis versie was onbeperkt | Afdwingbaar: gratis = 3 diagnoses per maand, premium gidsen achter de paywall |
+| Abonnementen | Onverkoopbaar: de gratis versie was onbeperkt, en het betaalde plan was gratis te krijgen | Afdwingbaar sinds 3 sep: gratis = 3 diagnoses per maand, premium gidsen achter de paywall, en een upgrade zonder Stripe faalt dicht (zie §5) |
 | B2B API | Werkte (keys, rate limits per plan) | Ongewijzigd |
 | Referrals | Attributie werkte | Ongewijzigd |
 
@@ -94,6 +94,15 @@ een account te maken, laat staan te betalen — het abonnement verkocht iets dat
 het product weggaf. Gebruik wordt nu gemeten per account, en anders per
 bezoeker-cookie met een IP-hash als terugval.
 
+**Het betaalde abonnement was gratis mee te nemen.** `/api/stripe/subscribe` viel
+zonder Stripe-key terug op een directe upgrade, "demo mode". Stripe-keys staan er
+niet (BLOCKED.md), dus op de live site kon elke ingelogde bezoeker
+`{"plan":"BEDRIJF"}` posten en zichzelf permanent onbeperkte diagnoses, alle
+premium gidsen, het monteur-dashboard en 15% korting op elke onderdelenbestelling
+geven. Alles in dit document over quota, paywalls en break-even ging daarlangs.
+De route faalt nu dicht in productie (503, gelogd) en upgradet alleen nog direct
+buiten productie, waar demo-modus een expliciete keuze is.
+
 **Premium gidsen waren niet afgeschermd.** `isPremium` toonde alleen een
 badge; de volledige tekst was gratis, terwijl "alle premium gidsen" het
 Particulier-plan verkoopt. Nu zijn de eerste twee stappen zichtbaar — genoeg om
@@ -138,6 +147,24 @@ Dat is functionaliteit waarvoor iemand blijft betalen, ook in een maand dat
 hij weinig onderdelen koopt. Precies wat §3 mist: een reden om te blijven die
 niet uit de marge komt.
 
+**Maar het is nog geen facturatiepakket, en dat moet je niet zo verkopen.** Wat
+er staat is: één factuur per werkorder, op te halen op
+`/monteur/werkorders/[id]/factuur`, printen of opslaan als pdf. Wat er *niet* is:
+
+- **versturen** — er gaat geen mail naar de klant; de monteur moet de pdf zelf
+  doorsturen;
+- **een overzicht** — er is geen factuurlijst en geen omzetstaat; `MonteurInvoice`
+  is alleen per werkorder op te vragen;
+- **betaald markeren** — het model heeft geen status- of `paidAt`-veld, dus
+  openstaand versus betaald bestaat niet en debiteurenbewaking evenmin;
+- **crediteren** — een fout op een verstuurde factuur is niet terug te draaien
+  binnen de doorlopende nummerreeks.
+
+Een monteur die hierop overstapt houdt zijn debiteuren dus nog steeds ergens
+anders bij. Die drie (versturen, lijst, betaald markeren) zijn samen het verschil
+tussen "handig" en "ik zeg mijn factuurpakket op" — en dus tussen wel en geen
+opzeggingsreden.
+
 ## 7. Wat de eigenaar nog moet doen
 
 Deze punten kan code niet oplossen.
@@ -151,7 +178,12 @@ Deze punten kan code niet oplossen.
    factuur. Vul `COMPANY_KVK`, `COMPANY_VAT`, `COMPANY_NAME`, `COMPANY_STREET`,
    `COMPANY_POSTAL_CODE`, `COMPANY_CITY` en `COMPANY_IBAN`.
 3. **Stripe-prijzen aanmaken** voor €4,99, €29 en €199 en de drie price-id's
-   instellen. Zonder die id's valt elke upgrade terug op de demo-modus.
+   instellen. Let op het `tax_behavior`: `exclusive` voor Monteur Pro en Bedrijf
+   (excl. btw geadverteerd), `inclusive` voor Particulier. `/api/stripe/subscribe`
+   controleert bedrag, valuta, interval én `tax_behavior` tegen `plans.ts` en
+   weigert de checkout bij een afwijking — zie BLOCKED.md. Zonder die id's is er
+   in productie geen upgrade meer (503); alleen buiten productie upgradet demo-modus
+   nog direct.
 4. **Btw verlegd bij EU-klanten buiten Nederland.** Op dit moment rekenen we
    altijd 21%, ook aan een Belgische monteur met een geldig btw-nummer. Dat is
    fiscaal veilig maar commercieel onaantrekkelijk. Verleggen mag pas na

@@ -1,28 +1,28 @@
 import { env } from "@/lib/env";
 import { MetadataRoute } from "next";
-import {
-  errorCodes as staticEcs,
-  machines as staticMachines,
-  parts as staticParts,
-  guides as staticGuides,
-} from "@/lib/static-db";
+import { dbErrorCodes, dbMachines, dbParts, dbGuides } from "@/lib/static-db";
 import helpArticles from "@/data/help-articles.json";
 import blogPosts from "@/data/blog-posts.json";
 import cities from "@/data/cities.json";
 import brandsData from "@/data/brands.json";
 import comparisons from "@/data/comparisons.json";
 
-export default function sitemap(): MetadataRoute.Sitemap {
+export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const baseUrl = env.APP_URL;
 
-  // All data from static catalog — instant, no DB dependency
-  const errorCodes = staticEcs.map((ec) => {
-    const machine = staticMachines.find((m) => m.id === ec.machineId);
-    return { code: ec.code, machine: { brand: machine?.brand ?? "" } };
-  });
-  const guides = staticGuides.map((g) => ({ slug: g.slug, createdAt: new Date(g.createdAt) }));
-  const machines = staticMachines.map((m) => ({ brand: m.brand, model: m.model }));
-  const parts = staticParts.map((p) => ({ sku: p.sku }));
+  // Same source as the pages themselves: a part the admin created has to be in
+  // here, one that was withdrawn must not be — a sitemap of URLs that 404 is
+  // worse than no sitemap. Falls back to src/data when there is no database.
+  const [ecRows, guideRows, machineRows, partRows] = await Promise.all([
+    dbErrorCodes({}),
+    dbGuides(),
+    dbMachines(),
+    dbParts(),
+  ]);
+  const errorCodes = ecRows.map((ec) => ({ code: ec.code, machine: { brand: ec.machine.brand } }));
+  const guides = guideRows.map((g) => ({ slug: g.slug, createdAt: new Date(g.createdAt) }));
+  const machines = machineRows.map((m) => ({ brand: m.brand, model: m.model }));
+  const parts = partRows.map((p) => ({ sku: p.sku }));
 
   const now = new Date();
 

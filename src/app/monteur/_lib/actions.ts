@@ -217,9 +217,25 @@ export async function deleteWorkOrder(_prev: ActionResult | null, formData: Form
   const id = blankToNull(formData.get("id"));
   if (!id) return { ok: false, error: "id ontbreekt" };
   try {
+    // An issued invoice may not disappear from the books, so the relation is
+    // onDelete: Restrict. Looked up first — and scoped by ownerId, so a guessed
+    // id never leaks someone else's invoice number — because otherwise the
+    // monteur only sees a raw foreign-key error.
+    const invoice = await prisma.monteurInvoice.findFirst({
+      where: { workOrderId: id, ownerId: auth.user.id },
+      select: { number: true },
+    });
+    if (invoice) {
+      return { ok: false, error: `Deze werkorder heeft factuur ${invoice.number}. Een verstuurde factuur kan niet worden verwijderd.` };
+    }
+
     const res = await prisma.workOrder.deleteMany({ where: { id, ownerId: auth.user.id } });
     if (res.count === 0) return { ok: false, error: "Werkorder niet gevonden" };
   } catch (err) {
+    // The invoice can be issued between the check and the delete.
+    if ((err as { code?: string })?.code === "P2003") {
+      return { ok: false, error: "Deze werkorder heeft inmiddels een factuur en kan niet worden verwijderd." };
+    }
     logger.error("[monteur] work order delete failed", err);
     return { ok: false, error: "Verwijderen mislukt" };
   }

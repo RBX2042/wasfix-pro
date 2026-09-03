@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticPart, staticPartFull, staticRelatedParts } from "@/lib/static-db";
+import { dbPart, dbPartFull, dbRelatedParts } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,11 +20,11 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const part = staticPart(sku);
+  const part = await dbPart(sku);
   if (!part) return { title: "Onderdeel niet gevonden" };
   return {
     title: `${part.name} (${part.sku}) — ${formatEur(part.priceEur)} · WasFix Pro`,
-    description: `${part.name} kopen bij WasFix Pro. ${part.isOriginal ? "Origineel onderdeel" : "Universele vervanger"} voor ${part.brand}. Voor 22:00 besteld = morgen in huis. 30 dagen retourrecht.`,
+    description: `${part.name} kopen bij WasFix Pro. ${part.isOriginal ? "Origineel onderdeel" : "Universele vervanger"} voor ${part.brand}. We verzenden op werkdagen, met track & trace. 30 dagen retourrecht.`,
     alternates: { canonical: `/onderdelen/${part.sku}` },
     openGraph: {
       title: part.name,
@@ -37,12 +37,12 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 
 export default async function PartDetailPage({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const part = staticPartFull(sku);
+  const part = await dbPartFull(sku);
 
   if (!part) notFound();
 
   const compatibleBrands = Array.from(new Set(part.machines.map((m) => m.machine.brand)));
-  const relatedParts = staticRelatedParts(part.category, part.id, 4);
+  const relatedParts = await dbRelatedParts(part.category, part.id, 4);
 
   // Ratings come from real reviews only; omitted entirely when there are none.
   const reviews = await getReviews({ sku: part.sku });
@@ -162,7 +162,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
               <CardContent className="p-4 grid grid-cols-3 gap-3 text-center">
                 <div>
                   <Truck className="h-5 w-5 mx-auto mb-1 text-primary" />
-                  <p className="text-xs text-muted-foreground">Voor 22:00 besteld<br/>morgen in huis</p>
+                  <p className="text-xs text-muted-foreground">Verzending op werkdagen<br/>met track &amp; trace</p>
                 </div>
                 <div>
                   <ShieldCheck className="h-5 w-5 mx-auto mb-1 text-primary" />

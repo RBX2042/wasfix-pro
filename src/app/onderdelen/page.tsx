@@ -1,6 +1,6 @@
 import { MarketingLayout } from "@/components/marketing-layout";
 import { PartCard } from "@/components/part-card";
-import { staticParts, staticPartBrands } from "@/lib/static-db";
+import { dbParts, dbPartBrands } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -30,12 +30,12 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
   const cat = sp.cat;
   const brand = sp.brand;
 
-  const parts = staticParts({
+  const parts = await dbParts({
     where: { category: cat, brand, q },
     orderBy: "stock-then-price",
     take: 60,
   });
-  const brands = staticPartBrands().map((b) => ({ brand: b }));
+  const brands = (await dbPartBrands()).map((b) => ({ brand: b }));
 
   return (
     <MarketingLayout>
@@ -44,7 +44,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
           <div className="max-w-2xl">
             <h1 className="font-heading text-3xl md:text-4xl font-bold">Onderdelen winkel</h1>
             <p className="text-muted-foreground mt-2">
-              Originele en voordelige reserveonderdelen voor alle grote merken. Voor 22:00 besteld = morgen in huis.
+              Originele en voordelige reserveonderdelen voor alle grote merken. We verzenden op werkdagen, met track &amp; trace zodra je pakket is aangemeld.
             </p>
           </div>
 

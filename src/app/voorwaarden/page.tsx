@@ -73,17 +73,20 @@ export default function VoorwaardenPage() {
             <h3>5.1 Hoe oefen je het herroepingsrecht uit?</h3>
             <ul>
               <li>Stuur een mail naar <a href="mailto:retour@wasfix.nl">retour@wasfix.nl</a> of vul het <Link href="/retour/start">retour-formulier</Link> in.</li>
-              <li>Stuur het product binnen 14 dagen na herroeping retour, in originele verpakking, ongebruikt en compleet.</li>
-              <li>Wij betalen binnen 14 dagen na ontvangst het volledige bedrag terug, inclusief oorspronkelijke verzendkosten (laagste tarief).</li>
+              <li>Stuur het product binnen 14 dagen na je melding retour.</li>
+              <li>Je mag het onderdeel uitpakken, bekijken en beoordelen zoals je in een winkel zou doen (art. 6:230s lid 2 BW). Een geopende verpakking, een verbroken zegel of een kort gepast onderdeel kost je je herroepingsrecht dus niet. Ga je verder dan nodig is om aard en werking vast te stellen en is het onderdeel daardoor minder waard, dan verrekenen we alleen die waardevermindering.</li>
+              <li>Wij betalen binnen 14 dagen na ontvangst van je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3).</li>
               <li>De kosten voor retourzending zijn voor jouw rekening, tenzij het product defect of verkeerd geleverd is.</li>
             </ul>
             <h3>5.2 Uitsluitingen</h3>
             <p>Geen herroepingsrecht voor:</p>
             <ul>
               <li>Producten die op maat zijn gemaakt of voor jou speciaal besteld bij de fabrikant</li>
-              <li>Producten die hygiënisch ongeschikt zijn voor retour (bv. afgesloten verpakking geopend)</li>
               <li>Digitale diensten waarvoor je expliciet toestemming hebt gegeven om vóór afloop van de bedenktermijn te starten</li>
             </ul>
+            <p>
+              De hygiëne-uitzondering van art. 6:230p sub f BW geldt alleen voor verzegelde producten die om gezondheids- of hygiënische redenen niet teruggestuurd kunnen worden. Onderdelen als pompen, deurrubbers en filters vallen daar niet onder, dus daarop beroepen wij ons niet.
+            </p>
 
             <h2>Artikel 6 — Garantie</h2>
             <ul>
@@ -91,15 +94,25 @@ export default function VoorwaardenPage() {
               <li>Aanvullend bieden we voor originele onderdelen <strong>24 maanden fabrieksgarantie</strong> op materiaal- en fabricagefouten.</li>
               <li>Universele/compatibele onderdelen: 12 maanden WasFix-garantie.</li>
               <li>Garantie vervalt bij verkeerd gebruik, ondeskundige installatie, of overmacht (water, brand, bliksem).</li>
-              <li>Onder de EU Right-to-Repair zijn wij verplicht onderdelen voor minimaal 10 jaar beschikbaar te houden.</li>
+              <li>Fabrikanten van wasmachines moeten reserve-onderdelen tot 10 jaar na het laatste op de markt gebrachte exemplaar leverbaar houden (Verordening (EU) 2019/2023, bijlage II). Die verplichting rust op de fabrikant, niet op WasFix — zie <Link href="/right-to-repair">right to repair</Link>.</li>
             </ul>
 
             <h2>Artikel 7 — Betaling</h2>
+            <h3>7.1 Betaalmogelijkheden</h3>
             <ul>
               <li>Betaling vooraf via iDEAL, Bancontact, creditcard, Apple/Google Pay (via Stripe).</li>
-              <li>Zakelijke afnemers (MONTEUR_PRO, BEDRIJF): factuur 14 dagen netto na bevestigingsmail.</li>
-              <li>Bij niet-tijdige betaling: wettelijke handelsrente + €40 incassokosten conform WIK.</li>
+              <li><strong>Op rekening:</strong> in de checkout kun je ook kiezen voor betaling op rekening — dit staat open voor iedere klant, dus ook voor consumenten. Is directe betaling tijdelijk niet beschikbaar, dan is op rekening de enige betaalmogelijkheid. Je ontvangt dan meteen een factuur en betaalt per bankoverschrijving binnen <strong>14 dagen</strong> na factuurdatum.</li>
+              <li>De bestelde onderdelen worden bij een bestelling op rekening direct voor je gereserveerd. Is de factuur 7 dagen na de vervaldatum nog niet betaald, dan mogen wij de bestelling annuleren; de gereserveerde onderdelen komen dan weer beschikbaar voor andere klanten en de verzonden factuur crediteren wij. Betaal je daarna alsnog, dan storten wij het bedrag terug of plaatsen we in overleg een nieuwe bestelling.</li>
               <li>Eigendom van producten gaat pas over op de Klant na volledige betaling.</li>
+            </ul>
+            <h3>7.2 Te late betaling door consumenten</h3>
+            <p>
+              Betaal je als consument niet binnen de termijn, dan sturen wij eerst een kosteloze betalingsherinnering. Blijft betaling uit, dan volgt een aanmaning waarin je nog eens veertien dagen krijgt om zonder extra kosten te betalen, met vermelding van de kosten die daarna volgen (de zogenoemde veertiendagenbrief, art. 6:96 lid 6 BW). Pas als die termijn is verstreken mogen wij buitengerechtelijke incassokosten in rekening brengen, en dan alleen volgens de wettelijke staffel van de Wet incassokosten (Besluit vergoeding voor buitengerechtelijke incassokosten): 15% over de eerste € 2.500 van de hoofdsom, met een minimum van € 40 en aflopende percentages over hogere bedragen. Vanaf het moment dat je in verzuim bent is de wettelijke rente van art. 6:119 BW verschuldigd. De wettelijke <em>handels</em>rente van art. 6:119a BW geldt niet voor consumenten en brengen wij je dus niet in rekening.
+            </p>
+            <h3>7.3 Te late betaling door zakelijke afnemers</h3>
+            <ul>
+              <li>Zakelijke afnemers (MONTEUR_PRO, BEDRIJF): factuur 14 dagen netto na bevestigingsmail.</li>
+              <li>Bij niet-tijdige betaling is zonder nadere ingebrekestelling de wettelijke handelsrente (art. 6:119a BW) verschuldigd, vermeerderd met buitengerechtelijke incassokosten van ten minste € 40 (art. 6:96 lid 4 BW). De veertiendagenbrief uit 7.2 is hier niet vereist.</li>
             </ul>
 
             <h2>Artikel 8 — Abonnementen</h2>
@@ -141,7 +154,7 @@ export default function VoorwaardenPage() {
             <h2>Artikel 13 — Klachten en geschillen</h2>
             <ul>
               <li>Klachten kun je indienen via <a href="mailto:klachten@wasfix.nl">klachten@wasfix.nl</a>. We reageren binnen 7 werkdagen, met een oplossing binnen 30 dagen.</li>
-              <li>Kom je er met ons niet uit? Je kunt een geschil voorleggen via het Europese ODR-platform: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.</li>
+              <li>Kom je er met ons niet uit? Dan kun je het geschil voorleggen aan de bevoegde Nederlandse rechter. WasFix is niet aangesloten bij een erkende Geschillencommissie; een geschil kan alleen aan een geschilleninstantie worden voorgelegd als beide partijen daar in dat geval mee instemmen. Het Europese ODR-platform is per 20 juli 2025 gesloten (Verordening (EU) 2024/3228) en is dus geen route meer.</li>
               <li>Op alle overeenkomsten is Nederlands recht van toepassing.</li>
               <li>Geschillen tussen partijen worden voorgelegd aan de bevoegde rechter in het arrondissement Amsterdam, tenzij de wet anders dwingend voorschrijft.</li>
             </ul>

@@ -38,8 +38,12 @@ export function PartCard({ part, showAddToCart = true }: PartCardProps) {
               sizes="(max-width: 640px) 200px, (max-width: 1024px) 250px, 300px"
               className="object-cover group-hover:scale-105 transition-transform"
             />
+            {/* accent-foreground on bg-accent is 4.27:1 in the light theme, under the
+                4.5:1 minimum for this 10px badge; white reaches 4.64:1. The dark theme
+                uses a lighter accent, where the dark accent-foreground is the readable
+                side, so keep it there. */}
             {part.isOriginal && (
-              <Badge variant="accent" className="absolute top-2 left-2 text-[10px]">
+              <Badge variant="accent" className="absolute top-2 left-2 text-[10px] text-white dark:text-accent-foreground">
                 Origineel
               </Badge>
             )}
@@ -69,9 +73,13 @@ export function PartCard({ part, showAddToCart = true }: PartCardProps) {
       </Link>
       {showAddToCart && part.stock > 0 && (
         <div className="px-4 pb-4">
+          {/* h-11: size="sm" is 32px, 12px under the minimum tap target, on the
+              primary purchase action repeated 60x on /onderdelen. Keep the sm
+              text and padding — the card is only ~153px wide on a phone, the
+              default size would push "In winkelmand" out of the button. */}
           <Button
             size="sm"
-            className="w-full"
+            className="w-full h-11"
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();

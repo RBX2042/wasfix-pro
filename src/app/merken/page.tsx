@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticMachines } from "@/lib/static-db";
+import { dbMachines } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 
@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export const metadata = { title: "Merken — alle wasmachine merken" };
 
 export default async function MerkenPage() {
-  const machines = staticMachines();
+  const machines = await dbMachines();
 
   // Group by brand
   const brandMap = new Map<string, typeof machines>();

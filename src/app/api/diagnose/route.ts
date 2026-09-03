@@ -11,7 +11,7 @@ import { logger } from "@/lib/logger";
 import { env } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { staticErrorCodeByCode, staticParts, staticGuides } from "@/lib/static-db";
+import { dbErrorCodeByCode, dbParts, dbGuides } from "@/lib/static-db";
 import { anonymousKey, consumeUsage } from "@/lib/entitlements";
 import { VISITOR_COOKIE } from "@/lib/visitor";
 import { getPlan } from "@/lib/plans";
@@ -60,10 +60,13 @@ export async function POST(req: NextRequest) {
     // account when signed in, per visitor cookie (IP-hash fallback) otherwise.
     // B2B API traffic is metered against its API key, not the consumer quota.
     const meteredUpstream = req.headers.get("x-api-metered") === "1" && Boolean(env.INTERNAL_API_KEY) && req.headers.get("x-internal-auth") === env.INTERNAL_API_KEY;
+    // The quota is committed up front. Peeking here and committing after the
+    // answer left the entire Gemini round-trip as a gap: ten parallel requests
+    // all passed the same peek and all ten were answered and billed.
     const plan = getPlan(user?.plan ?? "FREE");
     const quotaLimit = meteredUpstream ? -1 : plan.diagnosesPerMonth;
-    let quotaKey = "";
     if (quotaLimit !== -1) {
+      let quotaKey: string;
       if (user) {
         quotaKey = `user:${user.id}`;
       } else {
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
         const visitorId = req.cookies.get(VISITOR_COOKIE)?.value ?? null;
         quotaKey = anonymousKey(req, visitorId);
       }
-      const quota = await consumeUsage("diagnose", quotaKey, quotaLimit, { commit: false });
+      const quota = await consumeUsage("diagnose", quotaKey, quotaLimit);
       if (!quota.allowed) {
         return apiError(
           user
@@ -134,13 +137,13 @@ export async function POST(req: NextRequest) {
     let recommendedGuides: Array<{ id: string; slug: string; title: string; difficulty: string; timeMinutes: number; summary: string }> = [];
 
     if (diagResult) {
-      // Static-DB lookups: instant, no DB dependency
+      // Catalog lookups, database-first (src/data only when there is no DB)
       const brand = diagResult.brand
         ? diagResult.brand.charAt(0).toUpperCase() + diagResult.brand.slice(1).toLowerCase()
         : undefined;
       const code = diagResult.errorCode;
 
-      const matchedErrorCode = code ? staticErrorCodeByCode(code, brand) : null;
+      const matchedErrorCode = code ? await dbErrorCodeByCode(code, brand) : null;
 
       if (matchedErrorCode) {
         recommendedParts = matchedErrorCode.parts.map((ep) => ep.part);
@@ -156,7 +159,7 @@ export async function POST(req: NextRequest) {
         if (/(deur|slot|pakking)/.test(cause)) categories.push("DOOR");
         if (/(ventiel|inlaat|water)/.test(cause)) categories.push("VALVE", "HOSE");
         if (categories.length > 0) {
-          recommendedParts = staticParts({
+          recommendedParts = await dbParts({
             where: { categories, minStock: 0 },
             orderBy: "price-asc",
             take: 4,
@@ -173,7 +176,7 @@ export async function POST(req: NextRequest) {
         if (/(deur|pakking)/.test(cause)) slugs.push("deurpakking-vervangen");
         if (/(ventiel|inlaat)/.test(cause)) slugs.push("waterinlaatventiel-vervangen");
         if (slugs.length > 0) {
-          recommendedGuides = staticGuides({ where: { slugs }, take: 3 });
+          recommendedGuides = await dbGuides({ where: { slugs }, take: 3 });
         }
       }
     }
@@ -186,11 +189,6 @@ export async function POST(req: NextRequest) {
         /^(miele|bosch|samsung|lg|aeg|whirlpool|electrolux|siemens|beko|indesit)/i.test(m.content)
       )?.content.split(/\s+/)[0] ??
       "Onbekend";
-
-    // Meter the answer we just produced (not the clarifying questions).
-    if (quotaLimit !== -1 && quotaKey) {
-      await consumeUsage("diagnose", quotaKey, quotaLimit).catch(() => null);
-    }
 
     if (diagResult) {
       try {

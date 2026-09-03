@@ -24,6 +24,26 @@ const ProfileSchema = z.object({
   hourlyRateEur: z.number().min(0).max(500).optional().nullable(),
   paymentTerms: z.number().int().min(0).max(90),
   invoiceFooter: z.string().trim().max(300).optional().nullable(),
+}).superRefine((v, ctx) => {
+  // Art. 35a Wet OB: zodra er btw op de factuur staat, moet het
+  // btw-identificatienummer van de leverancier erbij — anders kan een zakelijke
+  // klant die btw niet aftrekken. Bij 0% (kleineondernemersregeling) hoort in
+  // plaats daarvan de reden van de vrijstelling op de factuur, en de voettekst
+  // is het enige vrije veld dat daar terechtkomt.
+  if (v.vatRate > 0 && !v.vatNumber?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["vatNumber"],
+      message: "Btw-nummer is verplicht zodra je btw in rekening brengt",
+    });
+  }
+  if (v.vatRate === 0 && !v.invoiceFooter?.trim()) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["invoiceFooter"],
+      message: "Bij 0% btw moet de reden van de vrijstelling op de factuur staan — zet die in de voettekst",
+    });
+  }
 });
 
 function str(fd: FormData, key: string): string | null {

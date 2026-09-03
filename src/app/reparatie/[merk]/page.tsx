@@ -2,7 +2,7 @@ import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import brandsData from "@/data/brands.json";
-import { staticErrorCodes, staticParts } from "@/lib/static-db";
+import { dbErrorCodes, dbParts } from "@/lib/static-db";
 
 /**
  * Does the catalogue hold anything for this brand? Five brands in brands.json
@@ -10,8 +10,8 @@ import { staticErrorCodes, staticParts } from "@/lib/static-db";
  * machines, codes or parts, so their pages are thin by definition and are not
  * indexed.
  */
-function hasCatalogCoverage(brand: string): boolean {
-  return staticErrorCodes({}).some((ec) => ec.machine.brand === brand);
+async function hasCatalogCoverage(brand: string): Promise<boolean> {
+  return (await dbErrorCodes({})).some((ec) => ec.machine.brand === brand);
 }
 
 type BrandPage = {
@@ -30,11 +30,17 @@ export function generateStaticParams() {
   return brands.map((b) => ({ merk: b.slug }));
 }
 
+// The sibling catalogue pages are force-dynamic; this one is prerendered from
+// generateStaticParams, so without a revalidate window the prices it lists
+// would freeze at build time — the very divergence the db* readers remove.
+// Same 5 minutes /api/parts already uses for catalogue freshness.
+export const revalidate = 300;
+
 export async function generateMetadata({ params }: { params: Promise<{ merk: string }> }) {
   const { merk } = await params;
   const brand = brands.find((b) => b.slug === merk);
   if (!brand) return { title: "Merk niet gevonden" };
-  const covered = hasCatalogCoverage(brand.brand);
+  const covered = await hasCatalogCoverage(brand.brand);
   return {
     title: `${brand.brand} wasmachine reparatie — diagnose + onderdelen · WasFix Pro`,
     // A brand we carry no codes or parts for is a thin page by definition.
@@ -56,11 +62,11 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
   if (!brand) notFound();
 
   // Get top error codes for this brand from our database
-  const allCodes = staticErrorCodes({});
+  const allCodes = await dbErrorCodes({});
   const brandCodes = allCodes.filter((ec) => ec.machine.brand === brand.brand).slice(0, 12);
 
   // Get top parts for this brand
-  const allParts = staticParts({ where: { minStock: 1 }, take: 200 });
+  const allParts = await dbParts({ where: { minStock: 1 }, take: 200 });
   const brandParts = allParts.filter((p) => p.brand === brand.brand || (brand.brand === "Bosch" && p.brand === "Siemens")).slice(0, 6);
 
   const jsonLd = [
@@ -170,7 +176,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
                 Populaire {brand.brand} <em>onderdelen</em>
               </h2>
               <p className="lead" style={{ fontSize: 15, marginBottom: 20 }}>
-                Voor 22:00 besteld = morgen in huis. 30 dagen retour.
+                We verzenden op werkdagen, met track &amp; trace zodra je pakket is aangemeld. 30 dagen retour.
               </p>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
                 {brandParts.map((p) => (

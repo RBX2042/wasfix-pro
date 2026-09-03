@@ -2,6 +2,7 @@ import { NextRequest } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "./prisma";
 import { isDatabaseConfigured } from "./env";
+import { isDemoMode } from "./demo-mode";
 import { logger } from "./logger";
 
 // API key format: wf_<env>_<32 random chars>
@@ -45,16 +46,50 @@ export const PLAN_API_HOURLY_BURST: Record<string, number> = {
 /** @deprecated Use PLAN_API_MONTHLY_CALLS or PLAN_API_HOURLY_BURST. */
 export const PLAN_API_RATE_LIMIT = PLAN_API_MONTHLY_CALLS;
 
-const DEMO_KEYS: Record<string, ApiKeyInfo> = {
-  "wf_demo_FREE_PUBLIC_DEMO_KEY_ONLY_LIMITED": {
-    keyId: "demo-public",
+/**
+ * Sandbox tier. No key is compiled into the bundle any more: a constant one
+ * cannot be revoked, and because every caller shared the same quota id one
+ * stranger burned the 100 calls/month for every evaluator.
+ *
+ * API_DEMO_KEY names the single key to accept and is absent by default — a
+ * live deploy therefore has no sandbox at all until someone configures one,
+ * and unsetting the variable revokes it. Its value must itself match the
+ * format regex in validateApiKey (wf_(live|test|demo)_ + 8-64 characters from
+ * [A-Za-z0-9_]), otherwise the key is dropped before it ever gets here and the
+ * sandbox silently never works.
+ *
+ * Outside production, a demo deployment additionally accepts any wf_demo_… key
+ * so local demos need no configuration at all. That check is isDemoMode() and
+ * deliberately NOT the raw env.DEMO_MODE flag: wasfix.nl runs today with
+ * DEMO_MODE=true and no Clerk keys (BLOCKED.md), so the raw flag accepted every
+ * wf_demo_<anything> on the live site — and since the quota bucket is derived
+ * from the key, rotating the suffix handed out a fresh allowance per request,
+ * i.e. an unmetered public API. A production build (`next start`, Vercel, and
+ * therefore also CI) must configure API_DEMO_KEY to have a sandbox.
+ *
+ * Scoped to read:parts on purpose: read:errorcodes also unlocks
+ * /api/v1/diagnose, which spends AI budget on every call.
+ */
+const DEMO_SCOPES = ["read:parts"];
+
+function demoKeyInfo(key: string): ApiKeyInfo | null {
+  const configured = process.env.API_DEMO_KEY?.trim();
+  const accepted = (!!configured && key === configured) || (isDemoMode() && key.startsWith("wf_demo_"));
+  if (!accepted) return null;
+
+  return {
+    // Quota bucket per key instead of one global "demo" counter: rotating
+    // API_DEMO_KEY starts a clean month and a revoked key does not spend its
+    // successor's allowance. In production only the configured key reaches
+    // this line, so a caller cannot mint himself a fresh bucket.
+    keyId: `demo-${hashApiKey(key).slice(0, 12)}`,
     userId: "demo-user",
     prefix: "wf_demo",
     rateLimit: 10,
     monthlyCalls: 100,
-    scopes: DEFAULT_SCOPES,
-  },
-};
+    scopes: DEMO_SCOPES,
+  };
+}
 
 // Extract API key from header (Authorization: Bearer wf_*) or query (?api_key=)
 export function extractApiKey(req: NextRequest): string | null {
@@ -69,12 +104,14 @@ export function extractApiKey(req: NextRequest): string | null {
 }
 
 // Validate key. Returns ApiKeyInfo if valid, null otherwise.
-// Demo key always works; real keys are looked up by hash in the ApiKey table.
+// A sandbox key only works when configured (see demoKeyInfo); real keys are
+// looked up by hash in the ApiKey table.
 export async function validateApiKey(key: string | null): Promise<ApiKeyInfo | null> {
   if (!key) return null;
   if (!/^wf_(live|test|demo)_[A-Za-z0-9_]{8,64}$/.test(key)) return null;
 
-  if (DEMO_KEYS[key]) return DEMO_KEYS[key];
+  const demo = demoKeyInfo(key);
+  if (demo) return demo;
   if (!isDatabaseConfigured()) return null;
 
   try {

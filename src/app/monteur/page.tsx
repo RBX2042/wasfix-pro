@@ -4,16 +4,21 @@ import { Icon } from "@/components/redesign/SharedLayout";
 
 export const metadata = {
   title: "Voor monteurs — De pro-tool voor wasmachine-reparatie · WasFix Pro",
-  description: "AI-diagnose, klanten-CRM, B2B API, 10% korting op originele onderdelen, witlabel. De tool die nooit meer een verkeerd onderdeel bestelt.",
+  description: "AI-diagnose, klanten-CRM, werkorders met factuur, B2B API en 10% korting op onderdelen. De tool die nooit meer een verkeerd onderdeel bestelt.",
 };
 
+// Deze lijst verkocht een witlabel-portal, voorrang bij voorraadgebrek, een
+// bulkminimum van 5 stuks en omzet-analytics. Niets daarvan bestaat: er is geen
+// witlabel-implementatie, geen voorraad-allocatie per klant, geen
+// minimum-afname en het monteur-dashboard toont vier tellingen zonder
+// omzetcijfer. Een niet-bestaande functie verkopen is misleidend onder
+// art. 6:193c BW, dus staat er nu alleen wat je na inloggen echt aantreft.
 const features = [
-  { icon: "sparkle", title: "AI pre-diagnose", text: "Klant geeft foutcode of foto, jij krijgt de waarschijnlijke oorzaak + benodigd onderdeel vóór je vertrekt." },
+  { icon: "sparkle", title: "AI pre-diagnose", text: "Zet foutcode of foto in WasFix, en je hebt de waarschijnlijke oorzaak + benodigd onderdeel vóór je vertrekt." },
   { icon: "user", title: "Klanten-CRM", text: "Alle klantgeschiedenis, machines, eerdere reparaties en facturen op één plek." },
   { icon: "code", title: "B2B API", text: "Integreer diagnose-data in je eigen ERP of werkorder-systeem. 1.000 calls/mnd inbegrepen." },
-  { icon: "cart", title: "10% korting", text: "Op alle originele onderdelen + voorrang bij voorraadgebrek. Bulk-bestellen vanaf 5 stuks." },
-  { icon: "shield", title: "Witlabel optie", text: "Je eigen logo in diagnose-rapporten naar klanten. Eigen domein voor diagnose-portal." },
-  { icon: "chart", title: "MTD omzet + analytics", text: "Welke onderdelen levert wat op? Welke merken vragen het meest tijd? Inzicht in cijfers." },
+  { icon: "cart", title: "10% korting", text: "Op alle onderdelen, automatisch verrekend in je winkelmand. Boven €50 verzenden we gratis." },
+  { icon: "chart", title: "Je cijfers in één overzicht", text: "Aantal klanten, openstaande werkorders en je diagnoses op het monteur-dashboard." },
 ];
 
 // This page used to quote three repair businesses by name that do not exist,
@@ -51,7 +56,7 @@ export default function MonteurLandingPage() {
             een <em>verkeerd onderdeel</em> bestelt.
           </h1>
           <p className="lead" style={{ maxWidth: 720, marginBottom: 28 }}>
-            AI-diagnose vóór je in de auto stapt. Klanten-CRM. B2B API. 10% korting op originele onderdelen. Voor zelfstandige monteurs en reparatie-bedrijven.
+            AI-diagnose vóór je in de auto stapt. Klanten-CRM. B2B API. 10% korting op onderdelen. Voor zelfstandige monteurs en reparatie-bedrijven.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12 }}>
             <Link className="btn btn-primary" href="/registreren?plan=monteur_pro">
@@ -62,7 +67,7 @@ export default function MonteurLandingPage() {
             </Link>
           </div>
           <div className="muted mono" style={{ fontSize: 12, marginTop: 16, letterSpacing: "0.04em" }}>
-            14 dagen gratis · Geen creditcard · Direct toegang · Nederlandse support
+            14 dagen gratis · Maandelijks opzegbaar · Direct toegang · Nederlandse support
           </div>
         </div>
       </section>
@@ -88,13 +93,13 @@ export default function MonteurLandingPage() {
           <div className="eyebrow">Tijdsbesparing</div>
           <h2 className="h-section">Pre-diagnose <em>vóór</em> het bezoek.</h2>
           <p className="lead" style={{ marginBottom: 24 }}>
-            Klant stuurt foutcode of foto via je portal. Onze AI geeft binnen 60s de top-3 oorzaken + de SKU&apos;s van onderdelen je waarschijnlijk nodig hebt. Jij vertrekt met de juiste spullen.
+            Zet de foutcode of een foto van de display erin. Onze AI geeft binnen 60s de top-3 oorzaken + de SKU&apos;s van onderdelen die je waarschijnlijk nodig hebt. Jij vertrekt met de juiste spullen.
           </p>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
             {[
-              { num: "1", title: "Klant meldt probleem", text: "Via formulier op jouw witlabel-portal, WhatsApp, of jouw eigen app via API." },
+              { num: "1", title: "Klant meldt probleem", text: "Telefonisch of per mail. Jij zet merk, model en foutcode in WasFix — of je koppelt je eigen intakeformulier op onze API." },
               { num: "2", title: "AI diagnose in 60s", text: "Foutcode + symptomen + machine-model → top 3 oorzaken met confidence %." },
-              { num: "3", title: "Jij ziet onderdelen", text: "Met SKU + voorraadcheck + 10% monteur-prijs. One-click bulk-bestellen." },
+              { num: "3", title: "Jij ziet onderdelen", text: "Met SKU, actuele voorraad en jouw 10% monteurprijs. Direct bestellen vanuit je monteur-onderdelenpagina." },
               { num: "4", title: "Ga naar de klant", text: "Met het juiste onderdeel, eerste keer raak. Klant blij, jij efficiënter." },
             ].map((s) => (
               <div key={s.num} className="step-card">
@@ -160,8 +165,8 @@ export default function MonteurLandingPage() {
           <h2 className="h-section">Voor je <em>begint</em>.</h2>
           <div style={{ marginTop: 32, display: "grid", gap: 12, maxWidth: 820 }}>
             {[
-              { q: "Hoeveel kost Monteur Pro?", a: "€29 per maand, exclusief BTW. Inclusief AI-diagnose, klanten-CRM, 10% onderdelen-korting, B2B API (1.000 calls/maand), witlabel-optie. Geen verborgen kosten." },
-              { q: "Werkt het met mijn bestaande planning-systeem?", a: "Ja — via onze REST API kan elke moderne software integreren. We hebben directe koppelingen voor de meest gebruikte NL-systemen. Vraag onze support naar maatwerk." },
+              { q: "Hoeveel kost Monteur Pro?", a: "€29 per maand, exclusief BTW. Inclusief AI-diagnose, klanten-CRM, werkorders met factuur, 10% onderdelen-korting en de B2B API (1.000 calls/maand). Geen verborgen kosten." },
+              { q: "Werkt het met mijn bestaande planning-systeem?", a: "Via onze REST API kan elke moderne software koppelen. Kant-en-klare integraties met bestaande planningspakketten hebben we niet — die koppeling bouw je zelf of laat je door je leverancier bouwen. Vraag onze support naar de documentatie." },
               { q: "Hoe snel kan ik beginnen?", a: "5 minuten. Account maken, abonnement starten (14 dagen gratis), inloggen op je monteur-dashboard. Direct toegang tot alle features." },
               { q: "Wat als ik wil opzeggen?", a: "Maandelijks opzegbaar, per email of vanuit je dashboard. Geen lange contracten, geen opzegtermijn, geen verborgen kosten." },
               { q: "Krijg ik training of onboarding?", a: "Ja — gratis 30-minuten 1-op-1 onboarding-call binnen 2 werkdagen na aanmelden. Plus een uitgebreide kennisbank en NL-talige videosupport." },
@@ -183,7 +188,7 @@ export default function MonteurLandingPage() {
         <div className="container" style={{ textAlign: "center", padding: "48px 24px", background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16 }}>
           <h2 className="h-section" style={{ marginBottom: 12 }}>Klaar om <em>tijd</em> te besparen?</h2>
           <p className="lead" style={{ marginBottom: 24, maxWidth: 560, margin: "0 auto 24px" }}>
-            Start vandaag met je 14-dagen gratis proef. Geen creditcard nodig.
+            Start vandaag met je 14-dagen gratis proef. Maandelijks opzegbaar.
           </p>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
             <Link className="btn btn-primary" href="/registreren?plan=monteur_pro">

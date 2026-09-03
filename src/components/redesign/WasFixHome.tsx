@@ -420,8 +420,12 @@ function Hero() {
               Wasmachine kapot?<br />
               Wij weten wat er <em>echt</em> mis is.
             </h1>
+            {/* Hier stond "gemiddeld €140 bespaard per reparatie". Dat bedrag is
+                nooit gemeten — net als de CO2-teller en de testimonials die om
+                dezelfde reden uit deze pagina zijn gehaald. Wat een reparatie in
+                een concreet geval scheelt, rekent de calculator uit. */}
             <p className="lead">
-              Foto of foutcode → diagnose, juist onderdeel en stap-voor-stap reparatie. Geen voorrijkosten, geen wachtweken — gemiddeld <b style={{ color: "var(--text)" }}>€140 bespaard</b> per reparatie.
+              Foto of foutcode → diagnose, juist onderdeel en stap-voor-stap reparatie. Geen voorrijkosten, geen wachtweken — en vooraf zie je wat het onderdeel kost.
             </p>
             <div className="hero-cta">
               <Link className="btn btn-primary btn-lg" href="/diagnose">
@@ -474,7 +478,7 @@ function Hero() {
                   <span style={{ fontWeight: 500 }}>€ {priceFor(part?.id)}</span>
                   <span className="muted mono" style={{ fontSize: 11 }}>{part?.code}</span>
                 </div>
-                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>1-dag levering · 30d retour</div>
+                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>Verzending op werkdagen · 30d retour</div>
               </div>
             </div>
           </div>
@@ -500,7 +504,12 @@ function Hero() {
 }
 
 // ─── AI Diagnose demo ───────────────────────────────────────────────────
-type ChatProb = { name: string; pct: number; part: string; price: string; diff: string };
+// Bewust zonder percentage. De demo hieronder is een script, geen opgenomen
+// diagnose: elk cijfer erin zou verzonnen zijn. /pers draagt om precies die
+// reden een notitie over een weggehaalde "73%"-bewering. De echte diagnose
+// geeft wél een zekerheidspercentage — dat komt uit het model, niet uit deze
+// animatie.
+type ChatProb = { name: string; part: string; price: string; diff: string };
 type ChatMsg = {
   role: "user" | "ai";
   text: React.ReactNode;
@@ -531,16 +540,16 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
       role: "ai",
       text: (
         <>
-          E18 = <code>afvoer geblokkeerd</code>. Bij Bosch wijst dit in 73% van de gevallen op een verstopt vuilfilter of een defecte afvoerpomp. Kans op een verstopte afvoerslang: 22%.
+          E18 = <code>afvoer geblokkeerd</code>. Bij Bosch wijst dit meestal op een verstopt vuilfilter of een defecte afvoerpomp. Een geknikte afvoerslang of een defecte drukschakelaar komt ook voor.
         </>
       ),
       t: 2400,
       focus: ["pump", "filter"],
       probs: [
-        { name: "Vuilfilter verstopt", pct: 73, part: "WF-FILTER-09", price: "€ 6,50", diff: "Easy" },
-        { name: "Afvoerpomp defect", pct: 51, part: "WF-PUMP-12", price: "€ 38,50", diff: "Medium" },
-        { name: "Afvoerslang geknikt", pct: 22, part: "WF-HOSE-03", price: "€ 9,90", diff: "Easy" },
-        { name: "Drukschakelaar defect", pct: 9, part: "WF-PSW-04", price: "€ 18,40", diff: "Medium" },
+        { name: "Vuilfilter verstopt", part: "WF-FILTER-09", price: "€ 6,50", diff: "Easy" },
+        { name: "Afvoerpomp defect", part: "WF-PUMP-12", price: "€ 38,50", diff: "Medium" },
+        { name: "Afvoerslang geknikt", part: "WF-HOSE-03", price: "€ 9,90", diff: "Easy" },
+        { name: "Drukschakelaar defect", part: "WF-PSW-04", price: "€ 18,40", diff: "Medium" },
       ],
     },
     { role: "ai", text: "Begin met het vuilfilter — onderaan rechts achter het paneeltje. 5 min werk, geen gereedschap. Zal ik de stap-voor-stap gids openen?", t: 3800 },
@@ -568,8 +577,8 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
     <section className="section" id="diagnose">
       <div className="container">
         <div className="eyebrow">AI Diagnose · live demo</div>
-        <h2 className="h-section">Niet één antwoord. Een <em>kansverdeling</em>.</h2>
-        <p className="lead">Onze diagnose toont elke mogelijke oorzaak met waarschijnlijkheid, prijs en moeilijkheidsgraad — niet één gok.</p>
+        <h2 className="h-section">Niet één antwoord. Een <em>rangschikking</em>.</h2>
+        <p className="lead">Onze diagnose toont elke mogelijke oorzaak op volgorde van waarschijnlijkheid, met onderdeel, prijs en moeilijkheidsgraad — niet één gok. Het gesprek hieronder is een voorbeeld, geen opgenomen sessie.</p>
 
         <div className="diagnose-grid" style={{ marginTop: 36 }}>
           <div className="chat">
@@ -626,19 +635,17 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
                   <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Top oorzaken</div>
                   <div style={{ fontWeight: 500, fontSize: 15, marginTop: 2 }}>Bosch WAT286H0NL · E18</div>
                 </div>
-                <div style={{ textAlign: "right" }}>
-                  <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>VERTROUWEN</div>
-                  <div style={{ fontSize: 15, fontWeight: 500, color: "var(--acc-2)" }}>94%</div>
-                </div>
+                <span className="pill pill-mono">Voorbeeld</span>
               </div>
 
-              {(latest?.probs || []).map((p) => (
+              {(latest?.probs || []).map((p, i) => (
                 <div key={p.name} className="prob-bar">
-                  <div className="prob-name">{p.name}</div>
-                  <div className="prob-bar-track">
-                    <div className="prob-bar-fill" style={{ width: `${p.pct}%` }} />
+                  <div className="prob-name" style={{ width: "auto", flex: 1 }}>
+                    <span className="mono" style={{ color: "var(--muted)", marginRight: 7 }}>{i + 1}</span>
+                    {p.name}
                   </div>
-                  <div className="prob-pct">{p.pct}%</div>
+                  <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{p.part} · {p.diff}</div>
+                  <div className="prob-pct" style={{ width: 52 }}>{p.price}</div>
                 </div>
               ))}
 
@@ -646,7 +653,7 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                   <div>
                     <div style={{ fontWeight: 500 }}>Aanbevolen: {filterPart?.name ?? "Vuilfilter"}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>€ {(filterPart?.priceEur ?? 6.5).toFixed(2).replace(".", ",")} · morgen in huis</div>
+                    <div className="muted" style={{ fontSize: 12 }}>€ {(filterPart?.priceEur ?? 6.5).toFixed(2).replace(".", ",")} · verzending op werkdagen</div>
                   </div>
                   <button className="btn btn-primary btn-sm" onClick={handleAddFilter} disabled={!filterPart}>
                     <Icon name="cart" size={13} /> Toevoegen
@@ -666,7 +673,7 @@ function HowItWorks() {
   const steps: Array<{ n: string; icon: IconName; title: string; text: string }> = [
     { n: "01", icon: "sparkle", title: "Beschrijf · scan · spreek", text: "Tekst, foto van de display of voice memo — Gemini AI analyseert je probleem in 60s." },
     { n: "02", icon: "pulse", title: "Diagnose met kansen", text: "Niet één gok — een rangschikking met waarschijnlijkheid, prijs en moeilijkheid." },
-    { n: "03", icon: "package", title: "Onderdeel onderweg", text: "Voor 22:00 besteld = morgen in huis. Origineel óf voordelig alternatief." },
+    { n: "03", icon: "package", title: "Onderdeel onderweg", text: "We verzenden op werkdagen, met track & trace zodra je pakket is aangemeld. Origineel óf voordelig alternatief." },
   ];
   return (
     <section className="section" id="how">
@@ -784,7 +791,7 @@ function PartsCatalog({ parts }: { parts: PartItem[] }) {
           <div>
             <div className="eyebrow">Onderdelen</div>
             <h2 className="h-section">Origineel of voordelig, <em>jij kiest</em>.</h2>
-            <p className="lead">Voor 22:00 besteld = morgen in huis. 30 dagen retourrecht — ook als je dacht dat het dít onderdeel was.</p>
+            <p className="lead">We verzenden op werkdagen, met track &amp; trace zodra je pakket is aangemeld. 30 dagen retourrecht — ook als je dacht dat het dít onderdeel was.</p>
           </div>
           <Link className="btn" href="/onderdelen">Alle onderdelen <Icon name="arrow" size={14} /></Link>
         </div>
@@ -956,7 +963,11 @@ function Predictive() {
       <div className="container">
         <div className="eyebrow">Predictive maintenance · alleen Particulier+</div>
         <h2 className="h-section">Weet wanneer iets <em>gaat</em> stuk, niet pas als het stuk is.</h2>
-        <p className="lead">Voer model + bouwjaar in. Onze AI vergelijkt jouw machine met 1,2M reparatiedata uit Europa en geeft per onderdeel de gezondheid.</p>
+        {/* Geen "1,2M reparatiedata uit Europa": die dataset bestaat niet.
+            src/lib/predictive.ts rekent met vuistregels over levensduur per
+            onderdeelcategorie en een merkfactor — pure rekenkunde, geen model en
+            geen meetdata. De tool zelf zegt dat ook; deze tekst moet dat volgen. */}
+        <p className="lead">Voer model + bouwjaar in. We combineren je merk en de leeftijd van je machine met de gebruikelijke levensduur per onderdeelcategorie — vuistregels uit de praktijk, geen metingen aan jouw machine.</p>
 
         <div className="lifetime-grid" style={{ marginTop: 40 }}>
           <div className="card card-hi">
@@ -1101,13 +1112,15 @@ function MonteurPro() {
           <div>
             <div className="eyebrow">Voor monteurs</div>
             <h2 className="h-section">De pro-tool die <em>nooit</em> meer een verkeerd onderdeel bestelt.</h2>
-            <p className="lead">Klanten dashboard, B2B API, 10% korting op onderdelen, en pre-diagnose die je bezoek halveert. Volledige technische database met service-handleidingen, ook van obscure merken.</p>
+            {/* Geen "bezoek halveert" (nooit gemeten), geen service-handleidingen
+                (we serveren er geen — we citeren ze alleen als bron bij een
+                foutcode) en geen witlabel (niet gebouwd, zie plans.ts). */}
+            <p className="lead">Klanten-CRM, werkorders met factuur, B2B API en 10% korting op onderdelen. Doe de diagnose vóór je vertrekt, zodat je het juiste onderdeel meeneemt.</p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 24 }}>
               <span className="pill"><Icon name="check" size={11} /> API toegang</span>
               <span className="pill"><Icon name="check" size={11} /> Klantenbeheer</span>
-              <span className="pill"><Icon name="check" size={11} /> Vooraf factureren</span>
-              <span className="pill"><Icon name="check" size={11} /> Service-handleidingen</span>
-              <span className="pill"><Icon name="check" size={11} /> Witlabel mogelijk</span>
+              <span className="pill"><Icon name="check" size={11} /> Werkorder naar factuur</span>
+              <span className="pill"><Icon name="check" size={11} /> Foutcodes met bronvermelding</span>
             </div>
             <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
               <Link className="btn btn-primary" href="/prijzen">Word Monteur Pro · € 29/mnd</Link>
@@ -1129,8 +1142,10 @@ function MonteurPro() {
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
                 {[
-                  { l: "Open jobs", v: "12", sub: "3 vandaag" },
-                  { l: "MTD omzet", v: "€ 4.820", sub: "+18% vs LM" },
+                  // Tegels die het dashboard echt heeft (tellingen). Hier stond
+                  // "MTD omzet €4.820 · +18% vs LM"; omzet-analytics bestaat niet.
+                  { l: "Open werkorders", v: "12", sub: "3 vandaag" },
+                  { l: "Klanten", v: "38", sub: "4 deze maand" },
                   { l: "Onderdelen", v: "€ 1.249", sub: "10% korting actief" },
                 ].map(s => (
                   <div key={s.l} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10 }}>

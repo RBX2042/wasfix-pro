@@ -1,8 +1,7 @@
 import type { Metadata } from "next";
 import { Inter, Syne, Geist, Geist_Mono } from "next/font/google";
 import { Toaster } from "sonner";
-import { Analytics } from "@vercel/analytics/next";
-import { SpeedInsights } from "@vercel/speed-insights/next";
+import { ConsentedAnalytics } from "@/components/ConsentedAnalytics";
 import { ThemeProvider } from "@/components/theme-provider";
 import { AuthProviders } from "@/components/auth-providers";
 import { CartProvider } from "@/components/cart-provider";
@@ -37,9 +36,11 @@ export const metadata: Metadata = {
     locale: "nl_NL",
     type: "website",
   },
-  alternates: {
-    canonical: "https://wasfix.nl",
-  },
+  // NOTE: deliberately no `alternates.canonical` here. Next.js inherits root
+  // metadata into every route that does not override it, so a static absolute
+  // canonical made 51 of 68 pages declare themselves duplicates of the
+  // homepage — including /onderdelen, /foutcodes, /diagnose and /merken. Pages
+  // that want one set it themselves; the rest emit none, which is safe.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -62,8 +63,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <MobileBottomNav />
         <SearchModal />
         <ServiceWorkerRegister />
-        <Analytics />
-        <SpeedInsights />
+        <ConsentedAnalytics />
       </body>
     </html>
   );

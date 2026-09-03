@@ -90,18 +90,53 @@ function formatInvoiceNumber(year: number, seq: number): string {
 }
 
 /**
+ * The year as it stands on the Dutch calendar.
+ *
+ * Between 00:00 and 01:00 CET on 1 January the server clock (UTC) is still in
+ * the old year, so an invoice issued then would take a number from the
+ * previous series and be filed in the wrong btw-aangifte. Lives here rather
+ * than in monteur-invoicing because both series need it and they must not
+ * disagree about which year it is.
+ */
+export function amsterdamYear(at: Date): number {
+  try {
+    const year = Number(
+      new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric" })
+        .formatToParts(at)
+        .find((p) => p.type === "year")?.value
+    );
+    return Number.isFinite(year) ? year : at.getUTCFullYear();
+  } catch {
+    // A runtime without the tz database: the UTC year is wrong for one hour a
+    // year, which beats refusing to invoice at all.
+    return at.getUTCFullYear();
+  }
+}
+
+/** The subset of PrismaClient this module needs, so a caller can hand us its
+ *  own interactive transaction instead of us opening a second one. */
+type InvoiceTx = Pick<typeof prisma, "invoice" | "order" | "invoiceSequence">;
+
+/**
  * Issue the invoice for a paid order. Idempotent: an order that already has an
  * invoice returns the existing one, so a replayed Stripe webhook never burns a
  * second number.
+ *
+ * Pass `tx` to join a transaction the caller already opened. Without it this
+ * opens its own, which is right for the webhook but wrong for the GDPR
+ * erasure: issuing outside that transaction created a permanent invoice
+ * carrying the customer's name and address even when the erasure then rolled
+ * back, while the caller was told nothing had happened.
  */
-export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoice | null> {
+export async function issueInvoiceForOrder(orderId: string, tx?: InvoiceTx): Promise<IssuedInvoice | null> {
   if (!isDatabaseConfigured()) return null;
+  const db = tx ?? prisma;
 
   try {
-    const existing = await prisma.invoice.findUnique({ where: { orderId } });
+    const existing = await db.invoice.findUnique({ where: { orderId } });
     if (existing) return deserializeInvoice(existing);
 
-    const order = await prisma.order.findUnique({
+    const order = await db.order.findUnique({
       where: { id: orderId },
       include: { items: { include: { part: true } } },
     });
@@ -131,47 +166,141 @@ export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoi
     };
 
     const seller = sellerParty();
-    const year = new Date().getFullYear();
+    // Same Dutch-calendar year the monteur series uses. On the server's UTC
+    // clock an invoice issued at 00:30 CET on 1 January took a number from the
+    // previous year's series and landed in the wrong btw-aangifte — the
+    // monteur series was corrected for this and the webshop series was not.
+    const year = amsterdamYear(new Date());
 
     // Allocate the number and write the invoice in ONE transaction. Doing the
     // allocation first and the insert after meant a losing race consumed a
     // number and then failed on the unique orderId, leaving a permanent hole
-    // in a series the Belastingdienst requires to be gapless.
-    const created = await prisma.$transaction(async (tx) => {
-      const already = await tx.invoice.findUnique({ where: { orderId: order.id } });
+    // in a series the Belastingdienst requires to be gapless. A caller's own
+    // transaction serialises this just as well, so we reuse it when given one.
+    const allocate = async (t: InvoiceTx) => {
+      const already = await t.invoice.findUnique({ where: { orderId: order.id } });
       if (already) return already;
-      const seqRow = await tx.invoiceSequence.upsert({
+      const seqRow = await t.invoiceSequence.upsert({
         where: { year },
         update: { last: { increment: 1 } },
         create: { year, last: 1 },
       });
-      return tx.invoice.create({
-      data: {
-        number: formatInvoiceNumber(year, seqRow.last),
-        year,
-        orderId: order.id,
-        subtotalEur: order.subtotalEur,
-        discountEur: order.discountEur,
-        shippingEur: order.shippingEur,
-        vatRate: order.vatRate,
-        vatEur: order.vatEur,
-        totalEur: order.totalEur,
-        sellerJson: JSON.stringify(seller),
-        buyerJson: JSON.stringify(buyer),
-        linesJson: JSON.stringify(lines),
-      },
+      return t.invoice.create({
+        data: {
+          number: formatInvoiceNumber(year, seqRow.last),
+          year,
+          orderId: order.id,
+          subtotalEur: order.subtotalEur,
+          discountEur: order.discountEur,
+          shippingEur: order.shippingEur,
+          vatRate: order.vatRate,
+          vatEur: order.vatEur,
+          totalEur: order.totalEur,
+          sellerJson: JSON.stringify(seller),
+          buyerJson: JSON.stringify(buyer),
+          linesJson: JSON.stringify(lines),
+        },
       });
-    });
+    };
+    const created = tx ? await allocate(tx) : await prisma.$transaction((t) => allocate(t));
 
     logger.info("[invoicing] invoice issued", { number: created.number, orderId });
     return deserializeInvoice(created);
   } catch (err) {
+    // Inside a caller's transaction there is nothing to recover: that
+    // transaction is already aborted, so every further query on it fails and
+    // the caller has to decide what a failure means. Rethrow and let it.
+    if (tx) {
+      logger.error("[invoicing] could not issue invoice inside caller transaction", err);
+      throw err instanceof Error ? err : new Error("invoice_failed");
+    }
     // A concurrent writer may have won the race; return their invoice rather
     // than reporting failure.
     const raced = await prisma.invoice.findUnique({ where: { orderId } }).catch(() => null);
     if (raced) return deserializeInvoice(raced);
     logger.error("[invoicing] could not issue invoice", err);
     throw err instanceof Error ? err : new Error("invoice_failed");
+  }
+}
+
+/**
+ * Confirms a bank-transfer order has been paid (admin action, once the wire
+ * arrives — there is no bank feed to detect this automatically). Idempotent:
+ * an already-paid order is left as-is rather than double-decrementing stock
+ * or re-sending a confirmation.
+ *
+ * The status transition IS the claim. findUnique + `if PAID return` + an
+ * unconditional update was not: the expiry sweep in the checkout route
+ * (releaseExpiredBankTransferOrders) cancels the order and puts its units back
+ * on the shelf, and this then flipped CANCELLED -> PAID afterwards without
+ * re-taking them — a shipped order against stock that may already be sold.
+ *
+ * A wire landing after the sweep is routine (14 days term + 7 days grace, paid
+ * on day 22), so it is confirmed rather than refused — but the units have to be
+ * taken off the shelf again first, with the same conditional decrement checkout
+ * uses. If one is gone the whole confirmation is rolled back and reported, so
+ * the money is reconciled by hand instead of a part being promised twice.
+ */
+export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  if (!isDatabaseConfigured()) return { ok: false, error: "Database niet beschikbaar." };
+  try {
+    return await prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER" },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+      if (claimed.count > 0) {
+        // The order was still open, so its stock is still reserved from the
+        // moment the invoice went out. Nothing to move.
+        logger.info("[invoicing] bank-transfer order marked paid", { orderId });
+        return { ok: true };
+      }
+
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { status: true, paymentMethod: true, items: { select: { partId: true, quantity: true } } },
+      });
+      if (!order) return { ok: false, error: "Bestelling niet gevonden." };
+      if (order.paymentMethod !== "BANK_TRANSFER") {
+        return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
+      }
+      if (order.status === "PAID") return { ok: true };
+      if (order.status !== "CANCELLED") {
+        return { ok: false, error: `Bestelling staat op ${order.status} en kan niet op betaald worden gezet.` };
+      }
+
+      const revived = await tx.order.updateMany({
+        where: { id: orderId, status: "CANCELLED" },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+      if (revived.count === 0) {
+        return { ok: false, error: "Bestelling is zojuist gewijzigd. Probeer het opnieuw." };
+      }
+      for (const item of order.items) {
+        const retaken = await tx.part.updateMany({
+          where: { id: item.partId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        });
+        // Throwing rolls the revival above back with it — either the order is
+        // PAID with its stock, or it stays CANCELLED.
+        if (retaken.count === 0) throw new Error(`out_of_stock:${item.partId}`);
+      }
+      logger.warn("[invoicing] late payment on a cancelled bank-transfer order — reinstated and stock re-taken", { orderId });
+      return { ok: true };
+    });
+  } catch (err) {
+    if (err instanceof Error && err.message.startsWith("out_of_stock:")) {
+      logger.error("[invoicing] late payment on a cancelled order, but its stock is sold — not reinstated", {
+        orderId,
+        partId: err.message.slice("out_of_stock:".length),
+      });
+      return {
+        ok: false,
+        error: "De voorraad van deze geannuleerde bestelling is inmiddels verkocht. Boek de betaling handmatig af (creditnota of terugbetaling).",
+      };
+    }
+    logger.error("[invoicing] could not mark order paid", err);
+    return { ok: false, error: "Kon bestelling niet als betaald markeren." };
   }
 }
 

@@ -19,7 +19,10 @@ npm install
 npm run dev
 ```
 
-Open http://localhost:3000. In demo mode (default) werkt de complete flow — diagnose, catalogus, checkout, dashboard, admin — op de statische catalogus in `src/data/*.json` (331 foutcodes, 96 onderdelen, 26 gidsen, 18 machines). Zonder `DATABASE_URL` wordt niets opgeslagen; met `DATABASE_URL` wordt alles persistent.
+Open http://localhost:3000. In demo mode (default) werkt de complete flow — diagnose, catalogus, checkout, dashboard, admin — op de statische catalogus in `src/data/*.json` (329 foutcodes, 96 onderdelen, 26 gidsen, 18 machines,
+stand 3 sep 2026). Die vier getallen staan hier als momentopname; de site zelf telt ze bij elke render
+met `catalogStats()`, dus vertrouw op de pagina en niet op deze regel. Zonder `DATABASE_URL` wordt niets
+opgeslagen; met `DATABASE_URL` wordt alles persistent.
 
 ## Quick start (met database)
 
@@ -28,7 +31,7 @@ Open http://localhost:3000. In demo mode (default) werkt de complete flow — di
 docker run -d --name wasfix-pg -e POSTGRES_PASSWORD=wasfix -e POSTGRES_DB=wasfix -p 5432:5432 postgres:16
 export DATABASE_URL=postgresql://postgres:wasfix@localhost:5432/wasfix
 
-npm run db:setup    # prisma db push + seed uit src/data/*.json (idempotent, IDs blijven gelijk)
+npm run db:setup    # prisma migrate deploy + seed uit src/data/*.json (idempotent, IDs blijven gelijk)
 npm run db:smoke    # 25 CRUD/relatie-checks
 npm run dev
 ```
@@ -41,7 +44,8 @@ De seed maakt 4 demo-accounts: `jdahoe@hotmail.nl` (ADMIN/BEDRIJF, auto-login in
 |---|---|
 | `npm run dev` / `build` / `start` | Next.js |
 | `npm run typecheck` / `lint` | CI checks |
-| `npm run db:setup` | Schema pushen + catalogus seeden |
+| `npm run db:setup` | `prisma migrate deploy` + catalogus seeden |
+| `npm run db:migrate` | Nieuwe migratie maken tijdens ontwikkeling (`prisma migrate dev`) |
 | `npm run db:seed` | Alleen seeden (upsert, veilig bij content-updates) |
 | `npm run db:smoke` | Database QA (`scripts/qa-db.ts`) |
 | `npm run money:smoke` | Btw, facturen, quota en marge (`scripts/qa-money.ts`) |
@@ -101,7 +105,8 @@ Elke integratie activeert zichzelf zodra zijn env var bestaat; zie `.env.example
 3. **AI**: `GEMINI_API_KEY`.
 4. **Payments**: Stripe keys, 3 price IDs, webhook `/api/stripe/webhook`.
 5. **Email**: `RESEND_API_KEY` (+ `RESEND_AUDIENCE_ID`).
-6. **Optioneel**: Upstash (rate limit), Sentry, PostHog, GSC, KvK.
+6. **Optioneel**: Upstash (rate limit), PostHog, GSC, KvK. Sentry is *niet* installeerbaar met alleen een
+   env var — `@sentry/nextjs` staat niet in `package.json`; zie BLOCKED.md.
 7. **Deploy**: Vercel (`npm run build` draait `prisma generate`).
 
 ## Architectuur
@@ -113,7 +118,8 @@ src/
 │   ├── (public pages)       # Landing, diagnose, foutcodes, onderdelen, gidsen, merken, blog, tools, legal
 │   ├── dashboard/           # Klant dashboard (diagnoses, bestellingen, wasmachines, profiel, API keys, referrals)
 │   ├── monteur/             # B2B landing + Monteur Pro dashboard
-│   └── admin/               # Admin (catalogus, gebruikers, analytics, AI-kwaliteit, aanvragen & reviews)
+│   └── admin/               # Admin (catalogus-CRUD, analytics, AI-kwaliteit, aanvragen & reviews;
+│                             #        /admin/gebruikers is alleen-lezen — rol en plan zijn daar niet te wijzigen)
 ├── components/              # UI, redesign (dark), auth-buttons/providers, cart, …
 ├── data/                    # Statische catalogus (bron van waarheid voor seed én fallback)
 └── lib/
@@ -123,7 +129,7 @@ src/
     ├── api-auth.ts          # B2B API keys (SHA-256 hash in DB, demo key)
     ├── ratelimit.ts         # Upstash of in-memory
     ├── gemini.ts / stripe.ts / email.ts
-    └── middleware.ts        # SEO rewrites + clerkMiddleware (alleen als geconfigureerd)
+    └── (src/middleware.ts)  # SEO rewrites + clerkMiddleware (alleen als geconfigureerd) — staat op src/, niet in lib/
 ```
 
 ## Data model
@@ -136,8 +142,9 @@ Inbox: `Review` (moderatie), `RmaRequest`, `MonteurApplication`, `NewsletterSubs
 
 ### Reviews en ratings
 
-Reviews komen uit twee bronnen: de curated set in `src/data/reviews.json` en door een
-moderator goedgekeurde rijen in de `Review`-tabel. Sterbeoordelingen op de pagina én in
+Er is precies één bron: door een moderator goedgekeurde rijen in de `Review`-tabel
+(`src/lib/reviews.ts`). We leveren geen seed-reviews mee — een review op deze site is
+door iemand geschreven die het product gebruikt heeft. Sterbeoordelingen op de pagina én in
 schema.org `AggregateRating` worden **altijd** uit die echte reviews berekend; is er geen
 review, dan publiceren we geen rating. Verzin hier nooit cijfers: dat is in strijd met het
 schema.org-beleid van Google en met de EU Omnibus-richtlijn over consumentenreviews.

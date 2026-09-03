@@ -1,4 +1,5 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
+import { COMPANY, realOrNull, PENDING_REGISTRATION } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
@@ -26,9 +27,21 @@ export default function PrivacyPage() {
 
             <h2>1. Verwerkingsverantwoordelijke</h2>
             <p>
-              WasFix Pro B.V.<br />
-              Hoofdstraat 1, 1234 AB Amsterdam, Nederland<br />
-              KvK: 12345678 · BTW: NL123456789B01<br />
+              {COMPANY.name}<br />
+              {realOrNull(COMPANY.street) && realOrNull(COMPANY.city) ? (
+                <>
+                  {realOrNull(COMPANY.street)}, {realOrNull(COMPANY.postalCode)} {realOrNull(COMPANY.city)}, {COMPANY.country}
+                  <br />
+                </>
+              ) : (
+                <>
+                  Vestigingsadres: {PENDING_REGISTRATION}
+                  <br />
+                </>
+              )}
+              KvK: {realOrNull(COMPANY.kvk) ?? PENDING_REGISTRATION} · BTW:{" "}
+              {realOrNull(COMPANY.vatNumber) ?? PENDING_REGISTRATION}
+              <br />
               Contact privacy: <a href="mailto:privacy@wasfix.nl">privacy@wasfix.nl</a>
             </p>
 

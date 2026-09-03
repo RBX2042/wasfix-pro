@@ -9,18 +9,27 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import { VAT_RATE, SHIPPING, shippingFor } from "@/lib/plans";
-import { ShoppingBag, Truck, Lock, ArrowLeft } from "lucide-react";
+import { VAT_RATE, COMPANY, SHIPPING, shippingFor, realOrNull } from "@/lib/plans";
+import { ShoppingBag, Truck, Lock, ArrowLeft, Landmark } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 
-export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }) {
+export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeAvailable: boolean; partsDiscount?: number }) {
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clear);
   const router = useRouter();
   const [submitting, setSubmitting] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
+  const [paymentMethod, setPaymentMethod] = React.useState<"stripe" | "bank_transfer">(stripeAvailable ? "stripe" : "bank_transfer");
+  const [placed, setPlaced] = React.useState<{
+    orderId: string;
+    invoiceNumber: string | null;
+    iban: string | null;
+    ibanName: string | null;
+    dueAt: string | null;
+    total: number;
+  } | null>(null);
   React.useEffect(() => setMounted(true), []);
 
   // Mirrors /api/checkout exactly — same discount, same shipping rule, same
@@ -51,6 +60,7 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
           email: formData.get("email"),
           name: formData.get("name"),
           vatNumber: (formData.get("vatNumber") as string)?.trim() || undefined,
+          paymentMethod,
           address: {
             street: formData.get("street"),
             houseNumber: formData.get("houseNumber"),
@@ -76,8 +86,29 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
         return;
       }
 
-      // Demo mode — direct success
       clearCart();
+      if (data.paymentMethod === "bank_transfer") {
+        // No "?success=1" — the order page itself shows the payment
+        // Show the payment details right here instead of redirecting to
+        // /bestelling/[id]. That page requires the order to belong to the
+        // signed-in user, and a guest checkout has no session — so the
+        // redirect 404'd after the order was created, the stock was taken and
+        // an invoice number was burned, leaving the customer with a cleared
+        // cart and no idea what to pay or where. The ownership check on that
+        // page is correct and stays; this response is the only other place
+        // the IBAN and invoice number exist.
+        setPlaced({
+          orderId: data.orderId,
+          invoiceNumber: data.invoiceNumber ?? null,
+          iban: data.iban ?? null,
+          ibanName: data.ibanName ?? null,
+          dueAt: data.dueAt ?? null,
+          total: data.totals?.total ?? total,
+        });
+        return;
+      }
+
+      // Demo mode — direct success
       router.push(`/bestelling/${data.orderId}?success=1`);
     } catch {
       toast.error("Er ging iets mis met afrekenen");
@@ -86,11 +117,73 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
     }
   }
 
+  // Placed-on-account confirmation. Must come before the empty-cart branch:
+  // the cart was just cleared, so otherwise the customer sees "je winkelmand
+  // is leeg" instead of how to pay.
+  if (placed) {
+    return (
+      <div className="container py-12 max-w-2xl">
+        <div className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-6 mb-6">
+          <h1 className="font-heading text-2xl font-bold mb-1">Bedankt voor je bestelling</h1>
+          <p className="text-sm text-muted-foreground mb-5">
+            We versturen je onderdelen zodra de betaling binnen is. Je ontvangt deze gegevens ook per e-mail.
+          </p>
+          <div className="bg-white dark:bg-black/20 rounded-md p-4 text-sm space-y-1.5">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Bestelnummer</span>
+              <span className="font-mono font-semibold">{placed.orderId.slice(0, 8).toUpperCase()}</span>
+            </div>
+            {placed.invoiceNumber && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Factuurnummer</span>
+                <span className="font-mono font-semibold">{placed.invoiceNumber}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Te betalen</span>
+              <span className="font-semibold">{formatEur(placed.total)}</span>
+            </div>
+            {placed.iban ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">IBAN</span>
+                  <span className="font-mono font-semibold">{placed.iban}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ten name van</span>
+                  <span>{placed.ibanName}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Betaalgegevens</span>
+                <span>volgen per e-mail</span>
+              </div>
+            )}
+            {placed.dueAt && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Betalen voor</span>
+                <span>{new Date(placed.dueAt).toLocaleDateString("nl-NL")}</span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Vermeld het factuurnummer bij je overboeking. Vragen? Mail support@wasfix.nl.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant="outline"><Link href="/onderdelen">Verder winkelen</Link></Button>
+          <Button asChild><Link href="/diagnose">Nieuwe diagnose</Link></Button>
+        </div>
+      </div>
+    );
+  }
+
   if (mounted && items.length === 0) {
     return (
       <div className="container py-20 text-center">
         <ShoppingBag className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
-        <h2 className="font-heading text-2xl font-bold mb-2">Je winkelmand is leeg</h2>
+        <h1 className="font-heading text-2xl font-bold mb-2">Je winkelmand is leeg</h1>
         <p className="text-muted-foreground mb-6">Voeg eerst onderdelen toe voordat je afrekent.</p>
         <Button asChild>
           <Link href="/onderdelen"><ArrowLeft className="h-4 w-4" /> Terug naar shop</Link>
@@ -114,15 +207,15 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
               <h2 className="font-heading text-lg font-semibold">Contactgegevens</h2>
               <div>
                 <Label htmlFor="email">E-mailadres</Label>
-                <Input id="email" name="email" type="email" required placeholder="jouw@email.nl" />
+                <Input id="email" name="email" type="email" autoComplete="email" required placeholder="jouw@email.nl" className="h-11 text-base" />
               </div>
               <div>
                 <Label htmlFor="name">Volledige naam</Label>
-                <Input id="name" name="name" required placeholder="Jan de Vries" />
+                <Input id="name" name="name" autoComplete="name" required placeholder="Jan de Vries" className="h-11 text-base" />
               </div>
               <div>
                 <Label htmlFor="vatNumber">Btw-nummer <span className="text-muted-foreground font-normal">(optioneel, voor op de factuur)</span></Label>
-                <Input id="vatNumber" name="vatNumber" placeholder="NL123456789B01" />
+                <Input id="vatNumber" name="vatNumber" placeholder="NL123456789B01" className="h-11 text-base" />
               </div>
             </CardContent>
           </Card>
@@ -130,24 +223,27 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
           <Card>
             <CardContent className="p-6 space-y-4">
               <h2 className="font-heading text-lg font-semibold">Verzendadres</h2>
-              <div className="grid grid-cols-[1fr_120px] gap-3">
+              {/* minmax(0,…) instead of 1fr: a 16px input reports a ~186px intrinsic
+                  width, and an auto-min track will not shrink below that — the row
+                  would push /checkout into horizontal scroll on a 390px phone. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
                 <div>
                   <Label htmlFor="street">Straatnaam</Label>
-                  <Input id="street" name="street" required placeholder="Hoofdstraat" />
+                  <Input id="street" name="street" autoComplete="address-line1" required placeholder="Hoofdstraat" className="h-11 text-base" />
                 </div>
                 <div>
                   <Label htmlFor="houseNumber">Huisnummer</Label>
-                  <Input id="houseNumber" name="houseNumber" required placeholder="42a" />
+                  <Input id="houseNumber" name="houseNumber" autoComplete="address-line2" required placeholder="42a" className="h-11 text-base" />
                 </div>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
+              <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3">
                 <div>
                   <Label htmlFor="postalCode">Postcode</Label>
-                  <Input id="postalCode" name="postalCode" required placeholder="1234 AB" />
+                  <Input id="postalCode" name="postalCode" autoComplete="postal-code" autoCapitalize="characters" required placeholder="1234 AB" className="h-11 text-base" />
                 </div>
                 <div>
                   <Label htmlFor="city">Plaats</Label>
-                  <Input id="city" name="city" required placeholder="Amsterdam" />
+                  <Input id="city" name="city" autoComplete="address-level2" required placeholder="Amsterdam" className="h-11 text-base" />
                 </div>
               </div>
             </CardContent>
@@ -156,13 +252,33 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
           <Card>
             <CardContent className="p-6">
               <h2 className="font-heading text-lg font-semibold mb-3">Betaling</h2>
-              <p className="text-sm text-muted-foreground mb-4">
-                In demo mode wordt geen daadwerkelijke betaling verwerkt. In productie wordt je doorgeleid naar Stripe Checkout (iDEAL, Bancontact, kaart).
-              </p>
-              <div className="flex items-center gap-2 text-sm">
-                <Lock className="h-4 w-4 text-emerald-500" />
-                <span className="text-muted-foreground">Veilig betalen via Stripe</span>
-              </div>
+
+              {stripeAvailable ? (
+                <div className="space-y-2">
+                  <label className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${paymentMethod === "stripe" ? "border-primary bg-primary/5" : ""}`}>
+                    <input type="radio" name="paymentMethodChoice" checked={paymentMethod === "stripe"} onChange={() => setPaymentMethod("stripe")} />
+                    <Lock className="h-4 w-4 text-emerald-500 shrink-0" />
+                    <span className="text-sm">Direct betalen (iDEAL, Bancontact, kaart) via Stripe</span>
+                  </label>
+                  <label className={`flex items-center gap-3 rounded-md border p-3 cursor-pointer ${paymentMethod === "bank_transfer" ? "border-primary bg-primary/5" : ""}`}>
+                    <input type="radio" name="paymentMethodChoice" checked={paymentMethod === "bank_transfer"} onChange={() => setPaymentMethod("bank_transfer")} />
+                    <Landmark className="h-4 w-4 text-primary shrink-0" />
+                    <span className="text-sm">Op rekening — betaal binnen 14 dagen per bankoverschrijving</span>
+                  </label>
+                </div>
+              ) : (
+                <div className="rounded-md border p-3 flex items-center gap-3">
+                  <Landmark className="h-4 w-4 text-primary shrink-0" />
+                  <div>
+                    <p className="text-sm font-medium">Op rekening</p>
+                    <p className="text-xs text-muted-foreground">
+                      {/* Never print the placeholder IBAN as if a customer could pay it. */}
+                      Je ontvangt direct een factuur met betaalinstructies
+                      {realOrNull(COMPANY.iban) ? ` (${COMPANY.name}, IBAN ${COMPANY.iban})` : ""}. Betaal binnen 14 dagen.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardContent>
           </Card>
         </div>
@@ -216,8 +332,11 @@ export function CheckoutClient({ partsDiscount = 0 }: { partsDiscount?: number }
                 <span className="font-heading text-2xl font-bold">{formatEur(total)}</span>
               </div>
 
+              {/* Art. 6:230v lid 3 BW: the order button has to spell out the payment
+                  obligation. Without those words the consumer is simply not bound by
+                  the agreement, so "Bestelling plaatsen" alone is not enough. */}
               <Button type="submit" size="lg" className="w-full" disabled={submitting || !mounted || items.length === 0}>
-                {submitting ? "Verwerken..." : "Bestelling plaatsen"}
+                {submitting ? "Verwerken..." : "Bestelling met betalingsverplichting"}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">

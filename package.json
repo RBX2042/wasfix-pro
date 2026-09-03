@@ -9,14 +9,16 @@
     "lint": "next lint",
     "db:push": "prisma db push",
     "db:seed": "tsx prisma/seed.ts",
-    "db:setup": "prisma db push && tsx prisma/seed.ts",
+    "db:setup": "prisma migrate deploy && tsx prisma/seed.ts",
     "db:studio": "prisma studio",
     "db:smoke": "tsx scripts/qa-db.ts",
     "postinstall": "prisma generate",
     "analyze": "ANALYZE=true next build",
     "typecheck": "tsc --noEmit",
     "smoke": "tsx scripts/smoke.ts",
-    "money:smoke": "tsx scripts/qa-money.ts"
+    "money:smoke": "tsx scripts/qa-money.ts",
+    "db:migrate": "prisma migrate dev",
+    "db:baseline": "prisma migrate resolve --applied 00000000000000_init"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",

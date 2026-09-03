@@ -1,4 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
+import { isStripeConfigured } from "@/lib/env";
 import { getCurrentUser, getPlanLimits } from "@/lib/auth";
 import { CheckoutClient } from "./checkout-client";
 
@@ -14,7 +15,7 @@ export default async function CheckoutPage() {
 
   return (
     <MarketingLayout>
-      <CheckoutClient partsDiscount={partsDiscount} />
+      <CheckoutClient stripeAvailable={isStripeConfigured()} partsDiscount={partsDiscount} />
     </MarketingLayout>
   );
 }

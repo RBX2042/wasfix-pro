@@ -4,8 +4,15 @@
  * agree (orders reference Part.id, checkout resolves parts from the static
  * catalog, etc.).
  *
- * Idempotent: every row is upserted, so it is safe to re-run after content
- * updates. User-generated data (orders, diagnoses, reviews) is never touched.
+ * Idempotent: every row is upserted, so it is safe to re-run at any time.
+ * User-generated data (orders, diagnoses, reviews) is never touched.
+ *
+ * Catalog rows are seeded CREATE-ONLY. Once a row exists the database owns it,
+ * because /admin edits it there: re-running this with the JSON in the update
+ * payload put a price raised to 99,99 back to 28,50 on the next content
+ * deploy, and did the same to guide titles and isPremium flags. New rows added
+ * to src/data/*.json still land; changes to rows that already exist do not, so
+ * a correction to shipped content has to be made in /admin as well.
  *
  * Usage: npx prisma db push && npm run db:seed
  */
@@ -39,6 +46,16 @@ async function main() {
   console.log("🌱 Seeding WasFix Pro from src/data/*.json …");
 
   // ── Users ────────────────────────────────────────────────────────
+  // SECURITY: never seed privileged accounts into a production database.
+  // getCurrentUser() claims an existing row *by e-mail address* on first
+  // sign-in, so a seeded ADMIN row is a standing takeover target for whoever
+  // can receive mail at that address. Three of these use @wasfixpro.nl, which
+  // is not the production domain (wasfix.nl) — if that domain is not owned by
+  // the company, registering it is enough to inherit ADMIN. The catalog below
+  // still seeds normally; only the accounts are skipped.
+  if (process.env.NODE_ENV === "production" && process.env.SEED_USERS !== "true") {
+    console.log("  ⏭  users skipped (production — set SEED_USERS=true to override)");
+  } else {
   await prisma.user.upsert({
     where: { email: SUPERADMIN_EMAIL },
     update: { role: "ADMIN", plan: "BEDRIJF" },
@@ -60,8 +77,11 @@ async function main() {
     create: { email: "klant@wasfixpro.nl", name: "Demo Klant", role: "CONSUMER", plan: "FREE" },
   });
   console.log("  ✓ users");
+  }
 
   // ── Machines ─────────────────────────────────────────────────────
+  // The one catalog table that keeps its update payload: /admin has no machine
+  // editor, so there is no hand-entered data here to overwrite.
   await inChunks(machines as MachineRow[], (m) =>
     prisma.washingMachine.upsert({
       where: { id: m.id },
@@ -85,24 +105,32 @@ async function main() {
       isOriginal: p.isOriginal,
       supplier: p.supplier ?? null,
     };
-    // Stock is only set on create so live inventory is not reset by a re-seed.
-    return prisma.part.upsert({ where: { id: p.id }, update: data, create: { id: p.id, stock: p.stock, ...data } });
+    // Create-only: from here on the database owns the row. Stock was already
+    // protected this way so live inventory survives a re-seed; price, cost and
+    // copy need the same protection, because /admin/onderdelen writes them and
+    // an update payload put every one of them back to the JSON value.
+    return prisma.part.upsert({ where: { id: p.id }, update: {}, create: { id: p.id, stock: p.stock, ...data } });
   });
   console.log(`  ✓ ${parts.length} parts`);
 
   // ── Error codes ──────────────────────────────────────────────────
   await inChunks(errorCodes as ErrorCodeRow[], (ec) => {
     const data = { code: ec.code, machineId: ec.machineId, title: ec.title, description: ec.description, likelyCauses: ec.likelyCauses, severity: ec.severity, diyFriendly: ec.diyFriendly, provenance: ec.provenance, sourceUrl: ec.sourceUrl, sourceName: ec.sourceName };
-    return prisma.errorCode.upsert({ where: { id: ec.id }, update: data, create: { id: ec.id, ...data } });
+    // Create-only: /admin/foutcodes owns these fields, and a verification pass
+    // recorded there (provenance VERIFIED + source) must not be reset to
+    // REPORTED by the next content deploy.
+    return prisma.errorCode.upsert({ where: { id: ec.id }, update: {}, create: { id: ec.id, ...data } });
   });
   console.log(`  ✓ ${errorCodes.length} error codes`);
 
   // ── Guides ───────────────────────────────────────────────────────
   await inChunks(guides as GuideRow[], (g) => {
     const data = { title: g.title, slug: g.slug, machineId: g.machineId, difficulty: g.difficulty, timeMinutes: g.timeMinutes, steps: g.steps, tools: g.tools, summary: g.summary, warnings: g.warnings, isPremium: g.isPremium };
+    // Create-only, like parts: /admin/gidsen owns the title, the difficulty and
+    // the isPremium flag once the row exists. views was already protected.
     return prisma.repairGuide.upsert({
       where: { id: g.id },
-      update: data,
+      update: {},
       create: { id: g.id, views: g.views, createdAt: new Date(g.createdAt), ...data },
     });
   });

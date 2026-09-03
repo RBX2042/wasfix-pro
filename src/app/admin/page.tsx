@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { formatEur, formatDate } from "@/lib/utils";
-import { Users, Package, TrendingUp, MessageCircle, BookOpen, AlertCircle, Inbox, BarChart3 } from "lucide-react";
+import { Users, Package, TrendingUp, MessageCircle, BookOpen, AlertCircle, Inbox, BarChart3, Landmark } from "lucide-react";
 import RevenueChart from "@/components/charts/RevenueChart";
 import ErrorCodeFrequency from "@/components/charts/ErrorCodeFrequency";
 
@@ -30,30 +30,67 @@ export default async function AdminPage() {
     );
   }
 
+  const PAID_STATUSES = ["PAID", "SHIPPED", "DELIVERED"];
+
+  // Every query on this page is bounded. The previous version pulled every paid
+  // order and every diagnosis ever written just to add them up in JS — at 100k
+  // diagnoses a full scan with a JSON.parse per row, on every load of a
+  // force-dynamic page. Postgres does the summing now; only what genuinely needs
+  // a row-by-row pass (the charts) is fetched, and only within a window.
+  const now = new Date();
+  const chartStart = new Date(now);
+  chartStart.setDate(chartStart.getDate() - 29);
+  chartStart.setHours(0, 0, 0, 0);
+
+  // Diagnosis.result is JSON inside a string column, so errorCode cannot be
+  // grouped in SQL. Hence a window plus a hard cap instead of the whole table.
+  const DIAGNOSIS_WINDOW_DAYS = 90;
+  const DIAGNOSIS_SAMPLE = 2000;
+  const diagnosisSince = new Date(now);
+  diagnosisSince.setDate(diagnosisSince.getDate() - DIAGNOSIS_WINDOW_DAYS);
+
   let usersCount = 0, partsCount = 20, ordersCount = 0, diagnosesCount = 0, guidesCount = 6, errorCodesCount = 26;
   let revenue: { _sum: { totalEur: number | null; vatEur: number | null; costEur: number | null } } = { _sum: { totalEur: 0, vatEur: 0, costEur: 0 } };
+  let costedRevenue: { _sum: { totalEur: number | null; vatEur: number | null }; _count: number } = { _sum: { totalEur: 0, vatEur: 0 }, _count: 0 };
+  let paidOrdersCount = 0;
   let recentOrders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
   let recentUsers: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
-  let allOrders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
-  let allDiagnoses: Array<{ result: string | null }> = [];
+  let chartOrders: Array<{ createdAt: Date; totalEur: number }> = [];
+  let recentDiagnoses: Array<{ result: string | null }> = [];
   let allErrorCodes: Array<{ code: string; severity: string }> = [];
+  let dbError = false;
   try {
-    [usersCount, partsCount, ordersCount, diagnosesCount, guidesCount, errorCodesCount, revenue, recentOrders, recentUsers, allOrders, allDiagnoses, allErrorCodes] = await Promise.all([
+    [usersCount, partsCount, ordersCount, diagnosesCount, guidesCount, errorCodesCount, revenue, costedRevenue, paidOrdersCount, recentOrders, recentUsers, chartOrders, recentDiagnoses, allErrorCodes] = await Promise.all([
       prisma.user.count(),
       prisma.part.count(),
       prisma.order.count(),
       prisma.diagnosis.count(),
       prisma.repairGuide.count(),
       prisma.errorCode.count(),
-      prisma.order.aggregate({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } }, _sum: { totalEur: true, vatEur: true, costEur: true } }),
+      prisma.order.aggregate({ where: { status: { in: PAID_STATUSES } }, _sum: { totalEur: true, vatEur: true, costEur: true } }),
+      // Only orders with a cost price count towards the margin; Postgres sums
+      // that subset instead of a filter() over the whole table.
+      prisma.order.aggregate({ where: { status: { in: PAID_STATUSES }, costEur: { not: null } }, _sum: { totalEur: true, vatEur: true }, _count: true }),
+      prisma.order.count({ where: { status: { in: PAID_STATUSES } } }),
       prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
       prisma.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
-      prisma.order.findMany({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] } } }),
-      prisma.diagnosis.findMany({ select: { result: true } }),
+      prisma.order.findMany({
+        where: { status: { in: PAID_STATUSES }, createdAt: { gte: chartStart } },
+        select: { createdAt: true, totalEur: true },
+      }),
+      prisma.diagnosis.findMany({
+        where: { createdAt: { gte: diagnosisSince }, result: { not: null } },
+        select: { result: true },
+        orderBy: { createdAt: "desc" },
+        take: DIAGNOSIS_SAMPLE,
+      }),
       prisma.errorCode.findMany({ select: { code: true, severity: true } }),
     ]);
   } catch {
-    // DB unreachable — show empty admin dashboard
+    // DB unreachable. Catalog counts come from the static source, but revenue,
+    // orders and users stay 0 — without a warning that reads as "nothing sold"
+    // rather than "we don't know". Hence the banner.
+    dbError = true;
     const { staticStats } = await import("@/lib/static-db");
     const s = staticStats();
     partsCount = s.partsCount;
@@ -69,21 +106,20 @@ export default async function AdminPage() {
   const vatCollected = revenue._sum.vatEur ?? 0;
   const netRevenue = grossTurnover - vatCollected;
   const costOfGoods = revenue._sum.costEur ?? 0;
-  const ordersWithCost = allOrders.filter((o) => typeof o.costEur === "number");
-  const netRevenueWithCost = ordersWithCost.reduce((s, o) => s + Number(o.totalEur) - Number(o.vatEur), 0);
+  const ordersWithCostCount = costedRevenue._count;
+  const netRevenueWithCost = (costedRevenue._sum.totalEur ?? 0) - (costedRevenue._sum.vatEur ?? 0);
   const grossMargin = netRevenueWithCost - costOfGoods;
   const marginPct = netRevenueWithCost > 0 ? (grossMargin / netRevenueWithCost) * 100 : 0;
-  const marginCoverage = allOrders.length > 0 ? (ordersWithCost.length / allOrders.length) * 100 : 100;
+  const marginCoverage = paidOrdersCount > 0 ? (ordersWithCostCount / paidOrdersCount) * 100 : 100;
 
   // Build revenue chart data — group orders by day, last 30 days
-  const now = new Date();
   const days: Array<{ date: string; revenue: number; orders: number }> = [];
   for (let i = 29; i >= 0; i--) {
     const d = new Date(now);
     d.setDate(d.getDate() - i);
     d.setHours(0, 0, 0, 0);
     const next = new Date(d); next.setDate(next.getDate() + 1);
-    const dayOrders = allOrders.filter(o => o.createdAt >= d && o.createdAt < next);
+    const dayOrders = chartOrders.filter(o => o.createdAt >= d && o.createdAt < next);
     days.push({
       date: `${d.getDate()}/${d.getMonth() + 1}`,
       revenue: dayOrders.reduce((s, o) => s + Number(o.totalEur), 0),
@@ -92,15 +128,15 @@ export default async function AdminPage() {
   }
 
   // Build error-code frequency from diagnoses
+  const severityByCode = new Map(allErrorCodes.map((e) => [e.code, e.severity]));
   const codeCount: Record<string, { count: number; severity: string }> = {};
-  for (const d of allDiagnoses) {
+  for (const d of recentDiagnoses) {
     if (!d.result) continue;
     try {
       const r = typeof d.result === "string" ? JSON.parse(d.result) : (d.result as { errorCode?: string });
       const code = r?.errorCode;
       if (code) {
-        const ec = allErrorCodes.find(e => e.code === code);
-        if (!codeCount[code]) codeCount[code] = { count: 0, severity: ec?.severity ?? "MEDIUM" };
+        if (!codeCount[code]) codeCount[code] = { count: 0, severity: severityByCode.get(code) ?? "MEDIUM" };
         codeCount[code].count++;
       }
     } catch {}
@@ -117,6 +153,21 @@ export default async function AdminPage() {
         <h1 className="font-heading text-2xl font-bold">Admin Dashboard</h1>
         <p className="text-muted-foreground text-sm">Volledige controle over content en gebruikers</p>
       </div>
+
+      {dbError && (
+        <Card className="mb-6 border-destructive/40 bg-destructive/5">
+          <CardContent className="p-4 flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
+            <div className="text-sm">
+              <p className="font-semibold">Database onbereikbaar — cijfers hieronder zijn niet actueel</p>
+              <p className="text-muted-foreground">
+                Omzet, bestellingen, gebruikers en diagnoses staan op 0 omdat ze niet opgehaald konden
+                worden, niet omdat ze 0 zijn. Alleen de catalogusaantallen komen uit de statische bron.
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      )}
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <StatCard icon={<Users className="h-4 w-4" />} label="Gebruikers" value={usersCount.toString()} />
@@ -177,6 +228,11 @@ export default async function AdminPage() {
                     href="/admin/aanvragen"
         />
         <ManageCard
+          icon={<Landmark className="h-5 w-5" />}
+          title="Bestellingen & facturen"
+          href="/admin/bestellingen"
+        />
+        <ManageCard
           icon={<Users className="h-5 w-5" />}
           title="Gebruikers"
           count={usersCount}
@@ -200,12 +256,15 @@ export default async function AdminPage() {
         <Card>
           <CardContent className="p-6">
             <h2 className="font-heading text-lg font-semibold mb-1">Top foutcodes</h2>
-            <p className="text-xs text-muted-foreground mb-3">Meest gediagnosticeerde codes (gekleurd op severity)</p>
+            <p className="text-xs text-muted-foreground mb-3">
+              Meest gediagnosticeerde codes, laatste {DIAGNOSIS_WINDOW_DAYS} dagen
+              (max {DIAGNOSIS_SAMPLE} diagnoses, gekleurd op severity)
+            </p>
             {topCodes.length > 0 ? (
               <ErrorCodeFrequency data={topCodes} />
             ) : (
               <div className="h-64 flex items-center justify-center text-sm text-muted-foreground">
-                Nog geen diagnoses geregistreerd
+                Geen diagnoses in de laatste {DIAGNOSIS_WINDOW_DAYS} dagen
               </div>
             )}
           </CardContent>

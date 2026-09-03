@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticMachineFull } from "@/lib/static-db";
+import { dbMachineFull } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -21,7 +21,7 @@ export default async function ModelPage({ params }: { params: Promise<{ brand: s
   const brand = decodeURIComponent(encBrand);
   const model = decodeURIComponent(encModel);
 
-  const machine = staticMachineFull(brand, model);
+  const machine = await dbMachineFull(brand, model);
 
   if (!machine) notFound();
 

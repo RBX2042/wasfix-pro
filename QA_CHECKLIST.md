@@ -2,6 +2,11 @@
 
 Pre-launch / pre-merge checklist. Run through before every release.
 
+Nothing here runs itself: there is no test runner and no `npm test`. The only
+automated checks are `npm run db:smoke`, `npm run money:smoke` and `npm run smoke`
+(61 HTTP checks). Everything else below is a human walking the flow. A ticked box
+means someone looked — never that a suite passed.
+
 ## Build & Type Safety
 
 - [ ] `npm run typecheck` → 0 errors
@@ -27,7 +32,9 @@ Pre-launch / pre-merge checklist. Run through before every release.
 - [ ] Demo order (`/bestelling/demo-XXXX?success=1`) shows confirmation
 
 ### Forms
-- [ ] `/contact` form posts to `/api/contact`
+- [ ] `/contact` shows the support `mailto:` link and the company details render
+      (there is **no** contact form and no `/api/contact` route — do not test for one;
+      if a form is ever added it needs a route, spam protection and an AVG notice)
 - [ ] `/retour/start` RMA form generates RMA number
 - [ ] `/blog` newsletter form posts to `/api/newsletter`
 - [ ] Exit-intent modal triggers on mouse-out + dismisses for 7 days
@@ -43,13 +50,17 @@ Pre-launch / pre-merge checklist. Run through before every release.
 - [ ] Sign-in redirects to `/dashboard`
 - [ ] `/dashboard/bestellingen` shows user orders
 - [ ] `/admin/*` redirects unauthenticated to login
-- [ ] `/api/account/data-export` returns JSON ZIP
+- [ ] `/api/account/data-export` returns a JSON download (`Content-Disposition: attachment`, **not** a ZIP)
 - [ ] `/api/account/delete` requires exact confirmation string
 
 ### Mobile (test on iPhone SE viewport 375x667)
-- [ ] No horizontal scroll
+
+> Both boxes below were **failing** when this list was last checked (3 sep 2026) and
+> were being fixed at the time. Re-measure them; do not tick them from memory.
+
+- [ ] No horizontal scroll — scroll the page sideways on every template, not just `/`
+- [ ] Tap targets ≥ 44px — check the bottom nav, the cart drawer and the filter chips
 - [ ] Mobile bottom nav shows below 768px
-- [ ] Tap targets ≥ 44px
 - [ ] Hero CTA visible above fold
 - [ ] Diagnose chat usable
 
@@ -59,7 +70,9 @@ Pre-launch / pre-merge checklist. Run through before every release.
 - [ ] Sitemap contains 500+ URLs
 - [ ] `/robots.txt` allows `/`, disallows `/api/`, `/admin/`, `/dashboard/`
 - [ ] Schema.org JSON-LD validates via [Google Rich Results test](https://search.google.com/test/rich-results)
-  - Homepage: Organization + WebSite + SoftwareApplication + FAQPage + Product+Reviews
+  - Homepage: Organization + WebSite + SoftwareApplication + FAQPage (**no** Product or
+    AggregateRating — the invented 4.8/1.247 was removed; a rating is only emitted where
+    real approved reviews exist)
   - Foutcode: TechArticle + FAQPage + BreadcrumbList
   - Gids: HowTo + steps + tools + supplies + BreadcrumbList
   - Onderdeel: Product + Offer + ShippingDetails + MerchantReturnPolicy + AggregateRating
@@ -109,7 +122,9 @@ See `BLOCKED.md` for full list. For launch:
 - [ ] `RESEND_API_KEY`
 - [ ] `GEMINI_API_KEY` (with quota)
 - [ ] `DATABASE_URL` (real password)
-- [ ] `SENTRY_DSN` (highly recommended)
+- [ ] Error monitoring — currently **absent**. `@sentry/nextjs` is not installed, so
+      `NEXT_PUBLIC_SENTRY_DSN` on its own changes nothing and there is no server-side
+      reporting at all. See BLOCKED.md; this needs code, not just a key.
 
 ## DNS / Domain
 

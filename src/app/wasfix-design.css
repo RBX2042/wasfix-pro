@@ -16,7 +16,10 @@
   --text: #e8eefb;
   --text-2: #b6c0d8;
   --muted: #7b88a6;
-  --dim: #4f5a76;
+  /* --dim is used for label text ("Populair vandaag") and for input placeholders,
+     not only for decoration. At #4f5a76 that text sat at 2.9:1 on --bg; this value
+     is 5.0:1 and still clearly the dimmest step of the four. */
+  --dim: #737f9e;
 
   --acc: #4f8cff;
   --acc-2: #00d4ff;
@@ -92,7 +95,9 @@
 }
 .wasfix-design .brand-name { font-size: 15px; }
 .wasfix-design .brand-name b { font-weight: 600; }
-.wasfix-design .brand-name span { color: var(--muted); margin-left: 6px; font-weight: 400; }
+/* --muted put the "Pro" of the wordmark at 4.11:1 against the glow behind the
+   nav; --text-2 clears 4.5:1 while staying lighter than the bold "WasFix". */
+.wasfix-design .brand-name span { color: var(--text-2); margin-left: 6px; font-weight: 400; }
 
 .wasfix-design .nav-links { display: flex; gap: 4px; }
 .wasfix-design .nav-link {
@@ -104,6 +109,22 @@
 
 @media (max-width: 880px) {
   .wasfix-design .nav-links { display: none; }
+}
+
+/* On a 390px phone .nav-cta ran 11px past the container. .wasfix-design sets
+   overflow-x: hidden, so the row does not scroll — the arrow of the primary
+   "Start gratis" CTA was simply cut off. Shrink the nav to fit instead. */
+@media (max-width: 620px) {
+  .wasfix-design .brand { gap: 8px; }
+  .wasfix-design .brand-name { font-size: 13.5px; }
+  .wasfix-design .nav-cta { gap: 6px; flex-shrink: 0; }
+  .wasfix-design .nav-cta .btn-sm { padding: 6px 9px; }
+}
+@media (max-width: 430px) {
+  /* Below this the wordmark suffix has to give way; the logo tile plus "WasFix"
+     keeps the home link recognisable and the CTA stays whole. */
+  .wasfix-design .brand-name span { display: none; }
+  .wasfix-design .nav-cta .btn-sm { padding: 6px 8px; }
 }
 
 .wasfix-design .btn {
@@ -344,6 +365,13 @@
   font: inherit; font-size: 14px; outline: 0;
 }
 .wasfix-design .chat-input input::placeholder { color: var(--dim); }
+/* outline: 0 above removes the UA focus ring; without a replacement there is no
+   visible focus for keyboard users at all (WCAG 2.4.7). */
+.wasfix-design .chat-input input:focus-visible {
+  outline: 2px solid var(--acc-2);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 
 .wasfix-design .typing { display: inline-flex; gap: 3px; align-items: center; }
 .wasfix-design .typing span {
@@ -452,6 +480,12 @@
   font: inherit; font-size: 13.5px;
 }
 .wasfix-design .code-search input::placeholder { color: var(--dim); }
+/* Same as .chat-input: outline: 0 needs a :focus-visible replacement. */
+.wasfix-design .code-search input:focus-visible {
+  outline: 2px solid var(--acc-2);
+  outline-offset: 2px;
+  border-radius: 6px;
+}
 .wasfix-design .code-row {
   display: grid; grid-template-columns: 80px 1fr auto;
   align-items: center; gap: 12px;

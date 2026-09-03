@@ -7,7 +7,10 @@
     "description": "Het water kan niet worden afgevoerd. De cyclus is gestopt en de trommel zit mogelijk vol water.",
     "likelyCauses": "Verstopte pluizenfilter|Geknikte of verstopte afvoerslang|Defecte afvoerpomp|Verstopte afvoersifon",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4o0015aaf9gchbzmdc",
@@ -17,7 +20,10 @@
     "description": "De motor draait niet of toerentelregeling werkt niet correct.",
     "likelyCauses": "Defecte koolborstels|Defecte motor|Defecte tachometer|Module probleem",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4p0017aaf9mdczfox8",
@@ -27,7 +33,10 @@
     "description": "Er stroomt geen of te weinig water in de wasmachine.",
     "likelyCauses": "Gesloten waterkraan|Verstopt filter in inlaatslang|Defect waterinlaatventiel|Lage waterdruk",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4q0019aaf984zimhk9",
@@ -37,7 +46,10 @@
     "description": "De Waterproof System (WPS) heeft een lekkage gedetecteerd in de bodembak.",
     "likelyCauses": "Lekkage afvoerpomp|Lekkage zeepbak|Defecte sealring trommel|Versleten deurpakking",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4q001baaf9wmu6bxq0",
@@ -47,7 +59,10 @@
     "description": "Het afvalwater kan niet worden afgevoerd binnen de tijdslimiet.",
     "likelyCauses": "Verstopte pluizenfilter|Verstopte afvoerslang|Defecte afvoerpomp|Verstopte sifon onder gootsteen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.bosch-home.be/nl/service/online-hulp/e18-op-display",
+    "sourceName": "Bosch Home — E18 op display"
   },
   {
     "id": "cmohrri4r001daaf9l027h7lt",
@@ -57,7 +72,10 @@
     "description": "De trommel kan niet draaien, mogelijk geblokkeerd of motor defect.",
     "likelyCauses": "Geblokkeerde trommel (kledingstuk vast)|Defecte motor|Defecte module|Defecte koolborstels",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4s001faaf9a2cfjl3y",
@@ -67,7 +85,10 @@
     "description": "Communicatieprobleem tussen module en motor.",
     "likelyCauses": "Defecte module|Loszittende kabelverbinding|Defecte tachosensor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://witgoedbrigade.nl/f21-bosch-foutcode-modulefout/",
+    "sourceName": "Witgoed Brigade — Bosch F21"
   },
   {
     "id": "cmohrri4s001haaf96zkodozt",
@@ -77,7 +98,10 @@
     "description": "Te veel water in de kuip — drukschakelaar geeft alarm.",
     "likelyCauses": "Defect waterinlaatventiel (blijft open)|Defecte drukschakelaar|Verstopte luchtkamer",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4t001jaaf9at0tw0w4",
@@ -87,7 +111,10 @@
     "description": "AquaStop heeft watertoevoer afgesloten wegens lekkage.",
     "likelyCauses": "Lekkage in machine|Defecte AquaStop slang|Vocht in bodembak",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4u001laaf92grsicqp",
@@ -97,7 +124,10 @@
     "description": "Onderspanning of stroomstoring gedetecteerd.",
     "likelyCauses": "Te lage netspanning|Defecte voeding op module|Loszittende stekker",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4v001naaf9g1kjsnsb",
@@ -107,7 +137,10 @@
     "description": "De deur staat open of het deurslot werkt niet.",
     "likelyCauses": "Deur staat niet goed dicht|Defect deurslot|Wasgoed klemt tussen deur|Beschadigde scharnier",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri4v001paaf9ikoh0p32",
@@ -117,7 +150,10 @@
     "description": "Wasmachine krijgt onvoldoende water binnen.",
     "likelyCauses": "Gesloten kraan|Verstopt zeefje in inlaatslang|Defect inlaatventiel|Lage waterdruk",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/nl/support/home-appliances/een-4c-of-4e-foutcode-op-je-wasmachine-oplossen/",
+    "sourceName": "Samsung Nederland — 4C/4E oplossen"
   },
   {
     "id": "cmohrri4w001raaf90pc04f9i",
@@ -127,7 +163,10 @@
     "description": "Wasmachine kan water niet afvoeren.",
     "likelyCauses": "Verstopt pluizenfilter|Geknikte afvoerslang|Defecte afvoerpomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/nl/support/home-appliances/wat-betekent-de-foutcode-op-het-display-van-mijn-wasmachine/",
+    "sourceName": "Samsung Nederland — foutcodes wasmachine"
   },
   {
     "id": "cmohrri4x001taaf9tx5mwjji",
@@ -137,7 +176,10 @@
     "description": "De trommellading is niet gelijkmatig verdeeld.",
     "likelyCauses": "Onevenwichtige belading|Te kleine lading|Defecte schokdempers|Versleten trommellager",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/nl/support/home-appliances/wat-betekent-de-foutcode-op-het-display-van-mijn-wasmachine/",
+    "sourceName": "Samsung Nederland — foutcodes wasmachine"
   },
   {
     "id": "cmohrri4y001vaaf90dc8ftmx",
@@ -147,7 +189,10 @@
     "description": "Water wordt niet binnen de tijdslimiet afgevoerd.",
     "likelyCauses": "Verstopt pluizenfilter|Defecte afvoerpomp|Verstopte afvoerslang|Defecte druksensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/nl/ondersteuning/instructie-videos/CT40017183-20152662797051",
+    "sourceName": "LG Nederland — uitleg foutcodes wasmachine"
   },
   {
     "id": "cmohrri4z001xaaf9f4tbwc7d",
@@ -157,7 +202,10 @@
     "description": "Motor is geblokkeerd of de trommel kan niet draaien.",
     "likelyCauses": "Overbelading|Versleten lager|Defecte Hall-sensor|Stator probleem",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri50001zaaf9k3znbrdt",
@@ -167,7 +215,10 @@
     "description": "Geen of te weinig waterinlaat binnen de tijdslimiet.",
     "likelyCauses": "Gesloten kraan|Defect waterinlaatventiel|Verstopt zeefje|Lage waterdruk",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/nl/ondersteuning/instructie-videos/CT40017183-20152662797051",
+    "sourceName": "LG Nederland — uitleg foutcodes wasmachine"
   },
   {
     "id": "cmohrri510021aaf9wgseg3be",
@@ -177,7 +228,10 @@
     "description": "Hoofdmodule reageert niet correct.",
     "likelyCauses": "Defecte hoofdmodule|Vochtindringing op module|Spanningsstoring",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri520023aaf9ol1i53kw",
@@ -187,7 +241,10 @@
     "description": "Het verwarmingselement heeft een storing.",
     "likelyCauses": "Defect verwarmingselement|Defecte NTC sensor|Onderbroken kabel naar element",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri520025aaf9vb9gscpl",
@@ -197,7 +254,10 @@
     "description": "Onvoldoende watertoevoer.",
     "likelyCauses": "Gesloten kraan|Verstopt zeefje|Defect inlaatventiel|Drukverlies",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri530027aaf9f8eyx3x9",
@@ -207,7 +267,10 @@
     "description": "Het water wordt niet afgevoerd.",
     "likelyCauses": "Verstopt filter|Defecte pomp|Geknikte slang|Druksensor defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri540029aaf9vyw6bj3v",
@@ -217,7 +280,10 @@
     "description": "Het deurslot kan niet worden vergrendeld of ontgrendeld.",
     "likelyCauses": "Defect deurslot (PTC)|Beschadigde deurkruk|Module probleem",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri55002baaf9esenpqke",
@@ -227,7 +293,10 @@
     "description": "De wasmachine kon niet binnen de tijdslimiet vullen.",
     "likelyCauses": "Gesloten waterkraan|Defect inlaatventiel|Te lage waterdruk|Verstopt zeefje",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri55002daaf9ki3xsgf8",
@@ -237,7 +306,10 @@
     "description": "Probleem met verwarmen tijdens cyclus.",
     "likelyCauses": "Defect verwarmingselement|NTC sensor defect|Bekabeling onderbroken",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri56002faaf9yhmc6ud5",
@@ -247,7 +319,10 @@
     "description": "Probleem met afvoeren of drukschakelaar geeft fouten.",
     "likelyCauses": "Verstopt filter|Defecte pomp|Defecte drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "cmohrri57002haaf9cygkymnj",
@@ -257,7 +332,10 @@
     "description": "Verwarmingselement bereikt niet de juiste temperatuur.",
     "likelyCauses": "Defect element|Kalkaanslag op element|NTC defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_50a260a58f3794f78302",
@@ -267,7 +345,10 @@
     "description": "Watertoevoer-magneetventiel reageert niet of klemt vast.",
     "likelyCauses": "Magneetventiel defect|Bedrading magneetventiel los|Module-aansturing defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_450110adc2ec90829ae6",
@@ -277,7 +358,10 @@
     "description": "Motor draait niet of geeft onverwacht toerental.",
     "likelyCauses": "Koolborstels versleten|Tachometer defect|Module defect|Bedrading motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_95a0b7d10fe79f9f3fb5",
@@ -287,7 +371,10 @@
     "description": "Water wordt niet of te langzaam afgevoerd.",
     "likelyCauses": "Pluizenfilter verstopt|Afvoerslang geknikt|Afvoerpomp defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_638671002c09da6fe2cc",
@@ -297,7 +384,10 @@
     "description": "Water wordt niet warm of duurt te lang.",
     "likelyCauses": "Verwarmingselement verkalkt|NTC sensor defect|Element doorgebrand",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b70df0f7869303592cca",
@@ -307,7 +397,10 @@
     "description": "Deur-vergrendeling reageert niet of detecteert geen sluiting.",
     "likelyCauses": "Deurslot mechanisch defect|Bedrading deurslot|Deurhaak verbogen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c9fdc8832dcf3baa5b47",
@@ -317,7 +410,10 @@
     "description": "Aquastop is geactiveerd — er is water in de bodemplaat gedetecteerd.",
     "likelyCauses": "Manchet (rubber) gescheurd|Slangverbinding los|Drukschakelaar slang los",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6d1d0a9af729cf357c83",
@@ -327,7 +423,10 @@
     "description": "Toerental wijkt af van de instelling.",
     "likelyCauses": "Tachometer|Module|Vibratie-sensor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_47d52d1447450a9053cb",
@@ -337,7 +436,10 @@
     "description": "Verwarmingselement neemt geen of foutieve stroom op.",
     "likelyCauses": "Element defect|Aansturing relais module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_57cb5182c5d79278bb76",
@@ -347,7 +449,10 @@
     "description": "Watertoevoer is binnen tijdslimiet niet bereikt.",
     "likelyCauses": "Waterkraan dicht|Inlaatslang geknikt|Filter in slang verstopt|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0fecd40f686a6b0e04f4",
@@ -357,7 +462,10 @@
     "description": "Water gedetecteerd in onderbak.",
     "likelyCauses": "Pomphuis lek|Manchet lek|Slangverbinding los",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c855c25af1efb447beb3",
@@ -367,7 +475,10 @@
     "description": "Water bereikt doeltemperatuur niet binnen tijd.",
     "likelyCauses": "Verwarmingselement verkalkt|NTC sensor|Programmamodule",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b633df86d6d561bff3a9",
@@ -377,7 +488,10 @@
     "description": "Water gedetecteerd in lekbak.",
     "likelyCauses": "Lekkage onderdeel|Drukschakelaar slang|Vlotterschakelaar",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f126fb18ff847dd2ae00",
@@ -387,7 +501,10 @@
     "description": "Deur is tijdens programma geopend.",
     "likelyCauses": "Deurslot mechanisch|Bedrading deurschakelaar|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7cab1d706ff7f095c318",
@@ -397,7 +514,10 @@
     "description": "Geen of te trage watertoevoer.",
     "likelyCauses": "Kraan dicht|Slangfilter verstopt|Inlaatventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7a9ea85af9002fe5daca",
@@ -407,7 +527,10 @@
     "description": "Element blijft aan na bereiken doeltemperatuur.",
     "likelyCauses": "Defect relais|NTC sensor short|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ef6ca5276d8a26dddf94",
@@ -417,7 +540,10 @@
     "description": "Pomp blijft draaien zonder dat afvoer gedetecteerd wordt.",
     "likelyCauses": "Drukschakelaar slang los|Module relais|Pomp ondervindt weerstand",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_079f57ec3179bc511b47",
@@ -427,7 +553,10 @@
     "description": "Vochtsensor in bodem heeft water gedetecteerd.",
     "likelyCauses": "Slangcollier los|Manchet|Pomphuis",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d5f117f6e3bc52cc15d9",
@@ -437,7 +566,10 @@
     "description": "Interne voedingsspanning buiten bereik.",
     "likelyCauses": "Module defect|Bedrading|Voedingsfilter",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a11914dadcedeef62f26",
@@ -447,7 +579,10 @@
     "description": "Communicatiefout tussen modules.",
     "likelyCauses": "Stekkerblok los|Beschadigde kabel|Hoofdmodule",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_53efb3c1bc2af715e1bf",
@@ -457,7 +592,10 @@
     "description": "Deurslot signaleert deuropening.",
     "likelyCauses": "Deurslot defect|Sluitplaat verbogen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6d3dc32a1f17f745927c",
@@ -467,7 +605,10 @@
     "description": "Watertoevoer mislukt.",
     "likelyCauses": "Kraan dicht|Magneetventiel|Inlaatfilter",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cfd3d3d6a73966840052",
@@ -477,7 +618,10 @@
     "description": "Water-afvoer mislukt binnen tijd.",
     "likelyCauses": "Filter verstopt|Pomp|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5864eb1aa3b8beb437f2",
@@ -487,7 +631,10 @@
     "description": "Verwarmingsstoring.",
     "likelyCauses": "NTC|Element",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_372d1d4c6ed4a3f5efee",
@@ -497,7 +644,10 @@
     "description": "Aquastop heeft water gedetecteerd in opvangbak.",
     "likelyCauses": "Inlaatslang defect|Aquastop sensor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_88005cc67e3a830d189e",
@@ -507,7 +657,10 @@
     "description": "Troebelheidsensor defect — programma wordt onderbroken.",
     "likelyCauses": "Sensor vervuild|Sensor defect|Bedrading",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5b4262e8200015009d9c",
@@ -517,7 +670,10 @@
     "description": "Druksensor / pressostat geeft onjuist signaal.",
     "likelyCauses": "Slang verstopt|Sensor defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_330912838e50220260d6",
@@ -527,7 +683,10 @@
     "description": "Drukschakelaar buiten kalibratie.",
     "likelyCauses": "Slang lek|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_bd5dedf36a813ec82310",
@@ -537,7 +696,10 @@
     "description": "Module detecteert geen of onjuiste stroom door element.",
     "likelyCauses": "Element|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e46677ad6dd829a9ec93",
@@ -547,7 +709,10 @@
     "description": "Water-stromingssensor detecteert geen flow.",
     "likelyCauses": "Kraan|Inlaatslang|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_adea9c2471775dee6423",
@@ -557,7 +722,10 @@
     "description": "Drukschakelaar detecteert te hoog waterniveau.",
     "likelyCauses": "Magneetventiel blijft open|Drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fe73733685d287898d00",
@@ -567,7 +735,10 @@
     "description": "Slot sluit niet binnen tijd.",
     "likelyCauses": "Slot defect|Deur verbogen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_eda5db25086bdba84f65",
@@ -577,7 +748,10 @@
     "description": "Temperatuursensor geeft onmogelijke waarde.",
     "likelyCauses": "NTC defect|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fcf023c96cf5d03a01ea",
@@ -587,7 +761,10 @@
     "description": "NTC heeft kortsluiting naar massa.",
     "likelyCauses": "NTC vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f61a20cef241ae1766ab",
@@ -597,7 +774,10 @@
     "description": "Netspanning buiten bereik 198-253V.",
     "likelyCauses": "Lokale spanning|Hoofdaansluiting",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_22fa9a9fe09a1e1b6fa8",
@@ -607,7 +787,10 @@
     "description": "Onverwacht hoog toerental gedetecteerd.",
     "likelyCauses": "Tachometer|Inverter-module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9162bd41643b3cde30fc",
@@ -617,7 +800,10 @@
     "description": "Motor draait niet, mogelijke blokkade.",
     "likelyCauses": "Vreemd voorwerp|Lager defect|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a86a8c8cbe408bc7c429",
@@ -627,7 +813,10 @@
     "description": "Motor draait in foute richting.",
     "likelyCauses": "Module|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9feebcc781efb5c15cc9",
@@ -637,7 +826,10 @@
     "description": "Geheugen-corruptie of programma-fout.",
     "likelyCauses": "Module reset nodig|Module vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b5c5cc436e1026bfa30e",
@@ -647,7 +839,10 @@
     "description": "Communicatie tussen modules afwezig.",
     "likelyCauses": "Stekker los|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5f7610d50b027b718abc",
@@ -657,7 +852,10 @@
     "description": "Slot meldt verkeerde status.",
     "likelyCauses": "Slot vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_de2ad1fb9fa2af131f18",
@@ -667,7 +865,10 @@
     "description": "Watchdog activeert noodstop.",
     "likelyCauses": "Module reset|Module vervangen",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://witgoed-specialist.be/witgoed-storingen/bosch-wasmachine-f63-storing-oplossen/",
+    "sourceName": "Witgoed Specialist — Bosch F63"
   },
   {
     "id": "wfec_30cb57b574cf6b6aa2e0",
@@ -677,7 +878,10 @@
     "description": "Kaart-id niet herkend.",
     "likelyCauses": "Smartcard probleem|Reset",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_928ea077612017ff9274",
@@ -687,7 +891,10 @@
     "description": "Watertoevoer-magneetventiel reageert niet of klemt vast.",
     "likelyCauses": "Magneetventiel defect|Bedrading magneetventiel los|Module-aansturing defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ec4cd4309bbd9d0f9581",
@@ -697,7 +904,10 @@
     "description": "Motor draait niet of geeft onverwacht toerental.",
     "likelyCauses": "Koolborstels versleten|Tachometer defect|Module defect|Bedrading motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_29640a75e249fde22bb1",
@@ -707,7 +917,10 @@
     "description": "Water wordt niet of te langzaam afgevoerd.",
     "likelyCauses": "Pluizenfilter verstopt|Afvoerslang geknikt|Afvoerpomp defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d43064d8c7aeea4dbac8",
@@ -717,7 +930,10 @@
     "description": "Water wordt niet warm of duurt te lang.",
     "likelyCauses": "Verwarmingselement verkalkt|NTC sensor defect|Element doorgebrand",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a57eb8b06cde02d96f08",
@@ -727,7 +943,10 @@
     "description": "Deur-vergrendeling reageert niet of detecteert geen sluiting.",
     "likelyCauses": "Deurslot mechanisch defect|Bedrading deurslot|Deurhaak verbogen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_4cb107e74ad13a7f0611",
@@ -737,7 +956,10 @@
     "description": "Aquastop is geactiveerd — er is water in de bodemplaat gedetecteerd.",
     "likelyCauses": "Manchet (rubber) gescheurd|Slangverbinding los|Drukschakelaar slang los",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a49ec56f571bda89d253",
@@ -747,7 +969,10 @@
     "description": "Toerental wijkt af van de instelling.",
     "likelyCauses": "Tachometer|Module|Vibratie-sensor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_165e8f534259106c02bb",
@@ -757,7 +982,10 @@
     "description": "Verwarmingselement neemt geen of foutieve stroom op.",
     "likelyCauses": "Element defect|Aansturing relais module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_4b5f5a605229ddf87adf",
@@ -767,7 +995,10 @@
     "description": "Watertoevoer is binnen tijdslimiet niet bereikt.",
     "likelyCauses": "Waterkraan dicht|Inlaatslang geknikt|Filter in slang verstopt|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_65946e06d27a27529f14",
@@ -777,7 +1008,10 @@
     "description": "Water gedetecteerd in onderbak.",
     "likelyCauses": "Pomphuis lek|Manchet lek|Slangverbinding los",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7da90278f60195d73128",
@@ -787,7 +1021,10 @@
     "description": "Water bereikt doeltemperatuur niet binnen tijd.",
     "likelyCauses": "Verwarmingselement verkalkt|NTC sensor|Programmamodule",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1c8683952c9fe22aead4",
@@ -797,7 +1034,10 @@
     "description": "Water gedetecteerd in lekbak.",
     "likelyCauses": "Lekkage onderdeel|Drukschakelaar slang|Vlotterschakelaar",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6c487b711063a9476dd2",
@@ -807,7 +1047,10 @@
     "description": "Deur is tijdens programma geopend.",
     "likelyCauses": "Deurslot mechanisch|Bedrading deurschakelaar|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f4e77152ff8af676422c",
@@ -817,7 +1060,10 @@
     "description": "Geen of te trage watertoevoer.",
     "likelyCauses": "Kraan dicht|Slangfilter verstopt|Inlaatventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_bf986e8fea6202f17445",
@@ -827,7 +1073,10 @@
     "description": "Water afvoeren duurt langer dan toegestaan — meest voorkomende code.",
     "likelyCauses": "Pluizenfilter verstopt|Afvoerpomp gedeeltelijk verstopt|Slang geknikt|Pompmotor defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.bosch-home.be/nl/service/online-hulp/e18-op-display",
+    "sourceName": "Bosch Home — E18 op display"
   },
   {
     "id": "wfec_2f89725107e4d0782418",
@@ -837,7 +1086,10 @@
     "description": "Element blijft aan na bereiken doeltemperatuur.",
     "likelyCauses": "Defect relais|NTC sensor short|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7983df824d7cc862e853",
@@ -847,7 +1099,10 @@
     "description": "Pomp blijft draaien zonder dat afvoer gedetecteerd wordt.",
     "likelyCauses": "Drukschakelaar slang los|Module relais|Pomp ondervindt weerstand",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8dba88566a986fcf26c6",
@@ -857,7 +1112,10 @@
     "description": "Vochtsensor in bodem heeft water gedetecteerd.",
     "likelyCauses": "Slangcollier los|Manchet|Pomphuis",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ae0d197db905e77cef0c",
@@ -867,7 +1125,10 @@
     "description": "Communicatiefout tussen modules.",
     "likelyCauses": "Stekkerblok los|Beschadigde kabel|Hoofdmodule",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_df0955ee8e5b50976d3d",
@@ -877,7 +1138,10 @@
     "description": "Deurslot signaleert deuropening.",
     "likelyCauses": "Deurslot defect|Sluitplaat verbogen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ade14f6aaccd0f65719d",
@@ -887,7 +1151,10 @@
     "description": "Watertoevoer mislukt.",
     "likelyCauses": "Kraan dicht|Magneetventiel|Inlaatfilter",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9dbda28f4f40e491b725",
@@ -897,7 +1164,10 @@
     "description": "Water-afvoer mislukt binnen tijd.",
     "likelyCauses": "Filter verstopt|Pomp|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_4f6e7e2529c3d3a0c8d9",
@@ -907,7 +1177,10 @@
     "description": "Verwarmingsstoring.",
     "likelyCauses": "NTC|Element",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3339aea104ae30ed9bfe",
@@ -917,7 +1190,10 @@
     "description": "Motor draait te snel/langzaam of niet.",
     "likelyCauses": "Koolborstels|Tacho|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://witgoedbrigade.nl/f21-bosch-foutcode-modulefout/",
+    "sourceName": "Witgoed Brigade — Bosch F21"
   },
   {
     "id": "wfec_56fbdeec4a710a1084ff",
@@ -927,7 +1203,10 @@
     "description": "Troebelheidsensor defect — programma wordt onderbroken.",
     "likelyCauses": "Sensor vervuild|Sensor defect|Bedrading",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_db30ba09e5999cb34277",
@@ -937,7 +1216,10 @@
     "description": "Druksensor / pressostat geeft onjuist signaal.",
     "likelyCauses": "Slang verstopt|Sensor defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8834e4169f00a5f7f5ad",
@@ -947,7 +1229,10 @@
     "description": "Drukschakelaar buiten kalibratie.",
     "likelyCauses": "Slang lek|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f18f8c15ad3f9302bf62",
@@ -957,7 +1242,10 @@
     "description": "Module detecteert geen of onjuiste stroom door element.",
     "likelyCauses": "Element|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_335b10206e06de37a3ce",
@@ -967,7 +1255,10 @@
     "description": "Water-stromingssensor detecteert geen flow.",
     "likelyCauses": "Kraan|Inlaatslang|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7f21866def9c10859ef8",
@@ -977,7 +1268,10 @@
     "description": "Drukschakelaar detecteert te hoog waterniveau.",
     "likelyCauses": "Magneetventiel blijft open|Drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_627bf4cbdba98ca2e43b",
@@ -987,7 +1281,10 @@
     "description": "Slot sluit niet binnen tijd.",
     "likelyCauses": "Slot defect|Deur verbogen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_4a51ac12d9f742736f72",
@@ -997,7 +1294,10 @@
     "description": "Temperatuursensor geeft onmogelijke waarde.",
     "likelyCauses": "NTC defect|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_89038234bed2df038758",
@@ -1007,7 +1307,10 @@
     "description": "NTC heeft kortsluiting naar massa.",
     "likelyCauses": "NTC vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1dee17c65014565c894a",
@@ -1017,7 +1320,10 @@
     "description": "Netspanning buiten bereik 198-253V.",
     "likelyCauses": "Lokale spanning|Hoofdaansluiting",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0584a286f8d957514711",
@@ -1027,7 +1333,10 @@
     "description": "Onverwacht hoog toerental gedetecteerd.",
     "likelyCauses": "Tachometer|Inverter-module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b8841024713d28fe2b3e",
@@ -1037,7 +1346,10 @@
     "description": "Motor draait niet, mogelijke blokkade.",
     "likelyCauses": "Vreemd voorwerp|Lager defect|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_39b2c511f28c8da3c03d",
@@ -1047,7 +1359,10 @@
     "description": "Motor draait in foute richting.",
     "likelyCauses": "Module|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7228aeb77b61b4477307",
@@ -1057,7 +1372,10 @@
     "description": "Geheugen-corruptie of programma-fout.",
     "likelyCauses": "Module reset nodig|Module vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cb2d495f4684468ef682",
@@ -1067,7 +1385,10 @@
     "description": "Communicatie tussen modules afwezig.",
     "likelyCauses": "Stekker los|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a330217e9344f394b594",
@@ -1077,7 +1398,10 @@
     "description": "Slot meldt verkeerde status.",
     "likelyCauses": "Slot vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_82c6c4d82300f0f8f569",
@@ -1087,7 +1411,10 @@
     "description": "Watchdog activeert noodstop.",
     "likelyCauses": "Module reset|Module vervangen",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://witgoed-specialist.be/witgoed-storingen/bosch-wasmachine-f63-storing-oplossen/",
+    "sourceName": "Witgoed Specialist — Bosch F63"
   },
   {
     "id": "wfec_3a060327b8c6f12f14b7",
@@ -1097,7 +1424,10 @@
     "description": "Kaart-id niet herkend.",
     "likelyCauses": "Smartcard probleem|Reset",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d58cebee1b88e186667e",
@@ -1107,7 +1437,10 @@
     "description": "Temperatuursensor defect.",
     "likelyCauses": "NTC vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9a5bfac69f0ada80cb06",
@@ -1117,7 +1450,10 @@
     "description": "Water bereikt niet binnen tijd het juiste niveau.",
     "likelyCauses": "Kraan|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_245300f5e31429d2256a",
@@ -1127,7 +1463,10 @@
     "description": "Element verwarmt niet.",
     "likelyCauses": "Element|Relais module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f252bd8dff4f31a0465f",
@@ -1137,7 +1476,10 @@
     "description": "Inlaat-fout.",
     "likelyCauses": "Kraan dicht|Inlaatventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e1b138d1adce5606e944",
@@ -1147,7 +1489,10 @@
     "description": "Water bereikt wasmiddellade niet.",
     "likelyCauses": "Magneetventiel|Slang verstopt",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e749a9d21484750ac8f8",
@@ -1157,7 +1502,10 @@
     "description": "Verkeerde watertoevoer (warm waar koud verwacht).",
     "likelyCauses": "Magneetventielen omgewisseld|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_97447ea8f0bc771cec62",
@@ -1167,7 +1515,10 @@
     "description": "Te lange watertoevoer-tijd.",
     "likelyCauses": "Drukschakelaar|Lekkage",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8ae423d0dab0b6b097e2",
@@ -1177,7 +1528,10 @@
     "description": "Pomp blijft aan zonder afvoer-trigger.",
     "likelyCauses": "Drukschakelaar|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_47b62ee336ed92f05693",
@@ -1187,7 +1541,10 @@
     "description": "Pomp start niet binnen tijd.",
     "likelyCauses": "Vastzittende rotor|Pomp defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_90a161a94ab17ced0f22",
@@ -1197,7 +1554,10 @@
     "description": "Water bereikt instelling niet.",
     "likelyCauses": "Element verkalkt|NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3ee56ed81a34c2ad7b87",
@@ -1207,7 +1567,10 @@
     "description": "Riem gebroken of slipt.",
     "likelyCauses": "V-snaar versleten",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ed974bbbce438fb0e764",
@@ -1217,7 +1580,10 @@
     "description": "Drukschakelaar buiten bereik.",
     "likelyCauses": "Slang verstopt|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_af2ce30e9fe19b9567dc",
@@ -1227,7 +1593,10 @@
     "description": "Element neemt verkeerde stroom op.",
     "likelyCauses": "Element defect|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_760458fe1b90e2af2f0c",
@@ -1237,7 +1606,10 @@
     "description": "Drukmetingen consistent fout.",
     "likelyCauses": "Druksensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ead335fe6d6af5e347cc",
@@ -1247,7 +1619,10 @@
     "description": "Tachometer-signaal afwezig of fout.",
     "likelyCauses": "Tacho|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_edfe0ee78bc0df37a1e9",
@@ -1257,7 +1632,10 @@
     "description": "Element verwarmt te langzaam.",
     "likelyCauses": "Element verkalkt|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_bcc85da46f823b0efa68",
@@ -1267,7 +1645,10 @@
     "description": "Pomp draait niet, mogelijke blokkade.",
     "likelyCauses": "Vreemd voorwerp|Pomp defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0f9fb5766434d69f8237",
@@ -1277,7 +1658,10 @@
     "description": "Onbalans-detectie tijdens centrifugeren.",
     "likelyCauses": "Onevenwichtige lading|Schokdempers",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_db220640a9aac5d13b1b",
@@ -1287,7 +1671,10 @@
     "description": "Lek-sensor geactiveerd.",
     "likelyCauses": "Slang|Manchet",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f583bae1493300b20ae9",
@@ -1297,7 +1684,10 @@
     "description": "Tweede vochtsensor geactiveerd.",
     "likelyCauses": "Aquastop|Slang",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5631b720a13c9fe8686f",
@@ -1307,7 +1697,10 @@
     "description": "EDPL-module communicatieprobleem.",
     "likelyCauses": "Bedrading|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_38712e222e2f3f462a2d",
@@ -1317,7 +1710,10 @@
     "description": "Netspanning afwijking.",
     "likelyCauses": "Spanning lokaal|Voeding",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8ea72013f7cf4fce7aef",
@@ -1327,7 +1723,10 @@
     "description": "Net-frequentie wijkt af.",
     "likelyCauses": "Wisselrichter|Net",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c6e32abd1e30ea00ebb0",
@@ -1337,7 +1736,10 @@
     "description": "Configuratie van modules klopt niet.",
     "likelyCauses": "Software-reset|Module vervangen",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_bd444405c449fd843148",
@@ -1347,7 +1749,10 @@
     "description": "Element schakelt droog in zonder water.",
     "likelyCauses": "Sensor|Drukschakelaar",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8c269e4d2575a50cb7cf",
@@ -1357,7 +1762,10 @@
     "description": "Geen verbinding met bedieningspaneel.",
     "likelyCauses": "Lintkabel|Display",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_29c66912cb58d375524e",
@@ -1367,7 +1775,10 @@
     "description": "Motoraansturings-probleem.",
     "likelyCauses": "Module|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_babb9a253ab5ef775958",
@@ -1377,7 +1788,10 @@
     "description": "Motor te warm.",
     "likelyCauses": "Koeling|Belasting",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8450daf6ec3da1c49f84",
@@ -1387,7 +1801,10 @@
     "description": "Commutator-error op koolborstel-motor.",
     "likelyCauses": "Koolborstels|Commutator vies",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1bc35330d1fc2680e2c7",
@@ -1397,7 +1814,10 @@
     "description": "Slot-motor reageert niet.",
     "likelyCauses": "Slot defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2c451c5ebc4651f5e557",
@@ -1407,7 +1827,10 @@
     "description": "Slot opent niet meer correct.",
     "likelyCauses": "Slot mechanisch defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c04e0e27ed6be3ed859c",
@@ -1417,7 +1840,10 @@
     "description": "Extreme onbalans waarbij centrifugeren niet kan starten.",
     "likelyCauses": "Wasgoed verdeling|Schokdempers",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1e7a5d6f4ee112d58247",
@@ -1427,7 +1853,10 @@
     "description": "Motor-aandrijfspanning afwijking.",
     "likelyCauses": "Inverter|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_700b1d0b1732b0a4e6e8",
@@ -1437,7 +1866,10 @@
     "description": "Pomp draait continu zonder duidelijke reden.",
     "likelyCauses": "Vlotter / drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f5b804d85d693e1690ba",
@@ -1447,7 +1879,10 @@
     "description": "Geheugen-corruptie op hoofdmodule.",
     "likelyCauses": "Hoofdmodule vervangen",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_322203ebd68f8b4cef32",
@@ -1457,7 +1892,10 @@
     "description": "Toetsen reageren niet.",
     "likelyCauses": "Foliemembraan defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_94f5b3240ba7c0363e8e",
@@ -1467,7 +1905,10 @@
     "description": "Verkeerde watertemperatuur gemeten in spoelen.",
     "likelyCauses": "NTC|Magneetventiel",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_745e318162a4449c60b1",
@@ -1477,7 +1918,10 @@
     "description": "Druksensor onder grenswaarde.",
     "likelyCauses": "Slang lek|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0a1d99640c6f7213e080",
@@ -1487,7 +1931,10 @@
     "description": "Apparaat staat in service-mode (diagnose).",
     "likelyCauses": "Service-reset uitvoeren",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_87fca7b0e15aa8f06a6d",
@@ -1497,7 +1944,10 @@
     "description": "Onderhoudsmelding actief.",
     "likelyCauses": "Filter reinigen|Service",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d33c7b3a76505e0937d6",
@@ -1507,7 +1957,10 @@
     "description": "Optie kan niet starten — voorwaarde niet vervuld.",
     "likelyCauses": "Wasmiddelvulling|Selecteer ander programma",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_73a65cdd31dba7fab2a0",
@@ -1517,7 +1970,10 @@
     "description": "Vloeistof-dispenser fout.",
     "likelyCauses": "Dispenser verstopt|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_71e5e5bcfabc0f5a00f5",
@@ -1527,7 +1983,10 @@
     "description": "Auto-dosering systeem niet beschikbaar.",
     "likelyCauses": "TwinDos fles|Pomp",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f62a0c5b52d5ea14d620",
@@ -1537,7 +1996,10 @@
     "description": "Aqua-monitoring detecteert teveel water.",
     "likelyCauses": "Sensor|Lekkage",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_83ac5cb261bbcf2ebc9a",
@@ -1547,7 +2009,10 @@
     "description": "Druksensor heeft geen of fout signaal.",
     "likelyCauses": "Slang verstopt|Drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9c449aa2c49e00d1bd9b",
@@ -1557,7 +2022,10 @@
     "description": "Te hoge of te lage netspanning.",
     "likelyCauses": "Lokale spanning|Voedingsmodule",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fb60b204e57c0dac4abe",
@@ -1567,7 +2035,10 @@
     "description": "Toerental-feedback ontbreekt.",
     "likelyCauses": "Tacho|Inverter",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fb3b2146b11289fdefd6",
@@ -1577,7 +2048,10 @@
     "description": "Element-temperatuur klopt niet.",
     "likelyCauses": "Element defect|NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_86715e1d9224dddb02e0",
@@ -1587,7 +2061,10 @@
     "description": "Geen / te weinig watertoevoer.",
     "likelyCauses": "Kraan|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_52b7332345762cc749c5",
@@ -1597,7 +2074,10 @@
     "description": "Onbalans-detectie blokkeert centrifugeren.",
     "likelyCauses": "Wasgoed|Schokdempers",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2637aa0f22d883a7930a",
@@ -1607,7 +2087,10 @@
     "description": "Hoofdmodule-fout.",
     "likelyCauses": "Module vervangen",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1073dcb8947bde209dc9",
@@ -1617,7 +2100,10 @@
     "description": "Bedieningsknoppen blijven ingedrukt.",
     "likelyCauses": "Knop vast / vies|Foliemembraan",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f8905adbcb463099df97",
@@ -1627,7 +2113,10 @@
     "description": "Watertemperatuur te hoog.",
     "likelyCauses": "NTC defect|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d9da6af434ad0eb8c068",
@@ -1637,7 +2126,10 @@
     "description": "Deurslot detecteert geen sluiting.",
     "likelyCauses": "Deurslot|Deurhaak",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/nl/support/home-appliances/wat-betekent-de-foutcode-op-het-display-van-mijn-wasmachine/",
+    "sourceName": "Samsung Nederland — foutcodes wasmachine"
   },
   {
     "id": "wfec_4a7373f7f5cc367dfd2e",
@@ -1647,7 +2139,10 @@
     "description": "Slot vast in vergrendelde positie.",
     "likelyCauses": "Slot defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_889e004637c146732206",
@@ -1657,7 +2152,10 @@
     "description": "Deur opent tijdens centrifuge.",
     "likelyCauses": "Slot|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_12502d5f343bcdfb95cc",
@@ -1667,7 +2165,10 @@
     "description": "Slot opent halverwege programma.",
     "likelyCauses": "Slot defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0c224d99c97fb04bef62",
@@ -1677,7 +2178,10 @@
     "description": "Geen watertoevoer.",
     "likelyCauses": "Kraan|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cb498a33b776e6e76d0e",
@@ -1687,7 +2191,10 @@
     "description": "Water-afvoer mislukt.",
     "likelyCauses": "Filter verstopt|Afvoerpomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_44b7ba59700a4bb4ee18",
@@ -1697,7 +2204,10 @@
     "description": "Te hoog waterniveau gedetecteerd.",
     "likelyCauses": "Magneetventiel blijft open",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5e00194515a3d44d64e0",
@@ -1707,7 +2217,10 @@
     "description": "Onverwacht toerental.",
     "likelyCauses": "Tacho|Inverter",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_261934b695acf6350753",
@@ -1717,7 +2230,10 @@
     "description": "Element of NTC defect.",
     "likelyCauses": "Element|NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/nl/support/home-appliances/wat-betekent-de-foutcode-op-het-display-van-mijn-wasmachine/",
+    "sourceName": "Samsung Nederland — foutcodes wasmachine"
   },
   {
     "id": "wfec_77ee5751609daec17bd1",
@@ -1727,7 +2243,10 @@
     "description": "Lek-sensor heeft water gedetecteerd.",
     "likelyCauses": "Manchet|Slang",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2c7551d1b0c3320abdce",
@@ -1737,7 +2256,10 @@
     "description": "Water staat boven niveau na afvoer-poging.",
     "likelyCauses": "Pomp|Filter|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_189d4027110e31df0a93",
@@ -1747,7 +2269,10 @@
     "description": "Schuim-detectie gestopt — extra spoeling vereist.",
     "likelyCauses": "Te veel wasmiddel|Verkeerd type wasmiddel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_80e593d840178629936c",
@@ -1757,7 +2282,10 @@
     "description": "Schuim-overload.",
     "likelyCauses": "Wasmiddel-dosering",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5eef6c231c9e3690cb3e",
@@ -1767,7 +2295,10 @@
     "description": "NTC buiten bereik.",
     "likelyCauses": "NTC defect|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_eaa834cf27f116ddb91c",
@@ -1777,7 +2308,10 @@
     "description": "Netspanning fluctueert.",
     "likelyCauses": "Voeding|Net",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_12fd026c4bfe9f01413b",
@@ -1787,7 +2321,10 @@
     "description": "EEPROM-fout op hoofdmodule.",
     "likelyCauses": "Module vervangen",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2566bdab7e6d5c143386",
@@ -1797,7 +2334,10 @@
     "description": "Lekkage gedetecteerd.",
     "likelyCauses": "Slang|Manchet",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_11254ccc5f5f221edacd",
@@ -1807,7 +2347,10 @@
     "description": "Te hoge stroom op aandrijving.",
     "likelyCauses": "Inverter|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_169fe47eb6c1154d23f8",
@@ -1817,7 +2360,10 @@
     "description": "Deur niet gesloten of slot defect.",
     "likelyCauses": "Slot|Haak",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8bcb7efbc52e49cf19a5",
@@ -1827,7 +2373,10 @@
     "description": "Slot-signaal afwezig.",
     "likelyCauses": "Slot|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2341c8e31165badc58a2",
@@ -1837,7 +2386,10 @@
     "description": "Deur is tijdens programma open.",
     "likelyCauses": "Slot|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ffed689487c1d01dc867",
@@ -1847,7 +2399,10 @@
     "description": "Lek gedetecteerd onder de machine.",
     "likelyCauses": "Slang|Manchet",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_94ecab66d4b404070db7",
@@ -1857,7 +2412,10 @@
     "description": "Wasgoed niet goed verdeeld.",
     "likelyCauses": "Lading",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2120c23a6878372230b4",
@@ -1867,7 +2425,10 @@
     "description": "Watertoevoer overschrijdt veilig niveau.",
     "likelyCauses": "Magneetventiel|Drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/nl/ondersteuning/instructie-videos/CT40017183-20152662797051",
+    "sourceName": "LG Nederland — uitleg foutcodes wasmachine"
   },
   {
     "id": "wfec_c44d2639148e6f8a63ef",
@@ -1877,7 +2438,10 @@
     "description": "Element-fout.",
     "likelyCauses": "Element|NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f7f66ce74c8c7e4cebc1",
@@ -1887,7 +2451,10 @@
     "description": "Direct-Drive sensor afwijking.",
     "likelyCauses": "Hall-sensor|Stator",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_16d398afc73004bf98b0",
@@ -1897,7 +2464,10 @@
     "description": "Direct-Drive motor blokkade.",
     "likelyCauses": "Vreemd voorwerp|Stator",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_869d662e009e817e19d9",
@@ -1907,7 +2477,10 @@
     "description": "Druksensor buiten bereik.",
     "likelyCauses": "Slang|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/nl/ondersteuning/instructie-videos/CT40017183-20152662797051",
+    "sourceName": "LG Nederland — uitleg foutcodes wasmachine"
   },
   {
     "id": "wfec_c7638e33d741cdb8422c",
@@ -1917,7 +2490,10 @@
     "description": "Stroomonderbreking tijdens programma.",
     "likelyCauses": "Net|Stekker",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_77011f7b9f7c824a31f2",
@@ -1927,7 +2503,10 @@
     "description": "Schuim-overload.",
     "likelyCauses": "Wasmiddel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5bcdd080688c19195976",
@@ -1937,7 +2516,10 @@
     "description": "NTC afwijking.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e067ad7cf08380f3768f",
@@ -1947,7 +2529,10 @@
     "description": "Programma kan niet centrifugeren door onbalans.",
     "likelyCauses": "Wasgoed|Schokdempers|Veren",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/nl/ondersteuning/instructie-videos/CT40017183-20152662797051",
+    "sourceName": "LG Nederland — uitleg foutcodes wasmachine"
   },
   {
     "id": "wfec_e28ba3ef98a2f17b9704",
@@ -1957,7 +2542,10 @@
     "description": "Spanning niet stabiel.",
     "likelyCauses": "Net|Voeding",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_213250c5376cb6aa2ac9",
@@ -1967,7 +2555,10 @@
     "description": "Water bereikt niveau niet voor hoofdwas.",
     "likelyCauses": "Ventiel|Drukschakelaar",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_4d510f9522021601928f",
@@ -1977,7 +2568,10 @@
     "description": "Lek-sensor geactiveerd.",
     "likelyCauses": "Slang|Manchet",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d970537b7df0625164a3",
@@ -1987,7 +2581,10 @@
     "description": "Afvoer-tijd overschrijdt limiet.",
     "likelyCauses": "Pomp|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3b039a39a05d8c2d13c3",
@@ -1997,7 +2594,10 @@
     "description": "Pomp werkt continu zonder dat niveau zakt.",
     "likelyCauses": "Drukschakelaar|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6dbd636efcd372ff7315",
@@ -2007,7 +2607,10 @@
     "description": "Aansturing pomp afwijkend.",
     "likelyCauses": "Module",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_743ab2be3900942c41f6",
@@ -2017,7 +2620,10 @@
     "description": "Aansturings-component defect.",
     "likelyCauses": "Triac op module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c80241698769259e15a6",
@@ -2027,7 +2633,10 @@
     "description": "Druksensor defect.",
     "likelyCauses": "Sensor|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3fdc31f67e68455cbbf5",
@@ -2037,7 +2646,10 @@
     "description": "Druksensor buiten kalibratie.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9239fcb2a7f6a5e01aed",
@@ -2047,7 +2659,10 @@
     "description": "Druk te laag voor verwarming.",
     "likelyCauses": "Slang|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f02433971e2b0226a086",
@@ -2057,7 +2672,10 @@
     "description": "Drukschakelaars geven tegenstrijdige info.",
     "likelyCauses": "Sensor|Module",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e11eaa48a54a9c8ac92b",
@@ -2067,7 +2685,10 @@
     "description": "Anti-overflow niveau bereikt.",
     "likelyCauses": "Magneetventiel|Drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_22469a9c5ad44e27f02b",
@@ -2077,7 +2698,10 @@
     "description": "Veiligheids-drukschakelaar geactiveerd.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_052356011b0ee51ea14c",
@@ -2087,7 +2711,10 @@
     "description": "Druksensor ongeldig signaal.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0a6b5d7c50a29e1215ab",
@@ -2097,7 +2724,10 @@
     "description": "Drukmeet-slang verstopt.",
     "likelyCauses": "Slang reinigen",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c425880a41f11a39aa9b",
@@ -2107,7 +2737,10 @@
     "description": "Lekbeveiliging actief.",
     "likelyCauses": "Lekkage|Sensor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_27c8bfc0874f38af0dba",
@@ -2117,7 +2750,10 @@
     "description": "Deur niet correct gesloten.",
     "likelyCauses": "Slot|Haak",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6dbca60158f918d12b4e",
@@ -2127,7 +2763,10 @@
     "description": "Slot niet bedienbaar.",
     "likelyCauses": "Slot defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cc2af6517d402e2b43f6",
@@ -2137,7 +2776,10 @@
     "description": "Aansturing slot op module defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7b25e8e4650c2f0a0458",
@@ -2147,7 +2789,10 @@
     "description": "Sensor-signaal van deur afwezig.",
     "likelyCauses": "Slot|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3e7f936c4159728846b4",
@@ -2157,7 +2802,10 @@
     "description": "Triac component defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_58ffe06e1e59c0983ef4",
@@ -2167,7 +2815,10 @@
     "description": "Commutator-fout.",
     "likelyCauses": "Koolborstels|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_06adaea6594c17619858",
@@ -2177,7 +2828,10 @@
     "description": "Motor-aansturing defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fab5401704596b1372e7",
@@ -2187,7 +2841,10 @@
     "description": "Geen tachosignaal.",
     "likelyCauses": "Tacho|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b16e12c389c665349f46",
@@ -2197,7 +2854,10 @@
     "description": "Aansturings-relais module defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fff2034a20445b218650",
@@ -2207,7 +2867,10 @@
     "description": "Onverwacht draairichting.",
     "likelyCauses": "Inverter|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d65765436b21046c5e12",
@@ -2217,7 +2880,10 @@
     "description": "Te hoge stroom op inverter.",
     "likelyCauses": "Motor|Inverter",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d182424637a00c465e37",
@@ -2227,7 +2893,10 @@
     "description": "Tacho niet gedetecteerd in 3 cycli.",
     "likelyCauses": "Tacho",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a385ec0e7c8a44a0e098",
@@ -2237,7 +2906,10 @@
     "description": "Element verwarmt te lang of te hoog.",
     "likelyCauses": "NTC|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_46e1954ad96ab8188698",
@@ -2247,7 +2919,10 @@
     "description": "Element niet warm.",
     "likelyCauses": "Element|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e062d18dafc2fc3eb9bd",
@@ -2257,7 +2932,10 @@
     "description": "Temperatuur boven veilig niveau.",
     "likelyCauses": "NTC|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_dbe74e2f981c1df12b47",
@@ -2267,7 +2945,10 @@
     "description": "Relais op module defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_2a39c08633843e466473",
@@ -2277,7 +2958,10 @@
     "description": "Verwarmingscircuit-foutmelding.",
     "likelyCauses": "Element|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f9c8bd869a0d06acf1e7",
@@ -2287,7 +2971,10 @@
     "description": "Aardlek gedetecteerd.",
     "likelyCauses": "Element naar massa|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9bd8892e6440b24c5b75",
@@ -2297,7 +2984,10 @@
     "description": "Temperatuursensor afwijking.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e3d8e8e843a9336e2c70",
@@ -2307,7 +2997,10 @@
     "description": "NTC short.",
     "likelyCauses": "NTC vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_60c7e7234aaa2c0e2f35",
@@ -2317,7 +3010,10 @@
     "description": "Selectorknop ongeldige positie.",
     "likelyCauses": "Knop defect|Module",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_aa80648cd7fb4020d882",
@@ -2327,7 +3023,10 @@
     "description": "Recirculatiepomp defect.",
     "likelyCauses": "Pomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_7ce3f3dd2de052ee56f9",
@@ -2337,7 +3036,10 @@
     "description": "Aansturing recirculatie defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fdf46c8f845b3101cef7",
@@ -2347,7 +3049,10 @@
     "description": "Display geen verbinding met hoofdmodule.",
     "likelyCauses": "Lintkabel|Display",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_80eece4c025262ec8b9e",
@@ -2357,7 +3062,10 @@
     "description": "Module-software niet compatibel.",
     "likelyCauses": "Software-update",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_bff93057bf0794f4fa69",
@@ -2367,7 +3075,10 @@
     "description": "Configuratie module-display klopt niet.",
     "likelyCauses": "Service-config",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cdf01b510cf838c6eccf",
@@ -2377,7 +3088,10 @@
     "description": "Was-config niet correct.",
     "likelyCauses": "Service-config",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0be1756c6aeae771e649",
@@ -2387,7 +3101,10 @@
     "description": "EEPROM-fout.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d18e7601d36aa9ecd219",
@@ -2397,7 +3114,10 @@
     "description": "Programma kan niet starten.",
     "likelyCauses": "Reset|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_672ab73c1385b56b2b1a",
@@ -2407,7 +3127,10 @@
     "description": "Spanning te laag of te hoog.",
     "likelyCauses": "Net",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6cfc117bddf963e2db09",
@@ -2417,7 +3140,10 @@
     "description": "Geen watertoevoer binnen tijd.",
     "likelyCauses": "Kraan|Magneetventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_48a45f3bdc0fb6ed573a",
@@ -2427,7 +3153,10 @@
     "description": "Lek-sensor geactiveerd.",
     "likelyCauses": "Slang|Manchet",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b606829c2f4e7395e6bf",
@@ -2437,7 +3166,10 @@
     "description": "Water-afvoer mislukt.",
     "likelyCauses": "Pomp|Filter",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_70c1ef56e00258bebbc5",
@@ -2447,7 +3179,10 @@
     "description": "Afvoer-tijd overschrijdt limiet.",
     "likelyCauses": "Pomp|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b843413213e2e3d32fba",
@@ -2457,7 +3192,10 @@
     "description": "Pomp werkt continu zonder dat niveau zakt.",
     "likelyCauses": "Drukschakelaar|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fad3fef9802e8bd8cbb0",
@@ -2467,7 +3205,10 @@
     "description": "Aansturing pomp afwijkend.",
     "likelyCauses": "Module",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9d67b7cb392b25167495",
@@ -2477,7 +3218,10 @@
     "description": "Aansturings-component defect.",
     "likelyCauses": "Triac op module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5bade619c1f4bbc4a3a6",
@@ -2487,7 +3231,10 @@
     "description": "Druksensor defect.",
     "likelyCauses": "Sensor|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6607b80687c21740f2c1",
@@ -2497,7 +3244,10 @@
     "description": "Druksensor buiten kalibratie.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f1a3ba79c18f99b3df41",
@@ -2507,7 +3257,10 @@
     "description": "Druk te laag voor verwarming.",
     "likelyCauses": "Slang|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a044d4b5cc7734fcfd11",
@@ -2517,7 +3270,10 @@
     "description": "Drukschakelaars geven tegenstrijdige info.",
     "likelyCauses": "Sensor|Module",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_038646f3b9a8ae614af1",
@@ -2527,7 +3283,10 @@
     "description": "Anti-overflow niveau bereikt.",
     "likelyCauses": "Magneetventiel|Drukschakelaar",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_58570ae6940e4cff7a93",
@@ -2537,7 +3296,10 @@
     "description": "Veiligheids-drukschakelaar geactiveerd.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_64d8d83241c3ae1d14df",
@@ -2547,7 +3309,10 @@
     "description": "Druksensor ongeldig signaal.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_70df7f938a51f732da08",
@@ -2557,7 +3322,10 @@
     "description": "Drukmeet-slang verstopt.",
     "likelyCauses": "Slang reinigen",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_26d4331bfe7ca6114ed2",
@@ -2567,7 +3335,10 @@
     "description": "Lekbeveiliging actief.",
     "likelyCauses": "Lekkage|Sensor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8390facc25b324857eed",
@@ -2577,7 +3348,10 @@
     "description": "Deur niet correct gesloten.",
     "likelyCauses": "Slot|Haak",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_65465fc1cb869c82867c",
@@ -2587,7 +3361,10 @@
     "description": "Slot niet bedienbaar.",
     "likelyCauses": "Slot defect",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_54e632801b4198cdee6a",
@@ -2597,7 +3374,10 @@
     "description": "Aansturing slot op module defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b9f0a54f3de9f41e24a1",
@@ -2607,7 +3387,10 @@
     "description": "Sensor-signaal van deur afwezig.",
     "likelyCauses": "Slot|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6843d3c8cc1c257aecfd",
@@ -2617,7 +3400,10 @@
     "description": "Triac component defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b22f90ab86e1bebb090e",
@@ -2627,7 +3413,10 @@
     "description": "Commutator-fout.",
     "likelyCauses": "Koolborstels|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_966f6a4d5aa77af544e2",
@@ -2637,7 +3426,10 @@
     "description": "Motor-aansturing defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cc44c4177f94e1a34ad3",
@@ -2647,7 +3439,10 @@
     "description": "Geen tachosignaal.",
     "likelyCauses": "Tacho|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_52df8cd128d92c4bb2f1",
@@ -2657,7 +3452,10 @@
     "description": "Aansturings-relais module defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_24ba276f3e3d6f6748c8",
@@ -2667,7 +3465,10 @@
     "description": "Onverwacht draairichting.",
     "likelyCauses": "Inverter|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_56f198d94d1630b1583c",
@@ -2677,7 +3478,10 @@
     "description": "Te hoge stroom op inverter.",
     "likelyCauses": "Motor|Inverter",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_077569da65d15d80da13",
@@ -2687,7 +3491,10 @@
     "description": "Tacho niet gedetecteerd in 3 cycli.",
     "likelyCauses": "Tacho",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_88c02824d0e5131b93b6",
@@ -2697,7 +3504,10 @@
     "description": "Element verwarmt te lang of te hoog.",
     "likelyCauses": "NTC|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6d8320dea2f42d01679c",
@@ -2707,7 +3517,10 @@
     "description": "Element niet warm.",
     "likelyCauses": "Element|Relais",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e767a70534417604eac7",
@@ -2717,7 +3530,10 @@
     "description": "Temperatuur boven veilig niveau.",
     "likelyCauses": "NTC|Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_9899f09dee19fb41485e",
@@ -2727,7 +3543,10 @@
     "description": "Relais op module defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0542b8566c1866ccbee6",
@@ -2737,7 +3556,10 @@
     "description": "Verwarmingscircuit-foutmelding.",
     "likelyCauses": "Element|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d890f973e01297e8894b",
@@ -2747,7 +3569,10 @@
     "description": "Aardlek gedetecteerd.",
     "likelyCauses": "Element naar massa|Bedrading",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fb1d8699b7187f2155ad",
@@ -2757,7 +3582,10 @@
     "description": "Temperatuursensor afwijking.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_074e4e7d58fb5de46dd6",
@@ -2767,7 +3595,10 @@
     "description": "NTC short.",
     "likelyCauses": "NTC vervangen",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5b5b85d67a8f846391cb",
@@ -2777,7 +3608,10 @@
     "description": "Selectorknop ongeldige positie.",
     "likelyCauses": "Knop defect|Module",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d124ef1b111f277f0f57",
@@ -2787,7 +3621,10 @@
     "description": "Recirculatiepomp defect.",
     "likelyCauses": "Pomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d1042fc59d63751c9c8b",
@@ -2797,7 +3634,10 @@
     "description": "Aansturing recirculatie defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b57ebfa1840aa2b59749",
@@ -2807,7 +3647,10 @@
     "description": "Display geen verbinding met hoofdmodule.",
     "likelyCauses": "Lintkabel|Display",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_58ee14ba2ac3628f8f88",
@@ -2817,7 +3660,10 @@
     "description": "Module-software niet compatibel.",
     "likelyCauses": "Software-update",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_68cab341533076204343",
@@ -2827,7 +3673,10 @@
     "description": "Configuratie module-display klopt niet.",
     "likelyCauses": "Service-config",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_18d0e12c5e3aa55ffcd1",
@@ -2837,7 +3686,10 @@
     "description": "Was-config niet correct.",
     "likelyCauses": "Service-config",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_69524085aea7c0a4b284",
@@ -2847,7 +3699,10 @@
     "description": "EEPROM-fout.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_72de6de00ddcf3e19d93",
@@ -2857,7 +3712,10 @@
     "description": "Programma kan niet starten.",
     "likelyCauses": "Reset|Module",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_c76338f84ef802d396dc",
@@ -2867,7 +3725,10 @@
     "description": "Spanning te laag of te hoog.",
     "likelyCauses": "Net",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_02abe91eeba930035c60",
@@ -2877,7 +3738,10 @@
     "description": "Pomp werkt niet.",
     "likelyCauses": "Filter|Pomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e33f2b5a058a7a6144e6",
@@ -2887,7 +3751,10 @@
     "description": "Element of NTC defect.",
     "likelyCauses": "Element|NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_88806230059325bd727e",
@@ -2897,7 +3764,10 @@
     "description": "Geen watertoevoer.",
     "likelyCauses": "Kraan|Ventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_8d9fd44373f5c970fe84",
@@ -2907,7 +3777,10 @@
     "description": "Niveau-meting fout.",
     "likelyCauses": "Slang|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0c1e7ee3db81f8326634",
@@ -2917,7 +3790,10 @@
     "description": "Tachometer-signaal.",
     "likelyCauses": "Tacho",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5281d6380b3ec2300004",
@@ -2927,7 +3803,10 @@
     "description": "Motor-triac defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f1220127762aee9d1e71",
@@ -2937,7 +3816,10 @@
     "description": "Te veel water.",
     "likelyCauses": "Ventiel blijft open",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3946abe72f0cfceb2d1a",
@@ -2947,7 +3829,10 @@
     "description": "Drukschakelaars geven verschillende waarden.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_05e7644aa8cfafa5c0d0",
@@ -2957,7 +3842,10 @@
     "description": "Pomp-relais probleem.",
     "likelyCauses": "Module|Pomp",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_bcf9da76c58461c63beb",
@@ -2967,7 +3855,10 @@
     "description": "Aansturing verwarming defect.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e392d8186c39e01af1d2",
@@ -2977,7 +3868,10 @@
     "description": "Bij was/droogcombinatie: blower-circuit fout.",
     "likelyCauses": "Blower-motor|Module",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5e3f8bb1ef9dc4930625",
@@ -2987,7 +3881,10 @@
     "description": "Geheugen-corruptie.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_e665ad4364e352e1b771",
@@ -2997,7 +3894,10 @@
     "description": "Aansturing motor blokkeert.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_cdc51f893e43086b504f",
@@ -3007,7 +3907,10 @@
     "description": "Data-corruptie.",
     "likelyCauses": "Module reset",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_5b9457401a8d44bca33c",
@@ -3017,7 +3920,10 @@
     "description": "Voeding niet stabiel.",
     "likelyCauses": "Net|Module-voeding",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_81affba0bde137b29692",
@@ -3027,7 +3933,10 @@
     "description": "Magneetventiel niet aangestuurd.",
     "likelyCauses": "Module|Ventiel",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b0d8705ded2388beaa24",
@@ -3037,7 +3946,10 @@
     "description": "Verbinding druk-sensor onderbroken.",
     "likelyCauses": "Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d065077b946fac07be34",
@@ -3047,7 +3959,10 @@
     "description": "NTC sensor heeft short.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_47cef76736ac6fd8aa74",
@@ -3057,7 +3972,10 @@
     "description": "Triac blijft geleidend.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_09b1dcad32d95946b5c8",
@@ -3067,7 +3985,10 @@
     "description": "Motor-aansturing verloren.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_3e5f7b2341dcfe554c2f",
@@ -3077,7 +3998,10 @@
     "description": "Deurslot kan niet sluiten.",
     "likelyCauses": "Slot",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f6d439daae4b4be99f8f",
@@ -3087,7 +4011,10 @@
     "description": "Deurslot kan niet openen.",
     "likelyCauses": "Slot",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_d67b05e54fdccaf04696",
@@ -3097,7 +4024,10 @@
     "description": "Verwarmings-element of NTC fout.",
     "likelyCauses": "Element|NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_261a8024b07cd20302d2",
@@ -3107,7 +4037,10 @@
     "description": "Element verwarmt continu.",
     "likelyCauses": "Relais|NTC short",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_56f4d1e0e9c3a0da3a57",
@@ -3117,7 +4050,10 @@
     "description": "Voedingsspanning instabiel.",
     "likelyCauses": "Net|Module",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ea4ffee7990ce2e20321",
@@ -3127,7 +4063,10 @@
     "description": "Afvoerpomp werkt niet.",
     "likelyCauses": "Filter|Pomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1af018c219bd6df2cd8d",
@@ -3137,7 +4076,10 @@
     "description": "Motor-aandrijving fout.",
     "likelyCauses": "Module|Motor",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_723ff3bd4757f69c07b1",
@@ -3147,7 +4089,10 @@
     "description": "Niveau-sensor fout.",
     "likelyCauses": "Sensor|Slang",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b9e72d4a3d1f7d317966",
@@ -3157,7 +4102,10 @@
     "description": "Module heeft een short circuit gedetecteerd.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_acee6f2aeee4c368f514",
@@ -3167,7 +4115,10 @@
     "description": "Tachosignaal afwezig.",
     "likelyCauses": "Tacho",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_a048545d7d82fe25caca",
@@ -3177,7 +4128,10 @@
     "description": "Temperatuursensor.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0443d690a48fcc4a1c59",
@@ -3187,7 +4141,10 @@
     "description": "Druksensor.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_dd340f265c58ffc7c7cd",
@@ -3197,7 +4154,10 @@
     "description": "Pressostat blijft hangen.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ad5bbeb49638da0b2b21",
@@ -3207,7 +4167,10 @@
     "description": "Aansturings-relais element.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_658906738615dea741b4",
@@ -3217,7 +4180,10 @@
     "description": "Software-update vereist.",
     "likelyCauses": "Module reset",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_0be5bf54f74c92902bd0",
@@ -3227,7 +4193,10 @@
     "description": "Druk te laag.",
     "likelyCauses": "Slang|Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_fdd388a2c4cb2855bfb9",
@@ -3237,7 +4206,10 @@
     "description": "Afvoerpomp.",
     "likelyCauses": "Filter|Pomp",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_1f0707a6aaa20802e93c",
@@ -3247,7 +4219,10 @@
     "description": "Communicatieprobleem.",
     "likelyCauses": "Bedrading|Display",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_24275c92b2aede7bd59e",
@@ -3257,7 +4232,10 @@
     "description": "Op droger: NTC bedrading.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_305b2fe7cf9f815bf43b",
@@ -3267,7 +4245,10 @@
     "description": "Drogers-element defect.",
     "likelyCauses": "Element droger",
     "severity": "MEDIUM",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_b958d7657490c6be5aa5",
@@ -3277,7 +4258,10 @@
     "description": "Watertoevoer fout.",
     "likelyCauses": "Ventiel",
     "severity": "LOW",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_ba08371c711bc4e16b9b",
@@ -3287,7 +4271,10 @@
     "description": "Trommel-vergrendeling top-loader.",
     "likelyCauses": "Lock",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_6d9591888d54002096fb",
@@ -3297,7 +4284,10 @@
     "description": "Slot.",
     "likelyCauses": "Slot",
     "severity": "MEDIUM",
-    "diyFriendly": true
+    "diyFriendly": true,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   },
   {
     "id": "wfec_f7302740e2f8968d17ac",
@@ -3307,6 +4297,9 @@
     "description": "Hoofdmodule-fout.",
     "likelyCauses": "Module",
     "severity": "HIGH",
-    "diyFriendly": false
+    "diyFriendly": false,
+    "provenance": "REPORTED",
+    "sourceUrl": null,
+    "sourceName": null
   }
 ]

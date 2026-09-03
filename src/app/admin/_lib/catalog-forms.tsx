@@ -162,6 +162,9 @@ export type ErrorCodeRow = {
   likelyCauses: string;
   severity: string;
   diyFriendly: boolean;
+  provenance: string;
+  sourceUrl: string | null;
+  sourceName: string | null;
 };
 
 export type MachineOption = { id: string; label: string };
@@ -185,6 +188,17 @@ function ErrorCodeFields({ errorCode, machines, close }: { errorCode?: ErrorCode
       <TextArea label="Omschrijving" name="description" defaultValue={errorCode?.description} required />
       <Field label="Waarschijnlijke oorzaken (gescheiden door |)" name="likelyCauses" defaultValue={errorCode?.likelyCauses} required placeholder="Verstopt filter|Defecte pomp" />
       <Checkbox name="diyFriendly" label="Zelf op te lossen (DIY)" defaultChecked={errorCode?.diyFriendly ?? true} />
+      <Select
+        label="Bron gecontroleerd?"
+        name="provenance"
+        options={[
+          { value: "REPORTED", label: "Nee — gemeld, niet nagelopen" },
+          { value: "VERIFIED", label: "Ja — gecontroleerd tegen een bron" },
+        ]}
+        defaultValue={errorCode?.provenance ?? "REPORTED"}
+      />
+      <Field label="Bron-URL" name="sourceUrl" defaultValue={errorCode?.sourceUrl ?? ""} placeholder="https://www.bosch-home.be/..." />
+      <Field label="Bron-naam" name="sourceName" defaultValue={errorCode?.sourceName ?? ""} placeholder="Bosch Home — E18 op display" />
       <Actions close={close} />
     </form>
   );

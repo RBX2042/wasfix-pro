@@ -47,6 +47,10 @@ type ErrorCode = {
   likelyCauses: string;
   severity: string;
   diyFriendly: boolean;
+  /** "VERIFIED" when checked against a public source, else "REPORTED". */
+  provenance: string;
+  sourceUrl: string | null;
+  sourceName: string | null;
 };
 
 type Guide = {
@@ -62,7 +66,9 @@ type Guide = {
   warnings: string | null;
   isPremium: boolean;
   views: number;
-  createdAt: number; // SQLite stores epoch ms
+  /** ISO 8601 timestamp. The seed used to mix epoch-ms numbers and ISO
+   *  strings, which made date sorting silently wrong for six guides. */
+  createdAt: string;
 };
 
 export const machines = machinesRaw as Machine[];
@@ -319,10 +325,12 @@ export function staticGuides(opts?: {
       result.sort((a, b) => b.views - a.views);
       break;
     case "created-desc":
-      result.sort((a, b) => b.createdAt - a.createdAt);
+      result.sort((a, b) => b.createdAt.localeCompare(a.createdAt));
       break;
     default:
-      result.sort((a, b) => b.views - a.views);
+      // Views tie at zero on a fresh catalogue, so fall back to newest first
+      // rather than leaving the order to whatever the JSON happened to hold.
+      result.sort((a, b) => b.views - a.views || b.createdAt.localeCompare(a.createdAt));
   }
   if (opts?.take) result = result.slice(0, opts.take);
   return result;

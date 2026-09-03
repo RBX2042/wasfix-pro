@@ -14,6 +14,7 @@ import { PLANS, PLAN_ORDER, BILLABLE_PLANS, getPlan, formatPlanPrice, VAT_RATE }
 import { getPlanLimits } from "../src/lib/auth";
 import { issueWorkOrderInvoice, getWorkOrderInvoice, profileGaps } from "../src/lib/monteur-invoicing";
 import { catalogStats } from "../src/lib/catalog-stats";
+import { staticErrorCodes } from "../src/lib/static-db";
 import { PLAN_API_MONTHLY_CALLS, PLAN_API_HOURLY_BURST } from "../src/lib/api-auth";
 
 const prisma = new PrismaClient();
@@ -312,6 +313,35 @@ async function main() {
       cat.errorCodes > 0 && cat.parts > 0 && cat.guides > 0 && cat.brands > 0,
       `Claims: catalog stats resolve (${cat.errorCodes} codes, ${cat.parts} parts, ${cat.guides} guides, ${cat.brands} brands)`,
       "Claims: catalog stats came back empty",
+    );
+
+    // "Geverifieerd" has to mean something checkable. A row may only claim
+    // VERIFIED when it carries the URL we checked it against — otherwise the
+    // badge is the same kind of unearned claim we just spent a PR removing.
+    const unsourcedVerified = staticErrorCodes().filter(
+      (ec) => ec.provenance === "VERIFIED" && !ec.sourceUrl,
+    );
+    check(
+      unsourcedVerified.length === 0,
+      `Codes: all ${cat.verifiedErrorCodes} verified codes cite a source`,
+      `Codes: ${unsourcedVerified.length} codes claim VERIFIED without a source URL (${unsourcedVerified
+        .slice(0, 5)
+        .map((ec) => `${ec.machine.brand} ${ec.code}`)
+        .join(", ")})`,
+    );
+
+    // A "DIY: ja" badge on a repair that means opening the control module,
+    // the motor or the heating circuit sends someone into live mains. The
+    // title naming one of those components is the tripwire.
+    const liveSide = /(verwarmingselement|verwarmingscircuit|verwarmingsfout|motor commutator|koolborstel|moederbord|kortsluiting|netspanning)/i;
+    const unsafeDiy = staticErrorCodes().filter((ec) => ec.diyFriendly && liveSide.test(ec.title));
+    check(
+      unsafeDiy.length === 0,
+      "Codes: no code marked DIY describes mains, motor or module work",
+      `Codes: ${unsafeDiy.length} codes invite a consumer into live-side work (${unsafeDiy
+        .slice(0, 5)
+        .map((ec) => `${ec.machine.brand} ${ec.code}`)
+        .join(", ")})`,
     );
 
     // ── Regressions the security audit surfaced ─────────────────

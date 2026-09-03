@@ -14,6 +14,13 @@ export type CatalogStats = {
   machines: number;
   brands: number;
   errorCodes: number;
+  /**
+   * Error codes whose meaning we checked against a public source and recorded
+   * the URL for. Always use THIS number, never `errorCodes`, whenever the
+   * surrounding copy says "geverifieerd", "gecontroleerd" or similar — the
+   * total counts rows, not verification.
+   */
+  verifiedErrorCodes: number;
   parts: number;
   partsInStock: number;
   guides: number;
@@ -24,6 +31,7 @@ export function catalogStats(): CatalogStats {
     machines: machines.length,
     brands: new Set(machines.map((m) => m.brand)).size,
     errorCodes: errorCodes.length,
+    verifiedErrorCodes: errorCodes.filter((ec) => ec.provenance === "VERIFIED").length,
     parts: parts.length,
     partsInStock: parts.filter((p) => p.stock > 0).length,
     guides: guides.length,

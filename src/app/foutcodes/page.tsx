@@ -5,6 +5,9 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { Search, AlertCircle, ChevronRight } from "lucide-react";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
+
+const STATS = catalogStats();
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +30,15 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
           <h1 className="font-heading text-3xl md:text-4xl font-bold">Wasmachine foutcodes</h1>
           <p className="text-muted-foreground mt-2 max-w-2xl">
             Zoek de foutcode van je wasmachine en ontdek direct de oorzaak en oplossing.
+          </p>
+          {/* Say up front how much of this database we have actually checked.
+              A visitor should not have to open a detail page to find out. */}
+          <p className="text-sm text-muted-foreground mt-3 max-w-2xl">
+            Van de {formatCount(STATS.errorCodes)} codes hier hebben we er{" "}
+            <strong>{formatCount(STATS.verifiedErrorCodes)}</strong> gecontroleerd tegen een openbare
+            bron, met de link erbij op de detailpagina. De rest komt uit servicedocumentatie en
+            reparatiefora en is nog niet nagelopen — bij die codes zeggen we dat er ook bij. Fabrikanten
+            wijzigen codes per serie, dus controleer bij twijfel altijd de handleiding van jouw model.
           </p>
           <form className="mt-6 max-w-xl" action="/foutcodes">
             <div className="relative">

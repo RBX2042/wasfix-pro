@@ -126,10 +126,14 @@ export async function POST(req: NextRequest) {
     const wantsBankTransfer = paymentMethod === "bank_transfer" || !stripe;
 
     // A bank-transfer order is a real invoice with WasFix's real IBAN on it.
-    // Refuse to issue one in production against placeholder company/fiscal
-    // details — customers cannot pay a fake IBAN, and a fake KvK/btw number
-    // is not a valid invoice.
-    if (wantsBankTransfer && env.IS_PRODUCTION && COMPANY.isPlaceholder) {
+    // Refuse to issue one to a real customer against placeholder company/
+    // fiscal details — they cannot pay a fake IBAN, and a fake KvK/btw
+    // number is not a valid invoice. Demo mode is exempt: it's explicitly
+    // opted into (see lib/demo-mode.ts) precisely for investor demos and
+    // CI, where "issuing" a fake invoice against fake data is expected —
+    // same as every other payment path in this file already fakes success
+    // in demo mode.
+    if (wantsBankTransfer && env.IS_PRODUCTION && !env.DEMO_MODE && COMPANY.isPlaceholder) {
       logger.error("Bank-transfer checkout blocked — COMPANY fiscal identity is still a placeholder in production");
       return apiError(
         "Betalen op factuur is nog niet beschikbaar. Neem contact op via support@wasfix.nl.",
@@ -287,7 +291,7 @@ export async function POST(req: NextRequest) {
       // Offer the bank-transfer path instead of leaving the customer stuck.
       logger.error("Stripe session create failed on a live checkout attempt — offering bank transfer instead", stripeErr);
 
-      if (env.IS_PRODUCTION && COMPANY.isPlaceholder) {
+      if (env.IS_PRODUCTION && !env.DEMO_MODE && COMPANY.isPlaceholder) {
         return apiError("Betaling kon niet worden gestart. Probeer het later opnieuw of neem contact op.", 502);
       }
 

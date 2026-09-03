@@ -460,7 +460,7 @@ function DiagnosisPanel({ diagnosis }: { diagnosis: Diagnosis }) {
         )}
 
         <div className="border-t pt-3 flex flex-wrap gap-2">
-          <SustainabilityBadge variant="co2" co2Saved={45} />
+          <SustainabilityBadge variant="co2" />
         </div>
       </CardContent>
     </Card>

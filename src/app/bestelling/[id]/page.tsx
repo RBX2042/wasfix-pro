@@ -1,5 +1,6 @@
 import { MarketingLayout } from "@/components/marketing-layout";
 import { prisma } from "@/lib/prisma";
+import { getCurrentUser } from "@/lib/auth";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -39,13 +40,23 @@ export default async function OrderDetailPage({
   type OrderWithItems = Awaited<ReturnType<typeof prisma.order.findUnique>> & {
     items: Array<{ id: string; quantity: number; unitPrice: number; part: { id: string; sku: string; name: string; imageUrl: string | null } }>;
   };
+  // The order carries the buyer's name, address and e-mail. Order ids travel
+  // through Stripe redirects, confirmation mails and browser history, so the
+  // page must verify who is asking — the invoice route and /api/orders/[id]
+  // already did, this one did not.
   let order: OrderWithItems | null = null;
   try {
     if (!id.startsWith("demo-")) {
-      order = await prisma.order.findUnique({
+      const found = await prisma.order.findUnique({
         where: { id },
         include: { items: { include: { part: true } } },
       });
+      if (found) {
+        const user = await getCurrentUser().catch(() => null);
+        const mayView = user && (found.userId === user.id || user.role === "ADMIN");
+        order = mayView ? found : null;
+        if (!mayView) notFound();
+      }
     }
   } catch {
     order = null;

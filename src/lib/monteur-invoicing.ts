@@ -41,16 +41,7 @@ export function profileGaps(profile: { companyName?: string | null; kvkNumber?: 
   return missing;
 }
 
-/** Next gapless number in this monteur's own series, inside a transaction. */
-async function nextNumber(ownerId: string, year: number): Promise<string> {
-  const seq = await prisma.$transaction(async (tx) => {
-    const row = await tx.monteurInvoiceSequence.upsert({
-      where: { ownerId_year: { ownerId, year } },
-      update: { last: { increment: 1 } },
-      create: { ownerId, year, last: 1 },
-    });
-    return row.last;
-  });
+function formatNumber(year: number, seq: number): string {
   return `${year}-${String(seq).padStart(4, "0")}`;
 }
 
@@ -121,14 +112,23 @@ export async function issueWorkOrderInvoice(
 
     const vat = splitVatInclusive(workOrder.priceEur, profile!.vatRate);
     const year = new Date().getFullYear();
-    const number = await nextNumber(ownerId, year);
     const dueAt = new Date(Date.now() + profile!.paymentTerms * 24 * 60 * 60 * 1000);
 
-    const created = await prisma.monteurInvoice.create({
+    // Number and row are written together: opening the invoice page twice in
+    // parallel must not consume a number without producing an invoice.
+    const created = await prisma.$transaction(async (tx) => {
+      const already = await tx.monteurInvoice.findUnique({ where: { workOrderId: workOrder.id } });
+      if (already) return already;
+      const seqRow = await tx.monteurInvoiceSequence.upsert({
+        where: { ownerId_year: { ownerId, year } },
+        update: { last: { increment: 1 } },
+        create: { ownerId, year, last: 1 },
+      });
+      return tx.monteurInvoice.create({
       data: {
         ownerId,
         workOrderId: workOrder.id,
-        number,
+        number: formatNumber(year, seqRow.last),
         year,
         dueAt,
         subtotalEur: vat.totalEur,
@@ -139,11 +139,14 @@ export async function issueWorkOrderInvoice(
         buyerJson: JSON.stringify(buyer),
         linesJson: JSON.stringify(lines),
       },
+      });
     });
 
-    logger.info("[monteur-invoicing] invoice issued", { number, workOrderId, ownerId });
+    logger.info("[monteur-invoicing] invoice issued", { number: created.number, workOrderId, ownerId });
     return { ok: true, invoice: deserialize(created) };
   } catch (err) {
+    const raced = await prisma.monteurInvoice.findUnique({ where: { workOrderId } }).catch(() => null);
+    if (raced && raced.ownerId === ownerId) return { ok: true, invoice: deserialize(raced) };
     logger.error("[monteur-invoicing] could not issue invoice", err);
     return { ok: false, error: "Factuur kon niet worden aangemaakt." };
   }

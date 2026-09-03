@@ -165,7 +165,7 @@ export default function MonteurLandingPage() {
               { q: "Hoe snel kan ik beginnen?", a: "5 minuten. Account maken, abonnement starten (14 dagen gratis), inloggen op je monteur-dashboard. Direct toegang tot alle features." },
               { q: "Wat als ik wil opzeggen?", a: "Maandelijks opzegbaar, per email of vanuit je dashboard. Geen lange contracten, geen opzegtermijn, geen verborgen kosten." },
               { q: "Krijg ik training of onboarding?", a: "Ja — gratis 30-minuten 1-op-1 onboarding-call binnen 2 werkdagen na aanmelden. Plus een uitgebreide kennisbank en NL-talige videosupport." },
-              { q: "Is de data van mijn klanten veilig?", a: "Ja. AVG-compliant, AES-256 versleuteld at-rest en in-transit, Nederlandse serverlocatie, ISO 27001 certificering. Jij bent eigenaar van je klantdata, altijd exporteerbaar." },
+              { q: "Is de data van mijn klanten veilig?", a: "Je klantgegevens staan in een Europese database van onze hostingpartner, die versleutelt at-rest, en al het verkeer gaat over TLS. Elke monteur ziet uitsluitend zijn eigen klanten en werkorders — dat is afgedwongen in de query, niet alleen in de UI. We hebben geen ISO 27001-certificering; als je daar een leverancierseis voor hebt, zeg het en we sturen je wat we wél kunnen aantonen. Jij bent eigenaar van je klantdata en kunt die altijd exporteren." },
             ].map((f, i) => (
               <details key={i} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px" }}>
                 <summary style={{ cursor: "pointer", fontWeight: 500, listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>

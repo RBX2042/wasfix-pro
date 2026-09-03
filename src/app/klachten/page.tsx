@@ -3,7 +3,7 @@ import Link from "next/link";
 
 export const metadata = {
   title: "Klachtenprocedure · WasFix Pro",
-  description: "Hoe dien je een klacht in bij WasFix Pro — Stichting WebwinkelKeur + ODR-platform.",
+  description: "Hoe dien je een klacht in bij WasFix Pro — procedure, termijnen en het Europese ODR-platform.",
 };
 
 export default function KlachtenPage() {
@@ -36,13 +36,7 @@ export default function KlachtenPage() {
 
       <h2>Stap 3 — Niet tevreden met onze oplossing?</h2>
       <p>
-        Als we er samen niet uitkomen, kun je gebruikmaken van onafhankelijke geschillenbeslechting. Wij zijn aangesloten bij:
-      </p>
-
-      <h3>Stichting WebwinkelKeur</h3>
-      <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
-        Stichting WebwinkelKeur biedt bemiddeling bij consumentenklachten over webshops. Hun oordeel is bindend voor ons.<br />
-        <a href="https://www.webwinkelkeur.nl/klacht-indienen/" target="_blank" rel="noopener noreferrer">Klacht indienen bij WebwinkelKeur →</a>
+        Als we er samen niet uitkomen, kun je gebruikmaken van onafhankelijke geschillenbeslechting.
       </p>
 
       <h3>Europese ODR-platform</h3>

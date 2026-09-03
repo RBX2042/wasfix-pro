@@ -2,6 +2,7 @@ import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import comparisonsData from "@/data/comparisons.json";
+import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
 type Comparison = {
   slug: string;
@@ -13,7 +14,29 @@ type Comparison = {
   verdict: string;
 };
 
-const comparisons = comparisonsData as Comparison[];
+const STATS = catalogStats();
+
+/**
+ * Our own side of a comparison table quotes catalogue sizes. Those are written
+ * as {PARTS}/{GUIDES}/{CODES} placeholders in comparisons.json and resolved
+ * here, so a comparison page can never advertise a number the catalogue does
+ * not actually hold.
+ */
+const CATALOG_TOKENS: Record<string, string> = {
+  "{PARTS}": formatCount(STATS.parts),
+  "{GUIDES}": formatCount(STATS.guides),
+  "{CODES}": formatCount(STATS.errorCodes),
+  "{BRANDS}": formatCount(STATS.brands),
+};
+
+function resolveTokens(text: string): string {
+  return text.replace(/\{(?:PARTS|GUIDES|CODES|BRANDS)\}/g, (m) => CATALOG_TOKENS[m] ?? m);
+}
+
+const comparisons = (comparisonsData as Comparison[]).map((c) => ({
+  ...c,
+  winsTable: c.winsTable.map((row) => ({ ...row, us: resolveTokens(row.us), them: resolveTokens(row.them) })),
+}));
 
 export function generateStaticParams() {
   return comparisons.map((c) => ({ concurrent: c.slug }));

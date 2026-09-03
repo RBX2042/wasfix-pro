@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
+import { SHIPPING } from "@/lib/plans";
 import { CheckCircle2, Truck, ShieldCheck, RotateCcw, Package } from "lucide-react";
 import { AddToCartButton } from "./add-to-cart-button";
 import Image from "next/image";
@@ -68,7 +69,7 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
       seller: { "@type": "Organization", name: "WasFix Pro" },
       shippingDetails: {
         "@type": "OfferShippingDetails",
-        shippingRate: { "@type": "MonetaryAmount", value: "4.95", currency: "EUR" },
+        shippingRate: { "@type": "MonetaryAmount", value: SHIPPING.rateEur.toFixed(2), currency: "EUR" },
         shippingDestination: { "@type": "DefinedRegion", addressCountry: "NL" },
         deliveryTime: { "@type": "ShippingDeliveryTime",
           handlingTime: { "@type": "QuantitativeValue", minValue: 0, maxValue: 1, unitCode: "DAY" },

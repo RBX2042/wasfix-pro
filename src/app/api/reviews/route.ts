@@ -3,7 +3,7 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { getReviews } from "@/lib/reviews";
+import { getReviews, hasPurchased } from "@/lib/reviews";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
 
@@ -17,6 +17,16 @@ const PostSchema = z.object({
   author: z.string().min(2).max(60),
   email: z.string().email(),
 });
+
+/** Escape user text before it goes into an HTML e-mail body. */
+function esc(value: string): string {
+  return value
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
 
 // GET — list reviews for a target
 export async function GET(req: NextRequest) {
@@ -41,6 +51,13 @@ export async function POST(req: NextRequest) {
   if (!parsed.success) return apiError("Ongeldige review", 400, parsed.error.flatten());
 
   let reviewId = `rev-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+  // The verified-purchase badge is earned, not claimed: it is only granted when
+  // this e-mail actually has a paid order containing the reviewed part.
+  const verifiedPurchase =
+    parsed.data.targetType === "part" && parsed.data.targetSku
+      ? await hasPurchased(parsed.data.email, parsed.data.targetSku)
+      : false;
+
   if (isDatabaseConfigured()) {
     try {
       const created = await prisma.review.create({
@@ -54,6 +71,7 @@ export async function POST(req: NextRequest) {
           author: parsed.data.author,
           email: parsed.data.email,
           status: "PENDING",
+          verifiedPurchase,
         },
       });
       reviewId = created.id;
@@ -77,13 +95,14 @@ export async function POST(req: NextRequest) {
           <div style="font-family: system-ui, sans-serif; max-width: 600px;">
             <h2>Nieuwe review</h2>
             <table style="width: 100%; font-size: 14px;">
-              <tr><td><strong>ID:</strong></td><td>${reviewId}</td></tr>
-              <tr><td><strong>Target:</strong></td><td>${parsed.data.targetType} ${parsed.data.targetSku ?? parsed.data.targetSlug}</td></tr>
+              <tr><td><strong>ID:</strong></td><td>${esc(reviewId)}</td></tr>
+              <tr><td><strong>Target:</strong></td><td>${esc(parsed.data.targetType)} ${esc(parsed.data.targetSku ?? parsed.data.targetSlug ?? "")}</td></tr>
               <tr><td><strong>Rating:</strong></td><td>${"★".repeat(parsed.data.rating)}</td></tr>
-              <tr><td><strong>Auteur:</strong></td><td>${parsed.data.author} (${parsed.data.email})</td></tr>
+              <tr><td><strong>Auteur:</strong></td><td>${esc(parsed.data.author)} (${esc(parsed.data.email)})</td></tr>
+              <tr><td><strong>Aankoop geverifieerd:</strong></td><td>${verifiedPurchase ? "ja" : "nee"}</td></tr>
             </table>
-            <h3 style="margin-top: 16px;">${parsed.data.title}</h3>
-            <div style="padding: 12px; background: #f7f7f9; border-left: 3px solid #1a6b6b; border-radius: 4px;">${parsed.data.body.replace(/\n/g, "<br>")}</div>
+            <h3 style="margin-top: 16px;">${esc(parsed.data.title)}</h3>
+            <div style="padding: 12px; background: #f7f7f9; border-left: 3px solid #1a6b6b; border-radius: 4px;">${esc(parsed.data.body).replace(/\n/g, "<br>")}</div>
             <p style="margin-top: 20px; font-size: 12px; color: #888;">Modereer in /admin/reviews.</p>
           </div>
         `,

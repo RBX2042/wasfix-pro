@@ -6,6 +6,7 @@ import { useCart, cartCount } from "@/components/cart-provider";
 import { CartDrawer } from "@/components/cart-drawer";
 import { AuthButtons } from "@/components/auth-buttons";
 import "@/app/wasfix-design.css";
+import { COMPANY, realOrNull } from "@/lib/plans";
 
 // Re-usable Icon (same set as WasFixHome)
 export type IconName =
@@ -105,6 +106,8 @@ export function WasFixNav() {
 }
 
 export function WasFixFooter() {
+  const kvk = realOrNull(COMPANY.kvk);
+
   return (
     <footer className="footer">
       <div className="container">
@@ -124,7 +127,6 @@ export function WasFixFooter() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
               <span className="pill"><Icon name="leaf" size={11} /> EU Right to Repair</span>
-              <span className="pill pill-mono">B Corp pending</span>
             </div>
           </div>
           <div>
@@ -222,7 +224,7 @@ export function WasFixFooter() {
         </div>
 
         <div className="foot-bottom" style={{ marginTop: 32 }}>
-          <div>© 2026 WasFix Pro B.V. · KvK 12345678 · Made with care in The Netherlands.</div>
+          <div>© {new Date().getFullYear()} {COMPANY.name}{kvk ? ` · KvK ${kvk}` : " · in oprichting"} · Made with care in The Netherlands.</div>
           <div className="mono" style={{ fontSize: 11.5 }}>Gemini 2.0 · Geist</div>
         </div>
       </div>

@@ -102,8 +102,11 @@ export default function RepairOrReplacePage() {
             </li>
           </ul>
           <p className="mt-3">
-            <strong>EU Right to Repair (2024):</strong> u heeft recht op reparatie tot minimaal 7 jaar na aankoop. Onderdelen
-            moeten beschikbaar zijn tot 10 jaar.
+            <strong>Reserve-onderdelen:</strong> fabrikanten moeten onderdelen voor wasmachines 10 jaar beschikbaar
+            houden, gerekend vanaf het moment dat het laatste exemplaar van dat model op de markt kwam — niet vanaf jouw
+            aankoopdatum (<a href="https://eur-lex.europa.eu/eli/reg/2019/2023/oj" target="_blank" rel="noopener noreferrer">Verordening (EU) 2019/2023</a>).
+            De Nederlandse wet noemt geen vast aantal jaren garantie; wat je mag verwachten hangt af van prijs, merk en
+            wat de verkoper beloofde.
           </p>
         </div>
       </div>

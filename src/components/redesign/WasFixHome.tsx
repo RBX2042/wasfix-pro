@@ -483,7 +483,7 @@ function Hero() {
         <div style={{ marginTop: 48 }}>
           <div className="stat-strip">
             <div className="stat"><div className="stat-n">{formatCount(STATS.errorCodes)}</div><div className="stat-l">Foutcodes in database</div></div>
-            <div className="stat"><div className="stat-n">{formatCount(STATS.parts)}</div><div className="stat-l">Onderdelen op voorraad</div></div>
+            <div className="stat"><div className="stat-n">{formatCount(STATS.partsInStock)}</div><div className="stat-l">Onderdelen op voorraad</div></div>
             <div className="stat"><div className="stat-n">{formatCount(STATS.guides)}</div><div className="stat-l">Reparatiegidsen</div></div>
             <div className="stat"><div className="stat-n">{formatCount(STATS.brands)}</div><div className="stat-l">Merken gedekt</div></div>
           </div>
@@ -998,8 +998,8 @@ function Predictive() {
                 desc="Scan met je telefoon → meteen serial-data, dossier en pre-diagnose. Geen typeplaatje typen." />
               <FeatureRow icon="camera" title="Foto-diagnose van de display"
                 desc="Maak een foto van de foutcode. Vision-model leest die ook bij wazige LCDs of vreemde hoeken." />
-              <FeatureRow icon="user" title="Live monteur-coach · € 15 / 15 min"
-                desc="Vastgelopen? Een echte monteur kijkt mee via je camera en wijst aan wat er moet gebeuren." />
+              <FeatureRow icon="user" title="Eerlijk over wat je zelf kunt"
+                desc="Bij elke foutcode staat of het een klus voor thuis is. Netspanning, motor of besturingsmodule? Dan zeggen we: bel een monteur." />
               <FeatureRow icon="shield" title="Garantie-check automatisch"
                 desc="WasFix checkt of je machine nog onder fabrieks- of verlengde garantie valt vóór je een onderdeel koopt." />
             </div>
@@ -1010,36 +1010,26 @@ function Predictive() {
   );
 }
 
-// ─── Impact (animated counters) ─────────────────────────────────────────
+// ─── Impact ─────────────────────────────────────────────────────────────
+/**
+ * Every number in this section is either an EU figure with a citation or a
+ * count of our own catalogue. We deliberately show no "diagnoses so far" or
+ * "CO2 saved by the community" counter: we do not publish platform totals we
+ * cannot substantiate, and an animated counter reading a hard-coded target is
+ * not a measurement.
+ */
 function Impact() {
-  const targets = { co2: 184320, saved: 18.4, repairs: 27842 };
-  const [count, setCount] = React.useState({ co2: 0, saved: 0, repairs: 0 });
-
-  React.useEffect(() => {
-    let raf = 0;
-    const t0 = performance.now();
-    const dur = 1800;
-    const tick = (t: number) => {
-      const p = Math.min(1, (t - t0) / dur);
-      const e = 1 - Math.pow(1 - p, 3);
-      setCount({
-        co2: Math.round(targets.co2 * e),
-        saved: +(targets.saved * e).toFixed(1),
-        repairs: Math.round(targets.repairs * e),
-      });
-      if (p < 1) raf = requestAnimationFrame(tick);
-    };
-    raf = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(raf);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   return (
     <section className="section" id="impact">
       <div className="container">
-        <div className="eyebrow">Impact dashboard</div>
+        <div className="eyebrow">Waarom repareren</div>
         <h2 className="h-section">Repareren is <em>klimaatactie</em>.</h2>
-        <p className="lead">Een nieuwe wasmachine kost ~280 kg CO₂. Een reparatie ~3 kg. Onder de EU Right to Repair (2024) heb je tot 2031 recht op betaalbare reparatie van je apparaat.</p>
+        <p className="lead">
+          De Europese Commissie rekende het uit voor haar Right to Repair-voorstel: doordat Europeanen
+          apparaten weggooien die nog te repareren zijn, ontstaat er elk jaar onnodig 261 miljoen ton
+          CO&#8322;-equivalent, 30 miljoen ton grondstofgebruik en 35 miljoen ton afval — en verliezen
+          consumenten samen zo&#39;n &euro;12 miljard.
+        </p>
 
         <div className="impact-grid" style={{ marginTop: 36 }}>
           <div className="impact-card">
@@ -1047,11 +1037,11 @@ function Impact() {
               <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", display: "grid", placeItems: "center", color: "#34d399" }}>
                 <Icon name="leaf" size={18} />
               </div>
-              <span className="pill" style={{ borderColor: "rgba(52,211,153,0.3)", color: "#34d399", background: "rgba(52,211,153,0.06)" }}><span className="pill-dot" style={{ background: "#34d399" }} /> Live</span>
+              <span className="pill" style={{ borderColor: "rgba(52,211,153,0.3)", color: "#34d399", background: "rgba(52,211,153,0.06)" }}>EU-cijfer</span>
             </div>
-            <div className="impact-n mono" style={{ marginTop: 18 }}>{count.co2.toLocaleString("nl-NL")} kg</div>
-            <div className="impact-l">CO₂ bespaard door de community</div>
-            <div className="impact-sub">Sinds de start in 2024 · gemiddeld 277 kg per reparatie</div>
+            <div className="impact-n mono" style={{ marginTop: 18 }}>261 Mt</div>
+            <div className="impact-l">CO&#8322;-equivalent per jaar onnodig uitgestoten in de EU</div>
+            <div className="impact-sub">Door apparaten te vervangen die nog te repareren waren</div>
           </div>
 
           <div className="impact-card">
@@ -1059,11 +1049,11 @@ function Impact() {
               <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(79,140,255,0.10)", border: "1px solid var(--border-ac)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
                 <Icon name="chart" size={18} />
               </div>
-              <div className="pill pill-acc"><Icon name="bolt" size={11} /> Realtime</div>
+              <span className="pill pill-acc">EU-cijfer</span>
             </div>
-            <div className="impact-n mono" style={{ marginTop: 18 }}>€ {count.saved}M</div>
-            <div className="impact-l">Bespaard op monteurbezoeken</div>
-            <div className="impact-sub">Gemiddeld € 142,50 per gebruiker</div>
+            <div className="impact-n mono" style={{ marginTop: 18 }}>&euro; 12 mld</div>
+            <div className="impact-l">Wat Europese consumenten per jaar verliezen</div>
+            <div className="impact-sub">Door te vervangen in plaats van te repareren</div>
           </div>
 
           <div className="impact-card">
@@ -1071,13 +1061,23 @@ function Impact() {
               <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(245,182,67,0.10)", border: "1px solid rgba(245,182,67,0.3)", display: "grid", placeItems: "center", color: "#f5b643" }}>
                 <Icon name="repeat" size={18} />
               </div>
-              <div className="pill" style={{ borderColor: "rgba(245,182,67,0.3)", color: "#f5b643", background: "rgba(245,182,67,0.06)" }}>Circulair</div>
+              <span className="pill" style={{ borderColor: "rgba(245,182,67,0.3)", color: "#f5b643", background: "rgba(245,182,67,0.06)" }}>Onze catalogus</span>
             </div>
-            <div className="impact-n mono" style={{ marginTop: 18 }}>{count.repairs.toLocaleString("nl-NL")}</div>
-            <div className="impact-l">Wasmachines gered van de schroothoop</div>
-            <div className="impact-sub">Gemiddelde leeftijdsverlenging: 6,2 jaar</div>
+            <div className="impact-n mono" style={{ marginTop: 18 }}>{formatCount(STATS.guides)}</div>
+            <div className="impact-l">Reparatiegidsen die je zelf kunt volgen</div>
+            <div className="impact-sub">Plus {formatCount(STATS.parts)} onderdelen en {formatCount(STATS.errorCodes)} foutcodes</div>
           </div>
         </div>
+
+        <p className="small" style={{ marginTop: 20, opacity: 0.7 }}>
+          Bron:{" "}
+          <a href="https://commission.europa.eu/system/files/2023-03/SWD_2023_59_1_EN_impact_assessment_part1_v5.pdf" target="_blank" rel="noopener noreferrer">
+            Impact assessment SWD(2023) 59 van de Europese Commissie
+          </a>{" "}
+          bij het Right to Repair-voorstel. Wat één reparatie in jouw situatie oplevert hangt af van je
+          machine — reken het door met onze{" "}
+          <a href="/tools/repareren-of-vervangen">repareren-of-vervangen calculator</a>.
+        </p>
       </div>
     </section>
   );
@@ -1337,7 +1337,6 @@ function Footer() {
             </div>
             <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
               <span className="pill"><Icon name="leaf" size={11} /> EU Right to Repair</span>
-              <span className="pill pill-mono">B Corp pending</span>
             </div>
           </div>
           <div>

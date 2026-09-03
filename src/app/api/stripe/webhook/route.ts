@@ -72,9 +72,12 @@ export async function POST(req: NextRequest) {
             }
           });
           // Idempotent: a replayed webhook returns the existing invoice
-          // rather than burning a second sequential number.
+          // rather than burning a second sequential number. A failure here
+          // must propagate so Stripe retries — silently continuing left a paid
+          // order with no invoice and nothing to notice it.
           const { issueInvoiceForOrder } = await import("@/lib/invoicing");
-          await issueInvoiceForOrder(orderId);
+          const issued = await issueInvoiceForOrder(orderId);
+          if (!issued) throw new Error(`invoice_not_issued:${orderId}`);
         }
 
         // Referral credit: the visitor id was stashed at checkout time.

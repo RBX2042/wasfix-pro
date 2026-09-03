@@ -13,16 +13,11 @@ function read(name: string): string | undefined {
   return value && value.trim().length > 0 ? value : undefined;
 }
 
-const IS_PRODUCTION = process.env.NODE_ENV === "production";
-
-// Demo mode must be an explicit, conscious choice in production — never a
-// silent default. Outside production it defaults to "on" for local-dev
-// convenience (no keys needed to run `next dev`). See isDemoMode() in
-// demo-mode.ts for the other half of this: missing Clerk keys alone must
-// not be able to trigger it in production either.
-const isDemoMode = IS_PRODUCTION
-  ? process.env.DEMO_MODE === "true"
-  : (process.env.DEMO_MODE ?? "true") === "true";
+// Absent means OFF, matching src/middleware.ts. Defaulting this to ON while
+// the middleware defaulted it OFF meant a deployment with Clerk keys but no
+// DEMO_MODE var authenticated users through Clerk and then handed every one of
+// them the hardcoded superadmin account.
+const isDemoMode = process.env.DEMO_MODE === "true";
 
 // A DATABASE_URL is only "real" when it is a Postgres connection string
 // without the Supabase placeholder password.
@@ -72,7 +67,7 @@ export const env = {
   COMPANY_PHONE: read("COMPANY_PHONE"),
 
   DEMO_MODE: isDemoMode,
-  IS_PRODUCTION,
+  IS_PRODUCTION: process.env.NODE_ENV === "production",
 } as const;
 
 export function assertEnv(name: keyof typeof env): string {

@@ -40,6 +40,48 @@ export const COMPANY = {
   },
 } as const;
 
+/**
+ * The stand-in values above. Public pages must not print these as if they were
+ * real registration details — a visitor reading "KvK 12345678" is being told
+ * something false — so they render `null` until the real value is configured.
+ */
+const COMPANY_PLACEHOLDERS: ReadonlySet<string> = new Set([
+  "Hoofdstraat 1",
+  "1234 AB",
+  "12345678",
+  "NL123456789B01",
+  "NL00ABCD0123456789",
+  "085 - 123 45 67",
+]);
+
+/** The value, or null when it is still the placeholder. */
+export function realOrNull(value: string | null | undefined): string | null {
+  if (!value) return null;
+  return COMPANY_PLACEHOLDERS.has(value) ? null : value;
+}
+
+/** Text to show in place of a registration detail we do not have yet. */
+export const PENDING_REGISTRATION = "volgt na inschrijving";
+
+/**
+ * Shipping, in one place. The checkout route, the cart summary, the product
+ * structured data and the terms page all read these — the site used to quote
+ * &euro;4,95 in three places while the card was charged &euro;5,95, and the cart
+ * applied the free-shipping threshold before the discount while the server
+ * applied it after.
+ */
+export const SHIPPING = {
+  /** Flat rate for NL/BE below the free-shipping threshold. */
+  rateEur: 5.95,
+  /** Order value (after discount) from which shipping is free. */
+  freeFromEur: 50,
+} as const;
+
+/** Shipping due on an order, given its subtotal and any discount. */
+export function shippingFor(subtotalEur: number, discountEur = 0): number {
+  return subtotalEur - discountEur >= SHIPPING.freeFromEur ? 0 : SHIPPING.rateEur;
+}
+
 export type Plan = {
   id: PlanId;
   name: string;

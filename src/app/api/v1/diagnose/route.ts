@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { extractApiKey, validateApiKey } from "@/lib/api-auth";
 import { rateLimit } from "@/lib/ratelimit";
+import { consumeUsage } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
 
@@ -34,8 +35,18 @@ export async function POST(req: NextRequest) {
   }
 
   // Diagnose is more expensive — lower rate limit
-  if (!(await rateLimit(`v1:diagnose:${auth.keyId}`, Math.floor(auth.rateLimit / 10), 60 * 60 * 1000))) {
+  if (!(await rateLimit(`v1:diagnose:${auth.keyId}`, Math.max(10, Math.ceil(auth.monthlyCalls / 100)), 60 * 60 * 1000))) {
     return NextResponse.json({ error: "Rate limit exceeded", retry_after: 3600 }, { status: 429, headers: CORS });
+  }
+
+  // The plan sells a monthly allowance; without this the hourly guard alone
+  // let a Monteur Pro key make roughly 720x the calls it paid for.
+  const monthly = await consumeUsage("api", auth.keyId, auth.monthlyCalls);
+  if (!monthly.allowed) {
+    return NextResponse.json(
+      { error: "Monthly call allowance exhausted", used: monthly.used, limit: monthly.limit, docs: "https://wasfix.nl/api-docs" },
+      { status: 429, headers: CORS },
+    );
   }
 
   const body = await req.json().catch(() => null);
@@ -51,7 +62,12 @@ export async function POST(req: NextRequest) {
   try {
     const internalRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/diagnose`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "X-Internal-Auth": process.env.INTERNAL_API_KEY ?? "" },
+      headers: {
+        "Content-Type": "application/json",
+        "X-Internal-Auth": process.env.INTERNAL_API_KEY ?? "",
+        // Already metered against the API key above; skip the consumer quota.
+        "X-Api-Metered": "1",
+      },
       body: JSON.stringify({
         messages: [{
           role: "user",

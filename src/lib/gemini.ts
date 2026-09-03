@@ -11,13 +11,26 @@ export function getGemini(): GoogleGenerativeAI | null {
 
 export const DIAGNOSIS_MODEL = env.GEMINI_MODEL;
 
+/**
+ * Without an explicit timeout the SDK waits forever. A hanging Gemini is not an
+ * error, so the carefully built fallback to demo mode never runs: the platform
+ * kills the function and the user gets a 504 instead of an answer. With a
+ * timeout the SDK aborts and throws, so the caller falls back to demoModeReply()
+ * as intended. 9s leaves room under a 10s function limit to still send that
+ * demo answer.
+ */
+export const GEMINI_TIMEOUT_MS = 9_000;
+
 export function getDiagnosisModel(): GenerativeModel | null {
   const client = getGemini();
   if (!client) return null;
-  return client.getGenerativeModel({
-    model: DIAGNOSIS_MODEL,
-    systemInstruction: DIAGNOSIS_SYSTEM_PROMPT,
-  });
+  return client.getGenerativeModel(
+    {
+      model: DIAGNOSIS_MODEL,
+      systemInstruction: DIAGNOSIS_SYSTEM_PROMPT,
+    },
+    { timeout: GEMINI_TIMEOUT_MS },
+  );
 }
 
 export const DIAGNOSIS_SYSTEM_PROMPT = `Je bent WasFix Pro's expert wasmachine diagnostische assistent. Je helpt gebruikers wasmachine problemen te identificeren en de juiste reparatieoplossing te vinden.

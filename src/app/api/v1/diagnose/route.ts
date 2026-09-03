@@ -62,6 +62,12 @@ export async function POST(req: NextRequest) {
   try {
     const internalRes = await fetch(`${process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"}/api/diagnose`, {
       method: "POST",
+      // This call occupies two concurrent invocations at once (this one plus the
+      // /api/diagnose it waits on). Without a deadline a slow diagnose pins both
+      // until the platform kills them, which at the concurrency ceiling deadlocks
+      // the whole API. The bound sits just above the Gemini timeout inside
+      // /api/diagnose so a genuine slow model still returns its own answer.
+      signal: AbortSignal.timeout(12_000),
       headers: {
         "Content-Type": "application/json",
         "X-Internal-Auth": process.env.INTERNAL_API_KEY ?? "",
@@ -97,7 +103,12 @@ export async function POST(req: NextRequest) {
       },
       meta: { version: "v1", language, model_used: process.env.GEMINI_MODEL ?? "gemini-2.0-flash" },
     }, { headers: CORS });
-  } catch {
+  } catch (err) {
+    // An aborted call means a slow upstream, not a broken one: give the B2B
+    // consumer a 504 with a retry hint instead of a generic 502.
+    if (err instanceof Error && (err.name === "TimeoutError" || err.name === "AbortError")) {
+      return NextResponse.json({ error: "Diagnose service timeout", retry_after: 5 }, { status: 504, headers: CORS });
+    }
     return NextResponse.json({ error: "Diagnose service error" }, { status: 502, headers: CORS });
   }
 }

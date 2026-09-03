@@ -44,9 +44,19 @@ export async function POST(req: NextRequest) {
     logger.info("RMA request received", { rmaNumber, orderId, reason });
 
     if (isDatabaseConfigured()) {
-      await prisma.rmaRequest
-        .create({ data: { rmaNumber, orderId, name, email, reason, notes } })
-        .catch((err) => logger.warn("RMA persist failed", err));
+      // Never answer "received" for an RMA that exists nowhere: the customer
+      // stops chasing it while their statutory 14-day withdrawal window runs out
+      // against a request that was never recorded. A failed write gets a 503 so
+      // they can try again.
+      try {
+        await prisma.rmaRequest.create({ data: { rmaNumber, orderId, name, email, reason, notes } });
+      } catch (err) {
+        logger.error("RMA persist failed", err);
+        return apiError(
+          "Je retour-aanvraag kon nu niet worden opgeslagen. Probeer het over een paar minuten opnieuw of mail retour@wasfix.nl.",
+          503,
+        );
+      }
     }
 
     // Send notification email via Resend (graceful fallback)

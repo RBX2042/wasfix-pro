@@ -18,16 +18,6 @@ const PostSchema = z.object({
   email: z.string().email(),
 });
 
-/** Escape user text before it goes into an HTML e-mail body. */
-function esc(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
-}
-
 // GET — list reviews for a target
 export async function GET(req: NextRequest) {
   const sp = req.nextUrl.searchParams;
@@ -76,41 +66,22 @@ export async function POST(req: NextRequest) {
       });
       reviewId = created.id;
     } catch (err) {
-      logger.warn("[reviews] persist failed", err);
+      // With the moderation e-mail switched off this row is the only trace of
+      // the review. A warn plus a "will be published after moderation" reply
+      // means the review exists nowhere at all.
+      logger.error("[reviews] persist failed", err);
+      return apiError("Je review kon nu niet worden opgeslagen. Probeer het over een paar minuten opnieuw.", 503);
     }
   }
   logger.info("[reviews] new review submitted", { reviewId, target: parsed.data.targetSku ?? parsed.data.targetSlug, rating: parsed.data.rating });
 
-  // Notify moderation team
-  try {
-    const { getResend, FROM } = await import("@/lib/email") as { getResend?: () => unknown; FROM?: string } & Record<string, unknown>;
-    const resend = (typeof getResend === "function" ? getResend() : null) as { emails: { send: (opts: Record<string, string>) => Promise<unknown> } } | null;
-    if (resend && FROM) {
-      await resend.emails.send({
-        from: FROM,
-        to: "reviews@wasfix.nl",
-        replyTo: parsed.data.email,
-        subject: `📝 Nieuwe review (${parsed.data.rating}★) — modereren · ${reviewId}`,
-        html: `
-          <div style="font-family: system-ui, sans-serif; max-width: 600px;">
-            <h2>Nieuwe review</h2>
-            <table style="width: 100%; font-size: 14px;">
-              <tr><td><strong>ID:</strong></td><td>${esc(reviewId)}</td></tr>
-              <tr><td><strong>Target:</strong></td><td>${esc(parsed.data.targetType)} ${esc(parsed.data.targetSku ?? parsed.data.targetSlug ?? "")}</td></tr>
-              <tr><td><strong>Rating:</strong></td><td>${"★".repeat(parsed.data.rating)}</td></tr>
-              <tr><td><strong>Auteur:</strong></td><td>${esc(parsed.data.author)} (${esc(parsed.data.email)})</td></tr>
-              <tr><td><strong>Aankoop geverifieerd:</strong></td><td>${verifiedPurchase ? "ja" : "nee"}</td></tr>
-            </table>
-            <h3 style="margin-top: 16px;">${esc(parsed.data.title)}</h3>
-            <div style="padding: 12px; background: #f7f7f9; border-left: 3px solid #1a6b6b; border-radius: 4px;">${esc(parsed.data.body).replace(/\n/g, "<br>")}</div>
-            <p style="margin-top: 20px; font-size: 12px; color: #888;">Modereer in /admin/reviews.</p>
-          </div>
-        `,
-      });
-    }
-  } catch (err) {
-    logger.warn("[reviews] notification email failed", err);
-  }
+  // Moderation notification is disabled: this block imported getResend and FROM
+  // from @/lib/email, but both are module-private there. `typeof getResend ===
+  // "function"` was therefore always false and no moderator was ever mailed —
+  // silent dead code. Re-enable only once @/lib/email exports a
+  // sendReviewModerationNotification() (escaping the user input on its side, as
+  // sendRmaNotification already does). Until then the queue is visible in
+  // /admin/aanvragen.
 
   return apiSuccess({
     reviewId,

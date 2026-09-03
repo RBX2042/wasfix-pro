@@ -183,7 +183,7 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
     return (
       <div className="container py-20 text-center">
         <ShoppingBag className="mx-auto h-16 w-16 text-muted-foreground/30 mb-4" />
-        <h2 className="font-heading text-2xl font-bold mb-2">Je winkelmand is leeg</h2>
+        <h1 className="font-heading text-2xl font-bold mb-2">Je winkelmand is leeg</h1>
         <p className="text-muted-foreground mb-6">Voeg eerst onderdelen toe voordat je afrekent.</p>
         <Button asChild>
           <Link href="/onderdelen"><ArrowLeft className="h-4 w-4" /> Terug naar shop</Link>
@@ -207,15 +207,15 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
               <h2 className="font-heading text-lg font-semibold">Contactgegevens</h2>
               <div>
                 <Label htmlFor="email">E-mailadres</Label>
-                <Input id="email" name="email" type="email" required placeholder="jouw@email.nl" />
+                <Input id="email" name="email" type="email" autoComplete="email" required placeholder="jouw@email.nl" className="h-11 text-base" />
               </div>
               <div>
                 <Label htmlFor="name">Volledige naam</Label>
-                <Input id="name" name="name" required placeholder="Jan de Vries" />
+                <Input id="name" name="name" autoComplete="name" required placeholder="Jan de Vries" className="h-11 text-base" />
               </div>
               <div>
                 <Label htmlFor="vatNumber">Btw-nummer <span className="text-muted-foreground font-normal">(optioneel, voor op de factuur)</span></Label>
-                <Input id="vatNumber" name="vatNumber" placeholder="NL123456789B01" />
+                <Input id="vatNumber" name="vatNumber" placeholder="NL123456789B01" className="h-11 text-base" />
               </div>
             </CardContent>
           </Card>
@@ -223,24 +223,27 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
           <Card>
             <CardContent className="p-6 space-y-4">
               <h2 className="font-heading text-lg font-semibold">Verzendadres</h2>
-              <div className="grid grid-cols-[1fr_120px] gap-3">
+              {/* minmax(0,…) instead of 1fr: a 16px input reports a ~186px intrinsic
+                  width, and an auto-min track will not shrink below that — the row
+                  would push /checkout into horizontal scroll on a 390px phone. */}
+              <div className="grid grid-cols-[minmax(0,1fr)_120px] gap-3">
                 <div>
                   <Label htmlFor="street">Straatnaam</Label>
-                  <Input id="street" name="street" required placeholder="Hoofdstraat" />
+                  <Input id="street" name="street" autoComplete="address-line1" required placeholder="Hoofdstraat" className="h-11 text-base" />
                 </div>
                 <div>
                   <Label htmlFor="houseNumber">Huisnummer</Label>
-                  <Input id="houseNumber" name="houseNumber" required placeholder="42a" />
+                  <Input id="houseNumber" name="houseNumber" autoComplete="address-line2" required placeholder="42a" className="h-11 text-base" />
                 </div>
               </div>
-              <div className="grid grid-cols-[140px_1fr] gap-3">
+              <div className="grid grid-cols-[140px_minmax(0,1fr)] gap-3">
                 <div>
                   <Label htmlFor="postalCode">Postcode</Label>
-                  <Input id="postalCode" name="postalCode" required placeholder="1234 AB" />
+                  <Input id="postalCode" name="postalCode" autoComplete="postal-code" autoCapitalize="characters" required placeholder="1234 AB" className="h-11 text-base" />
                 </div>
                 <div>
                   <Label htmlFor="city">Plaats</Label>
-                  <Input id="city" name="city" required placeholder="Amsterdam" />
+                  <Input id="city" name="city" autoComplete="address-level2" required placeholder="Amsterdam" className="h-11 text-base" />
                 </div>
               </div>
             </CardContent>
@@ -329,8 +332,11 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
                 <span className="font-heading text-2xl font-bold">{formatEur(total)}</span>
               </div>
 
+              {/* Art. 6:230v lid 3 BW: the order button has to spell out the payment
+                  obligation. Without those words the consumer is simply not bound by
+                  the agreement, so "Bestelling plaatsen" alone is not enough. */}
               <Button type="submit" size="lg" className="w-full" disabled={submitting || !mounted || items.length === 0}>
-                {submitting ? "Verwerken..." : "Bestelling plaatsen"}
+                {submitting ? "Verwerken..." : "Bestelling met betalingsverplichting"}
               </Button>
 
               <p className="text-xs text-muted-foreground text-center">

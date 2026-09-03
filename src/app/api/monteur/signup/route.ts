@@ -36,8 +36,11 @@ export async function POST(req: NextRequest) {
   logger.info("[monteur-signup] application received", { applicationId, kvkNumber: data.kvkNumber });
 
   if (isDatabaseConfigured()) {
-    await prisma.monteurApplication
-      .create({
+    // A failed write behind a warn dropped the application while the monteur
+    // read "we review your details within 1 working day" — a paying B2B lead
+    // nobody ever sees. A 503 they can retry beats a confirmation for nothing.
+    try {
+      await prisma.monteurApplication.create({
         data: {
           applicationId,
           companyName: data.companyName,
@@ -50,8 +53,14 @@ export async function POST(req: NextRequest) {
           coverageAreas: data.coverageAreas?.join(",") ?? null,
           specializations: data.specializations?.join(",") ?? null,
         },
-      })
-      .catch((err) => logger.warn("[monteur-signup] persist failed", err));
+      });
+    } catch (err) {
+      logger.error("[monteur-signup] persist failed", err);
+      return apiError(
+        "Je aanmelding kon nu niet worden opgeslagen. Probeer het over een paar minuten opnieuw of mail monteur@wasfix.nl.",
+        503,
+      );
+    }
   }
 
   // Notify admin via Resend

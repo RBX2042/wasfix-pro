@@ -49,8 +49,12 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
         </div>
       </section>
 
-      <div className="container py-8 grid lg:grid-cols-[220px_1fr] gap-8">
-        <aside>
+      {/* grid-cols-1 (minmax(0,1fr)) plus min-w-0: without an explicit track the
+          single mobile column is auto-sized to the widest min-content in it, which
+          blew the aside out to 452px in a 390px viewport and gave the whole page
+          95px of horizontal scroll. */}
+      <div className="container py-8 grid grid-cols-1 lg:grid-cols-[220px_1fr] gap-8">
+        <aside className="min-w-0">
           <h3 className="font-semibold mb-3">Filter op merk</h3>
           <div className="space-y-1">
             <Link href="/foutcodes" className={`block px-3 py-2 rounded-md text-sm hover:bg-muted ${!brand ? "bg-primary/10 text-primary font-medium" : ""}`}>
@@ -68,7 +72,7 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
           </div>
         </aside>
 
-        <div>
+        <div className="min-w-0">
           <p className="text-sm text-muted-foreground mb-4">{errorCodes.length} foutcodes gevonden</p>
           <div className="space-y-3">
             {errorCodes.map((ec) => (

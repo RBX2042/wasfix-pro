@@ -2,7 +2,27 @@
 
 Items that cannot be completed autonomously because they require external credentials, real-world signup, or user input. Each entry: what's blocked, why, what unblocks it.
 
-**Status 2026-09-02:** the codebase is feature-complete for every item below — each integration is wired, tested against a local Postgres + demo mode, and activates the moment its environment variable is set in Vercel. Nothing here needs code changes; it needs keys.
+**Status 2026-09-03:** every entry below is blocked on a credential or a real-world
+signup, not on code — each integration is wired, exercised against a local Postgres and
+demo mode, and activates when its environment variable is set in Vercel.
+
+That is **not** the same as the product being finished. Known gaps that no key will fill:
+
+- **No fulfilment.** `Order` has `SHIPPED` and `DELIVERED` statuses, but nothing in the
+  repo ever writes them — the only order action in `/admin/bestellingen` is "markeer
+  betaald" for a bank-transfer invoice. Picking, packing, shipping and track & trace
+  (which `/voorwaarden` promises the customer) happen outside this system, by hand.
+- **No werkbon.** A monteur can create a work order and invoice it; there is no service
+  report, no signature and no photo record.
+- **No planning.** `WorkOrder.scheduledAt` is a single date field and the dashboard counts
+  what falls in the coming week. There is no agenda, no route and no capacity view.
+- **No organisation model.** Every business object hangs off one `ownerId` — no teams, no
+  seats, no roles within a company. This is why "tot 20 gebruikers" and "witlabel" were
+  removed from the Bedrijf tier in `src/lib/plans.ts`; do not sell them back.
+- **No error monitoring.** See the Sentry entry below — this one is a launch risk, not a
+  nice-to-have.
+
+Read this file as "which keys are missing"; read TODO.md for what is not built.
 
 ---
 
@@ -13,8 +33,29 @@ Items that cannot be completed autonomously because they require external creden
 - **Unblock:**
   1. Supabase → new project → Settings → Database → *Connection string (URI, Session pooler)*.
   2. Set `DATABASE_URL` in Vercel (Production + Preview).
-  3. Run once: `DATABASE_URL=… npm run db:setup` (pushes the schema and seeds the 331 codes / 96 parts / 26 guides with the same IDs as the static catalog).
+  3. Run once: `DATABASE_URL=… npm run db:setup` (applies the migrations and seeds the 329 codes / 96 parts / 26 guides with the same IDs as the static catalog).
   4. Optional check: `DATABASE_URL=… npm run db:smoke` (25 CRUD/relation checks).
+
+## Schema changes go through migrations now — never `db push`
+
+`prisma/migrations/` exists (`00000000000000_init`) and `npm run db:setup` runs
+`prisma migrate deploy`. That changes the rules for the production database:
+
+- **Deploy a schema change with `prisma migrate deploy`.** It applies exactly the
+  migrations in the repo and records them in `_prisma_migrations`, so what ran on
+  production is auditable and repeatable.
+- **Never run `prisma db push` against production.** `db push` diffs the schema
+  straight onto the database without recording anything. The migration history and
+  the live schema then disagree, and the next `migrate deploy` either fails or wants
+  to reset — which on this database means dropping orders and invoices we are
+  legally required to keep for seven years. `npm run db:push` still exists for
+  throwaway local databases; that is its only use.
+- **Author a change with `npm run db:migrate`** (`prisma migrate dev`) locally, and
+  commit the generated folder together with the `schema.prisma` change.
+- **An existing database that predates the migrations folder** must be baselined once
+  before its first deploy, otherwise `migrate deploy` tries to create tables that are
+  already there: `npm run db:baseline` (`prisma migrate resolve --applied
+  00000000000000_init`).
 
 ## Clerk production keys — nu blokkerend voor het dashboard
 
@@ -34,7 +75,22 @@ inclusief de catalogus-CRUD en de gebruikerslijst.
 - **Not blocked any more:** one-off part **orders**. Checkout now offers "op rekening" (pay by invoice, settle by bank transfer within 14 days) as a real, independent payment method — see the section below. Without Stripe keys, every order simply goes through that path automatically; with Stripe keys, the customer chooses between the two, and a failed Stripe attempt falls back to bank transfer instead of erroring out.
 - **Need:** `STRIPE_SECRET_KEY`, `STRIPE_WEBHOOK_SECRET`, `STRIPE_PRICE_PARTICULIER`, `STRIPE_PRICE_MONTEUR`, `STRIPE_PRICE_BEDRIJF`.
 - **Ready in code:** hosted Checkout (iDEAL/Bancontact/card) for orders and subscriptions, billing portal, webhook handling `checkout.session.completed`, `customer.subscription.{created,updated,deleted}`, `invoice.payment_failed` with idempotency (StripeEvent table).
-- **Unblock:** create 3 recurring products (€4,99 / €29 / €99), enable iDEAL + Bancontact, add webhook `https://wasfix.nl/api/stripe/webhook`, copy keys to Vercel.
+- **Unblock:** create 3 recurring monthly EUR prices — **Particulier €4,99, Monteur Pro
+  €29, Bedrijf €199** — enable iDEAL + Bancontact, add webhook
+  `https://wasfix.nl/api/stripe/webhook`, copy keys to Vercel.
+- **Get the price objects exactly right, or checkout refuses them.** `/api/stripe/subscribe`
+  retrieves each price and compares it against `src/lib/plans.ts` before creating a session;
+  a mismatch is a 500 for the customer and an error in the log, not a silent wrong charge.
+  It requires per price: `unit_amount` equal to the plan's `priceCents`, currency `eur`,
+  recurring `month` / interval_count 1, and the right **`tax_behavior`** — `exclusive` for
+  the business tiers (Monteur Pro, Bedrijf: advertised excl. btw) and `inclusive` for the
+  consumer tier (Particulier: NL consumer prices must be shown incl. btw). Checkout runs
+  with `automatic_tax` enabled, so an `inclusive` business price silently eats the 21% out
+  of our margin and an `exclusive` consumer price adds 21% on top of a price we promised
+  was inclusive.
+- **This runbook used to say €99 for Bedrijf.** It has said €199 on `/prijzen` and in
+  `plans.ts` throughout; anyone following the old line would have created the price at half
+  the advertised amount and billed every business customer €99 a month.
 
 ## Company fiscal identity (`COMPANY_*`) — blocks "op rekening" orders specifically
 - **Blocked:** the bank-transfer payment path above. A real invoice needs a real KvK number, btw number and IBAN — issuing one against the placeholder values in `src/lib/plans.ts` (`KvK 12345678`, fake IBAN) would not be a legally valid invoice, and a customer literally cannot pay a fake IBAN. Checkout detects this (`COMPANY.isPlaceholder`) and refuses to create a bank-transfer order in production (503, logged) rather than send it — Stripe orders are unaffected once Stripe keys exist independently.
@@ -56,8 +112,21 @@ inclusief de catalogus-CRUD en de gebruikerslijst.
 - **Need:** `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`.
 - **Ready in code:** `src/lib/ratelimit.ts` switches to the Upstash REST API automatically, fail-open.
 
-## Sentry DSN (optional)
-- **Need:** `NEXT_PUBLIC_SENTRY_DSN` + `npm i @sentry/nextjs`. `sentry.client.config.ts` is prepared.
+## Error monitoring — there is none (launch risk, not optional)
+
+- **Blocked:** knowing that anything broke in production. There is no Sentry, no
+  alternative, and no alerting of any kind. A failed Stripe webhook, a checkout that 503s
+  on the `COMPANY.isPlaceholder` guard, or an invoice that fails to issue is written to
+  `logger` and then only exists in the Vercel function log, which nobody is watching.
+- **Why the existing config does not count:** `@sentry/nextjs` is **not** in
+  `package.json`. `sentry.client.config.ts` dynamically imports it and swallows the failure
+  in a `.catch(() => {})`, so today it is a no-op — setting `NEXT_PUBLIC_SENTRY_DSN` alone
+  changes nothing at all. And even once the package is installed, that file only initialises
+  the **browser** SDK. The failures that cost money — payment, webhook, invoicing, seeding —
+  all happen server-side and would still go unreported.
+- **Need:** `npm i @sentry/nextjs`, `NEXT_PUBLIC_SENTRY_DSN`, plus a server/edge init
+  (`sentry.server.config.ts` + `instrumentation.ts`, neither of which exists yet) and
+  `SENTRY_AUTH_TOKEN` if source maps are wanted. This one needs code, not just a key.
 
 ## Google Search Console (optional)
 - **Need:** `GSC_OAUTH_CLIENT_ID`, `GSC_OAUTH_CLIENT_SECRET`, `GSC_REFRESH_TOKEN`. Step-by-step on `/admin/analytics/connect-gsc`.
@@ -142,10 +211,11 @@ best-sourced reading and the page says the sources conflict.
 
 ## Error-code verification method
 
-Every error code carries `provenance`, `sourceUrl` and `sourceName`. Today 16
-codes are `VERIFIED` — each cites the page it was checked against — and 315 are
-`REPORTED`, which the public page states plainly rather than implying we
-checked them.
+Every error code carries `provenance`, `sourceUrl` and `sourceName`. Of the 329
+codes in `src/data/error-codes.json`, 326 are `VERIFIED` — each cites the page it
+was checked against — and 3 are `REPORTED` (the Bosch/Siemens E01 and Miele F21
+disagreements named above), which the public page states plainly rather than
+implying we checked them.
 
 To work the backlog:
 

@@ -40,6 +40,8 @@ type Verdict = {
   severity?: string;
   sourceUrl?: string | null;
   sourceName?: string | null;
+  /** Sources agree our text was wrong but disagree on the right meaning. */
+  conflicted?: boolean;
   note?: string;
 };
 
@@ -92,6 +94,7 @@ function main() {
 
   const deleted: string[] = [];
   const refused: string[] = [];
+  const conflicted: string[] = [];
   let verified = 0;
   let corrected = 0;
 
@@ -111,14 +114,24 @@ function main() {
       return true;
     }
 
-    if (v.verdict === "MEANING_WRONG") corrected++;
-    verified++;
-
     if (v.correctTitle) ec.title = v.correctTitle;
     if (v.correctDescription) ec.description = v.correctDescription;
     if (v.correctLikelyCauses) ec.likelyCauses = v.correctLikelyCauses;
     if (typeof v.diyFriendly === "boolean") ec.diyFriendly = v.diyFriendly;
     if (v.severity) ec.severity = v.severity;
+
+    if (v.conflicted) {
+      // Our text was wrong and is corrected, but the sources do not agree on
+      // the replacement — so the row keeps saying it has not been confirmed.
+      conflicted.push(`${v.brand} ${v.code}${v.note ? ` — ${v.note}` : ""}`);
+      ec.provenance = "REPORTED";
+      ec.sourceUrl = null;
+      ec.sourceName = null;
+      return true;
+    }
+
+    if (v.verdict === "MEANING_WRONG") corrected++;
+    verified++;
     ec.provenance = "VERIFIED";
     ec.sourceUrl = v.sourceUrl;
     ec.sourceName = v.sourceName ?? null;
@@ -137,6 +150,10 @@ function main() {
   for (const d of deleted) console.log(`    - ${d}`);
   if (droppedParts || droppedGuides) {
     console.log(`  ${droppedParts} part links and ${droppedGuides} guide links dropped with them`);
+  }
+  if (conflicted.length) {
+    console.log(`\n  ${conflicted.length} code(s) corrected but left REPORTED — sources disagree on the right meaning:`);
+    for (const c of conflicted) console.log(`    ~ ${c}`);
   }
   if (refused.length) {
     console.log(`\n  ${refused.length} verdict(s) REFUSED — verification claimed without a source URL:`);

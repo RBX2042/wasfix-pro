@@ -74,28 +74,37 @@ export async function POST(req: NextRequest) {
     // second erasure died on the unique constraint halfway through.
     const anonymizedEmail = `deleted-${user.id}@anon.wasfix.nl`;
 
-    // Issue the invoice first, redact after. issueInvoiceForOrder builds the
-    // buyer's name and address purely from order.shippingAddress and
-    // order.email (src/lib/invoicing.ts), so blanking those before the invoice
-    // exists makes the Stripe webhook write an invoice without the details
-    // art. 35a Wet OB requires — and there is no other copy left. Outside the
-    // transaction below: the number allocation opens one of its own.
-    const orders = await prisma.order.findMany({
-      where: { userId: user.id },
-      select: { id: true, status: true, invoice: { select: { id: true } } },
-    });
-    for (const order of orders) {
-      if (order.invoice || !INVOICED_STATUSES.includes(order.status)) continue;
-      await issueInvoiceForOrder(order.id).catch((err) => logger.warn("[gdpr] invoice not issued before redaction", err));
-    }
-
     // One transaction, and no swallowed errors inside it. Half-erased is the
     // worst outcome: with the identity anonymised last and every write
     // catching its own failure, a single rejection left the data deleted while
     // the real e-mail, the name and a working login stayed — and the caller
     // was told it had all gone. Now it either commits or nothing happened.
+    //
+    // Invoice issuance is inside it too. It used to run just above, in its own
+    // transaction, so a failure here still left a brand-new invoice carrying
+    // this person's name and address — retained seven years — while the reply
+    // said "er is niets gewist". issueInvoiceForOrder takes our tx for exactly
+    // this reason; the caller's transaction serialises the number allocation
+    // just as well as its own would.
     const { retainedInvoices, retainedMonteurInvoices, ordersAwaitingInvoice } = await prisma.$transaction(
       async (tx) => {
+        // Issue the invoice first, redact after. issueInvoiceForOrder builds
+        // the buyer's name and address purely from order.shippingAddress and
+        // order.email (src/lib/invoicing.ts), so blanking those before the
+        // invoice exists makes the Stripe webhook write an invoice without the
+        // details art. 35a Wet OB requires — and there is no other copy left.
+        const orders = await tx.order.findMany({
+          where: { userId: user.id, invoice: { is: null }, status: { in: INVOICED_STATUSES } },
+          select: { id: true },
+          // Bounded so one account cannot hold the transaction open past its
+          // timeout. Anything beyond this keeps its details and is reported as
+          // awaiting an invoice, so a second request finishes the job.
+          take: 50,
+        });
+        for (const order of orders) {
+          await issueInvoiceForOrder(order.id, tx);
+        }
+
         // Read before deleting: DiagnosisFeedback has no user column, so those
         // rows are only reachable through this account's diagnoses, and the
         // referral rows are also reachable by code.

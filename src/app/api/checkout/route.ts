@@ -180,15 +180,17 @@ export async function POST(req: NextRequest) {
     } catch { /* ignore */ }
 
     // Resolve parts from the catalog — the database when one is configured,
-    // src/data only when there is none. This is what the customer is charged
-    // (`unitPrice` and `subtotal` below), so it has to be the same row /admin
-    // edits and the product page shows. Reading it from the JSON meant a price
-    // raised in /admin was displayed to the admin and charged to nobody, and a
-    // part created there could not be bought at all.
+    // src/data only when there is none. Reading this from the JSON meant a
+    // price raised in /admin was displayed to the admin and charged to nobody,
+    // and a part created there could not be bought at all.
     //
-    // The fallback cannot quietly charge a stale price on a live deployment:
-    // if a database is configured but unreachable, the stock check below fails
-    // closed with a 503 before any order or payment is created.
+    // This resolution decides only WHICH parts are in the cart. It does not
+    // decide the price: catalogPart() goes through fromDb(), whose catch is
+    // unconditional, so a transient query failure (a pool timeout, a brief
+    // failover — likely precisely here, where every cart line is looked up
+    // concurrently) silently returns the stale JSON row instead of throwing.
+    // The price therefore comes from the live stock query below, which reads
+    // the same row in one shot and whose failure is a 503.
     const resolvedItems = (
       await Promise.all(
         items.map(async (cartItem) => {
@@ -219,7 +221,7 @@ export async function POST(req: NextRequest) {
         );
         const live = await prisma.part.findMany({
           where: { id: { in: resolvedItems.map((i) => i.dbPart.id) } },
-          select: { id: true, name: true, stock: true },
+          select: { id: true, name: true, stock: true, priceEur: true, costEur: true },
         });
         const stockById = new Map(live.map((p) => [p.id, p]));
         for (const item of resolvedItems) {
@@ -228,6 +230,11 @@ export async function POST(req: NextRequest) {
           if (current.stock < item.quantity) {
             return apiError(`Onvoldoende voorraad voor ${current.name} (${current.stock} beschikbaar)`, 400);
           }
+          // The price the customer pays comes from this row, not from the
+          // resolution above — see the note there. Same query as the stock, so
+          // the two cannot disagree and a failed read is a 503 rather than a
+          // quietly stale amount.
+          item.dbPart = { ...item.dbPart, priceEur: current.priceEur, costEur: current.costEur };
         }
       } catch (err) {
         logger.error("Stock check failed", err);

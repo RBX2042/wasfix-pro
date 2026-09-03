@@ -17,7 +17,7 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
   const q = sp.q?.trim();
   const difficulty = sp.difficulty;
 
-  const guides = staticGuides({ where: { q, difficulty }, orderBy: "views-desc" });
+  const guides = staticGuides({ where: { q, difficulty }, orderBy: "created-desc" });
 
   return (
     <MarketingLayout>
@@ -69,7 +69,12 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
                   <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">{g.summary}</p>
                   <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {g.timeMinutes} min</span>
-                    <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {g.views.toLocaleString("nl-NL")} keer bekeken</span>
+                    {/* Only shown once the counter means something. The seed
+                        shipped invented view counts; a fresh catalogue has
+                        nothing to report and should say nothing. */}
+                    {g.views > 0 && (
+                      <span className="flex items-center gap-1"><BookOpen className="h-3 w-3" /> {g.views.toLocaleString("nl-NL")} keer bekeken</span>
+                    )}
                   </div>
                 </CardContent>
               </Card>

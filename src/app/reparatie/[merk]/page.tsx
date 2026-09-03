@@ -4,6 +4,16 @@ import Link from "next/link";
 import brandsData from "@/data/brands.json";
 import { staticErrorCodes, staticParts } from "@/lib/static-db";
 
+/**
+ * Does the catalogue hold anything for this brand? Five brands in brands.json
+ * (Zanussi, Hotpoint, Candy, Haier, Panasonic) have editorial copy but no
+ * machines, codes or parts, so their pages are thin by definition and are not
+ * indexed.
+ */
+function hasCatalogCoverage(brand: string): boolean {
+  return staticErrorCodes({}).some((ec) => ec.machine.brand === brand);
+}
+
 type BrandPage = {
   slug: string;
   brand: string;
@@ -24,9 +34,13 @@ export async function generateMetadata({ params }: { params: Promise<{ merk: str
   const { merk } = await params;
   const brand = brands.find((b) => b.slug === merk);
   if (!brand) return { title: "Merk niet gevonden" };
+  const covered = hasCatalogCoverage(brand.brand);
   return {
-    title: `${brand.brand} wasmachine reparatie — AI-diagnose + onderdelen · WasFix Pro`,
-    description: `${brand.brand} wasmachine kapot of foutcode? Gratis AI-diagnose in 60s. ${brand.tagline}. Originele onderdelen voor 22:00 besteld = morgen in huis.`,
+    title: `${brand.brand} wasmachine reparatie — diagnose + onderdelen · WasFix Pro`,
+    // A brand we carry no codes or parts for is a thin page by definition.
+    // Keep it reachable for someone who lands on it, keep it out of the index.
+    robots: covered ? undefined : { index: false, follow: true },
+    description: `${brand.brand} wasmachine kapot of foutcode? Gratis diagnose, reparatiegidsen en originele onderdelen. ${brand.tagline}.`,
     alternates: { canonical: `/${brand.slug}-wasmachine-reparatie` },
     openGraph: {
       title: `${brand.brand} wasmachine reparatie`,
@@ -66,8 +80,10 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
           acceptedAnswer: { "@type": "Answer", text: `Een ${brand.brand} wasmachine gaat gemiddeld 10-15 jaar mee bij normaal gebruik. Met goed onderhoud (maandelijks ontkalken, filter schoonmaken) kan dit naar 18+ jaar.` } },
         { "@type": "Question", name: `Kan ik mijn ${brand.brand} zelf repareren?`,
           acceptedAnswer: { "@type": "Answer", text: `De meeste ${brand.brand} reparaties zijn DIY-vriendelijk. ${brand.common.join(", ")} zijn de meest gangbare defecten, allemaal met onze stap-voor-stap gidsen te repareren in 30-90 minuten.` } },
-        { "@type": "Question", name: `Wat zijn de meest voorkomende ${brand.brand} foutcodes?`,
-          acceptedAnswer: { "@type": "Answer", text: `Top ${brand.brand} foutcodes: ${brand.topCodes.join(", ")}. Bekijk per foutcode de oorzaak, oplossing en benodigde onderdelen op onze foutcodes-database.` } },
+        ...(brandCodes.length > 0
+          ? [{ "@type": "Question", name: `Wat zijn veelvoorkomende ${brand.brand} foutcodes?`,
+              acceptedAnswer: { "@type": "Answer", text: `In onze database staan onder meer ${brandCodes.slice(0, 6).map((ec) => ec.code).join(", ")}. Bekijk per foutcode de oorzaak, de oplossing en de benodigde onderdelen.` } }]
+          : []),
       ],
     },
   ];
@@ -95,10 +111,25 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
             </Link>
           </div>
 
-          {/* Top foutcodes */}
+          {/* Top foutcodes — only when we actually hold codes for this brand. */}
+          {brandCodes.length === 0 ? (
+            <section style={{ marginBottom: 48 }}>
+              <h2 className="h-section" style={{ fontSize: 28, marginBottom: 16 }}>
+                {brand.brand} in onze database
+              </h2>
+              <p className="lead" style={{ fontSize: 15 }}>
+                We hebben nog geen {brand.brand}-foutcodes of -onderdelen in de catalogus. De diagnose
+                werkt wel voor {brand.brand}: beschrijf je klacht en de code op het display, dan komen we
+                zo ver als we kunnen — en zeggen we het eerlijk als we je niet verder helpen.
+              </p>
+              <div style={{ marginTop: 16 }}>
+                <Link href="/diagnose" className="btn btn-sm">Start een diagnose <Icon name="arrow" size={13} /></Link>
+              </div>
+            </section>
+          ) : (
           <section style={{ marginBottom: 48 }}>
             <h2 className="h-section" style={{ fontSize: 28, marginBottom: 16 }}>
-              Top {brand.brand} <em>foutcodes</em>
+              {brand.brand} <em>foutcodes</em>
             </h2>
             <p className="lead" style={{ fontSize: 15, marginBottom: 20 }}>
               Klik voor de directe oplossing per code.
@@ -125,11 +156,12 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
             {brandCodes.length > 9 && (
               <div style={{ marginTop: 16 }}>
                 <Link href={`/foutcodes?merk=${encodeURIComponent(brand.brand)}`} className="btn btn-sm">
-                  Alle {brandCodes.length}+ {brand.brand} codes <Icon name="arrow" size={13} />
+                  Alle {brandCodes.length} {brand.brand} codes <Icon name="arrow" size={13} />
                 </Link>
               </div>
             )}
           </section>
+          )}
 
           {/* Top parts */}
           {brandParts.length > 0 && (

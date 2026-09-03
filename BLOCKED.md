@@ -75,6 +75,20 @@ inclusief de catalogus-CRUD en de gebruikerslijst.
 ## ASWO / Reparatieshop B2B supplier API
 - No public API; requires partnership.
 
+## One-time: clear invented guide view counts on an existing database
+
+`src/data/guides.json` now seeds every guide at 0 views and the guide page
+counts for real, but the seed does not overwrite `views` on update (that would
+wipe genuine counts on every deploy). A database seeded before this change
+still holds the invented numbers, so run once against it:
+
+```
+DATABASE_URL=... npx tsx scripts/reset-fabricated-guide-views.ts
+```
+
+It is safe to run twice (the second run reports nothing to do), but after real
+views accumulate it would destroy data — so run it once, now, and not again.
+
 ## Error-code verification (315 of 331 codes still to check)
 
 Every error code carries `provenance`, `sourceUrl` and `sourceName`. Today 16

@@ -24,7 +24,7 @@ const prisma = new PrismaClient();
 type MachineRow = { id: string; brand: string; model: string; yearFrom: number | null; yearTo: number | null; imageUrl: string | null; description: string | null };
 type PartRow = { id: string; sku: string; name: string; description?: string | null; brand: string; category: string; priceEur: number; costEur?: number | null; stock: number; imageUrl?: string | null; isOriginal: boolean; supplier?: string | null };
 type ErrorCodeRow = { id: string; code: string; machineId: string; title: string; description: string; likelyCauses: string; severity: string; diyFriendly: boolean; provenance: string; sourceUrl: string | null; sourceName: string | null };
-type GuideRow = { id: string; title: string; slug: string; machineId: string | null; difficulty: string; timeMinutes: number; steps: string; tools: string; summary: string; warnings: string | null; isPremium: boolean; views: number; createdAt: number | string };
+type GuideRow = { id: string; title: string; slug: string; machineId: string | null; difficulty: string; timeMinutes: number; steps: string; tools: string; summary: string; warnings: string | null; isPremium: boolean; views: number; createdAt: string };
 
 const SUPERADMIN_EMAIL = "jdahoe@hotmail.nl";
 const CHUNK = 50;

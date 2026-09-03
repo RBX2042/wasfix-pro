@@ -147,18 +147,27 @@ export async function POST(req: NextRequest) {
     // either silently claiming "paid" or dead-ending in a hard error.
     const wantsBankTransfer = paymentMethod === "bank_transfer" || !stripe;
 
-    // A bank-transfer order is a real invoice with WasFix's real IBAN on it.
-    // Refuse to issue one to a real customer against placeholder company/
-    // fiscal details — they cannot pay a fake IBAN, and a fake KvK/btw
-    // number is not a valid invoice. Demo mode is exempt: it's explicitly
-    // opted into (see lib/demo-mode.ts) precisely for investor demos and
-    // CI, where "issuing" a fake invoice against fake data is expected —
-    // same as every other payment path in this file already fakes success
-    // in demo mode.
-    if (wantsBankTransfer && env.IS_PRODUCTION && !env.DEMO_MODE && COMPANY.isPlaceholder) {
-      logger.error("Bank-transfer checkout blocked — COMPANY fiscal identity is still a placeholder in production");
+    // EVERY paid order issues a BTW invoice (Stripe via the webhook, bank
+    // transfer immediately), and an invoice carrying a made-up KvK/btw number
+    // is not a valid invoice — art. 35a Wet OB. On the bank-transfer path the
+    // customer is additionally asked to wire money to an IBAN that does not
+    // exist. So this is checked once, for every payment method, before an
+    // order is created.
+    //
+    // Deliberately NOT exempted by DEMO_MODE. This was previously gated on
+    // `!env.DEMO_MODE`, which read the raw flag rather than isDemoMode() and
+    // therefore did not fire in exactly the configuration BLOCKED.md
+    // describes as live today (production + DEMO_MODE=true) — the one window
+    // where real customers could receive a fake-IBAN invoice. A demo flag
+    // must not be able to switch off a legal check; CI sets real-looking
+    // COMPANY_* values instead, so it exercises this path rather than
+    // bypassing it.
+    if (env.IS_PRODUCTION && COMPANY.isPlaceholder) {
+      logger.error("Checkout blocked — COMPANY fiscal identity is still a placeholder in production", {
+        paymentMethod: wantsBankTransfer ? "bank_transfer" : "stripe",
+      });
       return apiError(
-        "Betalen op factuur is nog niet beschikbaar. Neem contact op via support@wasfix.nl.",
+        "Bestellen is tijdelijk niet mogelijk. Neem contact op via support@wasfix.nl.",
         503
       );
     }
@@ -202,12 +211,26 @@ export async function POST(req: NextRequest) {
             },
           });
           for (const item of resolvedItems) {
-            await tx.part.update({ where: { id: item.dbPart.id }, data: { stock: { decrement: item.quantity } } });
+            // Conditional decrement: the availability check above ran before
+            // this transaction, so two buyers of the last unit both passed it.
+            // Making `stock >= quantity` part of the write predicate is what
+            // actually serialises them — an unconditional decrement drove
+            // stock negative and invoiced goods that do not exist.
+            const claimed = await tx.part.updateMany({
+              where: { id: item.dbPart.id, stock: { gte: item.quantity } },
+              data: { stock: { decrement: item.quantity } },
+            });
+            if (claimed.count === 0) throw new Error(`out_of_stock:${item.dbPart.sku}`);
           }
           return created;
         });
         orderId = order.id;
       } catch (dbErr) {
+        // A part sold out between the availability check and this write. The
+        // transaction rolled back, so no order and no stock change survived.
+        if (dbErr instanceof Error && dbErr.message.startsWith("out_of_stock:")) {
+          return apiError("Een onderdeel raakte net uitverkocht. Er is niets afgeschreven.", 409);
+        }
         // Same rule as the Stripe path below: only a deployment without a
         // database may fall back to a demo order. A configured database that
         // failed to write must not report success — that hides a customer
@@ -355,9 +378,9 @@ export async function POST(req: NextRequest) {
         // Offer the bank-transfer path instead of leaving the customer stuck.
         logger.error("Stripe session create failed on a live checkout attempt — offering bank transfer instead", stripeErr);
 
-        if (env.IS_PRODUCTION && !env.DEMO_MODE && COMPANY.isPlaceholder) {
-          return apiError("Betaling kon niet worden gestart. Probeer het later opnieuw of neem contact op.", 502);
-        }
+        // No placeholder re-check needed here: the entry guard above already
+        // refused this request in production if the fiscal identity is not
+        // real, so reaching this point means it is safe to invoice.
 
         const dueAt = new Date(Date.now() + BANK_TRANSFER_TERM_DAYS * 24 * 60 * 60 * 1000);
         await prisma.order.update({

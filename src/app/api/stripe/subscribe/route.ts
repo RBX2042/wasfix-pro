@@ -32,6 +32,20 @@ export async function POST(req: NextRequest) {
     if (visitorId) await recordSignup(visitorId);
 
     if (!stripe || !priceId) {
+      // SECURITY: without this guard a missing Stripe key means "everyone gets
+      // the plan for free". Stripe keys are not configured yet (see
+      // BLOCKED.md), so in production any signed-in user could POST
+      // {"plan":"BEDRIJF"} and permanently grant themselves unlimited
+      // diagnoses, premium guides, the monteur dashboard and 15% off every
+      // parts order. Same fail-closed rule the checkout route already applies:
+      // demo mode is an explicit opt-in, production is not.
+      if (env.IS_PRODUCTION && !env.DEMO_MODE) {
+        logger.error("Subscription upgrade blocked — Stripe is not configured in production", { plan });
+        return apiError(
+          "Betaalde abonnementen zijn tijdelijk niet beschikbaar. Neem contact op via support@wasfix.nl.",
+          503
+        );
+      }
       // Demo mode — direct upgrade (persisted when a DB is available)
       if (isDatabaseConfigured()) {
         await prisma.user.update({ where: { id: user.id }, data: { plan } }).catch((err) =>

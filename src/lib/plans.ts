@@ -64,6 +64,22 @@ export function realOrNull(value: string | null | undefined): string | null {
 export const PENDING_REGISTRATION = "volgt na inschrijving";
 
 /**
+ * One-line seller identity for e-mail footers and legal pages.
+ *
+ * Renders only what is actually registered. The privacy page and both e-mail
+ * footers used to hardcode "Hoofdstraat 1, 1234 AB Amsterdam · KvK 12345678"
+ * as literal strings — so they printed a fake KvK as fact, and setting the
+ * real COMPANY_* env vars would not have corrected them. Everything that
+ * states our identity must go through here or through realOrNull().
+ */
+export function companyIdentityLine(): string {
+  const postcodeCity = [realOrNull(COMPANY.postalCode), realOrNull(COMPANY.city)].filter(Boolean).join(" ");
+  const address = [realOrNull(COMPANY.street), postcodeCity || null].filter(Boolean).join(", ");
+  const kvk = realOrNull(COMPANY.kvk);
+  return [COMPANY.name, address || null, kvk ? `KvK ${kvk}` : "in oprichting"].filter(Boolean).join(" · ");
+}
+
+/**
  * Shipping, in one place. The checkout route, the cart summary, the product
  * structured data and the terms page all read these — the site used to quote
  * &euro;4,95 in three places while the card was charged &euro;5,95, and the cart

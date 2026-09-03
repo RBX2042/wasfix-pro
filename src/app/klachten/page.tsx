@@ -19,7 +19,6 @@ export default function KlachtenPage() {
       </p>
       <ul>
         <li><strong>E-mail:</strong> <a href="mailto:klachten@wasfix.nl">klachten@wasfix.nl</a> (reactie binnen 24u op werkdagen)</li>
-        <li><strong>Telefoon:</strong> 020 123 45 67 (ma-vr 9:00-17:30)</li>
         <li><strong>Formulier:</strong> <Link href="/contact?onderwerp=klacht">contact-pagina</Link></li>
       </ul>
       <p>

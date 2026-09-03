@@ -64,7 +64,16 @@ export default async function MonteurDashboardPage() {
     try {
       const [partsTotal, orders, diagCount, custTotal, custRecent, woActive, woWeek, woList] = await Promise.all([
         prisma.part.aggregate({ _sum: { stock: true } }),
-        prisma.order.findMany({ take: 8, orderBy: { createdAt: "desc" }, include: { items: true } }),
+        // Scoped to this monteur: the panel is titled "Recente onderdelen
+        // orders" and means THEIR parts purchases. Without the where clause
+        // every Monteur Pro user saw the whole platform's most recent orders,
+        // including other customers' e-mail, totals and line items.
+        prisma.order.findMany({
+          where: { userId: user.id },
+          take: 8,
+          orderBy: { createdAt: "desc" },
+          include: { items: true },
+        }),
         prisma.diagnosis.count(),
         prisma.customer.count({ where: { ownerId: user.id } }),
         prisma.customer.count({ where: { ownerId: user.id, createdAt: { gte: monthAgo } } }),

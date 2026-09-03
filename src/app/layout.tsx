@@ -37,9 +37,11 @@ export const metadata: Metadata = {
     locale: "nl_NL",
     type: "website",
   },
-  alternates: {
-    canonical: "https://wasfix.nl",
-  },
+  // NOTE: deliberately no `alternates.canonical` here. Next.js inherits root
+  // metadata into every route that does not override it, so a static absolute
+  // canonical made 51 of 68 pages declare themselves duplicates of the
+  // homepage — including /onderdelen, /foutcodes, /diagnose and /merken. Pages
+  // that want one set it themselves; the rest emit none, which is safe.
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

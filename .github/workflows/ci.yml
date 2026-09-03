@@ -70,6 +70,17 @@ jobs:
     env:
       DATABASE_URL: postgresql://postgres:wasfix@localhost:5432/wasfix
       DEMO_MODE: "true"
+      # Checkout refuses to issue invoices against a placeholder fiscal
+      # identity in production, and `next start` is a production build. These
+      # are fictional but well-formed, so CI exercises the real invoicing path
+      # instead of a bypass. They are not secrets and grant nothing.
+      COMPANY_NAME: "WasFix CI B.V."
+      COMPANY_STREET: "Teststraat 1"
+      COMPANY_POSTAL_CODE: "1011 AB"
+      COMPANY_CITY: "Amsterdam"
+      COMPANY_KVK: "90000001"
+      COMPANY_VAT: "NL900000010B01"
+      COMPANY_IBAN: "NL02ABNA0123456789"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4

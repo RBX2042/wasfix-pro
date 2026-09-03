@@ -6,6 +6,7 @@
 // dependencies and fast Resend send-time.
 
 import { catalogStats } from "../catalog-stats";
+import { companyIdentityLine } from "../plans";
 
 // Claims in outbound email must match the catalog too.
 const CATALOG = catalogStats();
@@ -14,7 +15,7 @@ const FOOTER_HTML = `
   <hr style="border: none; border-top: 1px solid #eee; margin: 32px 0 18px 0;" />
   <table style="width: 100%; font-size: 11.5px; color: #888; line-height: 1.5;">
     <tr><td>
-      WasFix Pro B.V. · Hoofdstraat 1, 1234 AB Amsterdam · KvK 12345678<br />
+      ${companyIdentityLine()}<br />
       <a href="https://wasfix.nl/privacy" style="color: #888;">Privacy</a> ·
       <a href="https://wasfix.nl/voorwaarden" style="color: #888;">Voorwaarden</a> ·
       <a href="{{UNSUBSCRIBE}}" style="color: #888;">Unsubscribe</a>

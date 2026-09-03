@@ -6,7 +6,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatEur, formatDate } from "@/lib/utils";
-import { COMPANY } from "@/lib/plans";
+import { COMPANY, realOrNull } from "@/lib/plans";
 import { getInvoiceForOrder } from "@/lib/invoicing";
 import { CheckCircle2, Truck, Package, Mail, ArrowRight, FileText, Landmark } from "lucide-react";
 import Image from "next/image";
@@ -122,8 +122,17 @@ export default async function OrderDetailPage({
               <div className="bg-white dark:bg-black/20 rounded-md p-4 text-sm space-y-1.5">
                 <div className="flex justify-between"><span className="text-muted-foreground">Factuurnummer</span><span className="font-mono font-semibold">{invoice?.number ?? "—"}</span></div>
                 <div className="flex justify-between"><span className="text-muted-foreground">Te betalen</span><span className="font-semibold">{formatEur(order.totalEur)}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono font-semibold">{COMPANY.iban}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Ten name van</span><span>{COMPANY.name}</span></div>
+                {/* A placeholder IBAN is worse than none: the customer would
+                    try to pay it. Checkout refuses to create these orders in
+                    production, so this only shows on a real configuration. */}
+                {realOrNull(COMPANY.iban) ? (
+                  <>
+                    <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono font-semibold">{COMPANY.iban}</span></div>
+                    <div className="flex justify-between"><span className="text-muted-foreground">Ten name van</span><span>{COMPANY.name}</span></div>
+                  </>
+                ) : (
+                  <div className="flex justify-between"><span className="text-muted-foreground">Betaalgegevens</span><span>volgen per e-mail</span></div>
+                )}
                 <div className="flex justify-between"><span className="text-muted-foreground">Omschrijving</span><span className="font-mono font-semibold">{invoice?.number ?? "—"}</span></div>
                 {order.dueAt && (
                   <div className="flex justify-between"><span className="text-muted-foreground">Betalen voor</span><span>{formatDate(order.dueAt)}</span></div>

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import { VAT_RATE, COMPANY, SHIPPING, shippingFor } from "@/lib/plans";
+import { VAT_RATE, COMPANY, SHIPPING, shippingFor, realOrNull } from "@/lib/plans";
 import { ShoppingBag, Truck, Lock, ArrowLeft, Landmark } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -22,6 +22,14 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
   const [submitting, setSubmitting] = React.useState(false);
   const [mounted, setMounted] = React.useState(false);
   const [paymentMethod, setPaymentMethod] = React.useState<"stripe" | "bank_transfer">(stripeAvailable ? "stripe" : "bank_transfer");
+  const [placed, setPlaced] = React.useState<{
+    orderId: string;
+    invoiceNumber: string | null;
+    iban: string | null;
+    ibanName: string | null;
+    dueAt: string | null;
+    total: number;
+  } | null>(null);
   React.useEffect(() => setMounted(true), []);
 
   // Mirrors /api/checkout exactly — same discount, same shipping rule, same
@@ -81,8 +89,22 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
       clearCart();
       if (data.paymentMethod === "bank_transfer") {
         // No "?success=1" — the order page itself shows the payment
-        // instructions (IBAN, invoice number, due date) for this status.
-        router.push(`/bestelling/${data.orderId}`);
+        // Show the payment details right here instead of redirecting to
+        // /bestelling/[id]. That page requires the order to belong to the
+        // signed-in user, and a guest checkout has no session — so the
+        // redirect 404'd after the order was created, the stock was taken and
+        // an invoice number was burned, leaving the customer with a cleared
+        // cart and no idea what to pay or where. The ownership check on that
+        // page is correct and stays; this response is the only other place
+        // the IBAN and invoice number exist.
+        setPlaced({
+          orderId: data.orderId,
+          invoiceNumber: data.invoiceNumber ?? null,
+          iban: data.iban ?? null,
+          ibanName: data.ibanName ?? null,
+          dueAt: data.dueAt ?? null,
+          total: data.totals?.total ?? total,
+        });
         return;
       }
 
@@ -93,6 +115,68 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
     } finally {
       setSubmitting(false);
     }
+  }
+
+  // Placed-on-account confirmation. Must come before the empty-cart branch:
+  // the cart was just cleared, so otherwise the customer sees "je winkelmand
+  // is leeg" instead of how to pay.
+  if (placed) {
+    return (
+      <div className="container py-12 max-w-2xl">
+        <div className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-6 mb-6">
+          <h1 className="font-heading text-2xl font-bold mb-1">Bedankt voor je bestelling</h1>
+          <p className="text-sm text-muted-foreground mb-5">
+            We versturen je onderdelen zodra de betaling binnen is. Je ontvangt deze gegevens ook per e-mail.
+          </p>
+          <div className="bg-white dark:bg-black/20 rounded-md p-4 text-sm space-y-1.5">
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Bestelnummer</span>
+              <span className="font-mono font-semibold">{placed.orderId.slice(0, 8).toUpperCase()}</span>
+            </div>
+            {placed.invoiceNumber && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Factuurnummer</span>
+                <span className="font-mono font-semibold">{placed.invoiceNumber}</span>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <span className="text-muted-foreground">Te betalen</span>
+              <span className="font-semibold">{formatEur(placed.total)}</span>
+            </div>
+            {placed.iban ? (
+              <>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">IBAN</span>
+                  <span className="font-mono font-semibold">{placed.iban}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Ten name van</span>
+                  <span>{placed.ibanName}</span>
+                </div>
+              </>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Betaalgegevens</span>
+                <span>volgen per e-mail</span>
+              </div>
+            )}
+            {placed.dueAt && (
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Betalen voor</span>
+                <span>{new Date(placed.dueAt).toLocaleDateString("nl-NL")}</span>
+              </div>
+            )}
+          </div>
+          <p className="text-xs text-muted-foreground mt-4">
+            Vermeld het factuurnummer bij je overboeking. Vragen? Mail support@wasfix.nl.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-3">
+          <Button asChild variant="outline"><Link href="/onderdelen">Verder winkelen</Link></Button>
+          <Button asChild><Link href="/diagnose">Nieuwe diagnose</Link></Button>
+        </div>
+      </div>
+    );
   }
 
   if (mounted && items.length === 0) {
@@ -185,7 +269,9 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
                   <div>
                     <p className="text-sm font-medium">Op rekening</p>
                     <p className="text-xs text-muted-foreground">
-                      Je ontvangt direct een factuur met betaalinstructies ({COMPANY.name}, IBAN {COMPANY.iban}). Betaal binnen 14 dagen.
+                      {/* Never print the placeholder IBAN as if a customer could pay it. */}
+                      Je ontvangt direct een factuur met betaalinstructies
+                      {realOrNull(COMPANY.iban) ? ` (${COMPANY.name}, IBAN ${COMPANY.iban})` : ""}. Betaal binnen 14 dagen.
                     </p>
                   </div>
                 </div>

@@ -39,6 +39,16 @@ async function main() {
   console.log("🌱 Seeding WasFix Pro from src/data/*.json …");
 
   // ── Users ────────────────────────────────────────────────────────
+  // SECURITY: never seed privileged accounts into a production database.
+  // getCurrentUser() claims an existing row *by e-mail address* on first
+  // sign-in, so a seeded ADMIN row is a standing takeover target for whoever
+  // can receive mail at that address. Three of these use @wasfixpro.nl, which
+  // is not the production domain (wasfix.nl) — if that domain is not owned by
+  // the company, registering it is enough to inherit ADMIN. The catalog below
+  // still seeds normally; only the accounts are skipped.
+  if (process.env.NODE_ENV === "production" && process.env.SEED_USERS !== "true") {
+    console.log("  ⏭  users skipped (production — set SEED_USERS=true to override)");
+  } else {
   await prisma.user.upsert({
     where: { email: SUPERADMIN_EMAIL },
     update: { role: "ADMIN", plan: "BEDRIJF" },
@@ -60,6 +70,7 @@ async function main() {
     create: { email: "klant@wasfixpro.nl", name: "Demo Klant", role: "CONSUMER", plan: "FREE" },
   });
   console.log("  ✓ users");
+  }
 
   // ── Machines ─────────────────────────────────────────────────────
   await inChunks(machines as MachineRow[], (m) =>

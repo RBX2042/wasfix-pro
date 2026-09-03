@@ -1,5 +1,6 @@
 import { Resend } from "resend";
 import { env } from "./env";
+import { companyIdentityLine } from "./plans";
 
 let _resend: Resend | null = null;
 
@@ -258,10 +259,10 @@ export async function sendRmaNotification(data: {
           Pak je product in originele verpakking met het RMA-nummer duidelijk op de buitenkant geschreven. Zodra wij het ontvangen verwerken wij de restitutie binnen 14 dagen.
         </p>
         <p style="font-size: 13px; color: #666; margin-top: 24px;">
-          Vragen? Antwoord op deze e-mail of bel 020 123 45 67 (ma-vr 9-17:30).
+          Vragen? Antwoord gewoon op deze e-mail — we reageren op werkdagen binnen 24 uur.
         </p>
         <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-        <p style="font-size: 12px; color: #888;">WasFix Pro B.V. · Hoofdstraat 1, 1234 AB Amsterdam · KvK 12345678</p>
+        <p style="font-size: 12px; color: #888;">${companyIdentityLine()}</p>
       </div>
     `,
   });

@@ -140,7 +140,7 @@ export default function RightToRepairPage() {
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
                 {[
                   `Onze ${formatCount(STATS.guides)} reparatiegidsen zijn gratis te lezen en in gewone taal geschreven.`,
-                  `Onze database bevat ${formatCount(STATS.errorCodes)} foutcodes over ${STATS.brands} merken, met per code de bron erbij zodat je kunt nagaan waar de betekenis vandaan komt.`,
+                  `Onze database bevat ${formatCount(STATS.errorCodes)} foutcodes over ${STATS.brands} merken. Bij elke code staat of we de betekenis tegen een openbare bron hebben gecontroleerd — en zo niet, dan zeggen we dat ook.`,
                   "De diagnose werkt zonder account: geen e-mailmuur en geen tracking-cookies zonder toestemming.",
                   "Bij elke foutcode staat eerlijk of het een klus is die je zelf kunt doen — als het om netspanning, de motor of de besturingsmodule gaat, zeggen we dat je een monteur moet bellen.",
                   "Wat we niet doen: onderdelen tien jaar op voorraad garanderen. Die verplichting ligt bij de fabrikant, niet bij ons, en we beloven niets wat we niet waar kunnen maken.",

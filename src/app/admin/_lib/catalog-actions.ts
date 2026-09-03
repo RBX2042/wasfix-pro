@@ -196,6 +196,15 @@ const ErrorCodeSchema = z.object({
   description: z.string().trim().min(10, "Omschrijving is te kort").max(2000),
   likelyCauses: z.string().trim().min(3, "Geef minstens één oorzaak").max(1000),
   severity: z.enum(SEVERITIES),
+  // Provenance is editable so a verification pass can be recorded here rather
+  // than in a code change. A code can only be marked VERIFIED with a source
+  // URL attached — the whole point is that the claim is checkable.
+  provenance: z.enum(["VERIFIED", "REPORTED"]),
+  sourceUrl: z.string().trim().url("Bron-URL is geen geldige URL").max(500).optional().or(z.literal("")),
+  sourceName: z.string().trim().max(160).optional().or(z.literal("")),
+}).refine((v) => v.provenance !== "VERIFIED" || !!v.sourceUrl, {
+  message: "Een geverifieerde code heeft een bron-URL nodig",
+  path: ["sourceUrl"],
 });
 
 export async function saveErrorCode(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
@@ -209,12 +218,17 @@ export async function saveErrorCode(_prev: ActionResult | null, fd: FormData): P
     description: str(fd, "description") ?? "",
     likelyCauses: str(fd, "likelyCauses") ?? "",
     severity: str(fd, "severity") ?? "MEDIUM",
+    provenance: str(fd, "provenance") ?? "REPORTED",
+    sourceUrl: str(fd, "sourceUrl") ?? "",
+    sourceName: str(fd, "sourceName") ?? "",
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ongeldige gegevens" };
 
   const data = {
     ...parsed.data,
     code: parsed.data.code.toUpperCase(),
+    sourceUrl: parsed.data.sourceUrl || null,
+    sourceName: parsed.data.sourceName || null,
     diyFriendly: fd.get("diyFriendly") === "on" || fd.get("diyFriendly") === "true",
   };
 

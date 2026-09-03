@@ -74,6 +74,15 @@ model ErrorCode {
   likelyCauses String
   severity     String            @default("MEDIUM")
   diyFriendly  Boolean           @default(true)
+  /// Where this code's meaning comes from. A visitor deciding whether to open
+  /// their machine deserves to know whether we checked, and against what.
+  /// VERIFIED = confirmed against independent public sources;
+  /// REPORTED = in circulation but we could not confirm it for this brand.
+  provenance   String            @default("REPORTED")
+  /// A real URL we checked the meaning against, when we have one.
+  sourceUrl    String?
+  /// Human-readable name of that source, for the citation line.
+  sourceName   String?
   parts        ErrorCodeParts[]
   guides       ErrorCodeGuides[]
 

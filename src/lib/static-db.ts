@@ -47,6 +47,10 @@ type ErrorCode = {
   likelyCauses: string;
   severity: string;
   diyFriendly: boolean;
+  /** "VERIFIED" when checked against a public source, else "REPORTED". */
+  provenance: string;
+  sourceUrl: string | null;
+  sourceName: string | null;
 };
 
 type Guide = {

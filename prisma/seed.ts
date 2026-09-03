@@ -23,7 +23,7 @@ const prisma = new PrismaClient();
 
 type MachineRow = { id: string; brand: string; model: string; yearFrom: number | null; yearTo: number | null; imageUrl: string | null; description: string | null };
 type PartRow = { id: string; sku: string; name: string; description?: string | null; brand: string; category: string; priceEur: number; costEur?: number | null; stock: number; imageUrl?: string | null; isOriginal: boolean; supplier?: string | null };
-type ErrorCodeRow = { id: string; code: string; machineId: string; title: string; description: string; likelyCauses: string; severity: string; diyFriendly: boolean };
+type ErrorCodeRow = { id: string; code: string; machineId: string; title: string; description: string; likelyCauses: string; severity: string; diyFriendly: boolean; provenance: string; sourceUrl: string | null; sourceName: string | null };
 type GuideRow = { id: string; title: string; slug: string; machineId: string | null; difficulty: string; timeMinutes: number; steps: string; tools: string; summary: string; warnings: string | null; isPremium: boolean; views: number; createdAt: number | string };
 
 const SUPERADMIN_EMAIL = "jdahoe@hotmail.nl";
@@ -92,7 +92,7 @@ async function main() {
 
   // ── Error codes ──────────────────────────────────────────────────
   await inChunks(errorCodes as ErrorCodeRow[], (ec) => {
-    const data = { code: ec.code, machineId: ec.machineId, title: ec.title, description: ec.description, likelyCauses: ec.likelyCauses, severity: ec.severity, diyFriendly: ec.diyFriendly };
+    const data = { code: ec.code, machineId: ec.machineId, title: ec.title, description: ec.description, likelyCauses: ec.likelyCauses, severity: ec.severity, diyFriendly: ec.diyFriendly, provenance: ec.provenance, sourceUrl: ec.sourceUrl, sourceName: ec.sourceName };
     return prisma.errorCode.upsert({ where: { id: ec.id }, update: data, create: { id: ec.id, ...data } });
   });
   console.log(`  ✓ ${errorCodes.length} error codes`);

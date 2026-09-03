@@ -138,9 +138,9 @@
     "likelyCauses": "Deur staat niet goed dicht|Defect deurslot|Wasgoed klemt tussen deur|Beschadigde scharnier",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "cmohrri4v001paaf9ikoh0p32",
@@ -203,9 +203,9 @@
     "likelyCauses": "Overbelading|Versleten lager|Defecte Hall-sensor|Stator probleem",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/lg-top-load-washing-machine-what-are-le-and-le1-error-codes--20153067399859",
+    "sourceName": "LG USA — What are LE and LE1 error codes?"
   },
   {
     "id": "cmohrri50001zaaf9k3znbrdt",
@@ -255,9 +255,9 @@
     "likelyCauses": "Gesloten kraan|Verstopt zeefje|Defect inlaatventiel|Drukverlies",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.aeg.co.uk/support-articles/article/washing-machine-displays-an-error-code-how-to-fix-it",
+    "sourceName": "AEG UK support - washing machine error codes"
   },
   {
     "id": "cmohrri530027aaf9f8eyx3x9",
@@ -268,9 +268,9 @@
     "likelyCauses": "Verstopt filter|Defecte pomp|Geknikte slang|Druksensor defect",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.ie/support-articles/article/washing-machine-does-not-drain-displays-error-code-e20-e21-or-c2-emits-2-beeps-2-flashes",
+    "sourceName": "Electrolux IE support - does not drain, error E20/E21"
   },
   {
     "id": "cmohrri540029aaf9vyw6bj3v",
@@ -280,10 +280,10 @@
     "description": "Het deurslot kan niet worden vergrendeld of ontgrendeld.",
     "likelyCauses": "Defect deurslot (PTC)|Beschadigde deurkruk|Module probleem",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.co.uk/support-articles/article/washing-machine-displays-error-code-e40",
+    "sourceName": "Electrolux UK support - washing machine error E40/E41 door lock"
   },
   {
     "id": "cmohrri55002baaf9esenpqke",
@@ -294,9 +294,9 @@
     "likelyCauses": "Gesloten waterkraan|Defect inlaatventiel|Te lage waterdruk|Verstopt zeefje",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://owner.electrolux.com/support-articles/article/1820068-laundry-front-loading-washer-displaying-error-code-e11-long-fill-time-",
+    "sourceName": "Electrolux owner support - E11 long fill time"
   },
   {
     "id": "cmohrri55002daaf9ki3xsgf8",
@@ -2010,9 +2010,9 @@
     "likelyCauses": "Slang verstopt|Drukschakelaar",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_9c449aa2c49e00d1bd9b",
@@ -2023,9 +2023,9 @@
     "likelyCauses": "Lokale spanning|Voedingsmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/latin_en/support/home-appliances/samsung-washing-machine-error-codes-and-information/",
+    "sourceName": "Samsung — Washing Machine Information and Error Codes"
   },
   {
     "id": "wfec_fb60b204e57c0dac4abe",
@@ -2036,61 +2036,61 @@
     "likelyCauses": "Tacho|Inverter",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_fb3b2146b11289fdefd6",
     "code": "6E",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
     "title": "Verwarmingselement",
-    "description": "Element-temperatuur klopt niet.",
+    "description": "Element-temperatuur klopt niet: storing in het waterverwarmingssysteem of de watertemperatuursensor.",
     "likelyCauses": "Element defect|NTC",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.expressrepair.ca/samsung-washing-machine-error-code-6e-water-heater-error/",
+    "sourceName": "Express Repair — Samsung 6E Water Heater Error"
   },
   {
     "id": "wfec_86715e1d9224dddb02e0",
     "code": "7E",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Watertoevoer",
-    "description": "Geen / te weinig watertoevoer.",
-    "likelyCauses": "Kraan|Magneetventiel",
-    "severity": "LOW",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "SilverCare-fout",
+    "description": "7E is op Samsung-wasmachines de SilverCare/Silver Wash-fout: de besturing krijgt geen signaal van de zilvergenerator of de SilverCare-print. Het is geen watertoevoercode (dat is 4E/4C of nF).",
+    "likelyCauses": "Silver Kit niet gedetecteerd|Defecte SilverCare-print|Losse connector naar de zilvergenerator",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://expressrepair.ca/samsung-washing-machine-error-code-7e-silver-care-error/",
+    "sourceName": "Express Repair — Samsung 7E Silver Care Error"
   },
   {
     "id": "wfec_52b7332345762cc749c5",
     "code": "8E",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Onbalans / vibratie",
-    "description": "Onbalans-detectie blokkeert centrifugeren.",
-    "likelyCauses": "Wasgoed|Schokdempers",
-    "severity": "LOW",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "MEMS-/vibratiesensor defect",
+    "description": "8E (8C op nieuwere modellen) is een MEMS-sensorfout: de vibratiesensor die de trommelbeweging tijdens centrifugeren bewaakt geeft een signaal buiten bereik (boven 4,5 V of onder 0,5 V). Het is geen gewone onbalansmelding — onbalans is UE/UB — en ook geen algemene communicatiefout.",
+    "likelyCauses": "Defecte MEMS-/vibratiesensor|Losse of beschadigde sensorkabelboom|Fout op de hoofdprint",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/latin_en/support/home-appliances/check-out-the-information-codes-on-my-washing-machine/",
+    "sourceName": "Samsung — Check your washing machine's error codes (8E/8C)"
   },
   {
     "id": "wfec_2637aa0f22d883a7930a",
     "code": "9E",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Module-error",
-    "description": "Hoofdmodule-fout.",
-    "likelyCauses": "Module vervangen",
+    "title": "Voedingsspanning fout",
+    "description": "9E (met varianten 9E1 = spanning te laag en 9E2 = spanning te hoog, 9C op nieuwere modellen) betekent dat de netspanning buiten het toegestane bereik ligt. Het is geen fout van de hoofdmodule zelf — een module vervangen lost dit meestal niet op.",
+    "likelyCauses": "Spanningsdip of piek op het net|Verlengsnoer of stekkerdoos in plaats van eigen wandcontactdoos|Losse of beschadigde stekker/contactdoos|Overbelaste groep|Defecte spanningsregeling op de voedingsprint",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://soloappliancerepair.com/samsung-washer-error-code-uc-9c-9e1-9e2-power-supply-error-and-how-to-fix-it/",
+    "sourceName": "Solo Appliance Repair — Samsung UC / 9C / 9E1 / 9E2 power supply error"
   },
   {
     "id": "wfec_1073dcb8947bde209dc9",
@@ -2101,22 +2101,22 @@
     "likelyCauses": "Knop vast / vies|Foliemembraan",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.searshomeservices.com/blog/samsung-washer-error-codes",
+    "sourceName": "Sears Home Services — Samsung washer error codes"
   },
   {
     "id": "wfec_f8905adbcb463099df97",
     "code": "cE",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Verwarming overrun",
-    "description": "Watertemperatuur te hoog.",
-    "likelyCauses": "NTC defect|Module",
+    "title": "Koelfout — waterttemperatuur te hoog",
+    "description": "cE/CE treedt op als het water te heet is om af te voeren; de machine moet eerst afkoelen. De klassieke oorzaak is dat de warmwaterslang op de koudwateraansluiting zit, niet een defecte NTC of module.",
+    "likelyCauses": "Warm- en koudwaterslang verwisseld op de inlaten|Te hoge boilertemperatuur|Defecte NTC",
     "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.searshomeservices.com/blog/samsung-washer-error-codes",
+    "sourceName": "Sears Home Services — Samsung washer error codes"
   },
   {
     "id": "wfec_d9da6af434ad0eb8c068",
@@ -2135,40 +2135,40 @@
     "id": "wfec_4a7373f7f5cc367dfd2e",
     "code": "dC1",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Deurslot mechanisch",
-    "description": "Slot vast in vergrendelde positie.",
-    "likelyCauses": "Slot defect",
+    "title": "Deurslot vergrendelt niet",
+    "description": "dC1 is een Door Lock Error: de machine probeert de deur 3 tot 7 keer te vergrendelen en geeft op. Het slot zit dus juist niet vast in vergrendelde stand — het krijgt de deur niet op slot.",
+    "likelyCauses": "Defect deurslot|Losse connector tussen slot en besturing|Wasgoed of vuil in de deurrand|Verbogen deurhaak",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://applianceserviceinfo.com/error-codes/samsung-washer-dc1-error-code/",
+    "sourceName": "Appliance Service Info — Samsung Washer dC1 Error Code"
   },
   {
     "id": "wfec_889e004637c146732206",
     "code": "dC2",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Deur tijdens centrifuge",
-    "description": "Deur opent tijdens centrifuge.",
-    "likelyCauses": "Slot|Bedrading",
-    "severity": "HIGH",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "Deur niet gesloten/vergrendeld (dC2)",
+    "description": "dC2 hoort bij dezelfde deurfamilie als dC/dC1/dE/dE1/dE2: de besturing detecteert de deur niet als gesloten en vergrendeld. Er is geen bron die dC2 beschrijft als 'deur gaat open tijdens centrifugeren'.",
+    "likelyCauses": "Deur niet volledig dichtgeduwd|Wasgoed of vuil in de manchet|Defect deurslot of slotsensor",
+    "severity": "MEDIUM",
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.onderdelentoko.nl/samsung-wasmachine-storingen-foutcodes/",
+    "sourceName": "Onderdelentoko — Samsung wasmachine storingen foutcodes"
   },
   {
     "id": "wfec_12502d5f343bcdfb95cc",
     "code": "dL",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Deurslot tijdens programma",
-    "description": "Slot opent halverwege programma.",
-    "likelyCauses": "Slot defect",
+    "title": "Deur/deksel niet vergrendeld",
+    "description": "dL hoort bij de deurcodes dC/dC1/dL: de deur of het deksel wordt niet als gesloten en vergrendeld gedetecteerd. Niet 'slot gaat halverwege het programma open'.",
+    "likelyCauses": "Deur of deksel niet goed dicht|Wasgoed klem in de deurrand|Defect deurslot|Losse slotbedrading",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://blog.service.works/service-business/appliance-repair/samsung-washer-error-codes/",
+    "sourceName": "Service.Works — Samsung washer error codes"
   },
   {
     "id": "wfec_0c224d99c97fb04bef62",
@@ -2179,9 +2179,9 @@
     "likelyCauses": "Kraan|Magneetventiel",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_cb498a33b776e6e76d0e",
@@ -2192,9 +2192,9 @@
     "likelyCauses": "Filter verstopt|Afvoerpomp",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_44b7ba59700a4bb4ee18",
@@ -2205,22 +2205,22 @@
     "likelyCauses": "Magneetventiel blijft open",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_5e00194515a3d44d64e0",
     "code": "FE",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Toerental-error",
-    "description": "Onverwacht toerental.",
-    "likelyCauses": "Tacho|Inverter",
+    "title": "Droogventilator-fout",
+    "description": "FE staat voor Fan Error: de droogventilator draait niet. De code hoort bij was-droogcombinaties met droogfunctie en heeft niets met trommeltoerental, tacho of inverter te maken. Op een WW90T684DLH (wasmachine zonder droogfunctie) hoort deze code niet thuis.",
+    "likelyCauses": "Geblokkeerde ventilatorwaaier|Defecte ventilatormotor of wikkeling|Defecte aanloopcondensator|Breuk in de ventilatorbedrading",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://washingcodes.com/samsung-washing-and-drying-machines-error-code-fe/",
+    "sourceName": "Washingcodes — Samsung washing and drying machines error code FE"
   },
   {
     "id": "wfec_261934b695acf6350753",
@@ -2244,22 +2244,22 @@
     "likelyCauses": "Manchet|Slang",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_2c7551d1b0c3320abdce",
     "code": "OE",
     "machineId": "cmohrri3y0008aaf9ymybqoch",
-    "title": "Afvoer mislukt (overflow)",
-    "description": "Water staat boven niveau na afvoer-poging.",
-    "likelyCauses": "Pomp|Filter|Slang",
+    "title": "Overloop — te veel water",
+    "description": "OE (ook OF/OC) betekent dat er te veel water in de machine staat: de machine vult door boven het veilige niveau en pompt automatisch af. Het is een vulprobleem, geen mislukte afvoer (dat is 5E/5C).",
+    "likelyCauses": "Inlaatventiel sluit niet|Defecte waterniveau-/druksensor|Verstopte drukslang|Te veel schuim dat de niveaumeting verstoort",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.hoffmannbros.com/washing-machine-error-code/OE-Samsung",
+    "sourceName": "Hoffmann Brothers — Samsung OE error code"
   },
   {
     "id": "wfec_189d4027110e31df0a93",
@@ -2270,9 +2270,9 @@
     "likelyCauses": "Te veel wasmiddel|Verkeerd type wasmiddel",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.searshomeservices.com/blog/samsung-washer-error-codes",
+    "sourceName": "Sears Home Services — Samsung washer error codes"
   },
   {
     "id": "wfec_80e593d840178629936c",
@@ -2283,9 +2283,9 @@
     "likelyCauses": "Wasmiddel-dosering",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.samsung.com/levant/support/home-appliances/what-does-the-suds-mean-on-my-washing-machine-display",
+    "sourceName": "Samsung — What does 'SUDS' mean on my washing machine display?"
   },
   {
     "id": "wfec_5eef6c231c9e3690cb3e",
@@ -2295,10 +2295,10 @@
     "description": "NTC buiten bereik.",
     "likelyCauses": "NTC defect|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.searshomeservices.com/blog/samsung-washer-error-codes",
+    "sourceName": "Sears Home Services — Samsung washer error codes"
   },
   {
     "id": "wfec_eaa834cf27f116ddb91c",
@@ -2309,9 +2309,9 @@
     "likelyCauses": "Voeding|Net",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://trueprohome.com/guides/samsung-washer-error-codes/",
+    "sourceName": "TruePro Home Services — Samsung washer error codes"
   },
   {
     "id": "wfec_12fd026c4bfe9f01413b",
@@ -2322,9 +2322,9 @@
     "likelyCauses": "Module vervangen",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.whitegoodshelp.co.uk/samsung-washing-machine-error-codes/",
+    "sourceName": "Whitegoods Help — Samsung washing machine error codes"
   },
   {
     "id": "wfec_2566bdab7e6d5c143386",
@@ -2335,9 +2335,9 @@
     "likelyCauses": "Slang|Manchet",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.hoffmannbros.com/washing-machine-error-code/AE-LG",
+    "sourceName": "Hoffmann Brothers — LG AE error code"
   },
   {
     "id": "wfec_11254ccc5f5f221edacd",
@@ -2348,74 +2348,74 @@
     "likelyCauses": "Inverter|Motor",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/lg-washer-error-code-list--20150140270078",
+    "sourceName": "LG USA — Washer Error Code List"
   },
   {
     "id": "wfec_169fe47eb6c1154d23f8",
     "code": "DE",
     "machineId": "cmohrri40000aaaf9t22sl67g",
     "title": "Deurslot",
-    "description": "Deur niet gesloten of slot defect.",
-    "likelyCauses": "Slot|Haak",
+    "description": "Deur is dicht maar vergrendelt niet.",
+    "likelyCauses": "Deur niet goed dicht|Wasgoed klem tussen deur en manchet|Verbogen of defecte deurhaak|Defect deurslot",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/front-load-washer-what-are-de-de1-and-de2-error-codes--1400508168566",
+    "sourceName": "LG USA — dE, dE1 and dE2 Error Codes"
   },
   {
     "id": "wfec_8bcb7efbc52e49cf19a5",
     "code": "dE1",
     "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Deurslot signaal",
-    "description": "Slot-signaal afwezig.",
-    "likelyCauses": "Slot|Bedrading",
+    "title": "Deur niet goed gesloten",
+    "description": "LG: dE1 betekent dat de deur niet goed gesloten is — meestal doordat wasgoed tussen deur en manchet zit. Het is geen ontbrekend slot-signaal in de bedrading.",
+    "likelyCauses": "Wasgoed klem tussen deur en manchet|Deur niet volledig dichtgeduwd|Vuile of vervormde deurrand|Defect deurslot",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/front-load-washer-what-are-de-de1-and-de2-error-codes--1400508168566",
+    "sourceName": "LG USA — dE, dE1 and dE2 Error Codes"
   },
   {
     "id": "wfec_2341c8e31165badc58a2",
     "code": "dE2",
     "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Deurslot tijdens programma",
-    "description": "Deur is tijdens programma open.",
-    "likelyCauses": "Slot|Module",
-    "severity": "HIGH",
+    "title": "Deur/lade gesloten maar niet vergrendeld",
+    "description": "LG: dE2 betekent dat de deur (of lade) wel dicht is maar niet vergrendelt — een storing in de deurvergrendeling. Niet 'deur gaat open tijdens het programma'.",
+    "likelyCauses": "Defecte deurvergrendeling|Verbogen of gebroken deurhaak|Losse bedrading naar het slot",
+    "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/front-load-washer-what-are-de-de1-and-de2-error-codes--1400508168566",
+    "sourceName": "LG USA — dE, dE1 and dE2 Error Codes"
   },
   {
     "id": "wfec_ffed689487c1d01dc867",
     "code": "E1",
     "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Lekkage",
-    "description": "Lek gedetecteerd onder de machine.",
-    "likelyCauses": "Slang|Manchet",
-    "severity": "HIGH",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "Watertoevoer fout",
+    "description": "De machine krijgt niet snel genoeg water binnen; E1 is op LG-wasmachines een vulfout, geen lekkage. (Lekkage is AE; E1 als lekcode hoort bij LG-vaatwassers.)",
+    "likelyCauses": "Kraan dicht of half open|Geknikte of verstopte toevoerslang|Verstopt zeefje in de inlaat|Defect inlaatventiel of waterniveausensor",
+    "severity": "MEDIUM",
+    "diyFriendly": true,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.hoffmannbros.com/washing-machine-error-code/E1-LG",
+    "sourceName": "Hoffmann Brothers — LG E1 error code"
   },
   {
     "id": "wfec_94ecab66d4b404070db7",
     "code": "E3",
     "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Onbalans",
-    "description": "Wasgoed niet goed verdeeld.",
-    "likelyCauses": "Lading",
-    "severity": "LOW",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "title": "Afvoermotor storing",
+    "description": "Storing in de afvoermotor/afvoerpomp; kan in de winter ook optreden als het water in de machine of de afvoerslang bevroren is.",
+    "likelyCauses": "Defecte afvoermotor|Bevroren water in kuip of afvoerslang|Verstopte afvoer",
+    "severity": "MEDIUM",
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/hk_en/support/product-support/troubleshoot/help-library/cs-CT52000897-20153413036662/",
+    "sourceName": "LG — [Winter] E3 appears on the display"
   },
   {
     "id": "wfec_2120c23a6878372230b4",
@@ -2435,39 +2435,39 @@
     "code": "HE",
     "machineId": "cmohrri40000aaaf9t22sl67g",
     "title": "Verwarming",
-    "description": "Element-fout.",
+    "description": "Element-fout: de machine kan het water niet op temperatuur brengen.",
     "likelyCauses": "Element|NTC",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://disassembleandrepair.com/lg-washing-machine-he-error-fixes-solutions/",
+    "sourceName": "Disassemble & Repair — LG washing machine HE error"
   },
   {
     "id": "wfec_f7f66ce74c8c7e4cebc1",
     "code": "LE1",
     "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Motor / rotor sensor",
-    "description": "Direct-Drive sensor afwijking.",
-    "likelyCauses": "Hall-sensor|Stator",
+    "title": "Motor geblokkeerd (LE1)",
+    "description": "Zelfde motorfamilie als LE: de motor is geblokkeerd/kan niet draaien. Op modellen met droogfunctie kan LE1 ook wijzen op een verstopt droogfilter of een niet-werkende ventilator-/compressormotor. Het is geen aparte 'Direct-Drive rotorsensor'-code.",
+    "likelyCauses": "Vreemd voorwerp tussen kuip en trommel|Overbelading|Verstopt droogfilter (modellen met droogfunctie)|Defecte motor of rotorpositiesensor",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/lg-top-load-washing-machine-what-are-le-and-le1-error-codes--20153067399859",
+    "sourceName": "LG USA — What are LE and LE1 error codes?"
   },
   {
     "id": "wfec_16d398afc73004bf98b0",
     "code": "LE2",
     "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Motor blokkade",
-    "description": "Direct-Drive motor blokkade.",
-    "likelyCauses": "Vreemd voorwerp|Stator",
+    "title": "Droog-/motorfout (LE2)",
+    "description": "LG documenteert LE2 bij de droogfunctie: bij langdurig drogen op hoge temperatuur treedt LE2 op als het droogfilter verstopt is of als de ventilator- of compressormotor niet werkt. Niet 'Direct-Drive trommelblokkade'.",
+    "likelyCauses": "Verstopt droogfilter|Ventilatormotor werkt niet|Compressormotor werkt niet|Vreemd voorwerp in de kuip",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/ph/support/product-support/troubleshoot/help-library/cs-CT52007983-20153082712786DRC/",
+    "sourceName": "LG — An LE1 or LE2 error has occurred"
   },
   {
     "id": "wfec_869d662e009e817e19d9",
@@ -2491,9 +2491,9 @@
     "likelyCauses": "Net|Stekker",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/lg-washer-error-code-list--20150140270078",
+    "sourceName": "LG USA — Washer Error Code List"
   },
   {
     "id": "wfec_77011f7b9f7c824a31f2",
@@ -2504,9 +2504,9 @@
     "likelyCauses": "Wasmiddel",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/too-many-suds-in-washing-machine--1337715937395",
+    "sourceName": "LG USA — Too Many Suds in Washing Machine"
   },
   {
     "id": "wfec_5bcdd080688c19195976",
@@ -2516,10 +2516,10 @@
     "description": "NTC afwijking.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.lg.com/us/support/help-library/lg-washer-error-code-list--20150140270078",
+    "sourceName": "LG USA — Washer Error Code List"
   },
   {
     "id": "wfec_e067ad7cf08380f3768f",
@@ -2535,30 +2535,17 @@
     "sourceName": "LG Nederland — uitleg foutcodes wasmachine"
   },
   {
-    "id": "wfec_e28ba3ef98a2f17b9704",
-    "code": "vS",
-    "machineId": "cmohrri40000aaaf9t22sl67g",
-    "title": "Voltage-onstabiel",
-    "description": "Spanning niet stabiel.",
-    "likelyCauses": "Net|Voeding",
-    "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
-  },
-  {
     "id": "wfec_213250c5376cb6aa2ac9",
     "code": "E11",
     "machineId": "cmohrri42000daaf9yl20o83t",
     "title": "Watertoevoer hoofdwas",
     "description": "Water bereikt niveau niet voor hoofdwas.",
     "likelyCauses": "Ventiel|Drukschakelaar",
-    "severity": "LOW",
+    "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://owner.electrolux.com/support-articles/article/1820068-laundry-front-loading-washer-displaying-error-code-e11-long-fill-time-",
+    "sourceName": "Electrolux owner support - E11 long fill time"
   },
   {
     "id": "wfec_4d510f9522021601928f",
@@ -2566,12 +2553,12 @@
     "machineId": "cmohrri42000daaf9yl20o83t",
     "title": "Lekkage",
     "description": "Lek-sensor geactiveerd.",
-    "likelyCauses": "Slang|Manchet",
+    "likelyCauses": "Lekkende slang of aansluiting|Beschadigde kuipmanchet|Lek in luchtklok/druksysteem|Sifonerende afvoerslang",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.electroluxappliance.support/electrolux-washer-error-code-e13/",
+    "sourceName": "Electrolux Appliance Support - washer error code E13"
   },
   {
     "id": "wfec_d970537b7df0625164a3",
@@ -2582,48 +2569,48 @@
     "likelyCauses": "Pomp|Slang",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://owner.electrolux.com/support-articles/article/1820072-laundry-front-loading-washer-displaying-error-code-e21-long-pump-out-time-",
+    "sourceName": "Electrolux owner support - E21 long pump out time"
   },
   {
     "id": "wfec_3b039a39a05d8c2d13c3",
     "code": "E22",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Afvoer overrun",
-    "description": "Pomp werkt continu zonder dat niveau zakt.",
-    "likelyCauses": "Drukschakelaar|Slang",
+    "title": "Afvoer tijdens droogfase mislukt",
+    "description": "De machine krijgt het water niet weggepompt tijdens de droog-/ontvochtigingsfase; niveau 1 wordt niet bereikt.",
+    "likelyCauses": "Defecte afvoerpomp|Verstopt filter of afvoerslang|Bedrading naar pomp|Hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/737173/Electrolux-Washing-Machines-And-Washer-Dryers.html?page=58",
+    "sourceName": "ManualsLib - Electrolux washing machines/washer-dryers service manual, table of alarm codes"
   },
   {
     "id": "wfec_6dbd636efcd372ff7315",
     "code": "E23",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Pomp-relais",
-    "description": "Aansturing pomp afwijkend.",
-    "likelyCauses": "Module",
-    "severity": "MEDIUM",
+    "title": "Triac afvoerpomp defect",
+    "description": "De triac op de hoofdprintplaat die de afvoerpomp aanstuurt is defect; de pomp wordt niet (goed) aangestuurd.",
+    "likelyCauses": "Defecte triac op hoofdmodule|Bedrading naar afvoerpomp|Hoofdmodule vervangen",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_743ab2be3900942c41f6",
     "code": "E24",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Pomp-triac module",
-    "description": "Aansturings-component defect.",
-    "likelyCauses": "Triac op module",
+    "title": "Uitleescircuit pomp-triac defect",
+    "description": "Het sensing-circuit van de triac van de afvoerpomp op de hoofdmodule geeft een waarde buiten de grenzen door.",
+    "likelyCauses": "Defect sensing-circuit op hoofdmodule|Hoofdmodule vervangen",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_c80241698769259e15a6",
@@ -2631,12 +2618,12 @@
     "machineId": "cmohrri42000daaf9yl20o83t",
     "title": "Drukschakelaar",
     "description": "Druksensor defect.",
-    "likelyCauses": "Sensor|Slang",
+    "likelyCauses": "Defecte analoge druksensor|Verstopte of geknikte drukslang|Bedrading naar druksensor",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://guide.washerhouse.com/en/kody-oshibok-aeg/",
+    "sourceName": "WasherHouse - AEG washing machine error codes"
   },
   {
     "id": "wfec_3fdc31f67e68455cbbf5",
@@ -2646,23 +2633,23 @@
     "description": "Druksensor buiten kalibratie.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_9239fcb2a7f6a5e01aed",
     "code": "E33",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Drukschakelaar verwarming",
-    "description": "Druk te laag voor verwarming.",
-    "likelyCauses": "Slang|Sensor",
+    "title": "Conflict niveausensor en verwarmingsbeveiliging",
+    "description": "De niveausensor (level 1) en de beveiligingssensor die droogkoken van het verwarmingselement voorkomt geven tegenstrijdige waarden.",
+    "likelyCauses": "Defecte druk-/niveausensor|Verstopte drukslang|Bedrading|Hoofdmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_f02433971e2b0226a086",
@@ -2673,9 +2660,9 @@
     "likelyCauses": "Sensor|Module",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_e11eaa48a54a9c8ac92b",
@@ -2686,22 +2673,22 @@
     "likelyCauses": "Magneetventiel|Drukschakelaar",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://owner.electrolux.com/support-articles/article/1820074-laundry-front-loading-washer-displaying-error-code-e35-pressure-sensor-indicates-water-overfill-",
+    "sourceName": "Electrolux owner support - E35 pressure sensor indicates water overfill"
   },
   {
     "id": "wfec_22469a9c5ad44e27f02b",
     "code": "E36",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Niveau-druk",
-    "description": "Veiligheids-drukschakelaar geactiveerd.",
-    "likelyCauses": "Sensor",
+    "title": "Sensor verwarmingsbeveiliging defect",
+    "description": "De sensor/het beveiligingscircuit dat voorkomt dat het verwarmingselement zonder water inschakelt werkt niet.",
+    "likelyCauses": "Defecte beveiligingssensor|Bedrading|Hoofdmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_052356011b0ee51ea14c",
@@ -2711,10 +2698,10 @@
     "description": "Druksensor ongeldig signaal.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_0a6b5d7c50a29e1215ab",
@@ -2725,22 +2712,22 @@
     "likelyCauses": "Slang reinigen",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://guide.washerhouse.com/en/kody-oshibok-aeg/",
+    "sourceName": "WasherHouse - AEG washing machine error codes"
   },
   {
     "id": "wfec_c425880a41f11a39aa9b",
     "code": "E39",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Anti-flood pressostat",
-    "description": "Lekbeveiliging actief.",
-    "likelyCauses": "Lekkage|Sensor",
+    "title": "Overloop-niveausensor defect",
+    "description": "De anti-overloop niveausensor (HV1S) geeft een ongeldig signaal of is defect.",
+    "likelyCauses": "Defecte overloopsensor|Bedrading|Hoofdmodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_27c8bfc0874f38af0dba",
@@ -2751,22 +2738,22 @@
     "likelyCauses": "Slot|Haak",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.co.uk/support-articles/article/washing-machine-displays-error-code-e40",
+    "sourceName": "Electrolux UK support - washing machine error E40/E41 door lock"
   },
   {
     "id": "wfec_6dbca60158f918d12b4e",
     "code": "E42",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Deurslot vast",
-    "description": "Slot niet bedienbaar.",
-    "likelyCauses": "Slot defect",
+    "title": "Deur ontgrendelt niet",
+    "description": "Het deurslot blijft vergrendeld wanneer de machine ontgrendeling vraagt, bijvoorbeeld aan het einde van het programma.",
+    "likelyCauses": "Defect deurslot (PTC)|Bedrading deurslot|Hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_cc2af6517d402e2b43f6",
@@ -2777,9 +2764,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_7b25e8e4650c2f0a0458",
@@ -2789,10 +2776,10 @@
     "description": "Sensor-signaal van deur afwezig.",
     "likelyCauses": "Slot|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_3e7f936c4159728846b4",
@@ -2803,22 +2790,22 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_58ffe06e1e59c0983ef4",
     "code": "E50",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Motor commutator",
-    "description": "Commutator-fout.",
-    "likelyCauses": "Koolborstels|Module",
-    "severity": "MEDIUM",
+    "title": "Motorstoring",
+    "description": "Storing in de motor of het motorcircuit; de besturing krijgt de motor niet correct aangestuurd of uitgelezen.",
+    "likelyCauses": "Versleten koolborstels|Defecte motor|Bedrading motor|Hoofdmodule",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_06adaea6594c17619858",
@@ -2829,9 +2816,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_fab5401704596b1372e7",
@@ -2842,9 +2829,9 @@
     "likelyCauses": "Tacho|Bedrading",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_b16e12c389c665349f46",
@@ -2855,22 +2842,22 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_fff2034a20445b218650",
     "code": "E55",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Motor-fout",
-    "description": "Onverwacht draairichting.",
-    "likelyCauses": "Inverter|Motor",
+    "title": "Motorcircuit onderbroken",
+    "description": "De motor haalt het gevraagde toerental niet of het motorcircuit is onderbroken.",
+    "likelyCauses": "Onderbroken motorwikkeling|Bedrading motor|Koolborstels|Motormodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1380092/Electrolux-Efls617siw.html?page=44",
+    "sourceName": "ManualsLib - Electrolux EFLS617SIW technical & service manual (inverter/motor alarms)"
   },
   {
     "id": "wfec_d65765436b21046c5e12",
@@ -2881,35 +2868,35 @@
     "likelyCauses": "Motor|Inverter",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1380092/Electrolux-Efls617siw.html?page=43",
+    "sourceName": "ManualsLib - Electrolux EFLS617SIW technical & service manual (inverter/motor alarms)"
   },
   {
     "id": "wfec_d182424637a00c465e37",
     "code": "E59",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Tacho-error 3 tellen",
-    "description": "Tacho niet gedetecteerd in 3 cycli.",
-    "likelyCauses": "Tacho",
+    "title": "Geen tachosignaal (3 seconden)",
+    "description": "Na het instellen van een nieuw toerental ontvangt de besturing 3 seconden lang geen tachosignaal.",
+    "likelyCauses": "Defecte tachogenerator|Bedrading motor|Motormodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1380092/Electrolux-Efls617siw.html?page=44",
+    "sourceName": "ManualsLib - Electrolux EFLS617SIW technical & service manual (inverter/motor alarms)"
   },
   {
     "id": "wfec_a385ec0e7c8a44a0e098",
     "code": "E60",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Verwarming overrun",
-    "description": "Element verwarmt te lang of te hoog.",
-    "likelyCauses": "NTC|Relais",
+    "title": "Verwarmingsstoring",
+    "description": "Het water wordt niet (voldoende) verwarmd tijdens het wasprogramma; de besturing meldt een verwarmingsfout.",
+    "likelyCauses": "Defect verwarmingselement|Defecte NTC-temperatuursensor|Bedrading verwarmingscircuit|Hoofdmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.aeg.co.uk/support/support-articles/laundry/washing-machines/washing-machine-displays-error-message-e60/",
+    "sourceName": "AEG UK support - washing machine displays error message E60"
   },
   {
     "id": "wfec_46e1954ad96ab8188698",
@@ -2920,9 +2907,9 @@
     "likelyCauses": "Element|Relais",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://appliancerepairbase.com/washing-machines/electrolux/error-code-e61/",
+    "sourceName": "ApplianceRepairBase - Electrolux washing machine error E61"
   },
   {
     "id": "wfec_e062d18dafc2fc3eb9bd",
@@ -2933,9 +2920,9 @@
     "likelyCauses": "NTC|Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://appliancerepairbase.com/washing-machines/electrolux/error-code-e61/",
+    "sourceName": "ApplianceRepairBase - Electrolux washing machine error E61"
   },
   {
     "id": "wfec_dbe74e2f981c1df12b47",
@@ -2946,22 +2933,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
-  },
-  {
-    "id": "wfec_2a39c08633843e466473",
-    "code": "E67",
-    "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Verwarmingscircuit",
-    "description": "Verwarmingscircuit-foutmelding.",
-    "likelyCauses": "Element|Module",
-    "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=75",
+    "sourceName": "ManualsLib - Electrolux EWM25 service manual, E66 heating element power relay"
   },
   {
     "id": "wfec_f9c8bd869a0d06acf1e7",
@@ -2972,9 +2946,9 @@
     "likelyCauses": "Element naar massa|Bedrading",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_9bd8892e6440b24c5b75",
@@ -2984,23 +2958,23 @@
     "description": "Temperatuursensor afwijking.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://appliancerepairbase.com/washing-machines/electrolux/error-code-e71/",
+    "sourceName": "ApplianceRepairBase - Electrolux washing machine error code E71"
   },
   {
     "id": "wfec_e3d8e8e843a9336e2c70",
     "code": "E74",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "NTC kortsluiting massa",
-    "description": "NTC short.",
-    "likelyCauses": "NTC vervangen",
+    "title": "NTC verkeerd geplaatst",
+    "description": "De temperatuursensor zit niet goed in zijn zitting, waardoor de gemeten temperatuur niet met de werkelijke meestijgt.",
+    "likelyCauses": "NTC niet goed geplaatst|Defecte NTC|Bedrading NTC",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_60c7e7234aaa2c0e2f35",
@@ -3011,22 +2985,22 @@
     "likelyCauses": "Knop defect|Module",
     "severity": "LOW",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=84",
+    "sourceName": "ManualsLib - Electrolux EWM25 service manual, E82/E83 programme selector"
   },
   {
     "id": "wfec_aa80648cd7fb4020d882",
     "code": "E84",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Recirculatie-pomp",
-    "description": "Recirculatiepomp defect.",
-    "likelyCauses": "Pomp",
+    "title": "Uitleescircuit recirculatiepomp",
+    "description": "Het sensing-signaal van de triac die de recirculatiepomp aanstuurt ligt buiten de toegestane grenzen.",
+    "likelyCauses": "Sensing-circuit op hoofdmodule|Bedrading recirculatiepomp|Hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_7ce3f3dd2de052ee56f9",
@@ -3037,9 +3011,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_fdf46c8f845b3101cef7",
@@ -3050,9 +3024,9 @@
     "likelyCauses": "Lintkabel|Display",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_80eece4c025262ec8b9e",
@@ -3063,22 +3037,22 @@
     "likelyCauses": "Software-update",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_bff93057bf0794f4fa69",
     "code": "E93",
     "machineId": "cmohrri42000daaf9yl20o83t",
-    "title": "Configuratie",
-    "description": "Configuratie module-display klopt niet.",
-    "likelyCauses": "Service-config",
+    "title": "Apparaatconfiguratie fout",
+    "description": "De opgeslagen apparaatconfiguratie in de besturingsmodule klopt niet met het model; herconfiguratie door de servicedienst nodig.",
+    "likelyCauses": "Verkeerde configuratie in module|Vervangen module niet geconfigureerd|Servicedienst",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_cdf01b510cf838c6eccf",
@@ -3089,9 +3063,9 @@
     "likelyCauses": "Service-config",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_0be1756c6aeae771e649",
@@ -3102,9 +3076,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.co.uk/support-articles/article/washing-machine-displays-error-message-e90-e91-e92-e93-or-e94",
+    "sourceName": "Electrolux UK support - error message E90/E91/E92/E93/E94"
   },
   {
     "id": "wfec_d18e7601d36aa9ecd219",
@@ -3115,9 +3089,9 @@
     "likelyCauses": "Reset|Module",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_672ab73c1385b56b2b1a",
@@ -3128,9 +3102,9 @@
     "likelyCauses": "Net",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.aeg.be/nl-be/support/support-articles/wassen-en-drogen/wasmachines/storing-foutcode-eho-op-wasmachine/",
+    "sourceName": "AEG Belgie support - foutcode EHO op wasmachine"
   },
   {
     "id": "wfec_6cfc117bddf963e2db09",
@@ -3139,11 +3113,11 @@
     "title": "Watertoevoer",
     "description": "Geen watertoevoer binnen tijd.",
     "likelyCauses": "Kraan|Magneetventiel",
-    "severity": "LOW",
+    "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.aeg.co.uk/support-articles/article/washing-machine-displays-an-error-code-how-to-fix-it",
+    "sourceName": "AEG UK support - washing machine error codes"
   },
   {
     "id": "wfec_48a45f3bdc0fb6ed573a",
@@ -3151,12 +3125,12 @@
     "machineId": "cmohrri44000faaf9xyadtn09",
     "title": "Lekkage",
     "description": "Lek-sensor geactiveerd.",
-    "likelyCauses": "Slang|Manchet",
+    "likelyCauses": "Lekkende slang of aansluiting|Beschadigde kuipmanchet|Lek in luchtklok/druksysteem|Sifonerende afvoerslang",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.electroluxappliance.support/electrolux-washer-error-code-e13/",
+    "sourceName": "Electrolux Appliance Support - washer error code E13"
   },
   {
     "id": "wfec_b606829c2f4e7395e6bf",
@@ -3167,9 +3141,9 @@
     "likelyCauses": "Pomp|Filter",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.ie/support-articles/article/washing-machine-does-not-drain-displays-error-code-e20-e21-or-c2-emits-2-beeps-2-flashes",
+    "sourceName": "Electrolux IE support - does not drain, error E20/E21"
   },
   {
     "id": "wfec_70c1ef56e00258bebbc5",
@@ -3180,48 +3154,48 @@
     "likelyCauses": "Pomp|Slang",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://owner.electrolux.com/support-articles/article/1820072-laundry-front-loading-washer-displaying-error-code-e21-long-pump-out-time-",
+    "sourceName": "Electrolux owner support - E21 long pump out time"
   },
   {
     "id": "wfec_b843413213e2e3d32fba",
     "code": "E22",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Afvoer overrun",
-    "description": "Pomp werkt continu zonder dat niveau zakt.",
-    "likelyCauses": "Drukschakelaar|Slang",
+    "title": "Afvoer tijdens droogfase mislukt",
+    "description": "De machine krijgt het water niet weggepompt tijdens de droog-/ontvochtigingsfase; niveau 1 wordt niet bereikt.",
+    "likelyCauses": "Defecte afvoerpomp|Verstopt filter of afvoerslang|Bedrading naar pomp|Hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/737173/Electrolux-Washing-Machines-And-Washer-Dryers.html?page=58",
+    "sourceName": "ManualsLib - Electrolux washing machines/washer-dryers service manual, table of alarm codes"
   },
   {
     "id": "wfec_fad3fef9802e8bd8cbb0",
     "code": "E23",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Pomp-relais",
-    "description": "Aansturing pomp afwijkend.",
-    "likelyCauses": "Module",
-    "severity": "MEDIUM",
+    "title": "Triac afvoerpomp defect",
+    "description": "De triac op de hoofdprintplaat die de afvoerpomp aanstuurt is defect; de pomp wordt niet (goed) aangestuurd.",
+    "likelyCauses": "Defecte triac op hoofdmodule|Bedrading naar afvoerpomp|Hoofdmodule vervangen",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_9d67b7cb392b25167495",
     "code": "E24",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Pomp-triac module",
-    "description": "Aansturings-component defect.",
-    "likelyCauses": "Triac op module",
+    "title": "Uitleescircuit pomp-triac defect",
+    "description": "Het sensing-circuit van de triac van de afvoerpomp op de hoofdmodule geeft een waarde buiten de grenzen door.",
+    "likelyCauses": "Defect sensing-circuit op hoofdmodule|Hoofdmodule vervangen",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_5bade619c1f4bbc4a3a6",
@@ -3229,12 +3203,12 @@
     "machineId": "cmohrri44000faaf9xyadtn09",
     "title": "Drukschakelaar",
     "description": "Druksensor defect.",
-    "likelyCauses": "Sensor|Slang",
+    "likelyCauses": "Defecte analoge druksensor|Verstopte of geknikte drukslang|Bedrading naar druksensor",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://guide.washerhouse.com/en/kody-oshibok-aeg/",
+    "sourceName": "WasherHouse - AEG washing machine error codes"
   },
   {
     "id": "wfec_6607b80687c21740f2c1",
@@ -3244,23 +3218,23 @@
     "description": "Druksensor buiten kalibratie.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_f1a3ba79c18f99b3df41",
     "code": "E33",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Drukschakelaar verwarming",
-    "description": "Druk te laag voor verwarming.",
-    "likelyCauses": "Slang|Sensor",
+    "title": "Conflict niveausensor en verwarmingsbeveiliging",
+    "description": "De niveausensor (level 1) en de beveiligingssensor die droogkoken van het verwarmingselement voorkomt geven tegenstrijdige waarden.",
+    "likelyCauses": "Defecte druk-/niveausensor|Verstopte drukslang|Bedrading|Hoofdmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_a044d4b5cc7734fcfd11",
@@ -3271,9 +3245,9 @@
     "likelyCauses": "Sensor|Module",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_038646f3b9a8ae614af1",
@@ -3284,22 +3258,22 @@
     "likelyCauses": "Magneetventiel|Drukschakelaar",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://owner.electrolux.com/support-articles/article/1820074-laundry-front-loading-washer-displaying-error-code-e35-pressure-sensor-indicates-water-overfill-",
+    "sourceName": "Electrolux owner support - E35 pressure sensor indicates water overfill"
   },
   {
     "id": "wfec_58570ae6940e4cff7a93",
     "code": "E36",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Niveau-druk",
-    "description": "Veiligheids-drukschakelaar geactiveerd.",
-    "likelyCauses": "Sensor",
+    "title": "Sensor verwarmingsbeveiliging defect",
+    "description": "De sensor/het beveiligingscircuit dat voorkomt dat het verwarmingselement zonder water inschakelt werkt niet.",
+    "likelyCauses": "Defecte beveiligingssensor|Bedrading|Hoofdmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_64d8d83241c3ae1d14df",
@@ -3309,10 +3283,10 @@
     "description": "Druksensor ongeldig signaal.",
     "likelyCauses": "Sensor",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_70df7f938a51f732da08",
@@ -3323,22 +3297,22 @@
     "likelyCauses": "Slang reinigen",
     "severity": "LOW",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://guide.washerhouse.com/en/kody-oshibok-aeg/",
+    "sourceName": "WasherHouse - AEG washing machine error codes"
   },
   {
     "id": "wfec_26d4331bfe7ca6114ed2",
     "code": "E39",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Anti-flood pressostat",
-    "description": "Lekbeveiliging actief.",
-    "likelyCauses": "Lekkage|Sensor",
+    "title": "Overloop-niveausensor defect",
+    "description": "De anti-overloop niveausensor (HV1S) geeft een ongeldig signaal of is defect.",
+    "likelyCauses": "Defecte overloopsensor|Bedrading|Hoofdmodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_8390facc25b324857eed",
@@ -3349,22 +3323,22 @@
     "likelyCauses": "Slot|Haak",
     "severity": "MEDIUM",
     "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.co.uk/support-articles/article/washing-machine-displays-error-code-e40",
+    "sourceName": "Electrolux UK support - washing machine error E40/E41 door lock"
   },
   {
     "id": "wfec_65465fc1cb869c82867c",
     "code": "E42",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Deurslot vast",
-    "description": "Slot niet bedienbaar.",
-    "likelyCauses": "Slot defect",
+    "title": "Deur ontgrendelt niet",
+    "description": "Het deurslot blijft vergrendeld wanneer de machine ontgrendeling vraagt, bijvoorbeeld aan het einde van het programma.",
+    "likelyCauses": "Defect deurslot (PTC)|Bedrading deurslot|Hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_54e632801b4198cdee6a",
@@ -3375,9 +3349,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_b9f0a54f3de9f41e24a1",
@@ -3387,10 +3361,10 @@
     "description": "Sensor-signaal van deur afwezig.",
     "likelyCauses": "Slot|Bedrading",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_6843d3c8cc1c257aecfd",
@@ -3401,22 +3375,22 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.appliancerepairlosangeles.com/brands/electrolux/electrolux-washer-error-code-e40-e41-e42-e43-e44-and-e45/",
+    "sourceName": "Appliance Repair Los Angeles - Electrolux washer error codes E40-E45"
   },
   {
     "id": "wfec_b22f90ab86e1bebb090e",
     "code": "E50",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Motor commutator",
-    "description": "Commutator-fout.",
-    "likelyCauses": "Koolborstels|Module",
-    "severity": "MEDIUM",
+    "title": "Motorstoring",
+    "description": "Storing in de motor of het motorcircuit; de besturing krijgt de motor niet correct aangestuurd of uitgelezen.",
+    "likelyCauses": "Versleten koolborstels|Defecte motor|Bedrading motor|Hoofdmodule",
+    "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_966f6a4d5aa77af544e2",
@@ -3427,9 +3401,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_cc44c4177f94e1a34ad3",
@@ -3440,9 +3414,9 @@
     "likelyCauses": "Tacho|Bedrading",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_52df8cd128d92c4bb2f1",
@@ -3453,22 +3427,22 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.espares.co.uk/washing-machines/symptom/aeg-washing-machine-error-code-e50e51e52e53e54e56e57e58e59e60e61e62/advice.pl",
+    "sourceName": "eSpares - AEG washing machine error codes E50-E62"
   },
   {
     "id": "wfec_24ba276f3e3d6f6748c8",
     "code": "E55",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Motor-fout",
-    "description": "Onverwacht draairichting.",
-    "likelyCauses": "Inverter|Motor",
+    "title": "Motorcircuit onderbroken",
+    "description": "De motor haalt het gevraagde toerental niet of het motorcircuit is onderbroken.",
+    "likelyCauses": "Onderbroken motorwikkeling|Bedrading motor|Koolborstels|Motormodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1380092/Electrolux-Efls617siw.html?page=44",
+    "sourceName": "ManualsLib - Electrolux EFLS617SIW technical & service manual (inverter/motor alarms)"
   },
   {
     "id": "wfec_56f198d94d1630b1583c",
@@ -3479,35 +3453,35 @@
     "likelyCauses": "Motor|Inverter",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1380092/Electrolux-Efls617siw.html?page=43",
+    "sourceName": "ManualsLib - Electrolux EFLS617SIW technical & service manual (inverter/motor alarms)"
   },
   {
     "id": "wfec_077569da65d15d80da13",
     "code": "E59",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Tacho-error 3 tellen",
-    "description": "Tacho niet gedetecteerd in 3 cycli.",
-    "likelyCauses": "Tacho",
+    "title": "Geen tachosignaal (3 seconden)",
+    "description": "Na het instellen van een nieuw toerental ontvangt de besturing 3 seconden lang geen tachosignaal.",
+    "likelyCauses": "Defecte tachogenerator|Bedrading motor|Motormodule",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1380092/Electrolux-Efls617siw.html?page=44",
+    "sourceName": "ManualsLib - Electrolux EFLS617SIW technical & service manual (inverter/motor alarms)"
   },
   {
     "id": "wfec_88c02824d0e5131b93b6",
     "code": "E60",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Verwarming overrun",
-    "description": "Element verwarmt te lang of te hoog.",
-    "likelyCauses": "NTC|Relais",
+    "title": "Verwarmingsstoring",
+    "description": "Het water wordt niet (voldoende) verwarmd tijdens het wasprogramma; de besturing meldt een verwarmingsfout.",
+    "likelyCauses": "Defect verwarmingselement|Defecte NTC-temperatuursensor|Bedrading verwarmingscircuit|Hoofdmodule",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.aeg.co.uk/support/support-articles/laundry/washing-machines/washing-machine-displays-error-message-e60/",
+    "sourceName": "AEG UK support - washing machine displays error message E60"
   },
   {
     "id": "wfec_6d8320dea2f42d01679c",
@@ -3518,9 +3492,9 @@
     "likelyCauses": "Element|Relais",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://appliancerepairbase.com/washing-machines/electrolux/error-code-e61/",
+    "sourceName": "ApplianceRepairBase - Electrolux washing machine error E61"
   },
   {
     "id": "wfec_e767a70534417604eac7",
@@ -3531,9 +3505,9 @@
     "likelyCauses": "NTC|Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://appliancerepairbase.com/washing-machines/electrolux/error-code-e61/",
+    "sourceName": "ApplianceRepairBase - Electrolux washing machine error E61"
   },
   {
     "id": "wfec_9899f09dee19fb41485e",
@@ -3544,22 +3518,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
-  },
-  {
-    "id": "wfec_0542b8566c1866ccbee6",
-    "code": "E67",
-    "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Verwarmingscircuit",
-    "description": "Verwarmingscircuit-foutmelding.",
-    "likelyCauses": "Element|Module",
-    "severity": "MEDIUM",
-    "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=75",
+    "sourceName": "ManualsLib - Electrolux EWM25 service manual, E66 heating element power relay"
   },
   {
     "id": "wfec_d890f973e01297e8894b",
@@ -3570,9 +3531,9 @@
     "likelyCauses": "Element naar massa|Bedrading",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fault-codes.jimdofree.com/electrolux/washing-machine-errors/",
+    "sourceName": "fault-codes.jimdofree.com - Electrolux washing machine error codes"
   },
   {
     "id": "wfec_fb1d8699b7187f2155ad",
@@ -3582,23 +3543,23 @@
     "description": "Temperatuursensor afwijking.",
     "likelyCauses": "NTC",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://appliancerepairbase.com/washing-machines/electrolux/error-code-e71/",
+    "sourceName": "ApplianceRepairBase - Electrolux washing machine error code E71"
   },
   {
     "id": "wfec_074e4e7d58fb5de46dd6",
     "code": "E74",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "NTC kortsluiting massa",
-    "description": "NTC short.",
-    "likelyCauses": "NTC vervangen",
+    "title": "NTC verkeerd geplaatst",
+    "description": "De temperatuursensor zit niet goed in zijn zitting, waardoor de gemeten temperatuur niet met de werkelijke meestijgt.",
+    "likelyCauses": "NTC niet goed geplaatst|Defecte NTC|Bedrading NTC",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_5b5b85d67a8f846391cb",
@@ -3609,22 +3570,22 @@
     "likelyCauses": "Knop defect|Module",
     "severity": "LOW",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=84",
+    "sourceName": "ManualsLib - Electrolux EWM25 service manual, E82/E83 programme selector"
   },
   {
     "id": "wfec_d124ef1b111f277f0f57",
     "code": "E84",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Recirculatie-pomp",
-    "description": "Recirculatiepomp defect.",
-    "likelyCauses": "Pomp",
+    "title": "Uitleescircuit recirculatiepomp",
+    "description": "Het sensing-signaal van de triac die de recirculatiepomp aanstuurt ligt buiten de toegestane grenzen.",
+    "likelyCauses": "Sensing-circuit op hoofdmodule|Bedrading recirculatiepomp|Hoofdmodule",
     "severity": "MEDIUM",
-    "diyFriendly": true,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "diyFriendly": false,
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_d1042fc59d63751c9c8b",
@@ -3635,9 +3596,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_b57ebfa1840aa2b59749",
@@ -3648,9 +3609,9 @@
     "likelyCauses": "Lintkabel|Display",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_58ee14ba2ac3628f8f88",
@@ -3661,22 +3622,22 @@
     "likelyCauses": "Software-update",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_68cab341533076204343",
     "code": "E93",
     "machineId": "cmohrri44000faaf9xyadtn09",
-    "title": "Configuratie",
-    "description": "Configuratie module-display klopt niet.",
-    "likelyCauses": "Service-config",
+    "title": "Apparaatconfiguratie fout",
+    "description": "De opgeslagen apparaatconfiguratie in de besturingsmodule klopt niet met het model; herconfiguratie door de servicedienst nodig.",
+    "likelyCauses": "Verkeerde configuratie in module|Vervangen module niet geconfigureerd|Servicedienst",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_18d0e12c5e3aa55ffcd1",
@@ -3687,9 +3648,9 @@
     "likelyCauses": "Service-config",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.manualslib.com/manual/1381327/Electrolux-Ewm25-Series.html?page=85",
+    "sourceName": "ManualsLib - Electrolux EWM25 series service manual (alarm list E91-E94)"
   },
   {
     "id": "wfec_69524085aea7c0a4b284",
@@ -3700,9 +3661,9 @@
     "likelyCauses": "Module",
     "severity": "HIGH",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://support.electrolux.co.uk/support-articles/article/washing-machine-displays-error-message-e90-e91-e92-e93-or-e94",
+    "sourceName": "Electrolux UK support - error message E90/E91/E92/E93/E94"
   },
   {
     "id": "wfec_72de6de00ddcf3e19d93",
@@ -3713,9 +3674,9 @@
     "likelyCauses": "Reset|Module",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://fredsappliance.com/washer-repair/electrolux-washing-machine-error-codes-explained/",
+    "sourceName": "Fred's Appliance - Electrolux washing machine error codes explained"
   },
   {
     "id": "wfec_c76338f84ef802d396dc",
@@ -3726,9 +3687,9 @@
     "likelyCauses": "Net",
     "severity": "MEDIUM",
     "diyFriendly": false,
-    "provenance": "REPORTED",
-    "sourceUrl": null,
-    "sourceName": null
+    "provenance": "VERIFIED",
+    "sourceUrl": "https://www.aeg.be/nl-be/support/support-articles/wassen-en-drogen/wasmachines/storing-foutcode-eho-op-wasmachine/",
+    "sourceName": "AEG Belgie support - foutcode EHO op wasmachine"
   },
   {
     "id": "wfec_02abe91eeba930035c60",

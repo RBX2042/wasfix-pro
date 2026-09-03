@@ -89,7 +89,24 @@ DATABASE_URL=... npx tsx scripts/reset-fabricated-guide-views.ts
 It is safe to run twice (the second run reports nothing to do), but after real
 views accumulate it would destroy data — so run it once, now, and not again.
 
-## Error-code verification (315 of 331 codes still to check)
+## One-time: prune unsourceable error codes on an existing database
+
+The seed upserts; it never deletes. Codes removed from
+`src/data/error-codes.json` because verification could not place them on the
+brand they were filed under are gone from a fresh database but still stand in
+one that already had them. Run once against such a database:
+
+```
+DATABASE_URL=... npx tsx scripts/prune-unsourceable-error-codes.ts --dry-run
+DATABASE_URL=... npx tsx scripts/prune-unsourceable-error-codes.ts
+```
+
+It deletes only the ids that `data/verification/*.json` marks UNVERIFIED —
+never "everything missing from the seed", which would also destroy codes an
+admin added through /admin/foutcodes. Re-run it after each new batch of
+verdicts lands.
+
+## Error-code verification (remaining codes still to check)
 
 Every error code carries `provenance`, `sourceUrl` and `sourceName`. Today 16
 codes are `VERIFIED` — each cites the page it was checked against — and 315 are

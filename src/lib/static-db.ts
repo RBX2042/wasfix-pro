@@ -379,13 +379,20 @@ export function staticStats() {
  * stuks" while checkout answers "Onvoldoende voorraad (0 beschikbaar)"), and
  * 404s on a part the admin created ten seconds ago.
  *
- * So: every public surface should read through these db* functions. They fall
- * back to their static* sibling when there is no database or the query throws,
- * which is the only role src/data/*.json still has. A row the database does not
- * hold is NOT a fallback case — a part deleted in /admin has to stay gone.
+ * So: every public surface reads through these db* functions. They fall back to
+ * their static* sibling when there is no database or the query throws, which is
+ * the only role src/data/*.json still has. A row the database does not hold is
+ * NOT a fallback case — a part deleted in /admin stays gone for the rest of
+ * that database's life. Caveat, because the invariant is not airtight: the seed
+ * re-creates any JSON row the database is missing, so a part withdrawn in
+ * /admin comes back at the next content deploy. Closing that needs a tombstone
+ * the seed can skip; until then "gone" means "gone until the next seed run".
  *
- * They are async where their static siblings are synchronous, so call sites
- * move over one by one; both families stay exported until that is finished.
+ * The static* family stays exported for that fallback, and for the two places
+ * that genuinely cannot await: catalog-stats.ts (called at module scope by the
+ * 'use client' WasFixHome) and the admin/monteur pages, which already read
+ * Prisma directly because they need to know whether a database is there at all.
+ * Nothing else may read a customer-facing price, stock or existence from them.
  *
  * The JSON has a file order to fall back on, a table does not, so every query
  * here carries an explicit orderBy — without one Postgres is free to reshuffle
@@ -662,6 +669,21 @@ export async function dbGuide(slug: string): Promise<(Guide & { parts: { part: P
     if (!row) return null;
     return { ...toGuide(row), parts: row.parts.map(({ part }) => ({ part })) };
   }, () => staticGuide(slug));
+}
+
+/** /api/guides/[id] accepts either a slug or an id, so it needs both lookups. */
+export async function dbGuideById(id: string): Promise<(Guide & { parts: { part: Part }[] }) | null> {
+  return fromDb(
+    async (db) => {
+      const row = await db.repairGuide.findUnique({
+        where: { id },
+        include: { parts: { include: { part: true }, orderBy: { part: { sku: "asc" } } } },
+      });
+      if (!row) return null;
+      return { ...toGuide(row), parts: row.parts.map(({ part }) => ({ part })) };
+    },
+    () => staticGuide(guides.find((g) => g.id === id)?.slug ?? ""),
+  );
 }
 
 // ── Stats ────────────────────────────────────────────────────────

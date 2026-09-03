@@ -1,11 +1,11 @@
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { staticStats, staticMachineBrands } from "@/lib/static-db";
+import { dbStats, dbMachineBrands } from "@/lib/static-db";
 
 export const revalidate = 60;
 
 export async function GET() {
   try {
-    const stats = staticStats();
+    const [stats, brands] = await Promise.all([dbStats(), dbMachineBrands()]);
     return apiSuccess({
       totals: {
         diagnoses: 0,
@@ -15,7 +15,7 @@ export async function GET() {
         errorCodes: stats.errorCodesCount,
         guides: stats.guidesCount,
         machines: stats.machinesCount,
-        brands: staticMachineBrands().length,
+        brands: brands.length,
       },
       thisMonth: {
         diagnoses: 0,

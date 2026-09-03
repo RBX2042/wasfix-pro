@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticErrorCodes, staticMachineBrands } from "@/lib/static-db";
+import { dbErrorCodes, dbMachineBrands } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
@@ -19,8 +19,8 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
   const q = sp.q?.trim();
   const brand = sp.brand;
 
-  const errorCodes = staticErrorCodes({ where: { q, brand }, take: 100 });
-  const brands = staticMachineBrands().map((b) => ({ brand: b }));
+  const errorCodes = await dbErrorCodes({ where: { q, brand }, take: 100 });
+  const brands = (await dbMachineBrands()).map((b) => ({ brand: b }));
 
   return (
     <MarketingLayout>

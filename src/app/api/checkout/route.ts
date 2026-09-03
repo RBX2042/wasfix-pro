@@ -7,7 +7,8 @@ import { getCurrentUser, getPlanLimits } from "@/lib/auth";
 import { env, isDatabaseConfigured } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { staticPart, staticPartById } from "@/lib/static-db";
+// Aliased: `dbPart` is already this file's name for a resolved catalog row.
+import { dbPart as catalogPart, dbPartById as catalogPartById } from "@/lib/static-db";
 import { money, splitVatInclusive, issueInvoiceForOrder } from "@/lib/invoicing";
 import { VAT_RATE, COMPANY, shippingFor } from "@/lib/plans";
 import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
@@ -95,22 +96,34 @@ async function releaseExpiredBankTransferOrders(): Promise<void> {
   const expired = await prisma.order.findMany({
     where: { status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER", dueAt: { lt: cutoff } },
     select: { id: true, items: { select: { partId: true, quantity: true } } },
+    // Oldest reservations first: `take: 25` only frees a slice per request, and
+    // without an order that slice is whatever Postgres scans first.
+    orderBy: { dueAt: "asc" },
     take: 25,
   });
   for (const order of expired) {
-    await prisma.$transaction(async (tx) => {
-      // The status flip is the lock: an admin confirming the wire at this very
-      // moment wins the row and we leave their stock alone.
-      const cancelled = await tx.order.updateMany({
-        where: { id: order.id, status: "OPENSTAAND" },
-        data: { status: "CANCELLED" },
+    // Per order, so one poisoned row (a deleted part, a serialization failure)
+    // cannot abort the sweep for everything behind it on every request.
+    try {
+      await prisma.$transaction(async (tx) => {
+        // The status flip is the lock, and markOrderPaidByBankTransfer claims
+        // the same row the same way: an admin confirming the wire at this very
+        // moment wins it and we leave their stock alone. A confirmation that
+        // arrives *after* this sweep re-takes the stock there instead of
+        // shipping against units we just put back.
+        const cancelled = await tx.order.updateMany({
+          where: { id: order.id, status: "OPENSTAAND" },
+          data: { status: "CANCELLED" },
+        });
+        if (cancelled.count === 0) return;
+        for (const item of order.items) {
+          await tx.part.update({ where: { id: item.partId }, data: { stock: { increment: item.quantity } } });
+        }
+        logger.warn("Bank-transfer order expired unpaid — stock released, creditnota required", { orderId: order.id });
       });
-      if (cancelled.count === 0) return;
-      for (const item of order.items) {
-        await tx.part.update({ where: { id: item.partId }, data: { stock: { increment: item.quantity } } });
-      }
-      logger.warn("Bank-transfer order expired unpaid — stock released, creditnota required", { orderId: order.id });
-    });
+    } catch (err) {
+      logger.error("Could not release an expired bank-transfer order", { orderId: order.id, err });
+    }
   }
 }
 
@@ -166,13 +179,26 @@ export async function POST(req: NextRequest) {
       user = await getCurrentUser();
     } catch { /* ignore */ }
 
-    // Resolve parts from static catalog (no DB dependency)
-    const resolvedItems = items
-      .map((cartItem) => {
-        const part = (cartItem.sku ? staticPart(cartItem.sku) : null) ?? (cartItem.partId ? staticPartById(cartItem.partId) : null);
-        return part ? { dbPart: part, quantity: cartItem.quantity } : null;
-      })
-      .filter((x): x is { dbPart: NonNullable<ReturnType<typeof staticPart>>; quantity: number } => x !== null);
+    // Resolve parts from the catalog — the database when one is configured,
+    // src/data only when there is none. This is what the customer is charged
+    // (`unitPrice` and `subtotal` below), so it has to be the same row /admin
+    // edits and the product page shows. Reading it from the JSON meant a price
+    // raised in /admin was displayed to the admin and charged to nobody, and a
+    // part created there could not be bought at all.
+    //
+    // The fallback cannot quietly charge a stale price on a live deployment:
+    // if a database is configured but unreachable, the stock check below fails
+    // closed with a 503 before any order or payment is created.
+    const resolvedItems = (
+      await Promise.all(
+        items.map(async (cartItem) => {
+          const part =
+            (cartItem.sku ? await catalogPart(cartItem.sku) : null) ??
+            (cartItem.partId ? await catalogPartById(cartItem.partId) : null);
+          return part ? { dbPart: part, quantity: cartItem.quantity } : null;
+        }),
+      )
+    ).filter((x): x is { dbPart: NonNullable<Awaited<ReturnType<typeof catalogPart>>>; quantity: number } => x !== null);
 
     if (resolvedItems.length === 0) {
       return apiError("Geen geldige onderdelen gevonden in winkelmand. Vernieuw de pagina.", 400);

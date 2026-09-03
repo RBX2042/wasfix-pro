@@ -55,15 +55,58 @@ function formatNumber(year: number, seq: number): string {
   return `${year}-${String(seq).padStart(4, "0")}`;
 }
 
+type Clock = { year: number; month: number; day: number; hour: number; minute: number; second: number };
+
+/**
+ * The wall clock in Amsterdam at a given instant, or null on a runtime without
+ * the tz database — there the formatter *constructor* throws, so the callers
+ * below degrade to UTC instead of failing the invoice altogether.
+ */
+function amsterdamClock(at: Date): Clock | null {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "Europe/Amsterdam",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      hourCycle: "h23",
+    }).formatToParts(at);
+    const value = (type: string) => Number(parts.find((p) => p.type === type)?.value);
+    const clock: Clock = {
+      year: value("year"), month: value("month"), day: value("day"),
+      hour: value("hour"), minute: value("minute"), second: value("second"),
+    };
+    return Object.values(clock).every((n) => Number.isFinite(n)) ? clock : null;
+  } catch {
+    return null;
+  }
+}
+
 /**
  * The year as it stands on the Dutch calendar. Between 00:00 and 01:00 CET on
  * 1 January the server clock (UTC) is still in the old year, which would file
  * the invoice in the previous number series and in the wrong btw-aangifte.
  */
 function amsterdamYear(at: Date): number {
-  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric" }).formatToParts(at);
-  const year = Number(parts.find((p) => p.type === "year")?.value);
-  return Number.isFinite(year) ? year : at.getUTCFullYear();
+  return amsterdamClock(at)?.year ?? at.getUTCFullYear();
+}
+
+/** Amsterdam's offset from UTC at that instant: +1h in winter, +2h in summer. */
+function amsterdamOffsetMs(at: Date): number {
+  const clock = amsterdamClock(at);
+  if (!clock) return 0;
+  const wall = Date.UTC(clock.year, clock.month - 1, clock.day, clock.hour, clock.minute, clock.second);
+  return wall - Math.floor(at.getTime() / 1000) * 1000;
+}
+
+/**
+ * A payment term is a number of calendar days, not of 24-hour blocks: across
+ * the DST switch a fixed offset shifts the Dutch wall clock by an hour, which
+ * prints the due date a day early in spring and a day late in autumn. Correct
+ * for the offset difference so the term ends at the time of day it started.
+ */
+function addDaysInAmsterdam(at: Date, days: number): Date {
+  const naive = new Date(at.getTime() + days * 24 * 60 * 60 * 1000);
+  return new Date(naive.getTime() + (amsterdamOffsetMs(at) - amsterdamOffsetMs(naive)));
 }
 
 /**
@@ -136,7 +179,7 @@ export async function issueWorkOrderInvoice(
     // invoice must be the year its number was taken from.
     const issuedAt = new Date();
     const year = amsterdamYear(issuedAt);
-    const dueAt = new Date(issuedAt.getTime() + profile!.paymentTerms * 24 * 60 * 60 * 1000);
+    const dueAt = addDaysInAmsterdam(issuedAt, profile!.paymentTerms);
 
     // Number and row are written together: opening the invoice page twice in
     // parallel must not consume a number without producing an invoice.
@@ -209,7 +252,10 @@ function deserialize(row: Row): MonteurInvoice {
     seller,
     buyer: safeJson<InvoiceParty>(row.buyerJson) ?? { name: "Onbekend" },
     lines: safeJson<InvoiceLine[]>(row.linesJson) ?? [],
-    subtotalEur: row.subtotalEur,
+    // Rows written before subtotalEur meant "net" stored the gross in that
+    // column, and nothing distinguishes them. Total minus btw is the net on
+    // every row, old and new, so derive it instead of trusting the column.
+    subtotalEur: money(row.totalEur - row.vatEur),
     vatRate: row.vatRate,
     vatEur: row.vatEur,
     totalEur: row.totalEur,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractApiKey, validateApiKey } from "@/lib/api-auth";
-import { staticErrorCode } from "@/lib/static-db";
+import { dbErrorCode } from "@/lib/static-db";
 import { rateLimit } from "@/lib/ratelimit";
 import { consumeUsage } from "@/lib/entitlements";
 import { pickArr } from "@/lib/utils";
@@ -42,7 +42,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ bran
   }
 
   const { brand, code } = await params;
-  const ec = staticErrorCode(decodeURIComponent(brand), decodeURIComponent(code));
+  const ec = await dbErrorCode(decodeURIComponent(brand), decodeURIComponent(code));
   if (!ec) {
     return NextResponse.json({ error: "Error code not found", brand, code }, { status: 404, headers: CORS });
   }

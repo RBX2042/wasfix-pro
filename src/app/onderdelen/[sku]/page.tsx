@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticPart, staticPartFull, staticRelatedParts } from "@/lib/static-db";
+import { dbPart, dbPartFull, dbRelatedParts } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -20,7 +20,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const part = staticPart(sku);
+  const part = await dbPart(sku);
   if (!part) return { title: "Onderdeel niet gevonden" };
   return {
     title: `${part.name} (${part.sku}) — ${formatEur(part.priceEur)} · WasFix Pro`,
@@ -37,12 +37,12 @@ export async function generateMetadata({ params }: { params: Promise<{ sku: stri
 
 export default async function PartDetailPage({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
-  const part = staticPartFull(sku);
+  const part = await dbPartFull(sku);
 
   if (!part) notFound();
 
   const compatibleBrands = Array.from(new Set(part.machines.map((m) => m.machine.brand)));
-  const relatedParts = staticRelatedParts(part.category, part.id, 4);
+  const relatedParts = await dbRelatedParts(part.category, part.id, 4);
 
   // Ratings come from real reviews only; omitted entirely when there are none.
   const reviews = await getReviews({ sku: part.sku });

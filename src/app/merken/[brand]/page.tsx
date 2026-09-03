@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticMachinesByBrand } from "@/lib/static-db";
+import { dbMachinesByBrand } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -33,7 +33,7 @@ export default async function BrandPage({ params }: { params: Promise<{ brand: s
   const { brand: encBrand } = await params;
   const brand = decodeURIComponent(encBrand);
 
-  const machines = staticMachinesByBrand(brand);
+  const machines = await dbMachinesByBrand(brand);
 
   if (machines.length === 0) notFound();
 

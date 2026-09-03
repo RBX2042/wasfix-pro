@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { extractApiKey, validateApiKey } from "@/lib/api-auth";
-import { staticPart, staticPartFull } from "@/lib/static-db";
+import { dbPart, dbPartFull } from "@/lib/static-db";
 import { rateLimit } from "@/lib/ratelimit";
 import { consumeUsage } from "@/lib/entitlements";
 
@@ -43,7 +43,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sku:
   }
 
   const { sku } = await params;
-  const part = staticPartFull(sku) ?? staticPart(sku);
+  const part = (await dbPartFull(sku)) ?? (await dbPart(sku));
   if (!part) {
     return NextResponse.json({ error: "Part not found", sku }, { status: 404, headers: CORS });
   }

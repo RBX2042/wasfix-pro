@@ -100,18 +100,28 @@ async function actingUserId(explicit?: string): Promise<string | null> {
  * The one referral that gets the credit: last touch, never the visitor's own
  * link. updateMany over every row of this visitor marked them all, so a visitor
  * who clicked three links and bought once paid three referrers.
+ *
+ * Rows without a referrer are excluded: /api/referral/track accepts any code in
+ * the isValidCode shape, so a typo'd or expired ?ref= stores a row with
+ * referrerId null. Such a row as last touch used to swallow the conversion —
+ * the €5 was booked onto a code nobody owns and the real referrer's row stayed
+ * unconverted. Both exclusions belong in SQL: the row we want is the first hit.
  */
 async function attributableReferral(
   visitorId: string,
   actor: string | null,
   where: { signedUpAt: null } | { convertedAt: null; createdAt: { gte: Date } }
 ): Promise<string | null> {
-  const rows = await prisma.referral.findMany({
-    where: { visitorId, ...where },
+  const row = await prisma.referral.findFirst({
+    where: {
+      visitorId,
+      referrerId: { not: null, ...(actor ? { notIn: [actor] } : {}) },
+      ...where,
+    },
     orderBy: { createdAt: "desc" },
-    select: { id: true, referrerId: true },
+    select: { id: true },
   });
-  return rows.find((r) => !actor || r.referrerId !== actor)?.id ?? null;
+  return row?.id ?? null;
 }
 
 /** Mark the visitor's referral as a signup (first time only). */

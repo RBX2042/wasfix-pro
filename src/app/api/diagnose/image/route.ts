@@ -6,7 +6,7 @@ import {
   demoModeImageReply,
   type ImageDiagnosis,
 } from "@/lib/gemini";
-import { staticErrorCodeByCode } from "@/lib/static-db";
+import { dbErrorCodeByCode } from "@/lib/static-db";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { getCurrentUser } from "@/lib/auth";
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
     let recommendedGuides: Array<{ id: string; slug: string; title: string; difficulty: string; timeMinutes: number; summary: string }> = [];
 
     if (parsed.detectedCode) {
-      const ec = staticErrorCodeByCode(parsed.detectedCode, parsed.detectedBrand ?? undefined);
+      const ec = await dbErrorCodeByCode(parsed.detectedCode, parsed.detectedBrand ?? undefined);
       if (ec) {
         matchedErrorCode = {
           id: ec.id,

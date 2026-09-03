@@ -180,24 +180,77 @@ export async function issueInvoiceForOrder(orderId: string): Promise<IssuedInvoi
  * arrives — there is no bank feed to detect this automatically). Idempotent:
  * an already-paid order is left as-is rather than double-decrementing stock
  * or re-sending a confirmation.
+ *
+ * The status transition IS the claim. findUnique + `if PAID return` + an
+ * unconditional update was not: the expiry sweep in the checkout route
+ * (releaseExpiredBankTransferOrders) cancels the order and puts its units back
+ * on the shelf, and this then flipped CANCELLED -> PAID afterwards without
+ * re-taking them — a shipped order against stock that may already be sold.
+ *
+ * A wire landing after the sweep is routine (14 days term + 7 days grace, paid
+ * on day 22), so it is confirmed rather than refused — but the units have to be
+ * taken off the shelf again first, with the same conditional decrement checkout
+ * uses. If one is gone the whole confirmation is rolled back and reported, so
+ * the money is reconciled by hand instead of a part being promised twice.
  */
 export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
   if (!isDatabaseConfigured()) return { ok: false, error: "Database niet beschikbaar." };
   try {
-    const order = await prisma.order.findUnique({ where: { id: orderId } });
-    if (!order) return { ok: false, error: "Bestelling niet gevonden." };
-    if (order.paymentMethod !== "BANK_TRANSFER") {
-      return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
-    }
-    if (order.status === "PAID") return { ok: true };
+    return await prisma.$transaction(async (tx) => {
+      const claimed = await tx.order.updateMany({
+        where: { id: orderId, status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER" },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+      if (claimed.count > 0) {
+        // The order was still open, so its stock is still reserved from the
+        // moment the invoice went out. Nothing to move.
+        logger.info("[invoicing] bank-transfer order marked paid", { orderId });
+        return { ok: true };
+      }
 
-    await prisma.order.update({
-      where: { id: orderId },
-      data: { status: "PAID", paidAt: new Date() },
+      const order = await tx.order.findUnique({
+        where: { id: orderId },
+        select: { status: true, paymentMethod: true, items: { select: { partId: true, quantity: true } } },
+      });
+      if (!order) return { ok: false, error: "Bestelling niet gevonden." };
+      if (order.paymentMethod !== "BANK_TRANSFER") {
+        return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
+      }
+      if (order.status === "PAID") return { ok: true };
+      if (order.status !== "CANCELLED") {
+        return { ok: false, error: `Bestelling staat op ${order.status} en kan niet op betaald worden gezet.` };
+      }
+
+      const revived = await tx.order.updateMany({
+        where: { id: orderId, status: "CANCELLED" },
+        data: { status: "PAID", paidAt: new Date() },
+      });
+      if (revived.count === 0) {
+        return { ok: false, error: "Bestelling is zojuist gewijzigd. Probeer het opnieuw." };
+      }
+      for (const item of order.items) {
+        const retaken = await tx.part.updateMany({
+          where: { id: item.partId, stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
+        });
+        // Throwing rolls the revival above back with it — either the order is
+        // PAID with its stock, or it stays CANCELLED.
+        if (retaken.count === 0) throw new Error(`out_of_stock:${item.partId}`);
+      }
+      logger.warn("[invoicing] late payment on a cancelled bank-transfer order — reinstated and stock re-taken", { orderId });
+      return { ok: true };
     });
-    logger.info("[invoicing] bank-transfer order marked paid", { orderId });
-    return { ok: true };
   } catch (err) {
+    if (err instanceof Error && err.message.startsWith("out_of_stock:")) {
+      logger.error("[invoicing] late payment on a cancelled order, but its stock is sold — not reinstated", {
+        orderId,
+        partId: err.message.slice("out_of_stock:".length),
+      });
+      return {
+        ok: false,
+        error: "De voorraad van deze geannuleerde bestelling is inmiddels verkocht. Boek de betaling handmatig af (creditnota of terugbetaling).",
+      };
+    }
     logger.error("[invoicing] could not mark order paid", err);
     return { ok: false, error: "Kon bestelling niet als betaald markeren." };
   }

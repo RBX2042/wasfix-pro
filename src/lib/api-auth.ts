@@ -1,7 +1,8 @@
 import { NextRequest } from "next/server";
 import { createHash, randomBytes } from "crypto";
 import { prisma } from "./prisma";
-import { env, isClerkConfigured, isDatabaseConfigured } from "./env";
+import { isDatabaseConfigured } from "./env";
+import { isDemoMode } from "./demo-mode";
 import { logger } from "./logger";
 
 // API key format: wf_<env>_<32 random chars>
@@ -52,11 +53,19 @@ export const PLAN_API_RATE_LIMIT = PLAN_API_MONTHLY_CALLS;
  *
  * API_DEMO_KEY names the single key to accept and is absent by default — a
  * live deploy therefore has no sandbox at all until someone configures one,
- * and unsetting the variable revokes it. A demo deployment (DEMO_MODE with no
- * Clerk configured, i.e. no real authentication anywhere) additionally accepts
- * any wf_demo_… key so local demos and CI need no extra configuration; that
- * only ever exposes catalogue data, which /api/parts already serves without a
- * key at all.
+ * and unsetting the variable revokes it. Its value must itself match the
+ * format regex in validateApiKey (wf_(live|test|demo)_ + 8-64 characters from
+ * [A-Za-z0-9_]), otherwise the key is dropped before it ever gets here and the
+ * sandbox silently never works.
+ *
+ * Outside production, a demo deployment additionally accepts any wf_demo_… key
+ * so local demos need no configuration at all. That check is isDemoMode() and
+ * deliberately NOT the raw env.DEMO_MODE flag: wasfix.nl runs today with
+ * DEMO_MODE=true and no Clerk keys (BLOCKED.md), so the raw flag accepted every
+ * wf_demo_<anything> on the live site — and since the quota bucket is derived
+ * from the key, rotating the suffix handed out a fresh allowance per request,
+ * i.e. an unmetered public API. A production build (`next start`, Vercel, and
+ * therefore also CI) must configure API_DEMO_KEY to have a sandbox.
  *
  * Scoped to read:parts on purpose: read:errorcodes also unlocks
  * /api/v1/diagnose, which spends AI budget on every call.
@@ -65,13 +74,14 @@ const DEMO_SCOPES = ["read:parts"];
 
 function demoKeyInfo(key: string): ApiKeyInfo | null {
   const configured = process.env.API_DEMO_KEY?.trim();
-  const demoDeployment = env.DEMO_MODE && !isClerkConfigured();
-  const accepted = (!!configured && key === configured) || (demoDeployment && key.startsWith("wf_demo_"));
+  const accepted = (!!configured && key === configured) || (isDemoMode() && key.startsWith("wf_demo_"));
   if (!accepted) return null;
 
   return {
-    // Per-key quota bucket, so one caller can no longer exhaust the sandbox
-    // for everybody else — and rotating the key starts a fresh month.
+    // Quota bucket per key instead of one global "demo" counter: rotating
+    // API_DEMO_KEY starts a clean month and a revoked key does not spend its
+    // successor's allowance. In production only the configured key reaches
+    // this line, so a caller cannot mint himself a fresh bucket.
     keyId: `demo-${hashApiKey(key).slice(0, 12)}`,
     userId: "demo-user",
     prefix: "wf_demo",

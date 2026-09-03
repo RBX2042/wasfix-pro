@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticGuides } from "@/lib/static-db";
+import { dbGuides } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -17,7 +17,7 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
   const q = sp.q?.trim();
   const difficulty = sp.difficulty;
 
-  const guides = staticGuides({ where: { q, difficulty }, orderBy: "created-desc" });
+  const guides = await dbGuides({ where: { q, difficulty }, orderBy: "created-desc" });
 
   return (
     <MarketingLayout>

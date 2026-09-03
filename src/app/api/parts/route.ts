@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { staticParts } from "@/lib/static-db";
+import { dbParts } from "@/lib/static-db";
 
 export const revalidate = 300; // 5 minutes
 
@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
     const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get("limit") ?? "60", 10) || 60));
 
-    const all = staticParts({ where: { brand, category, q }, orderBy: "stock-then-price" });
+    const all = await dbParts({ where: { brand, category, q }, orderBy: "stock-then-price" });
     const total = all.length;
     const parts = all.slice((page - 1) * limit, (page - 1) * limit + limit);
 

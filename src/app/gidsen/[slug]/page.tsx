@@ -1,5 +1,5 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticGuide } from "@/lib/static-db";
+import { dbGuide } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -23,7 +23,7 @@ export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const guide = staticGuide(slug);
+  const guide = await dbGuide(slug);
   if (!guide) return { title: "Gids niet gevonden" };
   return {
     title: `${guide.title} — Stap-voor-stap reparatiegids · WasFix Pro`,
@@ -35,7 +35,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
 
 export default async function GuideDetailPage({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
-  const guide = staticGuide(slug);
+  const guide = await dbGuide(slug);
 
   if (!guide) notFound();
 

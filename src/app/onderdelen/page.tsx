@@ -1,6 +1,6 @@
 import { MarketingLayout } from "@/components/marketing-layout";
 import { PartCard } from "@/components/part-card";
-import { staticParts, staticPartBrands } from "@/lib/static-db";
+import { dbParts, dbPartBrands } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
@@ -30,12 +30,12 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
   const cat = sp.cat;
   const brand = sp.brand;
 
-  const parts = staticParts({
+  const parts = await dbParts({
     where: { category: cat, brand, q },
     orderBy: "stock-then-price",
     take: 60,
   });
-  const brands = staticPartBrands().map((b) => ({ brand: b }));
+  const brands = (await dbPartBrands()).map((b) => ({ brand: b }));
 
   return (
     <MarketingLayout>

@@ -1,5 +1,5 @@
 import WasFixHome from "@/components/redesign/WasFixHome";
-import { staticParts, staticErrorCodes } from "@/lib/static-db";
+import { dbParts, dbErrorCodes } from "@/lib/static-db";
 import { formatEur } from "@/lib/utils";
 import { SHIPPING } from "@/lib/plans";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
@@ -30,9 +30,9 @@ export const metadata = {
   },
 };
 
-export default function HomePage() {
+export default async function HomePage() {
   // Featured parts for the catalogue strip (8 with stock, ordered by stock)
-  const partItems = staticParts({ where: { minStock: 0 }, orderBy: "stock-desc", take: 8 }).map((p) => ({
+  const partItems = (await dbParts({ where: { minStock: 0 }, orderBy: "stock-desc", take: 8 })).map((p) => ({
     id: p.id,
     sku: p.sku,
     name: p.name,
@@ -43,7 +43,7 @@ export default function HomePage() {
   }));
 
   // Top error codes for the explorer — first 12 by severity
-  const codeItems = staticErrorCodes({ take: 12 }).map((ec) => ({
+  const codeItems = (await dbErrorCodes({ take: 12 })).map((ec) => ({
     id: ec.code,
     brand: ec.machine.brand,
     desc: ec.title,

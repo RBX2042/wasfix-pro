@@ -25,7 +25,10 @@ function billablePlan(value: string | null | undefined): PlanId | null {
  * in the billing portal, so metadata keeps naming the plan they left: a Bedrijf
  * customer downgrading to Particulier paid € 4,99 and kept 15% parts discount,
  * 10.000 API calls and the Pro dashboard. The price the subscription is on is
- * the fact; metadata is only a fallback for a price id we cannot map.
+ * the only fact. A price id we cannot map means STRIPE_PRICE_* in this
+ * deployment is behind the Stripe dashboard — falling back to metadata there
+ * would re-open exactly that downgrade, so this returns null and the caller
+ * leaves the plan alone.
  */
 function planForPriceId(priceId: string | null | undefined): PlanId | null {
   if (!priceId) return null;
@@ -43,7 +46,11 @@ async function fulfilOrder(orderId: string, session: Stripe.Checkout.Session): P
     // event both read PENDING and both decremented the stock.
     const claimed = await tx.order.updateMany({
       where: { id: orderId, status: "PENDING" },
-      data: { status: "PAID", stripePaymentId: session.id },
+      // paidAt is the only record of *when* the money came in: createdAt is
+      // when the order was placed and updatedAt is overwritten by the next
+      // status change, so without this every Stripe order is blank in a
+      // payment-date or btw-periode reconciliation.
+      data: { status: "PAID", stripePaymentId: session.id, paidAt: new Date() },
     });
     if (claimed.count === 0) return;
     const items = await tx.orderItem.findMany({
@@ -51,10 +58,26 @@ async function fulfilOrder(orderId: string, session: Stripe.Checkout.Session): P
       select: { partId: true, quantity: true },
     });
     for (const item of items) {
-      await tx.part.update({
-        where: { id: item.partId },
+      // A Stripe order reserves nothing when it is created, so two PENDING
+      // orders for the last unit can both get paid. Refusing money that has
+      // already been taken is not an option — the decrement stands — but a sale
+      // we cannot cover has to be visible to fulfilment instead of quietly
+      // driving stock negative.
+      const claimedStock = await tx.part.updateMany({
+        where: { id: item.partId, stock: { gte: item.quantity } },
         data: { stock: { decrement: item.quantity } },
       });
+      if (claimedStock.count === 0) {
+        await tx.part.update({
+          where: { id: item.partId },
+          data: { stock: { decrement: item.quantity } },
+        });
+        logger.error("Paid order oversold — stock went negative", {
+          orderId,
+          partId: item.partId,
+          quantity: item.quantity,
+        });
+      }
     }
   });
   // Idempotent: a replayed webhook returns the existing invoice
@@ -208,18 +231,20 @@ export async function POST(req: NextRequest) {
           await prisma.user.update({ where: { id: user.id }, data: { plan: "FREE", stripeSubId: null } });
         } else if (["active", "trialing", "past_due"].includes(sub.status)) {
           const priceId = sub.items?.data?.[0]?.price?.id;
-          const plan = planForPriceId(priceId) ?? billablePlan(sub.metadata?.plan);
+          // Only the price decides the plan. An unmappable price id is a
+          // deployment that does not know one of its own prices — a new price
+          // created in the dashboard while STRIPE_PRICE_* stayed behind — not a
+          // licence to believe metadata Stripe never rewrites: doing that hands
+          // a portal downgrade the entitlements of the plan it left. So the
+          // subscription id is recorded, the plan is left as it is, and the
+          // missing mapping is shouted about instead of guessed around.
+          const plan = planForPriceId(priceId);
           if (!plan) {
-            logger.error("Could not resolve the plan for a subscription — leaving the current plan alone", {
+            logger.error("Unknown Stripe price id — plan NOT applied, add this price to STRIPE_PRICE_*", {
               subscription: sub.id,
               priceId,
               metadataPlan: sub.metadata?.plan,
-            });
-          } else if (!planForPriceId(priceId)) {
-            logger.warn("Unknown Stripe price id — fell back to subscription metadata for the plan", {
-              subscription: sub.id,
-              priceId,
-              plan,
+              currentPlan: user.plan,
             });
           }
           await prisma.user.update({

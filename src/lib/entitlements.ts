@@ -4,8 +4,8 @@
  * Before this module the free-tier quota was only checked for signed-in users,
  * which meant a signed-out visitor had unlimited AI diagnoses — the paid plans
  * sold something the product gave away. Usage is now metered per identity:
- * the account when signed in, otherwise a visitor cookie falling back to a
- * hashed IP so clearing cookies does not silently reset the counter.
+ * the account when signed in, otherwise a hashed IP — the only identity an
+ * anonymous caller cannot simply pick for itself.
  */
 
 import { createHash, randomUUID } from "crypto";
@@ -30,9 +30,19 @@ export type Entitlements = {
   partsDiscount: number;
 };
 
-/** Stable, non-identifying key for an anonymous visitor. */
-export function anonymousKey(req: NextRequest, visitorId?: string | null): string {
-  if (visitorId) return `vid:${visitorId}`;
+/**
+ * Stable, non-identifying key for an anonymous visitor.
+ *
+ * The IP is the only anonymous identity a caller cannot choose. The visitor
+ * cookie used to win here, but it is unsigned and on the metered paths only
+ * ever read back off the request, so `curl -b "wasfix-vid=$(uuidgen)"` minted
+ * a fresh 3-diagnoses bucket per call — the exact paywall bypass this module
+ * exists to close, and cheaper than the x-forwarded-for one below. The
+ * parameter stays so callers may keep handing us the cookie, but it can never
+ * open a bucket of its own; only a server-signed id could, and nothing issues
+ * one today.
+ */
+export function anonymousKey(req: NextRequest, _visitorId?: string | null): string {
   // Via clientIp(): the first x-forwarded-for entry is client-supplied, so
   // reading it here handed anyone who rotates the header an unlimited number
   // of free-tier buckets.
@@ -131,7 +141,25 @@ export async function consumeUsage(
       create: { scope, key, count: 1, windowEnd },
       update: { count: { increment: 1 } },
     });
-    return { allowed: counted.count <= limit, used: counted.count, limit };
+    if (counted.count > limit) {
+      // The increment has to happen before we know the answer, so a denied
+      // request leaves the counter one too high; give that unit back. Without
+      // it a client can drive its own stored count (and the diagnosesUsed we
+      // report back) arbitrarily far past the allowance just by retrying.
+      // Conditional on count > limit so a window that rolled over in between
+      // is not silently charged for someone else's denied request.
+      try {
+        await prisma.usageCounter.updateMany({
+          where: { scope, key, count: { gt: limit } },
+          data: { count: { decrement: 1 } },
+        });
+      } catch (err) {
+        // Over-reporting is not worth failing the deny over.
+        logger.warn("[entitlements] could not undo a denied usage increment", err);
+      }
+      return { allowed: false, used: limit, limit };
+    }
+    return { allowed: true, used: counted.count, limit };
   } catch (err) {
     // Never let a metering failure take the product down; fall back to memory.
     logger.warn("[entitlements] usage counter unavailable — using memory", err);

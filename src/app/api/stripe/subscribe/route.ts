@@ -65,12 +65,16 @@ export async function POST(req: NextRequest) {
 
     // The advertised price lives in plans.ts, the charged price in a Stripe
     // dashboard nobody here can see. Nothing caught a mismatch: the runbook
-    // still says to create Bedrijf at €99 while we sell it at €199, and a
-    // yearly interval or a USD price would have been just as invisible.
+    // told the operator to create Bedrijf at €99 while we sell it at €199
+    // (since corrected), and a yearly interval or a USD price would have been
+    // just as invisible.
     // Business plans quote ex BTW and consumer plans incl BTW (planPriceSuffix),
     // which is exactly Stripe's exclusive/inclusive tax_behavior — with
     // automatic_tax below, a wrong setting either adds 21% on top of a consumer
     // price we promised was inclusive, or is rejected outright by Stripe.
+    // A price created without an explicit tax behaviour comes back
+    // "unspecified" and is refused here; Stripe cannot change it afterwards,
+    // so such a price has to be recreated (see BLOCKED.md).
     const expectedTaxBehavior = planConfig.audience === "business" ? "exclusive" : "inclusive";
     const price = await stripe.prices.retrieve(priceId);
     if (
@@ -83,6 +87,15 @@ export async function POST(req: NextRequest) {
       logger.error("Stripe price does not match the advertised plan — checkout blocked", {
         plan,
         priceId,
+        // Named outright so the operator sees which field to recreate the
+        // price with, instead of diffing expected against actual by eye.
+        mismatch: [
+          price.unit_amount !== planConfig.priceCents && "unit_amount",
+          price.currency !== "eur" && "currency",
+          price.recurring?.interval !== "month" && "recurring.interval",
+          price.recurring?.interval_count !== 1 && "recurring.interval_count",
+          price.tax_behavior !== expectedTaxBehavior && "tax_behavior",
+        ].filter(Boolean),
         expected: {
           unitAmount: planConfig.priceCents,
           currency: "eur",

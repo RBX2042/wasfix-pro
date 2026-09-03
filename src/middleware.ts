@@ -32,6 +32,10 @@ const isProtectedRoute = createRouteMatcher([
   "/monteur/klanten(.*)",
   "/monteur/onderdelen(.*)",
   "/monteur/werkorders(.*)",
+  // KvK, BTW and IBAN live here — the page checks too, this is the outer door.
+  "/monteur/instellingen(.*)",
+  // Order detail + printable invoice: name, address, amounts.
+  "/bestelling/(.*)",
   "/api/orders(.*)",
   "/api/user(.*)",
   "/api/account(.*)",
@@ -149,6 +153,9 @@ export default async function middleware(req: NextRequest, event: Parameters<typ
 
 export const config = {
   matcher: [
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|.*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html)$).*)",
+    // The extension exclusion must not reach /api: Next routes
+    // /api/orders/<id>.pdf to the [id] handler, and excluding it here meant
+    // that request never saw the middleware at all.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|(?!api/).*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html)$).*)",
   ],
 };

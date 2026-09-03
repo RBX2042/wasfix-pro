@@ -1,6 +1,11 @@
 /**
  * Static data fallback — used when DATABASE_URL is not configured.
  * Provides Prisma-shaped objects so pages can swap in without changing render code.
+ *
+ * Two families of readers live here: the synchronous static* functions, which
+ * only ever see src/data/*.json, and the asynchronous db* functions at the
+ * bottom, which read Postgres and fall back to their static* sibling. Public
+ * pages belong on the db* ones — see the note above that section.
  */
 
 import machinesRaw from "@/data/machines.json";
@@ -11,6 +16,9 @@ import partMachineRaw from "@/data/part-machine.json";
 import errorCodePartsRaw from "@/data/errorcode-parts.json";
 import errorCodeGuidesRaw from "@/data/errorcode-guides.json";
 import guidePartsRaw from "@/data/guide-parts.json";
+import { isDatabaseConfigured } from "@/lib/env";
+import { logger } from "@/lib/logger";
+import type { Prisma, PrismaClient } from "@prisma/client";
 
 type Machine = {
   id: string;
@@ -226,6 +234,9 @@ export function staticMachineFull(brand: string, model: string): MachineFull | n
 
 // ============ ErrorCode queries ============
 
+// Shared with the database path below, which cannot get this order from SQL.
+const SEVERITY_ORDER: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
+
 export type ErrorCodeWithMachine = ErrorCode & { machine: Machine };
 export type ErrorCodeFull = ErrorCodeWithMachine & {
   parts: { part: Part }[];
@@ -257,8 +268,7 @@ export function staticErrorCodes(opts?: {
   }
 
   // Default order: severity desc, code asc
-  const severityOrder: Record<string, number> = { HIGH: 3, MEDIUM: 2, LOW: 1 };
-  result.sort((a, b) => (severityOrder[b.severity] ?? 0) - (severityOrder[a.severity] ?? 0) || a.code.localeCompare(b.code));
+  result.sort((a, b) => (SEVERITY_ORDER[b.severity] ?? 0) - (SEVERITY_ORDER[a.severity] ?? 0) || a.code.localeCompare(b.code));
 
   if (opts?.take) result = result.slice(0, opts.take);
   return result;
@@ -358,4 +368,312 @@ export function staticStats() {
     machinesCount: machines.length,
     errorCodesCount: errorCodes.length,
   };
+}
+
+// ============ Database-first queries ============
+
+/**
+ * Once DATABASE_URL is configured, Postgres is the catalog: it is what /admin
+ * writes to and what checkout charges from. A page served from the JSON then
+ * advertises a price nobody is charged, stock nobody has ("Op voorraad — 42
+ * stuks" while checkout answers "Onvoldoende voorraad (0 beschikbaar)"), and
+ * 404s on a part the admin created ten seconds ago.
+ *
+ * So: every public surface should read through these db* functions. They fall
+ * back to their static* sibling when there is no database or the query throws,
+ * which is the only role src/data/*.json still has. A row the database does not
+ * hold is NOT a fallback case — a part deleted in /admin has to stay gone.
+ *
+ * They are async where their static siblings are synchronous, so call sites
+ * move over one by one; both families stay exported until that is finished.
+ *
+ * The JSON has a file order to fall back on, a table does not, so every query
+ * here carries an explicit orderBy — without one Postgres is free to reshuffle
+ * a listing between two renders of the same page.
+ */
+async function fromDb<T>(query: (db: PrismaClient) => Promise<T>, fallback: () => T): Promise<T> {
+  if (!isDatabaseConfigured()) return fallback();
+  try {
+    // Imported lazily on purpose: catalog-stats.ts drags this module into the
+    // browser bundle (WasFixHome is a client component) and Prisma cannot go
+    // there — a top-level import would break the client build.
+    const { prisma } = await import("@/lib/prisma");
+    return await query(prisma);
+  } catch (err) {
+    logger.error("[static-db] catalog query failed — falling back to src/data", err);
+    return fallback();
+  }
+}
+
+/** Prisma hands back a Date where the rest of the app expects the ISO string. */
+function toGuide(row: Omit<Guide, "createdAt"> & { createdAt: Date }): Guide {
+  return { ...row, createdAt: row.createdAt.toISOString() };
+}
+
+function toErrorCodeFull(
+  row: ErrorCode & {
+    machine: Machine;
+    parts: { part: Part }[];
+    guides: { guide: Omit<Guide, "createdAt"> & { createdAt: Date } }[];
+  },
+): ErrorCodeFull {
+  return {
+    ...row,
+    parts: row.parts.map(({ part }) => ({ part })),
+    guides: row.guides.map(({ guide }) => ({ guide: toGuide(guide) })),
+  };
+}
+
+// ── Parts ────────────────────────────────────────────────────────
+
+export async function dbParts(opts?: Parameters<typeof staticParts>[0]): Promise<Part[]> {
+  return fromDb(async (db) => {
+    const w = opts?.where;
+    const and: Prisma.PartWhereInput[] = [];
+    if (w?.minStock !== undefined) and.push({ stock: { gt: w.minStock } });
+    if (w?.category) and.push({ category: w.category });
+    if (w?.categories?.length) and.push({ category: { in: w.categories } });
+    if (w?.brand) and.push({ brand: w.brand });
+    if (w?.q) {
+      and.push({
+        OR: [
+          { name: { contains: w.q, mode: "insensitive" } },
+          { description: { contains: w.q, mode: "insensitive" } },
+          { sku: { contains: w.q, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (w?.skus?.length) and.push({ sku: { in: w.skus } });
+
+    let orderBy: Prisma.PartOrderByWithRelationInput[];
+    switch (opts?.orderBy) {
+      case "stock-desc":
+        orderBy = [{ stock: "desc" }];
+        break;
+      case "price-asc":
+        orderBy = [{ priceEur: "asc" }];
+        break;
+      case "stock-then-price":
+        orderBy = [{ stock: "desc" }, { priceEur: "asc" }];
+        break;
+      default:
+        orderBy = [{ sku: "asc" }];
+    }
+    return db.part.findMany({ where: { AND: and }, orderBy, take: opts?.take });
+  }, () => staticParts(opts));
+}
+
+export async function dbPart(sku: string): Promise<Part | null> {
+  return fromDb((db) => db.part.findUnique({ where: { sku } }), () => staticPart(sku));
+}
+
+export async function dbPartById(id: string): Promise<Part | null> {
+  return fromDb((db) => db.part.findUnique({ where: { id } }), () => staticPartById(id));
+}
+
+export async function dbPartBrands(): Promise<string[]> {
+  return fromDb(async (db) => {
+    const rows = await db.part.findMany({ distinct: ["brand"], select: { brand: true }, orderBy: { brand: "asc" } });
+    return rows.map((r) => r.brand);
+  }, staticPartBrands);
+}
+
+export async function dbPartFull(sku: string): Promise<PartFull | null> {
+  return fromDb(async (db) => {
+    const row = await db.part.findUnique({
+      where: { sku },
+      include: {
+        machines: { include: { machine: true }, orderBy: { machine: { model: "asc" } } },
+        guides: { include: { guide: true }, orderBy: { guide: { title: "asc" } } },
+        errorCodes: { include: { errorCode: { include: { machine: true } } }, orderBy: { errorCode: { code: "asc" } } },
+      },
+    });
+    if (!row) return null;
+    return {
+      ...row,
+      machines: row.machines.map(({ machine }) => ({ machine })),
+      guides: row.guides.map(({ guide }) => ({ guide: toGuide(guide) })),
+      errorCodes: row.errorCodes.map(({ errorCode }) => ({ errorCode })),
+    };
+  }, () => staticPartFull(sku));
+}
+
+export async function dbRelatedParts(category: string, excludeId: string, take = 4): Promise<Part[]> {
+  return fromDb(
+    (db) =>
+      db.part.findMany({
+        where: { category, id: { not: excludeId }, stock: { gt: 0 } },
+        orderBy: { sku: "asc" },
+        take,
+      }),
+    () => staticRelatedParts(category, excludeId, take),
+  );
+}
+
+// ── Machines ─────────────────────────────────────────────────────
+
+export async function dbMachines(opts?: { brand?: string }): Promise<Machine[]> {
+  return fromDb(
+    (db) =>
+      db.washingMachine.findMany({
+        where: opts?.brand ? { brand: opts.brand } : {},
+        orderBy: [{ brand: "asc" }, { model: "asc" }],
+      }),
+    () => staticMachines(opts),
+  );
+}
+
+export async function dbMachine(brand: string, model: string): Promise<Machine | null> {
+  return fromDb((db) => db.washingMachine.findFirst({ where: { brand, model } }), () => staticMachine(brand, model));
+}
+
+export async function dbMachineBrands(): Promise<string[]> {
+  return fromDb(async (db) => {
+    const rows = await db.washingMachine.findMany({ distinct: ["brand"], select: { brand: true }, orderBy: { brand: "asc" } });
+    return rows.map((r) => r.brand);
+  }, staticMachineBrands);
+}
+
+export async function dbMachinesByBrand(brand: string): Promise<MachineWithCounts[]> {
+  return fromDb(
+    (db) =>
+      db.washingMachine.findMany({
+        where: { brand },
+        include: { _count: { select: { errorCodes: true } } },
+        orderBy: { model: "asc" },
+      }),
+    () => staticMachinesByBrand(brand),
+  );
+}
+
+export async function dbMachineFull(brand: string, model: string): Promise<MachineFull | null> {
+  return fromDb(async (db) => {
+    const row = await db.washingMachine.findFirst({
+      where: { brand, model },
+      include: {
+        errorCodes: { orderBy: { code: "asc" } },
+        repairGuides: { orderBy: { title: "asc" } },
+        parts: { include: { part: true }, orderBy: { part: { sku: "asc" } } },
+      },
+    });
+    if (!row) return null;
+    return {
+      ...row,
+      repairGuides: row.repairGuides.map(toGuide),
+      parts: row.parts.map(({ part }) => ({ part })),
+    };
+  }, () => staticMachineFull(brand, model));
+}
+
+// ── Error codes ──────────────────────────────────────────────────
+
+export async function dbErrorCodes(opts?: Parameters<typeof staticErrorCodes>[0]): Promise<ErrorCodeWithMachine[]> {
+  return fromDb(async (db) => {
+    const w = opts?.where;
+    const and: Prisma.ErrorCodeWhereInput[] = [];
+    if (w?.code) and.push({ code: { contains: w.code, mode: "insensitive" } });
+    if (w?.brand) and.push({ machine: { brand: w.brand } });
+    if (w?.q) {
+      and.push({
+        OR: [
+          { code: { contains: w.q, mode: "insensitive" } },
+          { title: { contains: w.q, mode: "insensitive" } },
+          { description: { contains: w.q, mode: "insensitive" } },
+        ],
+      });
+    }
+
+    const rows = await db.errorCode.findMany({ where: { AND: and }, include: { machine: true } });
+    // Severity is a plain string column, so HIGH → LOW cannot come out of SQL.
+    rows.sort((a, b) => (SEVERITY_ORDER[b.severity] ?? 0) - (SEVERITY_ORDER[a.severity] ?? 0) || a.code.localeCompare(b.code));
+    return opts?.take ? rows.slice(0, opts.take) : rows;
+  }, () => staticErrorCodes(opts));
+}
+
+export async function dbErrorCode(brand: string, code: string): Promise<ErrorCodeFull | null> {
+  return fromDb(async (db) => {
+    const row = await db.errorCode.findFirst({
+      where: { code, machine: { brand } },
+      include: {
+        machine: true,
+        parts: { include: { part: true }, orderBy: { part: { sku: "asc" } } },
+        guides: { include: { guide: true }, orderBy: { guide: { title: "asc" } } },
+      },
+    });
+    return row ? toErrorCodeFull(row) : null;
+  }, () => staticErrorCode(brand, code));
+}
+
+export async function dbErrorCodeByCode(code: string, brand?: string): Promise<ErrorCodeFull | null> {
+  return fromDb(async (db) => {
+    const row = await db.errorCode.findFirst({
+      where: { code: { contains: code, mode: "insensitive" }, ...(brand ? { machine: { brand } } : {}) },
+      include: {
+        machine: true,
+        parts: { include: { part: true }, orderBy: { part: { sku: "asc" } } },
+        guides: { include: { guide: true }, orderBy: { guide: { title: "asc" } } },
+      },
+      orderBy: { code: "asc" },
+    });
+    return row ? toErrorCodeFull(row) : null;
+  }, () => staticErrorCodeByCode(code, brand));
+}
+
+// ── Guides ───────────────────────────────────────────────────────
+
+export async function dbGuides(opts?: Parameters<typeof staticGuides>[0]): Promise<Guide[]> {
+  return fromDb(async (db) => {
+    const w = opts?.where;
+    const and: Prisma.RepairGuideWhereInput[] = [];
+    if (w?.difficulty) and.push({ difficulty: w.difficulty });
+    if (w?.isPremium !== undefined) and.push({ isPremium: w.isPremium });
+    if (w?.q) {
+      and.push({
+        OR: [
+          { title: { contains: w.q, mode: "insensitive" } },
+          { summary: { contains: w.q, mode: "insensitive" } },
+        ],
+      });
+    }
+    if (w?.slugs?.length) and.push({ slug: { in: w.slugs } });
+
+    let orderBy: Prisma.RepairGuideOrderByWithRelationInput[];
+    switch (opts?.orderBy) {
+      case "views-desc":
+        orderBy = [{ views: "desc" }];
+        break;
+      case "created-desc":
+        orderBy = [{ createdAt: "desc" }];
+        break;
+      default:
+        orderBy = [{ views: "desc" }, { createdAt: "desc" }];
+    }
+    const rows = await db.repairGuide.findMany({ where: { AND: and }, orderBy, take: opts?.take });
+    return rows.map(toGuide);
+  }, () => staticGuides(opts));
+}
+
+export async function dbGuide(slug: string): Promise<(Guide & { parts: { part: Part }[] }) | null> {
+  return fromDb(async (db) => {
+    const row = await db.repairGuide.findUnique({
+      where: { slug },
+      include: { parts: { include: { part: true }, orderBy: { part: { sku: "asc" } } } },
+    });
+    if (!row) return null;
+    return { ...toGuide(row), parts: row.parts.map(({ part }) => ({ part })) };
+  }, () => staticGuide(slug));
+}
+
+// ── Stats ────────────────────────────────────────────────────────
+
+export async function dbStats(): Promise<ReturnType<typeof staticStats>> {
+  return fromDb(async (db) => {
+    const [partsCount, guidesCount, machinesCount, errorCodesCount] = await Promise.all([
+      db.part.count(),
+      db.repairGuide.count(),
+      db.washingMachine.count(),
+      db.errorCode.count(),
+    ]);
+    return { partsCount, guidesCount, machinesCount, errorCodesCount };
+  }, staticStats);
 }

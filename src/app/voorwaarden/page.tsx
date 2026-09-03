@@ -73,17 +73,20 @@ export default function VoorwaardenPage() {
             <h3>5.1 Hoe oefen je het herroepingsrecht uit?</h3>
             <ul>
               <li>Stuur een mail naar <a href="mailto:retour@wasfix.nl">retour@wasfix.nl</a> of vul het <Link href="/retour/start">retour-formulier</Link> in.</li>
-              <li>Stuur het product binnen 14 dagen na herroeping retour, in originele verpakking, ongebruikt en compleet.</li>
-              <li>Wij betalen binnen 14 dagen na ontvangst het volledige bedrag terug, inclusief oorspronkelijke verzendkosten (laagste tarief).</li>
+              <li>Stuur het product binnen 14 dagen na je melding retour.</li>
+              <li>Je mag het onderdeel uitpakken, bekijken en beoordelen zoals je in een winkel zou doen (art. 6:230s lid 2 BW). Een geopende verpakking, een verbroken zegel of een kort gepast onderdeel kost je je herroepingsrecht dus niet. Ga je verder dan nodig is om aard en werking vast te stellen en is het onderdeel daardoor minder waard, dan verrekenen we alleen die waardevermindering.</li>
+              <li>Wij betalen binnen 14 dagen na ontvangst van je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3).</li>
               <li>De kosten voor retourzending zijn voor jouw rekening, tenzij het product defect of verkeerd geleverd is.</li>
             </ul>
             <h3>5.2 Uitsluitingen</h3>
             <p>Geen herroepingsrecht voor:</p>
             <ul>
               <li>Producten die op maat zijn gemaakt of voor jou speciaal besteld bij de fabrikant</li>
-              <li>Producten die hygiënisch ongeschikt zijn voor retour (bv. afgesloten verpakking geopend)</li>
               <li>Digitale diensten waarvoor je expliciet toestemming hebt gegeven om vóór afloop van de bedenktermijn te starten</li>
             </ul>
+            <p>
+              De hygiëne-uitzondering van art. 6:230p sub f BW geldt alleen voor verzegelde producten die om gezondheids- of hygiënische redenen niet teruggestuurd kunnen worden. Onderdelen als pompen, deurrubbers en filters vallen daar niet onder, dus daarop beroepen wij ons niet.
+            </p>
 
             <h2>Artikel 6 — Garantie</h2>
             <ul>
@@ -91,7 +94,7 @@ export default function VoorwaardenPage() {
               <li>Aanvullend bieden we voor originele onderdelen <strong>24 maanden fabrieksgarantie</strong> op materiaal- en fabricagefouten.</li>
               <li>Universele/compatibele onderdelen: 12 maanden WasFix-garantie.</li>
               <li>Garantie vervalt bij verkeerd gebruik, ondeskundige installatie, of overmacht (water, brand, bliksem).</li>
-              <li>Onder de EU Right-to-Repair zijn wij verplicht onderdelen voor minimaal 10 jaar beschikbaar te houden.</li>
+              <li>Fabrikanten van wasmachines moeten reserve-onderdelen tot 10 jaar na het laatste op de markt gebrachte exemplaar leverbaar houden (Verordening (EU) 2019/2023, bijlage II). Die verplichting rust op de fabrikant, niet op WasFix — zie <Link href="/right-to-repair">right to repair</Link>.</li>
             </ul>
 
             <h2>Artikel 7 — Betaling</h2>

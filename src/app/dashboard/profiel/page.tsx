@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { User, CreditCard, Sparkles, Crown, Download } from "lucide-react";
 import { PortalButton } from "./portal-button";
+import { DeleteAccountButton } from "./delete-account";
 
 export const dynamic = "force-dynamic";
 
@@ -33,9 +34,12 @@ export default async function ProfilePage() {
               <div className="flex justify-between"><dt className="text-muted-foreground">E-mail</dt><dd className="font-medium">{user.email}</dd></div>
               <div className="flex justify-between"><dt className="text-muted-foreground">Rol</dt><dd><Badge variant="outline">{user.role}</Badge></dd></div>
             </dl>
-            <Button asChild variant="outline" size="sm" className="mt-5">
-              <a href="/api/account/data-export" download><Download className="h-4 w-4" /> Download mijn gegevens (AVG)</a>
-            </Button>
+            <div className="mt-5 flex flex-col items-start">
+              <Button asChild variant="outline" size="sm">
+                <a href="/api/account/data-export" download><Download className="h-4 w-4" /> Download mijn gegevens (AVG)</a>
+              </Button>
+              <DeleteAccountButton />
+            </div>
           </CardContent>
         </Card>
 

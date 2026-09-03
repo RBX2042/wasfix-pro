@@ -63,6 +63,47 @@ export async function POST(req: NextRequest) {
     let dbUser = await prisma.user.findUnique({ where: { id: user.id } });
     if (!dbUser) return apiError("Gebruiker niet gevonden", 404);
 
+    // The advertised price lives in plans.ts, the charged price in a Stripe
+    // dashboard nobody here can see. Nothing caught a mismatch: the runbook
+    // still says to create Bedrijf at €99 while we sell it at €199, and a
+    // yearly interval or a USD price would have been just as invisible.
+    // Business plans quote ex BTW and consumer plans incl BTW (planPriceSuffix),
+    // which is exactly Stripe's exclusive/inclusive tax_behavior — with
+    // automatic_tax below, a wrong setting either adds 21% on top of a consumer
+    // price we promised was inclusive, or is rejected outright by Stripe.
+    const expectedTaxBehavior = planConfig.audience === "business" ? "exclusive" : "inclusive";
+    const price = await stripe.prices.retrieve(priceId);
+    if (
+      price.unit_amount !== planConfig.priceCents ||
+      price.currency !== "eur" ||
+      price.recurring?.interval !== "month" ||
+      price.recurring.interval_count !== 1 ||
+      price.tax_behavior !== expectedTaxBehavior
+    ) {
+      logger.error("Stripe price does not match the advertised plan — checkout blocked", {
+        plan,
+        priceId,
+        expected: {
+          unitAmount: planConfig.priceCents,
+          currency: "eur",
+          interval: "month",
+          intervalCount: 1,
+          taxBehavior: expectedTaxBehavior,
+        },
+        actual: {
+          unitAmount: price.unit_amount,
+          currency: price.currency,
+          interval: price.recurring?.interval ?? null,
+          intervalCount: price.recurring?.interval_count ?? null,
+          taxBehavior: price.tax_behavior,
+        },
+      });
+      return apiError(
+        "Dit abonnement is tijdelijk niet beschikbaar. Neem contact op via support@wasfix.nl.",
+        500
+      );
+    }
+
     if (!dbUser.stripeCustomerId) {
       const customer = await stripe.customers.create({
         email: user.email,
@@ -82,6 +123,14 @@ export async function POST(req: NextRequest) {
         customer: dbUser.stripeCustomerId!,
         line_items: [{ price: priceId, quantity: 1 }],
         allow_promotion_codes: true,
+        // Business plans are advertised "excl. btw" — without automatic_tax
+        // Stripe charged the bare €29/€199 and the 21% came out of our margin
+        // instead of being added on top. tax_id_collection lets a business
+        // enter its btw-nummer (EU reverse charge); customer_update is required
+        // by Stripe to let automatic_tax fill in the customer's address.
+        automatic_tax: { enabled: true },
+        tax_id_collection: { enabled: true },
+        customer_update: { address: "auto", name: "auto" },
         success_url: `${env.APP_URL}/dashboard?upgraded=1`,
         cancel_url: `${env.APP_URL}/prijzen`,
         metadata: { userId: user.id, plan, ...(visitorId ? { refVisitorId: visitorId } : {}) },

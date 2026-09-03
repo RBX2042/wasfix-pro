@@ -13,6 +13,106 @@ import { VAT_RATE, COMPANY, shippingFor } from "@/lib/plans";
 import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
 
 const BANK_TRANSFER_TERM_DAYS = 14;
+/** Extra days after the term before an unpaid invoice gives its stock back. */
+const BANK_TRANSFER_GRACE_DAYS = 7;
+
+type StripeLineItem = {
+  price_data: {
+    currency: string;
+    product_data: { name: string; metadata: { sku: string } };
+    unit_amount: number;
+  };
+  quantity: number;
+};
+
+/**
+ * Stripe line items whose cents add up to `targetCents` exactly.
+ *
+ * One unit_amount per line cannot carry every discounted total: 5% off
+ * 7 x € 28,50 leaves 3 cents that do not divide over the quantity, and the old
+ * correction (add `round(residual / quantity)` to the last line) rounded those
+ * 3 cents to 0 — Stripe charged € 189,49 while the order and the BTW invoice
+ * recorded € 189,52. Over the catalog that missed on 510 of 1728 single-SKU
+ * carts, sometimes charging the customer more than the price shown.
+ *
+ * So the remainder is spread cent by cent over individual units instead: the
+ * units that carry one cent extra become their own line item at unit + 1.
+ */
+function discountedLineItems(
+  items: { name: string; sku: string; unitCents: number; quantity: number }[],
+  targetCents: number
+): StripeLineItem[] {
+  const line = (item: { name: string; sku: string }, unitCents: number, quantity: number): StripeLineItem => ({
+    price_data: {
+      currency: "eur",
+      product_data: { name: item.name, metadata: { sku: item.sku } },
+      unit_amount: unitCents,
+    },
+    quantity,
+  });
+
+  if (items.length === 0) return [];
+
+  // Largest-remainder allocation of the discounted total over the lines, so
+  // every line keeps its own share of the discount and the cents that do not
+  // divide land somewhere instead of being dropped.
+  const grossCents = items.reduce((sum, i) => sum + i.unitCents * i.quantity, 0);
+  const exact = items.map((i) => (grossCents > 0 ? (i.unitCents * i.quantity * targetCents) / grossCents : 0));
+  const lineCents = exact.map((v) => Math.floor(v));
+  const byRemainder = exact
+    .map((v, idx) => ({ idx, frac: v - Math.floor(v) }))
+    .sort((a, b) => b.frac - a.frac);
+  let residual = targetCents - lineCents.reduce((a, b) => a + b, 0);
+  for (let n = 0; residual > 0; n++) {
+    lineCents[byRemainder[n % byRemainder.length].idx] += 1;
+    residual -= 1;
+  }
+
+  const lineItems: StripeLineItem[] = [];
+  items.forEach((item, idx) => {
+    const base = Math.floor(lineCents[idx] / item.quantity);
+    const extra = lineCents[idx] - base * item.quantity;
+    if (item.quantity - extra > 0) lineItems.push(line(item, base, item.quantity - extra));
+    if (extra > 0) lineItems.push(line(item, base + 1, extra));
+  });
+  return lineItems;
+}
+
+/**
+ * Give back the stock held by bank-transfer orders that were never paid.
+ *
+ * An OPENSTAAND order reserves its units the moment the invoice goes out, and
+ * nothing released them again: an invoice nobody ever pays took those parts
+ * off the shelf permanently. Runs just before the availability check so a
+ * buyer is never refused stock that an expired order from weeks ago is still
+ * holding. Best effort — a failure here must not block a paying customer.
+ *
+ * Cancelling leaves the issued invoice standing (the number series has to stay
+ * gapless); the bookkeeping still needs a creditnota per cancelled order.
+ */
+async function releaseExpiredBankTransferOrders(): Promise<void> {
+  const cutoff = new Date(Date.now() - BANK_TRANSFER_GRACE_DAYS * 24 * 60 * 60 * 1000);
+  const expired = await prisma.order.findMany({
+    where: { status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER", dueAt: { lt: cutoff } },
+    select: { id: true, items: { select: { partId: true, quantity: true } } },
+    take: 25,
+  });
+  for (const order of expired) {
+    await prisma.$transaction(async (tx) => {
+      // The status flip is the lock: an admin confirming the wire at this very
+      // moment wins the row and we leave their stock alone.
+      const cancelled = await tx.order.updateMany({
+        where: { id: order.id, status: "OPENSTAAND" },
+        data: { status: "CANCELLED" },
+      });
+      if (cancelled.count === 0) return;
+      for (const item of order.items) {
+        await tx.part.update({ where: { id: item.partId }, data: { stock: { increment: item.quantity } } });
+      }
+      logger.warn("Bank-transfer order expired unpaid — stock released, creditnota required", { orderId: order.id });
+    });
+  }
+}
 
 const CheckoutSchema = z.object({
   items: z
@@ -86,6 +186,11 @@ export async function POST(req: NextRequest) {
     // the live figure decides.
     if (isDatabaseConfigured()) {
       try {
+        // Reclaim expired reservations first — otherwise this check refuses a
+        // paying customer over units an unpaid invoice is still holding.
+        await releaseExpiredBankTransferOrders().catch((err) =>
+          logger.warn("Could not release expired bank-transfer reservations", err)
+        );
         const live = await prisma.part.findMany({
           where: { id: { in: resolvedItems.map((i) => i.dbPart.id) } },
           select: { id: true, name: true, stock: true },
@@ -177,10 +282,46 @@ export async function POST(req: NextRequest) {
 
     async function resolveUserId(): Promise<string> {
       if (user?.id) return user.id;
-      const existing = await prisma.user.findUnique({ where: { email } });
-      if (existing) return existing.id;
-      const created = await prisma.user.create({ data: { email, name, role: "CONSUMER", plan: "FREE" } });
-      return created.id;
+      // Upsert, not find-then-create: two guest checkouts with the same e-mail
+      // arriving together both found nothing and both inserted, and the loser's
+      // P2002 on User.email surfaced to the customer as a 503.
+      //
+      // The update rewrites the e-mail with the same value on purpose. Prisma
+      // only compiles an upsert down to a single INSERT ... ON CONFLICT when
+      // the update payload is non-empty; with `update: {}` it falls back to
+      // select-then-insert and the race is right back (measured: 7 of 8
+      // concurrent calls got P2002, versus 0 of 40 with this). Nothing else is
+      // touched — a returning buyer's profile name stays theirs.
+      const row = await prisma.user.upsert({
+        where: { email },
+        update: { email },
+        create: { email, name, role: "CONSUMER", plan: "FREE" },
+      });
+      return row.id;
+    }
+
+    // Compensation for a failure *after* the order exists and its stock is
+    // taken. Without it the customer gets an error while an order they were
+    // told never happened keeps holding their parts, and their retry books a
+    // second one on top.
+    async function cancelOrderAndRestoreStock(id: string): Promise<void> {
+      try {
+        await prisma.$transaction(async (tx) => {
+          const cancelled = await tx.order.updateMany({
+            where: { id, status: { in: ["OPENSTAAND", "PENDING"] } },
+            data: { status: "CANCELLED" },
+          });
+          if (cancelled.count === 0) return;
+          for (const item of resolvedItems) {
+            await tx.part.update({
+              where: { id: item.dbPart.id },
+              data: { stock: { increment: item.quantity } },
+            });
+          }
+        });
+      } catch (compErr) {
+        logger.error("Could not roll back order after a failed checkout — stock stays reserved", { orderId: id, compErr });
+      }
     }
 
     if (wantsBankTransfer) {
@@ -248,7 +389,18 @@ export async function POST(req: NextRequest) {
         });
       }
 
-      const invoice = await issueInvoiceForOrder(orderId);
+      // issueInvoiceForOrder rethrows, and it sits outside the try above: an
+      // invoice failure used to reach the outer handler as a 500, leaving an
+      // OPENSTAAND order with decremented stock, no invoice and no order id
+      // for a customer who was told the order failed.
+      let invoice: Awaited<ReturnType<typeof issueInvoiceForOrder>>;
+      try {
+        invoice = await issueInvoiceForOrder(orderId);
+      } catch (invErr) {
+        logger.error("Invoice issuing failed for a bank-transfer order — rolling the order back", invErr);
+        await cancelOrderAndRestoreStock(orderId);
+        return apiError("We konden je factuur niet aanmaken. Er is niets afgeschreven — probeer het zo opnieuw.", 503);
+      }
       if (visitorId) await recordConversion(visitorId);
 
       try {
@@ -325,23 +477,15 @@ export async function POST(req: NextRequest) {
         // settlement, Order.totalEur and the btw on the invoice were three
         // different numbers. The discount is spread across the line items so
         // the sum matches `total` to the cent.
-        const discountRatio = subtotal > 0 ? discount / subtotal : 0;
-        const lineItems = resolvedItems.map(({ dbPart, quantity }) => ({
-          price_data: {
-            currency: "eur",
-            product_data: { name: dbPart.name, metadata: { sku: dbPart.sku } },
-            unit_amount: Math.round(dbPart.priceEur * (1 - discountRatio) * 100),
-          },
-          quantity,
-        }));
-        // Rounding per line can drift a cent or two from the stored total;
-        // correct it on the last line so the charge reconciles exactly.
-        const lineSum = lineItems.reduce((sum, li) => sum + li.price_data.unit_amount * li.quantity, 0);
-        const targetSum = Math.round((subtotal - discount) * 100);
-        if (lineItems.length > 0 && lineSum !== targetSum) {
-          const last = lineItems[lineItems.length - 1];
-          last.price_data.unit_amount += Math.round((targetSum - lineSum) / last.quantity);
-        }
+        const lineItems = discountedLineItems(
+          resolvedItems.map(({ dbPart, quantity }) => ({
+            name: dbPart.name,
+            sku: dbPart.sku,
+            unitCents: Math.round(dbPart.priceEur * 100),
+            quantity,
+          })),
+          Math.round((subtotal - discount) * 100)
+        );
         if (shipping > 0) {
           lineItems.push({
             price_data: {
@@ -383,14 +527,43 @@ export async function POST(req: NextRequest) {
         // real, so reaching this point means it is safe to invoice.
 
         const dueAt = new Date(Date.now() + BANK_TRANSFER_TERM_DAYS * 24 * 60 * 60 * 1000);
-        await prisma.order.update({
-          where: { id: orderId },
-          data: { status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER", dueAt },
-        }).catch(() => {});
-        for (const item of resolvedItems) {
-          await prisma.part.update({ where: { id: item.dbPart.id }, data: { stock: { decrement: item.quantity } } }).catch(() => {});
+        // Same transaction, same conditional decrement as the bank-transfer
+        // branch above. Swallowed per-part updates left stock and orders
+        // disagreeing with nobody the wiser, and drove stock negative when a
+        // part sold out between the availability check and this write.
+        try {
+          await prisma.$transaction(async (tx) => {
+            await tx.order.update({
+              where: { id: orderId },
+              data: { status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER", dueAt },
+            });
+            for (const item of resolvedItems) {
+              const claimed = await tx.part.updateMany({
+                where: { id: item.dbPart.id, stock: { gte: item.quantity } },
+                data: { stock: { decrement: item.quantity } },
+              });
+              if (claimed.count === 0) throw new Error(`out_of_stock:${item.dbPart.sku}`);
+            }
+          });
+        } catch (reserveErr) {
+          // Nothing committed, so the order is still PENDING and unpaid —
+          // cancel it rather than leaving a ghost the customer never sees.
+          await prisma.order.updateMany({ where: { id: orderId, status: "PENDING" }, data: { status: "CANCELLED" } }).catch(() => {});
+          if (reserveErr instanceof Error && reserveErr.message.startsWith("out_of_stock:")) {
+            return apiError("Een onderdeel raakte net uitverkocht. Er is niets afgeschreven.", 409);
+          }
+          logger.error("Could not switch a failed Stripe order to bank transfer", reserveErr);
+          return apiError("We konden je bestelling niet vastleggen. Er is niets afgeschreven — probeer het zo opnieuw.", 503);
         }
-        const invoice = await issueInvoiceForOrder(orderId);
+
+        let invoice: Awaited<ReturnType<typeof issueInvoiceForOrder>>;
+        try {
+          invoice = await issueInvoiceForOrder(orderId);
+        } catch (invErr) {
+          logger.error("Invoice issuing failed on the bank-transfer fallback — rolling the order back", invErr);
+          await cancelOrderAndRestoreStock(orderId);
+          return apiError("We konden je factuur niet aanmaken. Er is niets afgeschreven — probeer het zo opnieuw.", 503);
+        }
         if (visitorId) await recordConversion(visitorId);
 
         try {

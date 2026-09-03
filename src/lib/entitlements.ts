@@ -14,6 +14,7 @@ import { prisma } from "./prisma";
 import { isDatabaseConfigured } from "./env";
 import { getPlan, type Plan } from "./plans";
 import { logger } from "./logger";
+import { clientIp } from "./ratelimit";
 import { VISITOR_COOKIE } from "./visitor";
 
 export const QUOTA_WINDOW_DAYS = 30;
@@ -32,10 +33,10 @@ export type Entitlements = {
 /** Stable, non-identifying key for an anonymous visitor. */
 export function anonymousKey(req: NextRequest, visitorId?: string | null): string {
   if (visitorId) return `vid:${visitorId}`;
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "unknown";
+  // Via clientIp(): the first x-forwarded-for entry is client-supplied, so
+  // reading it here handed anyone who rotates the header an unlimited number
+  // of free-tier buckets.
+  const ip = clientIp(req) || "unknown";
   // Hashed so we never store a raw IP against usage records.
   return `ip:${createHash("sha256").update(ip).digest("hex").slice(0, 32)}`;
 }
@@ -97,26 +98,40 @@ export async function consumeUsage(
     const now = new Date();
     const existing = await prisma.usageCounter.findUnique({ where: { scope_key: { scope, key } } });
 
-    // No record, or the window has rolled over: start fresh.
-    if (!existing || existing.windowEnd < now) {
-      if (!commit) return { allowed: limit > 0, used: 0, limit };
-      const windowEnd = new Date(now.getTime() + windowMs);
-      await prisma.usageCounter.upsert({
-        where: { scope_key: { scope, key } },
-        update: { count: 1, windowEnd },
-        create: { scope, key, count: 1, windowEnd },
-      });
-      return { allowed: limit > 0, used: 1, limit };
+    // A peek: no record, or a window that has rolled over, means nothing used.
+    if (!commit) {
+      if (!existing || existing.windowEnd < now) return { allowed: limit > 0, used: 0, limit };
+      return { allowed: existing.count < limit, used: existing.count, limit };
     }
 
-    if (existing.count >= limit) return { allowed: false, used: existing.count, limit };
-    if (!commit) return { allowed: true, used: existing.count, limit };
+    if (existing && existing.windowEnd >= now && existing.count >= limit) {
+      return { allowed: false, used: existing.count, limit };
+    }
 
-    const updated = await prisma.usageCounter.update({
+    const windowEnd = new Date(now.getTime() + windowMs);
+
+    // Rolling a stale window over is conditional on it still being stale, so of
+    // N simultaneous requests exactly one resets the counter and the rest count
+    // against the window it just opened.
+    if (existing && existing.windowEnd < now) {
+      const rolled = await prisma.usageCounter.updateMany({
+        where: { scope, key, windowEnd: { lt: now } },
+        data: { count: 1, windowEnd },
+      });
+      if (rolled.count > 0) return { allowed: limit > 0, used: 1, limit };
+    }
+
+    // One INSERT ... ON CONFLICT DO UPDATE, and the decision is made on the
+    // count the database hands back. The previous upsert wrote count: 1
+    // unconditionally, so simultaneous first requests each reset the counter to
+    // 1 and all of them were allowed — ten parallel diagnoses on a 3/month
+    // allowance, from any key without a row yet, which is every new visitor.
+    const counted = await prisma.usageCounter.upsert({
       where: { scope_key: { scope, key } },
-      data: { count: { increment: 1 } },
+      create: { scope, key, count: 1, windowEnd },
+      update: { count: { increment: 1 } },
     });
-    return { allowed: updated.count <= limit, used: updated.count, limit };
+    return { allowed: counted.count <= limit, used: counted.count, limit };
   } catch (err) {
     // Never let a metering failure take the product down; fall back to memory.
     logger.warn("[entitlements] usage counter unavailable — using memory", err);

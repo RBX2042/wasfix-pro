@@ -203,14 +203,27 @@ async function main() {
 
     // ── Monteur invoicing ───────────────────────────────────────
     check(
-      profileGaps(null).length === 3,
+      profileGaps(null).length > 0,
       "Monteur: an empty profile is rejected as incomplete",
       "Monteur: an empty profile was treated as invoice-ready",
     );
     check(
-      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).length === 0,
+      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", vatNumber: "NL123456789B01", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).length === 0,
       "Monteur: a complete profile passes the invoice precondition",
       "Monteur: a complete profile was still rejected",
+    );
+    // Art. 35a Wet OB: charging btw without a btw-identificatienummer on the
+    // invoice makes it non-deductible for the customer. This fixture used to
+    // omit vatNumber and still pass, which is what let that invoice be issued.
+    check(
+      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).includes("btw-nummer"),
+      "Monteur: charging 21% btw without a btw-nummer is refused",
+      "Monteur: a 21% invoice could be issued without a btw-nummer",
+    );
+    check(
+      profileGaps({ companyName: "KOR BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht", vatRate: 0, invoiceFooter: "Vrijgesteld van omzetbelasting o.g.v. artikel 25 Wet OB" }).length === 0,
+      "Monteur: a kleineondernemer with an exemption statement may invoice at 0%",
+      "Monteur: a valid 0% profile was rejected",
     );
 
     const monteur = await prisma.user.upsert({
@@ -290,7 +303,7 @@ async function main() {
     await prisma.monteurProfile.upsert({
       where: { userId: other.id },
       update: {},
-      create: { userId: other.id, companyName: "Andere Service", kvkNumber: "11223344", street: "Laan 2", postalCode: "1000 AA", city: "Amsterdam" },
+      create: { userId: other.id, companyName: "Andere Service", kvkNumber: "11223344", vatNumber: "NL112233440B01", street: "Laan 2", postalCode: "1000 AA", city: "Amsterdam" },
     });
     const otherInvoice = await issueWorkOrderInvoice(other.id, wo2.id);
     check(

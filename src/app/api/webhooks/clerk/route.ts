@@ -19,14 +19,19 @@ type ClerkUserPayload = {
  * https://wasfix.nl/api/webhooks/clerk with events user.created, user.updated,
  * user.deleted. Set CLERK_WEBHOOK_SECRET (Svix signing secret, whsec_…).
  *
- * The Svix signature is verified whenever a secret is configured; without it
- * (local demo) the payload is accepted only in non-production.
+ * The Svix signature is always verified: an unsigned payload is a stranger
+ * telling us to delete a user, and user.deleted wipes diagnoses, saved machines
+ * and API keys. Accepting one because NODE_ENV happened not to be "production"
+ * handed that to anyone who could reach a preview or staging deploy.
+ * CLERK_WEBHOOK_ALLOW_UNSIGNED=true opts a local machine out; it is refused on
+ * a production build so setting it on a deployed environment changes nothing.
  */
 export async function POST(req: NextRequest) {
   let type = "";
   let data: ClerkUserPayload = {};
 
   const secret = env.CLERK_WEBHOOK_SECRET;
+  const allowUnsigned = process.env.CLERK_WEBHOOK_ALLOW_UNSIGNED === "true" && !env.IS_PRODUCTION;
   if (secret) {
     try {
       const evt = await verifyWebhook(req, { signingSecret: secret });
@@ -36,13 +41,14 @@ export async function POST(req: NextRequest) {
       logger.warn("Clerk webhook signature invalid", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
-  } else if (env.IS_PRODUCTION) {
-    logger.error("Clerk webhook received but CLERK_WEBHOOK_SECRET is not set");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
-  } else {
+  } else if (allowUnsigned) {
+    logger.warn("Clerk webhook accepted UNSIGNED — CLERK_WEBHOOK_ALLOW_UNSIGNED is set");
     const body = await req.json().catch(() => null);
     type = body?.type ?? "";
     data = body?.data ?? {};
+  } else {
+    logger.error("Clerk webhook received but CLERK_WEBHOOK_SECRET is not set");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
   }
 
   const clerkId = data.id;

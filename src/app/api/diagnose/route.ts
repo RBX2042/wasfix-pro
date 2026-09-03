@@ -60,10 +60,13 @@ export async function POST(req: NextRequest) {
     // account when signed in, per visitor cookie (IP-hash fallback) otherwise.
     // B2B API traffic is metered against its API key, not the consumer quota.
     const meteredUpstream = req.headers.get("x-api-metered") === "1" && Boolean(env.INTERNAL_API_KEY) && req.headers.get("x-internal-auth") === env.INTERNAL_API_KEY;
+    // The quota is committed up front. Peeking here and committing after the
+    // answer left the entire Gemini round-trip as a gap: ten parallel requests
+    // all passed the same peek and all ten were answered and billed.
     const plan = getPlan(user?.plan ?? "FREE");
     const quotaLimit = meteredUpstream ? -1 : plan.diagnosesPerMonth;
-    let quotaKey = "";
     if (quotaLimit !== -1) {
+      let quotaKey: string;
       if (user) {
         quotaKey = `user:${user.id}`;
       } else {
@@ -73,7 +76,7 @@ export async function POST(req: NextRequest) {
         const visitorId = req.cookies.get(VISITOR_COOKIE)?.value ?? null;
         quotaKey = anonymousKey(req, visitorId);
       }
-      const quota = await consumeUsage("diagnose", quotaKey, quotaLimit, { commit: false });
+      const quota = await consumeUsage("diagnose", quotaKey, quotaLimit);
       if (!quota.allowed) {
         return apiError(
           user
@@ -186,11 +189,6 @@ export async function POST(req: NextRequest) {
         /^(miele|bosch|samsung|lg|aeg|whirlpool|electrolux|siemens|beko|indesit)/i.test(m.content)
       )?.content.split(/\s+/)[0] ??
       "Onbekend";
-
-    // Meter the answer we just produced (not the clarifying questions).
-    if (quotaLimit !== -1 && quotaKey) {
-      await consumeUsage("diagnose", quotaKey, quotaLimit).catch(() => null);
-    }
 
     if (diagResult) {
       try {

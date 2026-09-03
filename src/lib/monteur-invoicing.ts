@@ -32,17 +32,38 @@ export type MonteurInvoice = {
 /** A monteur cannot invoice before we know who they are. */
 export type ProfileGap = { ok: false; missing: string[] };
 
-export function profileGaps(profile: { companyName?: string | null; kvkNumber?: string | null; street?: string | null; postalCode?: string | null; city?: string | null } | null): string[] {
-  if (!profile) return ["bedrijfsnaam", "KvK-nummer", "adres"];
+export function profileGaps(profile: { companyName?: string | null; kvkNumber?: string | null; vatNumber?: string | null; street?: string | null; postalCode?: string | null; city?: string | null; vatRate?: number | null; invoiceFooter?: string | null } | null): string[] {
+  if (!profile) return ["bedrijfsnaam", "KvK-nummer", "btw-nummer", "adres"];
   const missing: string[] = [];
   if (!profile.companyName?.trim()) missing.push("bedrijfsnaam");
   if (!profile.kvkNumber?.trim()) missing.push("KvK-nummer");
+  // Art. 35a Wet OB: an invoice charging btw must carry the supplier's
+  // btw-identificatienummer, otherwise a business customer cannot deduct that
+  // btw. At 0% (kleineondernemersregeling) the reason for the exemption takes
+  // its place; the footer is the only free text that reaches the invoice.
+  const vatRate = profile.vatRate ?? 0.21;
+  if (vatRate > 0) {
+    if (!profile.vatNumber?.trim()) missing.push("btw-nummer");
+  } else if (!profile.invoiceFooter?.trim()) {
+    missing.push("reden van de btw-vrijstelling (voettekst op de factuur)");
+  }
   if (!profile.street?.trim() || !profile.postalCode?.trim() || !profile.city?.trim()) missing.push("adres");
   return missing;
 }
 
 function formatNumber(year: number, seq: number): string {
   return `${year}-${String(seq).padStart(4, "0")}`;
+}
+
+/**
+ * The year as it stands on the Dutch calendar. Between 00:00 and 01:00 CET on
+ * 1 January the server clock (UTC) is still in the old year, which would file
+ * the invoice in the previous number series and in the wrong btw-aangifte.
+ */
+function amsterdamYear(at: Date): number {
+  const parts = new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric" }).formatToParts(at);
+  const year = Number(parts.find((p) => p.type === "year")?.value);
+  return Number.isFinite(year) ? year : at.getUTCFullYear();
 }
 
 /**
@@ -111,8 +132,11 @@ export async function issueWorkOrderInvoice(
     }];
 
     const vat = splitVatInclusive(workOrder.priceEur, profile!.vatRate);
-    const year = new Date().getFullYear();
-    const dueAt = new Date(Date.now() + profile!.paymentTerms * 24 * 60 * 60 * 1000);
+    // One instant for the number, the date and the term: the year on the
+    // invoice must be the year its number was taken from.
+    const issuedAt = new Date();
+    const year = amsterdamYear(issuedAt);
+    const dueAt = new Date(issuedAt.getTime() + profile!.paymentTerms * 24 * 60 * 60 * 1000);
 
     // Number and row are written together: opening the invoice page twice in
     // parallel must not consume a number without producing an invoice.
@@ -130,8 +154,9 @@ export async function issueWorkOrderInvoice(
         workOrderId: workOrder.id,
         number: formatNumber(year, seqRow.last),
         year,
+        issuedAt,
         dueAt,
-        subtotalEur: vat.totalEur,
+        subtotalEur: vat.exVatEur,
         vatRate: vat.vatRate,
         vatEur: vat.vatEur,
         totalEur: vat.totalEur,

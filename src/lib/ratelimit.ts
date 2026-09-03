@@ -86,11 +86,33 @@ export async function rateLimit(key: string, maxRequests: number, windowMs: numb
   return memoryRateLimit(key, maxRequests, windowMs);
 }
 
-/** Build a stable key per request (IP + optional user). */
+/**
+ * The caller's IP, as far as we can trust it.
+ *
+ * x-forwarded-for is client-supplied: a caller may prepend any address they
+ * like, so its *first* entry is worthless as an identity — rotating the header
+ * made every rate limit and the free-tier paywall disappear. Only the platform
+ * header is written by our own edge; failing that, the *last* entry of
+ * x-forwarded-for is the hop our proxy appended, which a client cannot forge
+ * past.
+ */
+export function clientIp(req: NextRequest): string {
+  const platform = req.headers.get("x-vercel-forwarded-for")?.trim();
+  if (platform) return platform;
+
+  const hops = (req.headers.get("x-forwarded-for") ?? "")
+    .split(",")
+    .map((hop) => hop.trim())
+    .filter(Boolean);
+  if (hops.length > 0) return hops[hops.length - 1];
+
+  return req.headers.get("x-real-ip")?.trim() ?? "";
+}
+
+/** Build a stable key per request: the account when signed in, else the IP. */
 export function getClientKey(req: NextRequest, userId?: string): string {
-  const ip =
-    req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    req.headers.get("x-real-ip") ??
-    "anon";
-  return userId ? `${userId}:${ip}` : ip;
+  // Signed-in callers are keyed on the account alone — with the IP mixed in,
+  // one account could mint a fresh bucket per request from headers.
+  if (userId) return `user:${userId}`;
+  return clientIp(req) || "anon";
 }

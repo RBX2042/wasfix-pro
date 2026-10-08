@@ -1,5 +1,5 @@
 /**
- * VAT math and invoice issuing.
+ * VAT math, invoices, credit notes and the order lifecycle.
  *
  * Catalog prices are shown to consumers including 21% BTW, which is what NL
  * price-display rules require and what the terms already state. The VAT is
@@ -8,12 +8,66 @@
  * the accounting — an order stored one number and no invoice existed at all,
  * while an invoice with a VAT specification is legally required and must be
  * kept for 7 years.
+ *
+ * CONTRACT (state is defined in ./order-status; every status transition below
+ * is a conditional update, `updateMany` with the expected status in the WHERE
+ * and a check for count === 0, so concurrent calls cannot both win)
+ *
+ * REPLAY SAFETY, exactly: cancelOrder, markOrderShipped, markOrderDelivered and
+ * markOrderPaidByBankTransfer are idempotent on their own (the status is the
+ * claim). A refund is not a status change, so a PARTIAL refund is idempotent
+ * only when the caller supplies one of: `stripeRefundId` (Stripe's id; a replayed
+ * webhook returns the same note), `idempotencyKey` (a key per form render; a
+ * double submit returns the same note), or `expectedRefundedEur` (the
+ * refundedEur the caller saw; a second submit finds it changed and is refused as
+ * a conflict). A partial refund called twice with none of the three books two
+ * credit notes, by design: two refunds of the same amount are legitimate.
+ *
+ *   Invoices
+ *     issueInvoiceForOrder(orderId, tx?)      -> IssuedInvoice | null; throws CompanyNotReadyError in
+ *                                                production while the company identity is incomplete
+ *     getInvoiceForOrder(orderId)             -> IssuedInvoice | null
+ *     splitVatInclusive, money, amsterdamYear helpers
+ *     invoicingBlockedReason(opts?)           -> {missing} | null
+ *   Credit notes (never edit or delete an invoice; see the sign convention below)
+ *     issueCreditNote(invoiceId, {amountEur?, reason, stripeRefundId?, idempotencyKey?}, tx?) -> IssuedCreditNote; throws OrderDomainError
+ *     setCreditNoteStripeRefund(creditNoteId, stripeRefundId)                -> boolean
+ *     getCreditNotesForOrder(orderId)                                        -> IssuedCreditNote[]
+ *   Lifecycle (results are {ok:true,...} | {ok:false, code, error}; they do not throw)
+ *     cancelOrder(orderId, {reason, actor, stripeRefundId?, notifyCustomer?, customerReason?}) -> CancelOrderResult
+ *     markOrderShipped(orderId, {carrier, trackingCode})                     -> ShipResult
+ *     updateOrderTracking(orderId, {carrier, trackingCode, resendEmail?})    -> ShipResult
+ *     markOrderDelivered(orderId)                                            -> DeliverResult
+ *     recordRefund(orderId, {amountEur, stripeRefundId?, idempotencyKey?, expectedRefundedEur?, reason?, restock?, notifyCustomer?}) -> RecordRefundResult
+ *     markOrderPaidByBankTransfer(orderId, {receivedAmountEur?}?)            -> MarkPaidResult; THROWS AmountMismatchError
+ *   Notices (never throw; call after the commit, from the path that won the claim)
+ *     notifyOrderPlaced(orderId)              owner: new order
+ *     notifyOrderPaid(orderId, "stripe" | "bank_transfer")   customer mail + owner notice -> {emailSent}
+ *   Margin (only QUOTE costs count; the rest is labelled "schatting")
+ *     costBasis(part) -> QUOTE | ESTIMATE | UNKNOWN;  computeMargin(lines, vatRate?) -> {confirmed, estimated, unknownLines, label}
+ *     computeOrderMargin({items, discountEur, vatRate?}) -> same; spreads the order discount over the lines first
+ *   Company
+ *     warnAboutUnrealCompany()                once per process, production only: tells the owner when readiness reports test values
+ *   Guest access
+ *     newAccessToken()                        for Order.accessToken on every new order
+ *     orderAccessOk({accessToken}, token)     constant-time; only ONE of three ways in
+ *     orderUrlFor({id, accessToken})          absolute /bestelling/<id>?t=<token>
+ *   Errors: OrderDomainError(code), AmountMismatchError, CompanyNotReadyError
+ *
+ * CREDIT NOTE SIGN CONVENTION: amounts on a credit note are positive
+ * magnitudes (what is credited); the document prints them with a minus sign;
+ * in the books they count negative. See the comment on IssuedCreditNote.
  */
 
+import { randomBytes, createHash, timingSafeEqual } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { prisma } from "./prisma";
-import { isDatabaseConfigured } from "./env";
-import { COMPANY, VAT_RATE } from "./plans";
+import { env, isDatabaseConfigured } from "./env";
+import { COMPANY, VAT_RATE, companyReadiness } from "./plans";
 import { logger } from "./logger";
+import { canTransition, customerOrderUrl, holdsStock, orderRef, statusesThatCanGo, type OrderStatus } from "./order-status";
+import { notifyOwner } from "./notify";
+import { normaliseCarrier } from "./emails/tracking";
 
 /** Round to whole cents, avoiding float drift like 12.340000000000002. */
 export function money(value: number): number {
@@ -142,6 +196,16 @@ export async function issueInvoiceForOrder(orderId: string, tx?: InvoiceTx): Pro
     });
     if (!order) return null;
 
+    // A partial company configuration must never produce an invoice: the seller
+    // snapshot is permanent and the number series is gapless, so an invoice
+    // with a placeholder btw-nummer or IBAN can only be undone with a credit
+    // note. Outside production the development fallbacks are allowed, so demo
+    // and CI keep working.
+    const blocked = invoicingBlockedReason();
+    if (blocked) throw new CompanyNotReadyError(blocked.missing);
+    // Ready is not the same as real: the CI/sandbox numbers are well-formed. Say
+    // so to the owner (once per process) instead of invoicing in silence.
+    void warnAboutUnrealCompany();
 
     const address = safeJson<{ name?: string; street?: string; houseNumber?: string; postalCode?: string; city?: string; country?: string }>(
       order.shippingAddress,
@@ -223,28 +287,1159 @@ export async function issueInvoiceForOrder(orderId: string, tx?: InvoiceTx): Pro
   }
 }
 
+// ─── Errors and shared types ──────────────────────────────────────────
+
+export type OrderErrorCode =
+  | "not_found"
+  | "db_unavailable"
+  | "not_cancellable"
+  | "illegal_transition"
+  | "conflict"
+  | "invalid_input"
+  | "wrong_payment_method"
+  | "has_credit_note"
+  | "out_of_stock"
+  | "no_invoice"
+  | "invalid_amount"
+  | "exceeds_invoice"
+  | "company_not_ready"
+  | "db_error";
+
+/** A refusal that is part of the domain (not a crash). Carries a stable code. */
+export class OrderDomainError extends Error {
+  readonly code: OrderErrorCode;
+  constructor(code: OrderErrorCode, message: string) {
+    super(message);
+    this.name = "OrderDomainError";
+    this.code = code;
+  }
+}
+
 /**
- * Confirms a bank-transfer order has been paid (admin action, once the wire
- * arrives — there is no bank feed to detect this automatically). Idempotent:
- * an already-paid order is left as-is rather than double-decrementing stock
- * or re-sending a confirmation.
+ * Thrown by markOrderPaidByBankTransfer when a supplied amount differs from the
+ * order total by even one cent. Nothing has been changed when this is thrown.
+ */
+export class AmountMismatchError extends OrderDomainError {
+  readonly expectedEur: number;
+  readonly receivedEur: number;
+  constructor(expectedEur: number, receivedEur: number) {
+    super(
+      "invalid_amount",
+      `Ontvangen bedrag € ${receivedEur.toFixed(2)} komt niet overeen met het factuurbedrag € ${expectedEur.toFixed(2)}.`,
+    );
+    this.name = "AmountMismatchError";
+    this.expectedEur = expectedEur;
+    this.receivedEur = receivedEur;
+  }
+}
+
+/** Thrown instead of issuing an invoice while the company identity is incomplete in production. */
+export class CompanyNotReadyError extends OrderDomainError {
+  readonly missing: string[];
+  constructor(missing: string[]) {
+    super("company_not_ready", `Bedrijfsgegevens zijn niet compleet (${missing.join(", ")}); er wordt geen factuur uitgegeven.`);
+    this.name = "CompanyNotReadyError";
+    this.missing = missing;
+  }
+}
+
+export type OrderOpFail = { ok: false; code: OrderErrorCode; error: string };
+
+/** Who triggered a state change. Goes to the audit log and the owner notification. */
+export type OrderActor = "admin" | "customer" | "system" | "stripe";
+
+const centsOf = (eur: number) => Math.round(eur * 100);
+
+/** Why invoicing is blocked right now, or null when it may proceed. Exported for tests and preflight. */
+export function invoicingBlockedReason(
+  opts: { isProduction?: boolean; readiness?: { ready: boolean; missing: string[] } } = {},
+): { missing: string[] } | null {
+  const isProduction = opts.isProduction ?? env.IS_PRODUCTION;
+  if (!isProduction) return null;
+  const readiness = opts.readiness ?? companyReadiness();
+  return readiness.ready ? null : { missing: readiness.missing };
+}
+
+let warnedUnrealCompany = false;
+
+/** For tests only. */
+export function _resetCompanyWarningForTests(): void {
+  warnedUnrealCompany = false;
+}
+
+/**
+ * In production, tell the owner (log + notifyOwner, once per process) when the
+ * company identity passes the format checks but contains a known test or
+ * documentation number, or has no COMPANY_EMAIL. companyReadiness() reports
+ * those as `warnings` rather than blocking, because CI builds production with
+ * the test numbers; without this nothing read the warnings and a deploy that
+ * kept them invoiced real customers with a test IBAN, silently. Never throws.
+ */
+export async function warnAboutUnrealCompany(): Promise<void> {
+  try {
+    if (!env.IS_PRODUCTION || warnedUnrealCompany) return;
+    const { warnings } = companyReadiness();
+    if (warnings.length === 0) return;
+    warnedUnrealCompany = true;
+    logger.warn("[invoicing] company identity looks like test or incomplete data", { warnings });
+    await ping({
+      event: "company.unreal_identity",
+      level: "warn",
+      title: "Bedrijfsgegevens zien er niet echt uit",
+      lines: [...warnings, "Facturen en betaalinstructies gebruiken deze waarden. Controleer de COMPANY_* variabelen."],
+    });
+  } catch {
+    // A warning must never break an invoice.
+  }
+}
+
+// ─── Guest access token ───────────────────────────────────────────────
+
+/** A fresh Order.accessToken: 48 hex characters from 24 random bytes. Never log it. */
+export function newAccessToken(): string {
+  return randomBytes(24).toString("hex");
+}
+
+/**
+ * Does `token` open this order? Compares SHA-256 digests with timingSafeEqual,
+ * so the comparison time does not depend on how many leading characters match
+ * or on the token's length. An order without a token (a row that predates the
+ * column) or an empty/missing presented token never matches.
+ *
+ * This is only one of three ways in. The page must also accept the signed-in
+ * owner and an admin; this helper knows nothing about sessions.
+ */
+export function orderAccessOk(order: { accessToken?: string | null }, token: string | null | undefined): boolean {
+  if (!order.accessToken || !token) return false;
+  const a = createHash("sha256").update(order.accessToken).digest();
+  const b = createHash("sha256").update(token).digest();
+  return timingSafeEqual(a, b);
+}
+
+/** Absolute customer link for an order, with the guest token. See customerOrderUrl. */
+export function orderUrlFor(order: { id: string; accessToken?: string | null }): string {
+  return customerOrderUrl(order.id, order.accessToken);
+}
+
+// ─── Credit notes ─────────────────────────────────────────────────────
+
+/**
+ * CREDIT NOTE SIGN CONVENTION. Every amount on a credit note is a positive
+ * magnitude: the amount that is credited. The printed document shows it with a
+ * minus sign; in the books it counts negative:
+ *
+ *   revenue incl. VAT = sum(Invoice.totalEur)  - sum(CreditNote.totalEur)
+ *   VAT payable       = sum(Invoice.vatEur)    - sum(CreditNote.vatEur)
+ *
+ * `totalEur` is gross (VAT included), `vatEur` the VAT contained in it and
+ * `subtotalEur` the net amount (totalEur - vatEur). Once credit notes add up to
+ * the invoice total they also add up to the invoice VAT to the cent: the note
+ * that completes the credit takes the remaining VAT instead of rounding again.
+ */
+export type IssuedCreditNote = {
+  id: string;
+  /** "CN-2026-00001" */
+  number: string;
+  issuedAt: Date;
+  invoiceId: string;
+  invoiceNumber: string;
+  reason: string;
+  seller: InvoiceParty;
+  buyer: InvoiceParty;
+  lines: InvoiceLine[];
+  subtotalEur: number;
+  vatRate: number;
+  vatEur: number;
+  totalEur: number;
+  stripeRefundId: string | null;
+  /** True when this call found an existing note instead of creating one. */
+  replayed: boolean;
+};
+
+export type CreditNoteInput = {
+  /** Gross amount to credit, VAT included. Omitted = everything still uncredited. */
+  amountEur?: number;
+  /** Free text, stored on the note. */
+  reason: string;
+  /** Makes the call idempotent: the same refund id returns the same note. */
+  stripeRefundId?: string | null;
+  /** Same for a refund that has no Stripe id (bank transfer): the same key returns the same note. Max 100 characters. */
+  idempotencyKey?: string | null;
+};
+
+/**
+ * VAT and net amount of one credit note. Pure, so the arithmetic can be tested
+ * exhaustively. A partial note takes the difference between the VAT of the
+ * cumulative credited amount before and after it, so the VAT of consecutive
+ * notes can never be negative (VAT of a running total only grows); the note
+ * that completes the credit takes whatever VAT of the invoice is left, so all
+ * notes add up to the invoice's VAT to the cent. Both are clamped to
+ * [0, amount] as a last guard against an invoice whose stored VAT was not
+ * computed by splitVatInclusive.
+ */
+export function creditNoteVat(p: {
+  invoiceTotalCents: number;
+  invoiceVatEur: number;
+  priorCents: number;
+  priorVatEur: number;
+  amountCents: number;
+  vatRate: number;
+}): { vatEur: number; subtotalEur: number } {
+  const amount = p.amountCents / 100;
+  const completes = p.priorCents + p.amountCents === p.invoiceTotalCents;
+  const raw = completes
+    ? money(p.invoiceVatEur - p.priorVatEur)
+    : money(
+        splitVatInclusive((p.priorCents + p.amountCents) / 100, p.vatRate).vatEur - splitVatInclusive(p.priorCents / 100, p.vatRate).vatEur,
+      );
+  const vatEur = Math.min(Math.max(raw, 0), amount);
+  return { vatEur, subtotalEur: money(amount - vatEur) };
+}
+
+type Tx = Prisma.TransactionClient;
+
+function formatCreditNoteNumber(year: number, seq: number): string {
+  return `CN-${year}-${String(seq).padStart(5, "0")}`;
+}
+
+/**
+ * Next number in the year's credit-note series. One INSERT .. ON CONFLICT ..
+ * RETURNING, so even the very first note of a year, requested by several
+ * transactions at once, cannot collide; the row lock it takes is held until the
+ * caller's transaction ends, which both serialises allocation and gives the
+ * number back on rollback (gapless). Exported for tests; call issueCreditNote.
+ */
+export async function allocateCreditNoteSequence(t: Tx, year: number): Promise<number> {
+  const rows = await t.$queryRaw<{ last: number }[]>`
+    INSERT INTO "CreditNoteSequence" ("year", "last") VALUES (${year}, 1)
+    ON CONFLICT ("year") DO UPDATE SET "last" = "CreditNoteSequence"."last" + 1
+    RETURNING "last"`;
+  return Number(rows[0].last);
+}
+
+type CreditNoteRow = {
+  id: string;
+  number: string;
+  issuedAt: Date;
+  invoiceId: string;
+  reason: string;
+  subtotalEur: number;
+  vatRate: number;
+  vatEur: number;
+  totalEur: number;
+  sellerJson: string;
+  buyerJson: string;
+  linesJson: string;
+  stripeRefundId: string | null;
+};
+
+function deserializeCreditNote(row: CreditNoteRow, invoiceNumber: string, replayed: boolean): IssuedCreditNote {
+  return {
+    id: row.id,
+    number: row.number,
+    issuedAt: row.issuedAt,
+    invoiceId: row.invoiceId,
+    invoiceNumber,
+    reason: row.reason,
+    seller: safeJson<InvoiceParty>(row.sellerJson) ?? sellerParty(),
+    buyer: safeJson<InvoiceParty>(row.buyerJson) ?? { name: "Onbekend" },
+    lines: safeJson<InvoiceLine[]>(row.linesJson) ?? [],
+    subtotalEur: row.subtotalEur,
+    vatRate: row.vatRate,
+    vatEur: row.vatEur,
+    totalEur: row.totalEur,
+    stripeRefundId: row.stripeRefundId,
+    replayed,
+  };
+}
+
+/**
+ * Issue a credit note (creditfactuur) against an invoice. The invoice itself is
+ * never touched.
+ *
+ * Gapless: the number comes from CreditNoteSequence, incremented with a single
+ * INSERT .. ON CONFLICT .. RETURNING inside the same transaction that writes the
+ * note, so a rollback gives the number back and two concurrent calls queue on the
+ * sequence row instead of colliding. The year is the Europe/Amsterdam year.
+ *
+ * Serialised per invoice: the invoice row is locked (SELECT .. FOR UPDATE)
+ * before the credited-so-far total is read, so two concurrent partial refunds
+ * cannot both pass the "does not exceed the invoice" check.
+ *
+ * Idempotent with `stripeRefundId` or `idempotencyKey`: a replay returns the
+ * existing note (replayed: true). Without either, `amountEur` omitted on an
+ * invoice that is already fully credited returns the most recent note, but a call
+ * with an explicit amount cannot tell a replay from a second partial credit and
+ * books another note. cancelOrder is idempotent through the order status;
+ * recordRefund needs one of the keys (or expectedRefundedEur) for a partial refund.
+ *
+ * Does NOT update Order.refundedEur or the order status: use cancelOrder or
+ * recordRefund for that. Pass `tx` to join the caller's transaction (the usual
+ * case); without it a transaction is opened.
+ *
+ * @throws OrderDomainError  not_found | exceeds_invoice | invalid_amount | conflict
+ */
+export async function issueCreditNote(invoiceId: string, input: CreditNoteInput, tx?: Tx): Promise<IssuedCreditNote> {
+  if (!isDatabaseConfigured()) throw new OrderDomainError("db_unavailable", "Database niet beschikbaar.");
+  const run = async (t: Tx): Promise<IssuedCreditNote> => {
+    // Lock first, then read: see the doc comment.
+    const locked = await t.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Invoice" WHERE "id" = ${invoiceId} FOR UPDATE`;
+    if (locked.length === 0) throw new OrderDomainError("not_found", "Factuur niet gevonden.");
+    const invoice = await t.invoice.findUniqueOrThrow({ where: { id: invoiceId } });
+
+    if (input.idempotencyKey !== undefined && input.idempotencyKey !== null && (input.idempotencyKey.length === 0 || input.idempotencyKey.length > 100)) {
+      throw new OrderDomainError("invalid_input", "De idempotentiesleutel moet 1 tot 100 tekens zijn.");
+    }
+    if (input.stripeRefundId) {
+      const existing = await t.creditNote.findUnique({ where: { stripeRefundId: input.stripeRefundId } });
+      if (existing) {
+        if (existing.invoiceId !== invoiceId) {
+          throw new OrderDomainError("conflict", "Deze Stripe-terugbetaling hoort bij een andere factuur.");
+        }
+        return deserializeCreditNote(existing, invoice.number, true);
+      }
+    }
+    if (input.idempotencyKey) {
+      const existing = await t.creditNote.findUnique({ where: { idempotencyKey: input.idempotencyKey } });
+      if (existing) {
+        if (existing.invoiceId !== invoiceId) throw new OrderDomainError("conflict", "Deze sleutel is al voor een andere factuur gebruikt.");
+        return deserializeCreditNote(existing, invoice.number, true);
+      }
+    }
+
+    const prior = await t.creditNote.aggregate({ where: { invoiceId }, _sum: { totalEur: true, vatEur: true } });
+    const priorCents = centsOf(prior._sum.totalEur ?? 0);
+    const priorVat = prior._sum.vatEur ?? 0;
+    const invoiceCents = centsOf(invoice.totalEur);
+    const remainingCents = invoiceCents - priorCents;
+
+    let amountCents: number;
+    if (input.amountEur === undefined) {
+      if (remainingCents <= 0) {
+        const latest = await t.creditNote.findFirst({ where: { invoiceId }, orderBy: { issuedAt: "desc" } });
+        if (latest) return deserializeCreditNote(latest, invoice.number, true);
+        throw new OrderDomainError("invalid_amount", "De factuur heeft geen bedrag om te crediteren.");
+      }
+      amountCents = remainingCents;
+    } else {
+      amountCents = centsOf(input.amountEur);
+      if (!Number.isFinite(input.amountEur) || amountCents <= 0) {
+        throw new OrderDomainError("invalid_amount", "Het te crediteren bedrag moet groter zijn dan nul.");
+      }
+      if (amountCents > remainingCents) {
+        throw new OrderDomainError(
+          "exceeds_invoice",
+          `Het te crediteren bedrag (€ ${(amountCents / 100).toFixed(2)}) is hoger dan wat nog te crediteren is (€ ${(Math.max(remainingCents, 0) / 100).toFixed(2)}).`,
+        );
+      }
+    }
+
+    const amount = amountCents / 100;
+    const { vatEur, subtotalEur } = creditNoteVat({
+      invoiceTotalCents: invoiceCents,
+      invoiceVatEur: invoice.vatEur,
+      priorCents,
+      priorVatEur: priorVat,
+      amountCents,
+      vatRate: invoice.vatRate,
+    });
+
+    const fullInvoice = priorCents === 0 && amountCents === invoiceCents;
+    // A note that credits the whole invoice repeats the invoice's lines, and
+    // the invoice total also holds shipping and any discount: without those
+    // two lines the printed lines add up to less than the total.
+    const lines: InvoiceLine[] = fullInvoice
+      ? [
+          ...(safeJson<InvoiceLine[]>(invoice.linesJson) ?? []),
+          ...(invoice.shippingEur > 0
+            ? [{ sku: "", name: "Verzendkosten", quantity: 1, unitPriceEur: money(invoice.shippingEur), lineTotalEur: money(invoice.shippingEur) }]
+            : []),
+          ...(invoice.discountEur > 0
+            ? [{ sku: "", name: "Korting", quantity: 1, unitPriceEur: money(-invoice.discountEur), lineTotalEur: money(-invoice.discountEur) }]
+            : []),
+        ]
+      : [
+          {
+            sku: "",
+            name: `${priorCents === 0 ? "Gedeeltelijke" : "Aanvullende"} creditering van factuur ${invoice.number}`,
+            quantity: 1,
+            unitPriceEur: amount,
+            lineTotalEur: amount,
+          },
+        ];
+
+    const year = amsterdamYear(new Date());
+    const number = formatCreditNoteNumber(year, await allocateCreditNoteSequence(t, year));
+
+    const created = await t.creditNote.create({
+      data: {
+        number,
+        year,
+        invoiceId,
+        reason: input.reason.slice(0, 300),
+        subtotalEur,
+        vatRate: invoice.vatRate,
+        vatEur,
+        totalEur: amount,
+        // The credit note names the same seller and buyer as the invoice it
+        // corrects, as they were when that invoice was issued.
+        sellerJson: invoice.sellerJson,
+        buyerJson: invoice.buyerJson,
+        linesJson: JSON.stringify(lines),
+        stripeRefundId: input.stripeRefundId ?? null,
+        idempotencyKey: input.idempotencyKey ?? null,
+      },
+    });
+    logger.info("[invoicing] credit note issued", { number, invoice: invoice.number, totalEur: amount });
+    return deserializeCreditNote(created, invoice.number, false);
+  };
+  return tx ? run(tx) : prisma.$transaction(run, { maxWait: 10_000, timeout: 20_000 });
+}
+
+/** Attach the Stripe refund id to a credit note that was issued before the refund existed. Only fills an empty id. */
+export async function setCreditNoteStripeRefund(creditNoteId: string, stripeRefundId: string): Promise<boolean> {
+  if (!isDatabaseConfigured()) return false;
+  const res = await prisma.creditNote.updateMany({ where: { id: creditNoteId, stripeRefundId: null }, data: { stripeRefundId } });
+  return res.count > 0;
+}
+
+/** Credit notes issued against an order's invoice, oldest first. */
+export async function getCreditNotesForOrder(orderId: string): Promise<IssuedCreditNote[]> {
+  if (!isDatabaseConfigured()) return [];
+  try {
+    const invoice = await prisma.invoice.findUnique({ where: { orderId }, include: { creditNotes: { orderBy: { issuedAt: "asc" } } } });
+    return invoice ? invoice.creditNotes.map((c) => deserializeCreditNote(c, invoice.number, false)) : [];
+  } catch {
+    return [];
+  }
+}
+
+// ─── Order helpers ────────────────────────────────────────────────────
+
+type OrderForMail = {
+  id: string;
+  email: string;
+  accessToken: string | null;
+  shippingAddress: string;
+};
+
+function addressOf(order: { shippingAddress: string }) {
+  return safeJson<{ name?: string; postalCode?: string }>(order.shippingAddress) ?? {};
+}
+
+function customerNameOf(order: { shippingAddress: string }): string {
+  return addressOf(order).name?.trim() || "klant";
+}
+
+const PAYMENT_LABEL: Record<string, string> = { STRIPE: "iDEAL/kaart", BANK_TRANSFER: "overschrijving" };
+
+const fail = (code: OrderErrorCode, error: string): OrderOpFail => ({ ok: false, code, error });
+
+function failFrom(err: unknown, what: string): OrderOpFail {
+  if (err instanceof OrderDomainError) return fail(err.code, err.message);
+  logger.error(`[invoicing] ${what} failed`, err);
+  return fail("db_error", `${what} is mislukt. Probeer het opnieuw.`);
+}
+
+/** Notify the owner, never throwing and never including customer details. */
+async function ping(input: Parameters<typeof notifyOwner>[0]): Promise<void> {
+  await notifyOwner(input).catch(() => undefined);
+}
+
+// ─── Cancel ───────────────────────────────────────────────────────────
+
+export type CancelOrderOptions = {
+  /** Stored on the order (Order.cancelReason) and on the credit note. */
+  reason: string;
+  actor: OrderActor;
+  /**
+   * The Stripe refund that returned the money, when the order was paid by card
+   * or iDEAL. Create the refund FIRST (idempotency key per order), then cancel
+   * with its id: if the Stripe call fails the order simply is not cancelled.
+   */
+  stripeRefundId?: string | null;
+  /** Mail the customer (default true). */
+  notifyCustomer?: boolean;
+  /** Shown to the customer in the mail instead of `reason` (which may be internal). */
+  customerReason?: string | null;
+};
+
+export type CancelOrderResult =
+  | {
+      ok: true;
+      /** True when the order was already cancelled: nothing was changed or sent. */
+      alreadyCancelled: boolean;
+      /** Units went back on the shelf in this call. */
+      restocked: boolean;
+      /** The credit note issued now, or the existing one on a replay. Null for a never-invoiced order. */
+      creditNote: IssuedCreditNote | null;
+      /** Money still owed to the customer after this cancellation (paid orders): refund it. */
+      refundDueEur: number;
+      /** Result of the customer mail; null when none was attempted. */
+      emailSent: boolean | null;
+    }
+  | OrderOpFail;
+
+type CancelOutcome = {
+  alreadyCancelled: boolean;
+  restocked: boolean;
+  creditNote: IssuedCreditNote | null;
+  refundDueEur: number;
+  wasPaid: boolean;
+  /** A paid order that could not be invoiced (company identity incomplete): the refund is owed without a credit note. */
+  paidWithoutInvoice: boolean;
+  order: OrderForMail & { totalEur: number; itemCount: number; paymentMethod: string };
+};
+
+/**
+ * Cancel inside a transaction. The conditional update on the CURRENT status is
+ * the claim: of N concurrent callers exactly one gets count 1 and does the
+ * restock and the credit note.
+ */
+async function cancelInTx(
+  t: Tx,
+  orderId: string,
+  opts: CancelOrderOptions,
+  creditAmountEur?: number,
+  extra: { idempotencyKey?: string | null } = {},
+): Promise<CancelOutcome> {
+  const order = await t.order.findUnique({
+    where: { id: orderId },
+    include: { items: { select: { partId: true, quantity: true } }, invoice: { select: { id: true } } },
+  });
+  if (!order) throw new OrderDomainError("not_found", "Bestelling niet gevonden.");
+  const summary = {
+    id: order.id,
+    email: order.email,
+    accessToken: order.accessToken,
+    shippingAddress: order.shippingAddress,
+    totalEur: order.totalEur,
+    itemCount: order.items.reduce((n, i) => n + i.quantity, 0),
+    paymentMethod: order.paymentMethod,
+  };
+
+  const replay = async (): Promise<CancelOutcome> => {
+    const note = order.invoice
+      ? await t.creditNote.findFirst({ where: { invoiceId: order.invoice.id }, orderBy: { issuedAt: "desc" }, include: { invoice: { select: { number: true } } } })
+      : null;
+    return {
+      alreadyCancelled: true,
+      restocked: false,
+      creditNote: note ? deserializeCreditNote(note, note.invoice.number, true) : null,
+      refundDueEur: 0,
+      wasPaid: false,
+      paidWithoutInvoice: false,
+      order: summary,
+    };
+  };
+
+  if (order.status === "CANCELLED") return replay();
+  if (!canTransition(order.status, "CANCELLED")) {
+    throw new OrderDomainError(
+      "not_cancellable",
+      order.status === "SHIPPED" || order.status === "DELIVERED"
+        ? "Een verzonden bestelling kan niet meer worden geannuleerd. Gebruik een retour of terugbetaling."
+        : `Bestelling staat op ${order.status} en kan niet worden geannuleerd.`,
+    );
+  }
+
+  const previous = order.status as OrderStatus;
+  const claimed = await t.order.updateMany({
+    where: { id: orderId, status: previous },
+    data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: opts.reason.slice(0, 300) },
+  });
+  if (claimed.count === 0) {
+    // Lost the race. If the winner cancelled, this is a replay; anything else is a conflict.
+    const now = await t.order.findUnique({ where: { id: orderId }, select: { status: true } });
+    if (now?.status === "CANCELLED") return replay();
+    throw new OrderDomainError("conflict", "Bestelling is zojuist gewijzigd. Probeer het opnieuw.");
+  }
+
+  let restocked = false;
+  if (holdsStock(previous)) {
+    for (const item of order.items) {
+      await t.part.update({ where: { id: item.partId }, data: { stock: { increment: item.quantity } } });
+    }
+    restocked = order.items.length > 0;
+  }
+
+  let creditNote: IssuedCreditNote | null = null;
+  let refundDueEur = 0;
+  let paidWithoutInvoice = false;
+  let invoiceId = order.invoice?.id ?? null;
+  if (!invoiceId && previous === "PAID") {
+    // Paid but never invoiced (the invoice step failed or was blocked earlier).
+    // The money was received, so it must be paid back and the sale must be on
+    // the books with its credit note: issue the invoice now, as recordRefund
+    // does, then credit it. Only a company identity that may not invoice
+    // (production, incomplete) skips this; the refund is still owed, see below.
+    if (!invoicingBlockedReason()) {
+      const issued = await issueInvoiceForOrder(orderId, t);
+      if (issued) invoiceId = (await t.invoice.findUniqueOrThrow({ where: { orderId }, select: { id: true } })).id;
+    }
+  }
+  if (invoiceId) {
+    // Everything still uncredited, unless the caller names an amount (a full
+    // refund recorded through recordRefund passes exactly the remainder).
+    const aggregate = await t.creditNote.aggregate({ where: { invoiceId }, _sum: { totalEur: true } });
+    const invoice = await t.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { totalEur: true } });
+    const remaining = money(invoice.totalEur - (aggregate._sum.totalEur ?? 0));
+    if (remaining > 0) {
+      creditNote = await issueCreditNote(
+        invoiceId,
+        {
+          amountEur: creditAmountEur ?? remaining,
+          reason: `Annulering: ${opts.reason}`,
+          stripeRefundId: opts.stripeRefundId ?? null,
+          idempotencyKey: extra.idempotencyKey ?? null,
+        },
+        t,
+      );
+      // Money only moves when it had been received.
+      if (previous === "PAID") {
+        refundDueEur = creditNote.totalEur;
+        await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: creditNote.totalEur } } });
+      }
+    }
+  } else if (previous === "PAID") {
+    // No invoice and none may be issued: no credit note exists, but the
+    // customer still paid. The refund obligation is what is left of the total.
+    paidWithoutInvoice = true;
+    refundDueEur = money(Math.max(order.totalEur - order.refundedEur, 0));
+    if (refundDueEur > 0) await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: refundDueEur } } });
+  }
+  return { alreadyCancelled: false, restocked, creditNote, refundDueEur, wasPaid: previous === "PAID", paidWithoutInvoice, order: summary };
+}
+
+async function afterCancel(outcome: CancelOutcome, opts: CancelOrderOptions): Promise<boolean | null> {
+  if (outcome.alreadyCancelled) return null;
+  const { order } = outcome;
+  const owner = ping({
+    event: "order.cancelled",
+    level: "info",
+    title: `Bestelling #${orderRef(order.id)} geannuleerd`,
+    lines: [
+      `Totaal € ${order.totalEur.toFixed(2)} · ${order.itemCount} artikel(en)`,
+      `Door: ${opts.actor}`,
+      outcome.creditNote
+        ? `Creditnota ${outcome.creditNote.number}`
+        : outcome.paidWithoutInvoice
+          ? "Geen factuur mogelijk (bedrijfsgegevens onvolledig), dus geen creditnota: betaal het bedrag handmatig terug"
+          : "Geen factuur, dus geen creditnota",
+      ...(outcome.refundDueEur > 0 && !opts.stripeRefundId ? [`Nog terug te betalen: € ${outcome.refundDueEur.toFixed(2)}`] : []),
+    ],
+    url: "/admin/bestellingen",
+  });
+  let emailSent: boolean | null = null;
+  if (opts.notifyCustomer !== false) {
+    const { sendOrderCancelledEmail } = await import("./email");
+    const mail = await sendOrderCancelledEmail(order.email, {
+      orderId: order.id,
+      name: customerNameOf(order),
+      accessToken: order.accessToken,
+      reason: opts.customerReason ?? null,
+      wasPaid: outcome.wasPaid,
+      creditNoteNumber: outcome.creditNote?.number ?? null,
+      refundEur: outcome.wasPaid ? outcome.refundDueEur || null : null,
+    });
+    emailSent = mail.ok;
+  }
+  await owner;
+  return emailSent;
+}
+
+/**
+ * Cancel an order that has not shipped: PENDING, OPENSTAAND or PAID.
+ *
+ * In ONE transaction: the status flips to CANCELLED (the conditional update on
+ * the current status is the lock), the units of a stock-holding order (OPENSTAAND,
+ * PAID) go back on the shelf, and an invoiced order gets a credit note for what
+ * is still uncredited. A PAID order's Order.refundedEur grows by that amount and
+ * `refundDueEur` tells the caller how much to pay back.
+ *
+ * Idempotent: cancelling a cancelled order returns {alreadyCancelled: true} and
+ * changes, restocks and sends nothing. Concurrent calls restock exactly once.
+ * A SHIPPED or DELIVERED order is refused (not_cancellable): that is a return.
+ *
+ * After the commit the customer is mailed and the owner notified (best effort;
+ * a failing mail does not undo the cancellation, see `emailSent`).
+ */
+export async function cancelOrder(orderId: string, opts: CancelOrderOptions): Promise<CancelOrderResult> {
+  if (!isDatabaseConfigured()) return fail("db_unavailable", "Database niet beschikbaar.");
+  try {
+    const outcome = await prisma.$transaction((t) => cancelInTx(t, orderId, opts), { maxWait: 10_000, timeout: 20_000 });
+    const emailSent = await afterCancel(outcome, opts);
+    if (!outcome.alreadyCancelled) {
+      logger.info("[invoicing] order cancelled", { orderId, actor: opts.actor, restocked: outcome.restocked, creditNote: outcome.creditNote?.number });
+    }
+    return {
+      ok: true,
+      alreadyCancelled: outcome.alreadyCancelled,
+      restocked: outcome.restocked,
+      creditNote: outcome.creditNote,
+      refundDueEur: outcome.refundDueEur,
+      emailSent,
+    };
+  } catch (err) {
+    return failFrom(err, "Annuleren");
+  }
+}
+
+// ─── Ship / deliver ───────────────────────────────────────────────────
+
+const TRACKING_RE = /^[\w\-./]{3,64}$/;
+
+function cleanTracking(carrier: string, trackingCode: string): { carrier: string; trackingCode: string } | null {
+  const code = trackingCode.replace(/\s+/g, "");
+  if (!TRACKING_RE.test(code)) return null;
+  const known = normaliseCarrier(carrier);
+  const label = carrier.trim().slice(0, 40);
+  if (known === "OTHER" && !label) return null;
+  return { carrier: known === "OTHER" ? label : known, trackingCode: code };
+}
+
+export type ShipResult =
+  | { ok: true; alreadyShipped: boolean; emailSent: boolean | null }
+  | OrderOpFail;
+
+async function sendShippedMail(order: OrderForMail, carrier: string, trackingCode: string): Promise<boolean> {
+  const { sendOrderShippedEmail } = await import("./email");
+  const res = await sendOrderShippedEmail(order.email, {
+    orderId: order.id,
+    name: customerNameOf(order),
+    accessToken: order.accessToken,
+    carrier,
+    trackingCode,
+    postalCode: addressOf(order).postalCode ?? null,
+  });
+  return res.ok;
+}
+
+/**
+ * PAID -> SHIPPED with carrier and tracking code. Conditional update, so two
+ * clicks ship once. Replaying the same carrier and code is a no-op
+ * ({alreadyShipped: true}, no second mail); a different code on an already
+ * shipped order is refused (use updateOrderTracking).
+ */
+export async function markOrderShipped(orderId: string, input: { carrier: string; trackingCode: string }): Promise<ShipResult> {
+  if (!isDatabaseConfigured()) return fail("db_unavailable", "Database niet beschikbaar.");
+  const tracking = cleanTracking(input.carrier, input.trackingCode);
+  if (!tracking) return fail("invalid_input", "Vul een vervoerder en een geldige trackingcode in (3 tot 64 tekens).");
+  try {
+    // statusesThatCanGo() reads the transition table, so what may ship is
+    // decided in ./order-status and nowhere else.
+    const claimed = await prisma.order.updateMany({
+      where: { id: orderId, status: { in: statusesThatCanGo("SHIPPED") } },
+      data: { status: "SHIPPED", shippedAt: new Date(), carrier: tracking.carrier, trackingCode: tracking.trackingCode },
+    });
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      select: { id: true, email: true, accessToken: true, shippingAddress: true, status: true, carrier: true, trackingCode: true },
+    });
+    if (!order) return fail("not_found", "Bestelling niet gevonden.");
+    if (claimed.count === 0) {
+      if ((order.status === "SHIPPED" || order.status === "DELIVERED") && order.carrier === tracking.carrier && order.trackingCode === tracking.trackingCode) {
+        return { ok: true, alreadyShipped: true, emailSent: null };
+      }
+      if (order.status === "SHIPPED" || order.status === "DELIVERED") {
+        return fail("conflict", "Deze bestelling is al verzonden met andere trackinggegevens. Pas de tracking aan in plaats van opnieuw te verzenden.");
+      }
+      return fail("illegal_transition", `Bestelling staat op ${order.status}; alleen een betaalde bestelling kan worden verzonden.`);
+    }
+    logger.info("[invoicing] order shipped", { orderId, carrier: tracking.carrier });
+    const emailSent = await sendShippedMail(order, tracking.carrier, tracking.trackingCode);
+    return { ok: true, alreadyShipped: false, emailSent };
+  } catch (err) {
+    return failFrom(err, "Verzenden");
+  }
+}
+
+/** Correct the carrier or code of an order that is already SHIPPED. Optionally mails the corrected link. */
+export async function updateOrderTracking(
+  orderId: string,
+  input: { carrier: string; trackingCode: string; resendEmail?: boolean },
+): Promise<ShipResult> {
+  if (!isDatabaseConfigured()) return fail("db_unavailable", "Database niet beschikbaar.");
+  const tracking = cleanTracking(input.carrier, input.trackingCode);
+  if (!tracking) return fail("invalid_input", "Vul een vervoerder en een geldige trackingcode in (3 tot 64 tekens).");
+  try {
+    const res = await prisma.order.updateMany({
+      where: { id: orderId, status: { in: ["SHIPPED", "DELIVERED"] } },
+      data: { carrier: tracking.carrier, trackingCode: tracking.trackingCode },
+    });
+    if (res.count === 0) return fail("illegal_transition", "Alleen een verzonden bestelling heeft trackinggegevens.");
+    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { id: true, email: true, accessToken: true, shippingAddress: true } });
+    const emailSent = input.resendEmail && order ? await sendShippedMail(order, tracking.carrier, tracking.trackingCode) : null;
+    return { ok: true, alreadyShipped: true, emailSent };
+  } catch (err) {
+    return failFrom(err, "Tracking aanpassen");
+  }
+}
+
+export type DeliverResult = { ok: true; alreadyDelivered: boolean } | OrderOpFail;
+
+/** SHIPPED -> DELIVERED. Conditional update; replaying it is a no-op. */
+export async function markOrderDelivered(orderId: string): Promise<DeliverResult> {
+  if (!isDatabaseConfigured()) return fail("db_unavailable", "Database niet beschikbaar.");
+  try {
+    const claimed = await prisma.order.updateMany({ where: { id: orderId, status: { in: statusesThatCanGo("DELIVERED") } }, data: { status: "DELIVERED", deliveredAt: new Date() } });
+    if (claimed.count > 0) {
+      logger.info("[invoicing] order delivered", { orderId });
+      return { ok: true, alreadyDelivered: false };
+    }
+    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true } });
+    if (!order) return fail("not_found", "Bestelling niet gevonden.");
+    if (order.status === "DELIVERED") return { ok: true, alreadyDelivered: true };
+    return fail("illegal_transition", `Bestelling staat op ${order.status}; alleen een verzonden bestelling kan worden afgeleverd.`);
+  } catch (err) {
+    return failFrom(err, "Afleveren");
+  }
+}
+
+// ─── Refund ───────────────────────────────────────────────────────────
+
+export type RecordRefundInput = {
+  /** Gross amount returned to the customer, VAT included. */
+  amountEur: number;
+  /** The Stripe refund id (re_...). Makes a replayed webhook a no-op. */
+  stripeRefundId?: string | null;
+  /**
+   * For a refund that has no Stripe id (bank transfer): a key generated when
+   * the admin form is rendered. A double submit then returns the first note
+   * (replayed: true) instead of booking a second one. 1 to 100 characters.
+   */
+  idempotencyKey?: string | null;
+  /**
+   * The Order.refundedEur the caller saw when it built the request. Checked under
+   * the order lock: if another refund was booked since, nothing is changed and
+   * the result is {ok:false, code:"conflict"}.
+   */
+  expectedRefundedEur?: number;
+  reason?: string;
+  /** Units that came back in good condition and go back on the shelf (returns). */
+  restock?: Array<{ partId: string; quantity: number }>;
+  notifyCustomer?: boolean;
+};
+
+export type RecordRefundResult =
+  | {
+      ok: true;
+      creditNote: IssuedCreditNote;
+      /** Total refunded on the order so far. */
+      refundedEur: number;
+      /** The whole invoice is now credited. */
+      fullyRefunded: boolean;
+      /** A full refund of an unshipped PAID order cancels it (units back on the shelf). */
+      cancelled: boolean;
+      /** The same stripeRefundId was seen before: nothing changed. */
+      replayed: boolean;
+      emailSent: boolean | null;
+    }
+  | OrderOpFail;
+
+/**
+ * Book a refund (partial or full) on a paid order: a credit note for the
+ * amount, Order.refundedEur increased, in one transaction.
+ *
+ * Allowed on PAID, SHIPPED and DELIVERED. The amount may not exceed what is
+ * still uncredited (exceeds_invoice). A refund that completes the credit on a
+ * PAID (unshipped) order cancels it as cancelOrder would, units back on the
+ * shelf, because the money is gone and the order must not be shipped. On a
+ * SHIPPED/DELIVERED order the status stays; pass `restock` for returned goods.
+ *
+ * Idempotent on `stripeRefundId` or `idempotencyKey`; `expectedRefundedEur`
+ * turns a double submit into a refused conflict. With none of them, a partial
+ * refund called twice books two notes (see REPLAY SAFETY at the top). A refund id that arrives for an order that
+ * cancelOrder already cancelled and credited is attached to that credit note
+ * (replayed: true) rather than rejected: that is the normal order of events
+ * when the Stripe refund follows the cancellation. This function does not call
+ * Stripe: the caller creates the refund (or receives the webhook) and records it here.
+ */
+export async function recordRefund(orderId: string, input: RecordRefundInput): Promise<RecordRefundResult> {
+  if (!isDatabaseConfigured()) return fail("db_unavailable", "Database niet beschikbaar.");
+  try {
+    const outcome = await prisma.$transaction(
+      async (t) => {
+        // Order lock first, invoice lock second (inside issueCreditNote): every
+        // writer takes them in that order, so they cannot deadlock.
+        const locked = await t.$queryRaw<{ id: string }[]>`SELECT "id" FROM "Order" WHERE "id" = ${orderId} FOR UPDATE`;
+        if (locked.length === 0) throw new OrderDomainError("not_found", "Bestelling niet gevonden.");
+        const order = await t.order.findUniqueOrThrow({
+          where: { id: orderId },
+          include: { items: { select: { partId: true, quantity: true } }, invoice: { select: { id: true, totalEur: true } } },
+        });
+        const mailBase: OrderForMail = { id: order.id, email: order.email, accessToken: order.accessToken, shippingAddress: order.shippingAddress };
+
+        if (input.idempotencyKey !== undefined && input.idempotencyKey !== null && (input.idempotencyKey.length === 0 || input.idempotencyKey.length > 100)) {
+          throw new OrderDomainError("invalid_input", "De idempotentiesleutel moet 1 tot 100 tekens zijn.");
+        }
+        const replayKey = input.stripeRefundId
+          ? ({ stripeRefundId: input.stripeRefundId } as const)
+          : input.idempotencyKey
+            ? ({ idempotencyKey: input.idempotencyKey } as const)
+            : null;
+        if (replayKey) {
+          const existing = await t.creditNote.findUnique({ where: replayKey, include: { invoice: { select: { number: true, orderId: true } } } });
+          if (existing) {
+            if (existing.invoice.orderId !== orderId) throw new OrderDomainError("conflict", "Deze terugbetaling hoort bij een andere bestelling.");
+            return {
+              creditNote: deserializeCreditNote(existing, existing.invoice.number, true),
+              refundedEur: order.refundedEur,
+              fullyRefunded: order.invoice ? centsOf(order.refundedEur) >= centsOf(order.invoice.totalEur) : false,
+              cancelled: order.status === "CANCELLED",
+              replayed: true,
+              mailBase,
+              partial: false,
+              totalEur: order.totalEur,
+            };
+          }
+        }
+
+        // Compare-and-set under the order lock taken above: of two concurrent
+        // submits built from the same page, the second sees the first one's refund.
+        if (input.expectedRefundedEur !== undefined && centsOf(order.refundedEur) !== centsOf(input.expectedRefundedEur)) {
+          throw new OrderDomainError("conflict", "Er is intussen een andere terugbetaling geboekt op deze bestelling. Ververs de pagina en controleer het bedrag.");
+        }
+
+        if (order.status === "CANCELLED" && input.stripeRefundId) {
+          // The usual order of events for a cancelled paid order: cancelOrder
+          // already booked the credit note, THEN the refund was made at Stripe and
+          // its webhook arrives here. Reconcile it onto the matching note instead
+          // of failing: same amount, no refund id yet.
+          const open = await t.creditNote.findFirst({
+            where: { invoice: { orderId }, stripeRefundId: null },
+            orderBy: { issuedAt: "desc" },
+            include: { invoice: { select: { number: true } } },
+          });
+          if (open && centsOf(open.totalEur) === centsOf(input.amountEur)) {
+            const linked = await t.creditNote.update({ where: { id: open.id }, data: { stripeRefundId: input.stripeRefundId } });
+            return {
+              creditNote: deserializeCreditNote(linked, open.invoice.number, true),
+              refundedEur: order.refundedEur,
+              fullyRefunded: true,
+              cancelled: true,
+              replayed: true,
+              mailBase,
+              partial: false,
+              totalEur: order.totalEur,
+            };
+          }
+        }
+        if (order.status !== "PAID" && order.status !== "SHIPPED" && order.status !== "DELIVERED") {
+          throw new OrderDomainError(
+            "illegal_transition",
+            order.status === "CANCELLED" ? "Deze bestelling is geannuleerd; de creditnota is daar al bij gemaakt." : "Alleen een betaalde bestelling kan worden terugbetaald.",
+          );
+        }
+        if (!(input.amountEur > 0)) throw new OrderDomainError("invalid_amount", "Het terug te betalen bedrag moet groter zijn dan nul.");
+
+        let invoiceId = order.invoice?.id;
+        if (!invoiceId) {
+          // Paid but never invoiced (the invoice step failed earlier): issue it now so there is something to credit.
+          const issued = await issueInvoiceForOrder(orderId, t);
+          if (!issued) throw new OrderDomainError("no_invoice", "Er is geen factuur om te crediteren.");
+          invoiceId = (await t.invoice.findUniqueOrThrow({ where: { orderId }, select: { id: true } })).id;
+        }
+        const invoice = await t.invoice.findUniqueOrThrow({ where: { id: invoiceId }, select: { totalEur: true } });
+        const prior = await t.creditNote.aggregate({ where: { invoiceId }, _sum: { totalEur: true } });
+        const remainingCents = centsOf(invoice.totalEur) - centsOf(prior._sum.totalEur ?? 0);
+        const completes = centsOf(input.amountEur) === remainingCents;
+
+        // Restock validation first, so a bad request changes nothing.
+        for (const r of input.restock ?? []) {
+          const ordered = order.items.filter((i) => i.partId === r.partId).reduce((n, i) => n + i.quantity, 0);
+          if (!Number.isInteger(r.quantity) || r.quantity <= 0 || r.quantity > ordered) {
+            throw new OrderDomainError("invalid_input", "Herbevoorraden kan alleen onderdelen uit deze bestelling, en niet meer dan besteld.");
+          }
+        }
+
+        if (completes && order.status === "PAID") {
+          // Everything is being paid back before anything shipped: this IS a cancellation.
+          const cancelOpts: CancelOrderOptions = { reason: input.reason ?? "Volledig terugbetaald", actor: "system", stripeRefundId: input.stripeRefundId ?? null, notifyCustomer: input.notifyCustomer };
+          const c = await cancelInTx(t, orderId, cancelOpts, input.amountEur, { idempotencyKey: input.idempotencyKey });
+          const note = c.creditNote!;
+          return { creditNote: note, refundedEur: order.refundedEur + note.totalEur, fullyRefunded: true, cancelled: true, replayed: false, mailBase, partial: false, totalEur: order.totalEur };
+        }
+
+        const note = await issueCreditNote(
+          invoiceId,
+          { amountEur: input.amountEur, reason: input.reason ?? "Terugbetaling", stripeRefundId: input.stripeRefundId ?? null, idempotencyKey: input.idempotencyKey ?? null },
+          t,
+        );
+        const updated = await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: note.totalEur } }, select: { refundedEur: true } });
+        for (const r of input.restock ?? []) {
+          await t.part.update({ where: { id: r.partId }, data: { stock: { increment: r.quantity } } });
+        }
+        return { creditNote: note, refundedEur: money(updated.refundedEur), fullyRefunded: completes, cancelled: false, replayed: false, mailBase, partial: !completes, totalEur: order.totalEur };
+      },
+      { maxWait: 10_000, timeout: 20_000 },
+    );
+
+    let emailSent: boolean | null = null;
+    if (!outcome.replayed) {
+      logger.info("[invoicing] refund recorded", { orderId, creditNote: outcome.creditNote.number, totalEur: outcome.creditNote.totalEur });
+      const owner = ping({
+        event: "order.refunded",
+        level: "info",
+        title: `Terugbetaling bij bestelling #${orderRef(orderId)}`,
+        lines: [`€ ${outcome.creditNote.totalEur.toFixed(2)} van € ${outcome.totalEur.toFixed(2)}`, `Creditnota ${outcome.creditNote.number}`, outcome.cancelled ? "De bestelling is daarmee geannuleerd" : outcome.fullyRefunded ? "Volledig terugbetaald" : "Gedeeltelijk"],
+        url: "/admin/bestellingen",
+      });
+      if (input.notifyCustomer !== false) {
+        const { sendRefundEmail } = await import("./email");
+        const mail = await sendRefundEmail(outcome.mailBase.email, {
+          orderId,
+          name: customerNameOf(outcome.mailBase),
+          accessToken: outcome.mailBase.accessToken,
+          amountEur: outcome.creditNote.totalEur,
+          creditNoteNumber: outcome.creditNote.number,
+          partial: outcome.partial,
+        });
+        emailSent = mail.ok;
+      }
+      await owner;
+    }
+    return {
+      ok: true,
+      creditNote: outcome.creditNote,
+      refundedEur: outcome.refundedEur,
+      fullyRefunded: outcome.fullyRefunded,
+      cancelled: outcome.cancelled,
+      replayed: outcome.replayed,
+      emailSent,
+    };
+  } catch (err) {
+    return failFrom(err, "Terugbetaling boeken");
+  }
+}
+
+// ─── Owner and customer notices ───────────────────────────────────────
+
+async function loadOrderNotice(orderId: string) {
+  const order = await prisma.order.findUnique({
+    where: { id: orderId },
+    include: { items: { include: { part: { select: { name: true } } } }, invoice: { select: { number: true } } },
+  });
+  if (!order) return null;
+  return {
+    order,
+    items: order.items.map((i) => ({ name: i.part.name, quantity: i.quantity, total: money(i.unitPrice * i.quantity) })),
+    itemCount: order.items.reduce((n, i) => n + i.quantity, 0),
+  };
+}
+
+/**
+ * Tell the owner a new order exists (event "order.placed"). Call it after the
+ * order is committed; it never throws and sends no customer details.
+ */
+export async function notifyOrderPlaced(orderId: string): Promise<void> {
+  try {
+    const n = await loadOrderNotice(orderId);
+    if (!n) return;
+    const waiting = n.order.status === "PENDING" || n.order.status === "OPENSTAAND";
+    await ping({
+      event: "order.placed",
+      title: `Nieuwe bestelling #${orderRef(orderId)}`,
+      lines: [`€ ${n.order.totalEur.toFixed(2)} · ${n.itemCount} artikel(en)`, `Betaalwijze: ${PAYMENT_LABEL[n.order.paymentMethod] ?? n.order.paymentMethod}`, waiting ? "Wacht nog op betaling" : "Betaald"],
+      url: "/admin/bestellingen",
+    });
+  } catch (err) {
+    logger.warn("[invoicing] notifyOrderPlaced failed", err);
+  }
+}
+
+/**
+ * Payment arrived: mail the customer ("betaling ontvangen" for a bank transfer,
+ * the order confirmation with the invoice link for Stripe) and tell the owner.
+ * Call it once, from the code path that WON the status claim; it does not
+ * guard against being called twice. Never throws.
+ */
+export async function notifyOrderPaid(orderId: string, via: "stripe" | "bank_transfer"): Promise<{ emailSent: boolean | null }> {
+  try {
+    const n = await loadOrderNotice(orderId);
+    if (!n) return { emailSent: null };
+    const { order, items } = n;
+    const owner = ping({
+      event: "order.paid",
+      title: `Betaling ontvangen #${orderRef(orderId)}`,
+      lines: [`€ ${order.totalEur.toFixed(2)} · ${n.itemCount} artikel(en)`, `Via ${via === "stripe" ? "iDEAL/kaart" : "overschrijving"}`, "Klaar om te verzenden"],
+      url: "/admin/bestellingen",
+    });
+    const email = await import("./email");
+    const common = { orderId, name: customerNameOf(order), accessToken: order.accessToken, invoiceNumber: order.invoice?.number ?? null };
+    const res =
+      via === "stripe"
+        ? await email.sendStripeOrderConfirmation(order.email, { ...common, items, totalEur: order.totalEur })
+        : await email.sendPaymentReceivedEmail(order.email, { ...common, totalEur: order.totalEur });
+    await owner;
+    return { emailSent: res.ok };
+  } catch (err) {
+    logger.warn("[invoicing] notifyOrderPaid failed", err);
+    return { emailSent: false };
+  }
+}
+
+// ─── Bank transfer ────────────────────────────────────────────────────
+
+export type MarkPaidResult =
+  | {
+      ok: true;
+      /** It was already PAID: nothing changed, nothing was sent. */
+      alreadyPaid?: boolean;
+      /** The "betaling ontvangen" mail was accepted by Resend. Absent when no mail was attempted. */
+      emailSent?: boolean;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Confirm a bank-transfer order as paid (admin action, once the wire arrives:
+ * there is no bank feed). Idempotent: an already-paid order is left as-is, with
+ * no second stock movement and no second mail.
+ *
+ * `opts.receivedAmountEur`: the amount that actually arrived. When given it must
+ * equal the order total to the cent; otherwise AmountMismatchError is THROWN and
+ * nothing has been changed. Short and over payments are reconciled by hand, never
+ * silently accepted as "paid". Omit it only when the amount has been checked
+ * elsewhere.
  *
  * The status transition IS the claim. findUnique + `if PAID return` + an
- * unconditional update was not: the expiry sweep in the checkout route
- * (releaseExpiredBankTransferOrders) cancels the order and puts its units back
- * on the shelf, and this then flipped CANCELLED -> PAID afterwards without
- * re-taking them — a shipped order against stock that may already be sold.
+ * unconditional update was not: the expiry sweep cancels the order and puts its
+ * units back on the shelf, and this then flipped CANCELLED -> PAID afterwards
+ * without re-taking them, a shipped order against stock that may already be sold.
  *
  * A wire landing after the sweep is routine (14 days term + 7 days grace, paid
- * on day 22), so it is confirmed rather than refused — but the units have to be
+ * on day 22), so it is confirmed rather than refused, but the units have to be
  * taken off the shelf again first, with the same conditional decrement checkout
  * uses. If one is gone the whole confirmation is rolled back and reported, so
- * the money is reconciled by hand instead of a part being promised twice.
+ * the money is reconciled by hand instead of a part being promised twice. A
+ * cancelled order whose invoice has been credited (creditnota) is NOT revived:
+ * the invoice no longer stands, so the payment has to be paid back or the
+ * customer must order again.
+ *
+ * After a successful claim the customer gets the "betaling ontvangen" mail and
+ * the owner is notified; `emailSent` reports whether Resend accepted the mail.
+ *
+ * @throws AmountMismatchError  only when receivedAmountEur is given and wrong
  */
-export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok: true } | { ok: false; error: string }> {
+export async function markOrderPaidByBankTransfer(orderId: string, opts?: { receivedAmountEur?: number }): Promise<MarkPaidResult> {
   if (!isDatabaseConfigured()) return { ok: false, error: "Database niet beschikbaar." };
+
+  if (opts?.receivedAmountEur !== undefined) {
+    let total: number | undefined;
+    try {
+      total = (await prisma.order.findUnique({ where: { id: orderId }, select: { totalEur: true } }))?.totalEur;
+    } catch (err) {
+      logger.error("[invoicing] could not read order total to check the received amount", err);
+      return { ok: false, error: "Kon het bestelbedrag niet controleren. Probeer het opnieuw." };
+    }
+    if (total === undefined) return { ok: false, error: "Bestelling niet gevonden." };
+    const received = opts.receivedAmountEur;
+    if (!Number.isFinite(received) || centsOf(received) !== centsOf(total)) throw new AmountMismatchError(total, received);
+  }
+
+  let paidNow = false;
   try {
-    return await prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx): Promise<MarkPaidResult> => {
       const claimed = await tx.order.updateMany({
         where: { id: orderId, status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER" },
         data: { status: "PAID", paidAt: new Date() },
@@ -252,6 +1447,7 @@ export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok
       if (claimed.count > 0) {
         // The order was still open, so its stock is still reserved from the
         // moment the invoice went out. Nothing to move.
+        paidNow = true;
         logger.info("[invoicing] bank-transfer order marked paid", { orderId });
         return { ok: true };
       }
@@ -264,14 +1460,22 @@ export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok
       if (order.paymentMethod !== "BANK_TRANSFER") {
         return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
       }
-      if (order.status === "PAID") return { ok: true };
+      if (order.status === "PAID" || order.status === "SHIPPED" || order.status === "DELIVERED") return { ok: true, alreadyPaid: true };
       if (order.status !== "CANCELLED") {
         return { ok: false, error: `Bestelling staat op ${order.status} en kan niet op betaald worden gezet.` };
+      }
+      if ((await tx.creditNote.count({ where: { invoice: { orderId } } })) > 0) {
+        return {
+          ok: false,
+          error: "Deze bestelling is geannuleerd en de factuur is gecrediteerd (creditnota). De betaling is niet gekoppeld: betaal het bedrag terug of laat de klant opnieuw bestellen.",
+        };
       }
 
       const revived = await tx.order.updateMany({
         where: { id: orderId, status: "CANCELLED" },
-        data: { status: "PAID", paidAt: new Date() },
+        // The cancellation is undone, so its timestamp and reason go too: a
+        // report that treats cancelledAt as "was cancelled" must not count a paid order.
+        data: { status: "PAID", paidAt: new Date(), cancelledAt: null, cancelReason: null },
       });
       if (revived.count === 0) {
         return { ok: false, error: "Bestelling is zojuist gewijzigd. Probeer het opnieuw." };
@@ -285,9 +1489,15 @@ export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok
         // PAID with its stock, or it stays CANCELLED.
         if (retaken.count === 0) throw new Error(`out_of_stock:${item.partId}`);
       }
+      paidNow = true;
       logger.warn("[invoicing] late payment on a cancelled bank-transfer order — reinstated and stock re-taken", { orderId });
       return { ok: true };
     });
+    if (result.ok && paidNow) {
+      const { emailSent } = await notifyOrderPaid(orderId, "bank_transfer");
+      return { ok: true, emailSent: emailSent ?? false };
+    }
+    return result;
   } catch (err) {
     if (err instanceof Error && err.message.startsWith("out_of_stock:")) {
       logger.error("[invoicing] late payment on a cancelled order, but its stock is sold — not reinstated", {
@@ -302,6 +1512,129 @@ export async function markOrderPaidByBankTransfer(orderId: string): Promise<{ ok
     logger.error("[invoicing] could not mark order paid", err);
     return { ok: false, error: "Kon bestelling niet als betaald markeren." };
   }
+}
+
+// ─── Margin, honestly ─────────────────────────────────────────────────
+
+/**
+ * Where a part's cost price comes from. scripts/add-part-costs.mjs derives
+ * every cost in the catalogue from the SELLING price, so a margin computed from
+ * those numbers is a restatement of the price list, not a measurement. Only a
+ * cost recorded as a QUOTE (a real supplier quote or invoice) may be presented
+ * as a margin; everything else is labelled "schatting".
+ */
+export const MARGIN_ESTIMATE_LABEL = "schatting";
+export type CostBasis = "QUOTE" | "ESTIMATE" | "UNKNOWN";
+
+export function costBasis(part: { costEur?: number | null; costSource?: string | null }): CostBasis {
+  if (typeof part.costEur !== "number") return "UNKNOWN";
+  return part.costSource === "QUOTE" ? "QUOTE" : "ESTIMATE";
+}
+
+export type MarginLine = {
+  /**
+   * Unit selling price actually charged, VAT included, AFTER any discount.
+   * OrderItem.unitPrice is the LIST price: the plan discount lives only in
+   * Order.discountEur, so do not map OrderItem rows to this directly; use
+   * computeOrderMargin, which spreads the discount over the lines first.
+   */
+  unitPriceEur: number;
+  quantity: number;
+  /** Unit cost excluding VAT. */
+  costEur?: number | null;
+  costSource?: string | null;
+};
+
+export type MarginFigure = {
+  lines: number;
+  /** Selling price excluding VAT. */
+  revenueExVatEur: number;
+  costEur: number;
+  marginEur: number;
+  /** Margin as a percentage of revenue ex VAT; null when there is no revenue. */
+  marginPct: number | null;
+};
+
+export type MarginReport = {
+  /** Built from QUOTE costs only: the only figure that may be shown without a label. */
+  confirmed: MarginFigure;
+  /** Built from ESTIMATE costs. Always show it with MARGIN_ESTIMATE_LABEL next to it. */
+  estimated: MarginFigure;
+  /** Lines with no cost at all: counted nowhere. */
+  unknownLines: number;
+  label: typeof MARGIN_ESTIMATE_LABEL;
+};
+
+function emptyFigure(): MarginFigure {
+  return { lines: 0, revenueExVatEur: 0, costEur: 0, marginEur: 0, marginPct: null };
+}
+
+/**
+ * Margin over a set of sold lines, split by how trustworthy the cost is.
+ * `confirmed` counts QUOTE lines only; ESTIMATE lines go to `estimated` and
+ * must be presented as "schatting". A caller that wants a single headline
+ * number should show `confirmed` and say how many lines it rests on.
+ */
+export function computeMargin(lines: MarginLine[], vatRate: number = VAT_RATE): MarginReport {
+  const confirmed = emptyFigure();
+  const estimated = emptyFigure();
+  let unknownLines = 0;
+  for (const l of lines) {
+    const basis = costBasis(l);
+    if (basis === "UNKNOWN") {
+      unknownLines++;
+      continue;
+    }
+    const target = basis === "QUOTE" ? confirmed : estimated;
+    target.lines++;
+    target.revenueExVatEur += (l.unitPriceEur / (1 + vatRate)) * l.quantity;
+    target.costEur += (l.costEur as number) * l.quantity;
+  }
+  for (const f of [confirmed, estimated]) {
+    f.revenueExVatEur = money(f.revenueExVatEur);
+    f.costEur = money(f.costEur);
+    f.marginEur = money(f.revenueExVatEur - f.costEur);
+    f.marginPct = f.revenueExVatEur > 0 ? Math.round((f.marginEur / f.revenueExVatEur) * 1000) / 10 : null;
+  }
+  return { confirmed, estimated, unknownLines, label: MARGIN_ESTIMATE_LABEL };
+}
+
+export type OrderMarginInput = {
+  /** One entry per OrderItem. `unitPriceEur` is the list price as stored on OrderItem.unitPrice. */
+  items: MarginLine[];
+  /** Order.discountEur (VAT inclusive): the whole discount of the order, spread over the lines. */
+  discountEur: number;
+  vatRate?: number;
+};
+
+/**
+ * Margin of ONE order from what is stored on it. The order discount is spread
+ * over the lines in proportion to their list value (whole cents, largest
+ * remainder, as the checkout does for Stripe) before the VAT is taken out, so a
+ * Bedrijf order with 15% off is not reported at full-price revenue. Shipping is
+ * left out: it is a pass-through whose cost is not recorded anywhere.
+ */
+export function computeOrderMargin(input: OrderMarginInput): MarginReport {
+  const gross = input.items.map((i) => centsOf(i.unitPriceEur) * i.quantity);
+  const grossTotal = gross.reduce((a, b) => a + b, 0);
+  const discount = Math.min(Math.max(centsOf(input.discountEur), 0), grossTotal);
+  const exact = gross.map((g) => (grossTotal > 0 ? (discount * g) / grossTotal : 0));
+  const share = exact.map(Math.floor);
+  let left = discount - share.reduce((a, b) => a + b, 0);
+  // Largest remainder; ties go to the earlier line so the result is deterministic.
+  const order = exact.map((e, i) => ({ i, frac: e - Math.floor(e) })).sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (const { i } of order) {
+    if (left <= 0) break;
+    share[i] += 1;
+    left -= 1;
+  }
+  return computeMargin(
+    input.items.map((item, i) => ({
+      ...item,
+      unitPriceEur: item.quantity > 0 ? (gross[i] - share[i]) / 100 / item.quantity : 0,
+    })),
+    input.vatRate,
+  );
 }
 
 export async function getInvoiceForOrder(orderId: string): Promise<IssuedInvoice | null> {

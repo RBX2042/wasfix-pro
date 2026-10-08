@@ -1,41 +1,144 @@
-import { Resend } from "resend";
+/**
+ * Transactional e-mail.
+ *
+ * CONTRACT
+ *   Every sender returns Promise<MailResult> = {ok: boolean, error?: string, id?: string}
+ *   and NEVER throws. ok === true means Resend accepted the message. Anything
+ *   that tells a customer or the owner "an e-mail was sent" must check it.
+ *
+ *   sendMail(opts)                       the single wrapper behind every sender
+ *   getResend(), FROM                    re-exported for code that talks to Resend directly
+ *
+ *   Customer mails (every link carries the guest token when one is passed, see
+ *   customerOrderUrl in ./order-status):
+ *     sendWelcomeEmail(email, name)
+ *     sendOrderConfirmation(email, data)             demo / no-database checkout
+ *     sendBankTransferInstructions(email, data)      refuses without a ready company identity in production
+ *     sendStripeOrderConfirmation(email, data)       Stripe order paid: lines, total, invoice number, order link
+ *     sendPaymentReceivedEmail(email, data)          bank transfer confirmed ("betaling ontvangen")
+ *     sendOrderShippedEmail(email, data)             carrier + code + tracking link (PostNL, DHL, DPD, UPS, GLS)
+ *     sendOrderCancelledEmail(email, data)           mentions the credit note when there is one
+ *     sendRefundEmail(email, data)                   refund confirmation with the credit note number
+ *     sendDiagnosisSummary(email, data)
+ *     sendSubscriptionConfirmation(email, plan)
+ *     sendRmaNotification(data)                      owner alert + customer acknowledgement
+ *     sendMonteurApplicationNotification(data)       owner alert
+ *   ownerEmailAddress()                  ORDER_NOTIFY_EMAIL ?? COMPANY_EMAIL (as configured), else null
+ *
+ * BEHAVIOUR
+ *   - Resend RETURNS {error} for an invalid key or an unverified sending
+ *     domain instead of throwing; sendRaw (./emails/transport) reads it.
+ *   - A failed send is logged at error level (template name only, never the
+ *     address) and escalated through notifyOwner, so a dropped payment
+ *     instruction reaches the owner.
+ *   - Without RESEND_API_KEY a send is logged ("e-mail skipped") and returns
+ *     {ok: false, error: "no_resend_key"}; the owner is warned once per process.
+ *   - Customer mails set replyTo to COMPANY_EMAIL when it is configured,
+ *     because the texts say "antwoord op deze e-mail" and the From address is a
+ *     no-reply. Without COMPANY_EMAIL no replyTo is set: the built-in default
+ *     address is an invention and must not receive customers' replies.
+ *   - The owner alerts (RMA, monteur application) go to ownerEmailAddress().
+ *     When none is configured they cannot be mailed; the owner is then told
+ *     through notify.ts (RMA/application number and an admin link only) and the
+ *     function reports {ok:false, error:"no_owner_address"} for that alert.
+ *   - Customer-facing bodies end with companyIdentityLine(), which prints only
+ *     what is really registered. The two owner alerts (RMA, monteur) do not.
+ */
 import { env } from "./env";
-import { companyIdentityLine } from "./plans";
+import { logger } from "./logger";
+import { companyReadiness } from "./plans";
+import { customerOrderUrl, orderRef } from "./order-status";
+import { notifyOwner } from "./notify";
+import { getResend, FROM, sendRaw, type MailResult } from "./emails/transport";
+import { esc, eur, button, shell, lineTable, type MailLine } from "./emails/layout";
+import { trackingUrl, carrierLabel } from "./emails/tracking";
 
-let _resend: Resend | null = null;
-
-function getResend(): Resend | null {
-  if (!env.RESEND_API_KEY) return null;
-  if (!_resend) _resend = new Resend(env.RESEND_API_KEY);
-  return _resend;
-}
-
-const FROM = env.RESEND_FROM_EMAIL;
+export { getResend, FROM };
+export type { MailResult };
 
 /**
- * Escape user text before it goes into an HTML e-mail body. Names, RMA notes
- * and monteur applications arrive from public forms, so unescaped markup would
- * ride out on our own SPF/DKIM-signed mail — and land in retour@/monteur@.
+ * Where owner-facing mail goes: only an address somebody configured. The
+ * default COMPANY.email (support@wasfix.nl) is a placeholder that nothing proves
+ * is a mailbox, so it is never used as a destination.
  */
-function esc(value: string): string {
-  return value
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+export function ownerEmailAddress(): string | null {
+  return env.ORDER_NOTIFY_EMAIL ?? env.COMPANY_EMAIL ?? null;
 }
 
-export async function sendWelcomeEmail(email: string, name: string) {
-  const resend = getResend();
-  if (!resend) return;
+/** An owner alert that cannot be mailed: tell the owner through the other channels, without personal data. */
+async function ownerAlertUnmailable(template: string, title: string, ref: string): Promise<MailResult> {
+  logger.warn("[email] owner alert not mailed: neither ORDER_NOTIFY_EMAIL nor COMPANY_EMAIL is set", { template });
+  await notifyOwner({
+    event: `${template}.unmailed`,
+    level: "warn",
+    title,
+    lines: [ref, "Stel ORDER_NOTIFY_EMAIL of COMPANY_EMAIL in om deze meldingen ook per e-mail te ontvangen."],
+    url: "/admin/aanvragen",
+  });
+  return { ok: false, error: "no_owner_address" };
+}
 
-  await resend.emails.send({
-    from: FROM,
+let warnedNoKey = false;
+
+export type SendMailOptions = {
+  /** Short template name for logs and the owner alert. No address, no order id. */
+  template: string;
+  to: string;
+  subject: string;
+  html: string;
+  text?: string;
+  /** Defaults to the configured COMPANY_EMAIL (none when unset) so a customer's reply reaches a person. */
+  replyTo?: string;
+};
+
+export async function sendMail(opts: SendMailOptions): Promise<MailResult> {
+  try {
+    if (!getResend()) {
+      logger.warn("[email] skipped: no RESEND_API_KEY", { template: opts.template });
+      if (!warnedNoKey) {
+        warnedNoKey = true;
+        await notifyOwner({
+          event: "email.not_configured",
+          level: "warn",
+          title: "E-mails worden niet verstuurd",
+          lines: ["RESEND_API_KEY ontbreekt: klanten ontvangen geen betaalgegevens, bevestigingen of verzendberichten."],
+        });
+      }
+      return { ok: false, error: "no_resend_key" };
+    }
+    const result = await sendRaw({
+      template: opts.template,
+      to: opts.to,
+      subject: opts.subject,
+      html: opts.html,
+      text: opts.text,
+      replyTo: opts.replyTo ?? env.COMPANY_EMAIL,
+    });
+    if (!result.ok) {
+      // sendRaw already logged the cause. The owner needs to hear about it too:
+      // the IBAN mail is the guest's only durable copy of how to pay.
+      await notifyOwner({
+        event: "email.failed",
+        level: "error",
+        title: `E-mail niet verstuurd (${opts.template})`,
+        lines: [`Reden: ${result.error ?? "onbekend"}`, "Controleer RESEND_API_KEY en of het verzenddomein in Resend is geverifieerd."],
+      });
+    }
+    return result;
+  } catch (err) {
+    logger.error("[email] unexpected failure", { template: opts.template, err });
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+// ─── Account ─────────────────────────────────────────────────────────
+
+export async function sendWelcomeEmail(email: string, name: string): Promise<MailResult> {
+  return sendMail({
+    template: "welcome",
     to: email,
     subject: "Welkom bij WasFix Pro!",
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
+    html: shell(`
         <h1 style="color: #1a6b6b; font-size: 28px;">Welkom bij WasFix Pro, ${esc(name)}!</h1>
         <p style="font-size: 16px; line-height: 1.6; color: #333;">
           Bedankt voor je registratie. Met WasFix Pro diagnostiseer je je wasmachine in minuten en krijg je het juiste onderdeel direct in huis.
@@ -48,83 +151,128 @@ export async function sendWelcomeEmail(email: string, name: string) {
           <li>Toegang tot alle basis reparatiegidsen</li>
           <li>Volledige foutcode database</li>
         </ul>
-        <a href="${env.APP_URL}/diagnose" style="display: inline-block; background: #1a6b6b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin-top: 16px;">
-          Start je eerste diagnose
-        </a>
+        ${button(`${env.APP_URL}/diagnose`, "Start je eerste diagnose")}
         <p style="margin-top: 32px; font-size: 13px; color: #666;">
           Vragen? Antwoord op deze e-mail.
-        </p>
-      </div>
-    `,
+        </p>`),
   });
 }
 
+export async function sendSubscriptionConfirmation(email: string, plan: string): Promise<MailResult> {
+  return sendMail({
+    template: "subscription-confirmation",
+    to: email,
+    subject: `Je ${plan} abonnement is actief`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">Welkom bij ${esc(plan)}!</h1>
+        <p style="font-size: 16px; line-height: 1.6;">
+          Je abonnement is actief. Je hebt nu toegang tot alle premium functies.
+        </p>
+        ${button(`${env.APP_URL}/dashboard`, "Naar mijn dashboard")}`),
+  });
+}
+
+export async function sendDiagnosisSummary(
+  email: string,
+  data: { brand: string; mainCause: string; confidence?: number | null; recommendedAction: string },
+): Promise<MailResult> {
+  // A confidence figure is printed only when the caller really has one: the
+  // keyword fallback has none, and inventing it would be a false claim.
+  const confidence =
+    typeof data.confidence === "number" ? `<p><strong>Zekerheid (indicatie):</strong> ${data.confidence}%</p>` : "";
+  return sendMail({
+    template: "diagnosis-summary",
+    to: email,
+    subject: `Je wasmachine diagnose — ${data.brand}`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">Diagnose samenvatting</h1>
+        <div style="background: #f5f0e8; padding: 20px; border-radius: 8px; margin: 16px 0;">
+          <p><strong>Merk:</strong> ${esc(data.brand)}</p>
+          <p><strong>Hoofdoorzaak:</strong> ${esc(data.mainCause)}</p>
+          ${confidence}
+        </div>
+        <p style="font-size: 16px; line-height: 1.6;">
+          <strong>Volgende stap:</strong> ${esc(data.recommendedAction)}
+        </p>
+        <p style="font-size: 12px; color: #888;">Dit is een indicatie, geen garantie. Controleer de oorzaak voordat je een onderdeel bestelt of vervangt.</p>`),
+  });
+}
+
+// ─── Orders ──────────────────────────────────────────────────────────
+
+type OrderMailBase = {
+  orderId: string;
+  name: string;
+  /** Order.accessToken. Without it the link only works for a signed-in owner. */
+  accessToken?: string | null;
+};
+
+/** Demo / no-database checkout only: a real order goes through the senders below. */
 export async function sendOrderConfirmation(
   email: string,
-  data: { orderId: string; items: Array<{ name: string; quantity: number; total: number }>; total: number; name: string }
-) {
-  const resend = getResend();
-  if (!resend) return;
-
-  const itemsHtml = data.items
-    .map((i) => `<tr><td style="padding:8px 0;">${esc(i.name)} (${i.quantity}x)</td><td style="text-align:right;">€${i.total.toFixed(2)}</td></tr>`)
-    .join("");
-
-  await resend.emails.send({
-    from: FROM,
+  data: OrderMailBase & { items: MailLine[]; total: number },
+): Promise<MailResult> {
+  return sendMail({
+    template: "order-confirmation",
     to: email,
-    subject: `Bestelling bevestigd #${data.orderId.slice(0, 8)}`,
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
+    subject: `Bestelling bevestigd #${orderRef(data.orderId)}`,
+    html: shell(`
         <h1 style="color: #1a6b6b;">Bedankt voor je bestelling, ${esc(data.name)}!</h1>
         <p style="font-size: 16px; line-height: 1.6;">
-          We hebben je bestelling ontvangen en sturen deze zo snel mogelijk uit.
+          We hebben je bestelling ontvangen.
         </p>
-        <p style="font-size: 14px;"><strong>Bestelnummer:</strong> ${esc(data.orderId)}</p>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 16px;">
-          <thead>
-            <tr style="border-bottom: 1px solid #ddd;">
-              <th style="text-align:left; padding: 8px 0;">Onderdeel</th>
-              <th style="text-align:right; padding: 8px 0;">Prijs</th>
-            </tr>
-          </thead>
-          <tbody>${itemsHtml}</tbody>
-          <tfoot>
-            <tr style="border-top: 2px solid #1a6b6b; font-weight: bold;">
-              <td style="padding: 12px 0;">Totaal</td>
-              <td style="text-align:right; padding: 12px 0;">€${data.total.toFixed(2)}</td>
-            </tr>
-          </tfoot>
-        </table>
-        <a href="${env.APP_URL}/bestelling/${esc(data.orderId)}" style="display: inline-block; background: #1a6b6b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin-top: 24px;">
-          Bekijk bestelling
-        </a>
-      </div>
-    `,
+        <p style="font-size: 14px;"><strong>Bestelnummer:</strong> #${esc(orderRef(data.orderId))}</p>
+        ${lineTable(data.items, data.total)}
+        ${button(customerOrderUrl(data.orderId, data.accessToken), "Bekijk bestelling")}`),
+  });
+}
+
+/** A Stripe order whose payment has been confirmed. */
+export async function sendStripeOrderConfirmation(
+  email: string,
+  data: OrderMailBase & { items: MailLine[]; totalEur: number; invoiceNumber?: string | null },
+): Promise<MailResult> {
+  const url = customerOrderUrl(data.orderId, data.accessToken);
+  return sendMail({
+    template: "order-paid-stripe",
+    to: email,
+    subject: `Betaling ontvangen — bestelling #${orderRef(data.orderId)}`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">Bedankt voor je bestelling, ${esc(data.name)}!</h1>
+        <p style="font-size: 16px; line-height: 1.6;">
+          Je betaling is ontvangen. We maken je bestelling klaar voor verzending; zodra het pakket onderweg is krijg je een e-mail met de gegevens van de vervoerder.
+        </p>
+        <p style="font-size: 14px;"><strong>Bestelnummer:</strong> #${esc(orderRef(data.orderId))}${data.invoiceNumber ? `<br><strong>Factuurnummer:</strong> ${esc(data.invoiceNumber)}` : ""}</p>
+        ${lineTable(data.items, data.totalEur)}
+        ${button(url, data.invoiceNumber ? "Bekijk bestelling en factuur" : "Bekijk bestelling")}
+        <p style="margin-top: 24px; font-size: 13px; color: #666;">
+          Als consument heb je een wettelijk herroepingsrecht. De voorwaarden vind je in onze <a href="${env.APP_URL}/retourvoorwaarden" style="color:#1a6b6b;">retourvoorwaarden</a>.
+        </p>`),
   });
 }
 
 export async function sendBankTransferInstructions(
   email: string,
-  data: {
-    orderId: string;
-    name: string;
+  data: OrderMailBase & {
     invoiceNumber: string;
     totalEur: number;
     dueAt: Date;
     iban: string;
     ibanName: string;
+  },
+): Promise<MailResult> {
+  // Wire instructions are a promise about where money goes. Never send them
+  // while the seller identity is incomplete: that is how an IBAN that does not
+  // exist reached customers.
+  if (env.IS_PRODUCTION && !companyReadiness().ready) {
+    logger.error("[email] bank-transfer instructions refused: company identity is not ready");
+    return { ok: false, error: "company_not_ready" };
   }
-) {
-  const resend = getResend();
-  if (!resend) return;
-
-  await resend.emails.send({
-    from: FROM,
+  return sendMail({
+    template: "bank-transfer-instructions",
     to: email,
     subject: `Betaalverzoek — factuur ${data.invoiceNumber}`,
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
+    html: shell(`
         <h1 style="color: #1a6b6b;">Bedankt voor je bestelling, ${esc(data.name)}!</h1>
         <p style="font-size: 16px; line-height: 1.6;">
           We hebben je bestelling ontvangen. Maak het bedrag hieronder over — zodra de betaling
@@ -132,49 +280,110 @@ export async function sendBankTransferInstructions(
         </p>
         <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 16px;">
           <tr><td style="padding:6px 0; color:#666;">Factuurnummer</td><td style="text-align:right; font-weight:bold;">${esc(data.invoiceNumber)}</td></tr>
-          <tr><td style="padding:6px 0; color:#666;">Te betalen</td><td style="text-align:right; font-weight:bold;">€${data.totalEur.toFixed(2)}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">Te betalen</td><td style="text-align:right; font-weight:bold;">${eur(data.totalEur)}</td></tr>
           <tr><td style="padding:6px 0; color:#666;">IBAN</td><td style="text-align:right; font-weight:bold;">${esc(data.iban)}</td></tr>
           <tr><td style="padding:6px 0; color:#666;">Ten name van</td><td style="text-align:right;">${esc(data.ibanName)}</td></tr>
           <tr><td style="padding:6px 0; color:#666;">Omschrijving</td><td style="text-align:right;">${esc(data.invoiceNumber)}</td></tr>
           <tr><td style="padding:6px 0; color:#666;">Betalen voor</td><td style="text-align:right;">${data.dueAt.toLocaleDateString("nl-NL")}</td></tr>
         </table>
-        <a href="${env.APP_URL}/bestelling/${esc(data.orderId)}" style="display: inline-block; background: #1a6b6b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none; margin-top: 24px;">
-          Bekijk bestelling en factuur
-        </a>
+        ${button(customerOrderUrl(data.orderId, data.accessToken), "Bekijk bestelling en factuur")}
         <p style="margin-top: 24px; font-size: 13px; color: #666;">
           Vermeld altijd het factuurnummer als omschrijving, zodat we je betaling kunnen koppelen.
-        </p>
-      </div>
-    `,
+        </p>`),
   });
 }
 
-export async function sendDiagnosisSummary(
+/** The wire has arrived and an admin confirmed it. */
+export async function sendPaymentReceivedEmail(
   email: string,
-  data: { brand: string; mainCause: string; confidence: number; recommendedAction: string }
-) {
-  const resend = getResend();
-  if (!resend) return;
-
-  await resend.emails.send({
-    from: FROM,
+  data: OrderMailBase & { totalEur: number; invoiceNumber?: string | null },
+): Promise<MailResult> {
+  return sendMail({
+    template: "payment-received",
     to: email,
-    subject: `Je wasmachine diagnose — ${data.brand}`,
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
-        <h1 style="color: #1a6b6b;">Diagnose samenvatting</h1>
-        <div style="background: #f5f0e8; padding: 20px; border-radius: 8px; margin: 16px 0;">
-          <p><strong>Merk:</strong> ${esc(data.brand)}</p>
-          <p><strong>Hoofdoorzaak:</strong> ${esc(data.mainCause)}</p>
-          <p><strong>Zekerheid:</strong> ${data.confidence}%</p>
-        </div>
+    subject: `Betaling ontvangen — bestelling #${orderRef(data.orderId)}`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">We hebben je betaling ontvangen</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)}, bedankt: we hebben ${eur(data.totalEur)} ontvangen voor bestelling #${esc(orderRef(data.orderId))}${data.invoiceNumber ? ` (factuur ${esc(data.invoiceNumber)})` : ""}.</p>
         <p style="font-size: 16px; line-height: 1.6;">
-          <strong>Volgende stap:</strong> ${esc(data.recommendedAction)}
+          We maken je bestelling klaar voor verzending. Zodra het pakket onderweg is krijg je een e-mail met de gegevens van de vervoerder.
         </p>
-      </div>
-    `,
+        ${button(customerOrderUrl(data.orderId, data.accessToken), "Bekijk bestelling en factuur")}`),
   });
 }
+
+export async function sendOrderShippedEmail(
+  email: string,
+  data: OrderMailBase & { carrier: string; trackingCode: string; postalCode?: string | null },
+): Promise<MailResult> {
+  const link = trackingUrl(data.carrier, data.trackingCode, data.postalCode);
+  const who = carrierLabel(data.carrier);
+  return sendMail({
+    template: "order-shipped",
+    to: email,
+    subject: `Je bestelling #${orderRef(data.orderId)} is verzonden`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">Je bestelling is onderweg</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)}, bestelling #${esc(orderRef(data.orderId))} is verzonden met ${esc(who)}.</p>
+        <table style="width: 100%; border-collapse: collapse; font-size: 14px; margin-top: 16px;">
+          <tr><td style="padding:6px 0; color:#666;">Vervoerder</td><td style="text-align:right;">${esc(who)}</td></tr>
+          <tr><td style="padding:6px 0; color:#666;">Trackingcode</td><td style="text-align:right; font-family: monospace; font-weight:bold;">${esc(data.trackingCode)}</td></tr>
+        </table>
+        ${link ? button(link, "Volg je pakket") : `<p style="font-size:14px; color:#666;">Volg je pakket met de trackingcode op de website van ${esc(who)}.</p>`}
+        <p style="margin-top: 16px;"><a href="${esc(customerOrderUrl(data.orderId, data.accessToken))}" style="color:#1a6b6b; font-size:14px;">Bekijk bestelling</a></p>`),
+  });
+}
+
+export async function sendOrderCancelledEmail(
+  email: string,
+  data: OrderMailBase & {
+    /** What the customer is told. Leave empty rather than pass an internal note. */
+    reason?: string | null;
+    /** The order had been paid, so money goes back. */
+    wasPaid: boolean;
+    creditNoteNumber?: string | null;
+    refundEur?: number | null;
+  },
+): Promise<MailResult> {
+  const money =
+    data.wasPaid && data.refundEur
+      ? `<p style="font-size: 16px; line-height: 1.6;">Het betaalde bedrag van ${eur(data.refundEur)} krijg je terug.</p>`
+      : `<p style="font-size: 16px; line-height: 1.6;">Je hoeft niets meer te betalen. Heb je het bedrag al overgemaakt? Antwoord dan op deze e-mail, dan regelen we de terugbetaling.</p>`;
+  const credit = data.creditNoteNumber
+    ? `<p style="font-size: 14px; color:#444;">De factuur is gecorrigeerd met creditnota ${esc(data.creditNoteNumber)}.</p>`
+    : "";
+  return sendMail({
+    template: "order-cancelled",
+    to: email,
+    subject: `Bestelling #${orderRef(data.orderId)} is geannuleerd`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">Je bestelling is geannuleerd</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)}, bestelling #${esc(orderRef(data.orderId))} is geannuleerd.${data.reason ? ` Reden: ${esc(data.reason)}` : ""}</p>
+        ${money}
+        ${credit}
+        ${button(customerOrderUrl(data.orderId, data.accessToken), "Bekijk bestelling")}
+        <p style="margin-top: 24px; font-size: 13px; color: #666;">Vragen? Antwoord op deze e-mail.</p>`),
+  });
+}
+
+export async function sendRefundEmail(
+  email: string,
+  data: OrderMailBase & { amountEur: number; creditNoteNumber: string; partial: boolean },
+): Promise<MailResult> {
+  return sendMail({
+    template: "refund",
+    to: email,
+    subject: `Terugbetaling voor bestelling #${orderRef(data.orderId)}`,
+    html: shell(`
+        <h1 style="color: #1a6b6b;">${data.partial ? "Deel van je bestelling is terugbetaald" : "Je bestelling is terugbetaald"}</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)}, we hebben ${eur(data.amountEur)} teruggestort voor bestelling #${esc(orderRef(data.orderId))}. Dit gebeurt op de rekening of kaart waarmee je hebt betaald.</p>
+        <p style="font-size: 14px; color:#444;">Creditnota: ${esc(data.creditNoteNumber)}</p>
+        ${button(customerOrderUrl(data.orderId, data.accessToken), "Bekijk bestelling")}
+        <p style="margin-top: 24px; font-size: 13px; color: #666;">Vragen? Antwoord op deze e-mail.</p>`),
+  });
+}
+
+// ─── Forms that reach the owner ──────────────────────────────────────
 
 export async function sendMonteurApplicationNotification(data: {
   applicationId: string;
@@ -187,15 +396,17 @@ export async function sendMonteurApplicationNotification(data: {
   yearsExperience?: number;
   coverageAreas?: string[];
   specializations?: string[];
-}) {
-  const resend = getResend();
-  if (!resend) return;
-
-  await resend.emails.send({
-    from: FROM,
-    to: "monteur@wasfix.nl",
+}): Promise<MailResult> {
+  // Goes to the owner's own address (ORDER_NOTIFY_EMAIL, else COMPANY_EMAIL),
+  // not to a monteur@ mailbox that nothing in this repo creates. replyTo is the
+  // applicant so "beantwoord" reaches them.
+  const to = ownerEmailAddress();
+  if (!to) return ownerAlertUnmailable("monteur-application", "Nieuwe Monteur Pro aanmelding", `Aanmelding ${data.applicationId}`);
+  return sendMail({
+    template: "monteur-application",
+    to,
     replyTo: data.email,
-    subject: `🔧 Monteur Pro aanmelding · ${data.applicationId}`,
+    subject: `Monteur Pro aanmelding · ${data.applicationId}`,
     html: `
       <div style="font-family: system-ui, sans-serif; max-width: 620px; margin: 0 auto; padding: 24px;">
         <h2 style="color: #1a6b6b;">Nieuwe Monteur Pro aanmelding</h2>
@@ -211,7 +422,7 @@ export async function sendMonteurApplicationNotification(data: {
           ${data.specializations?.length ? `<tr><td style="padding: 6px 0; color: #666;">Specialisaties:</td><td>${esc(data.specializations.join(", "))}</td></tr>` : ""}
         </table>
         <p style="margin-top: 20px; padding: 12px 14px; background: #f0f9f9; border-left: 3px solid #1a6b6b; border-radius: 4px; font-size: 13px;">
-          Review handmatig via admin/monteur-applications, of beantwoord deze e-mail om met de aanvrager te corresponderen.
+          Beoordeel de aanmelding in het beheer onder Aanvragen, of beantwoord deze e-mail om met de aanvrager te corresponderen.
         </p>
       </div>
     `,
@@ -225,39 +436,36 @@ export async function sendRmaNotification(data: {
   email: string;
   reason: string;
   notes: string;
-}) {
-  const resend = getResend();
-  if (!resend) return;
+}): Promise<MailResult> {
+  const ownerTo = ownerEmailAddress();
+  const owner = ownerTo
+    ? await sendMail({
+      template: "rma-owner-alert",
+      to: ownerTo,
+      replyTo: data.email,
+      subject: `Nieuwe retour-aanvraag · ${data.rmaNumber}`,
+      html: `
+        <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
+          <h2 style="color: #1a6b6b; margin: 0 0 16px 0;">Nieuwe retour-aanvraag</h2>
+          <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
+            <tr><td style="padding: 6px 0; color: #666;">RMA-nummer:</td><td style="font-weight: 600; font-family: monospace;">${esc(data.rmaNumber)}</td></tr>
+            <tr><td style="padding: 6px 0; color: #666;">Bestelnummer:</td><td>${esc(data.orderId)}</td></tr>
+            <tr><td style="padding: 6px 0; color: #666;">Klant:</td><td>${esc(data.name)} &lt;${esc(data.email)}&gt;</td></tr>
+            <tr><td style="padding: 6px 0; color: #666;">Reden:</td><td>${esc(data.reason)}</td></tr>
+          </table>
+          <h3 style="margin: 20px 0 8px 0; font-size: 14px;">Toelichting:</h3>
+          <div style="background: #f7f7f7; border-left: 3px solid #1a6b6b; padding: 12px 14px; border-radius: 4px; font-size: 14px; line-height: 1.5;">${esc(data.notes).replace(/\n/g, "<br>")}</div>
+          <p style="margin-top: 24px; font-size: 12px; color: #888;">Beantwoord deze e-mail om met de klant te corresponderen — reply-to is ingesteld op de klant.</p>
+        </div>
+      `,
+      })
+    : await ownerAlertUnmailable("rma-owner-alert", "Nieuwe retour-aanvraag", `RMA ${data.rmaNumber}`);
 
-  // Send to internal team
-  await resend.emails.send({
-    from: FROM,
-    to: "retour@wasfix.nl",
-    replyTo: data.email,
-    subject: `🔄 Nieuwe retour-aanvraag · ${data.rmaNumber}`,
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 600px; margin: 0 auto; padding: 24px;">
-        <h2 style="color: #1a6b6b; margin: 0 0 16px 0;">Nieuwe retour-aanvraag</h2>
-        <table style="width: 100%; border-collapse: collapse; font-size: 14px;">
-          <tr><td style="padding: 6px 0; color: #666;">RMA-nummer:</td><td style="font-weight: 600; font-family: monospace;">${esc(data.rmaNumber)}</td></tr>
-          <tr><td style="padding: 6px 0; color: #666;">Bestelnummer:</td><td>${esc(data.orderId)}</td></tr>
-          <tr><td style="padding: 6px 0; color: #666;">Klant:</td><td>${esc(data.name)} &lt;${esc(data.email)}&gt;</td></tr>
-          <tr><td style="padding: 6px 0; color: #666;">Reden:</td><td>${esc(data.reason)}</td></tr>
-        </table>
-        <h3 style="margin: 20px 0 8px 0; font-size: 14px;">Toelichting:</h3>
-        <div style="background: #f7f7f7; border-left: 3px solid #1a6b6b; padding: 12px 14px; border-radius: 4px; font-size: 14px; line-height: 1.5;">${esc(data.notes).replace(/\n/g, "<br>")}</div>
-        <p style="margin-top: 24px; font-size: 12px; color: #888;">Beantwoord deze e-mail om met de klant te corresponderen — reply-to is ingesteld op de klant.</p>
-      </div>
-    `,
-  });
-
-  // Confirmation to customer
-  await resend.emails.send({
-    from: FROM,
+  const customer = await sendMail({
+    template: "rma-acknowledgement",
     to: data.email,
     subject: `Retour-aanvraag ontvangen · ${data.rmaNumber}`,
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
+    html: shell(`
         <h1 style="color: #1a6b6b;">Retour-aanvraag ontvangen</h1>
         <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)},</p>
         <p style="font-size: 16px; line-height: 1.6;">
@@ -274,32 +482,9 @@ export async function sendRmaNotification(data: {
         </p>
         <p style="font-size: 13px; color: #666; margin-top: 24px;">
           Vragen? Antwoord gewoon op deze e-mail — we reageren op werkdagen binnen 24 uur.
-        </p>
-        <hr style="border: none; border-top: 1px solid #eee; margin: 24px 0;">
-        <p style="font-size: 12px; color: #888;">${esc(companyIdentityLine())}</p>
-      </div>
-    `,
+        </p>`),
   });
-}
-
-export async function sendSubscriptionConfirmation(email: string, plan: string) {
-  const resend = getResend();
-  if (!resend) return;
-
-  await resend.emails.send({
-    from: FROM,
-    to: email,
-    subject: `Je ${plan} abonnement is actief`,
-    html: `
-      <div style="font-family: system-ui, sans-serif; max-width: 580px; margin: 0 auto; padding: 24px;">
-        <h1 style="color: #1a6b6b;">Welkom bij ${esc(plan)}!</h1>
-        <p style="font-size: 16px; line-height: 1.6;">
-          Je abonnement is actief. Je hebt nu toegang tot alle premium functies.
-        </p>
-        <a href="${env.APP_URL}/dashboard" style="display: inline-block; background: #1a6b6b; color: white; padding: 12px 24px; border-radius: 6px; text-decoration: none;">
-          Naar mijn dashboard
-        </a>
-      </div>
-    `,
-  });
+  // The customer's acknowledgement is what the form promises; the owner alert
+  // failing is reported through sendMail but does not make the customer's mail a failure.
+  return customer.ok ? { ok: true, id: customer.id } : { ok: false, error: customer.error ?? owner.error };
 }

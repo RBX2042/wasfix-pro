@@ -9,13 +9,29 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import { VAT_RATE, COMPANY, SHIPPING, shippingFor, realOrNull } from "@/lib/plans";
+import { VAT_RATE, SHIPPING, shippingFor } from "@/lib/plans";
 import { ShoppingBag, Truck, Lock, ArrowLeft, Landmark } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { toast } from "sonner";
 
-export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeAvailable: boolean; partsDiscount?: number }) {
+/**
+ * What this component may show of the seller. COMPANY is built from server
+ * environment variables, which do not exist in the browser: reading it here
+ * rendered placeholders after hydration and mismatched the server HTML. The
+ * server page passes publicCompany() instead, with placeholders already null.
+ */
+export type CheckoutCompany = { name: string; iban: string | null };
+
+export function CheckoutClient({
+  stripeAvailable,
+  partsDiscount = 0,
+  company,
+}: {
+  stripeAvailable: boolean;
+  partsDiscount?: number;
+  company: CheckoutCompany;
+}) {
   const items = useCart((s) => s.items);
   const clearCart = useCart((s) => s.clear);
   const router = useRouter();
@@ -274,7 +290,7 @@ export function CheckoutClient({ stripeAvailable, partsDiscount = 0 }: { stripeA
                     <p className="text-xs text-muted-foreground">
                       {/* Never print the placeholder IBAN as if a customer could pay it. */}
                       Je ontvangt direct een factuur met betaalinstructies
-                      {realOrNull(COMPANY.iban) ? ` (${COMPANY.name}, IBAN ${COMPANY.iban})` : ""}. Betaal binnen 14 dagen.
+                      {company.iban ? ` (${company.name}, IBAN ${company.iban})` : ""}. Betaal binnen 14 dagen.
                     </p>
                   </div>
                 </div>

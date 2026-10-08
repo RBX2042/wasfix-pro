@@ -12,6 +12,15 @@
  */
 
 import { env } from "./env";
+import {
+  DEFAULT_COMPANY_NAME,
+  canonicalCompanyValue,
+  companyTradeName,
+  evaluateCompany,
+  isPlaceholderValue,
+  type CompanyInput,
+  type CompanyReadiness,
+} from "./company-validate";
 
 export type PlanId = "FREE" | "PARTICULIER" | "MONTEUR_PRO" | "BEDRIJF";
 
@@ -20,44 +29,90 @@ export const VAT_RATE = 0.21;
 
 /**
  * Company and fiscal identity, printed on invoices and legal pages.
- * These are placeholders until the company is registered — see BLOCKED.md.
- * Overridable via env so production doesn't need a code change.
+ *
+ * SERVER ONLY IN PRACTICE. These values come from COMPANY_* environment
+ * variables, which exist on the server and nowhere else. A client component
+ * that reads COMPANY in the browser sees the fallbacks below instead of the
+ * configured values, so the server-rendered HTML and the hydrated DOM disagree
+ * (React error #418). Client components must receive what they need as props
+ * from a server component: see publicCompany() in src/lib/company.ts.
+ * scripts/qa-money.ts fails when a "use client" file imports COMPANY.
+ *
+ * The fallbacks exist so local development and the demo render something. They
+ * are never accepted as real: companyReadiness() looks at the environment, not
+ * at these fields, and `isPlaceholder` is true until ALL of name, street,
+ * postal code, city, KvK, btw-nummer and IBAN are configured and valid.
  */
+// Every fiscal field goes through canonicalCompanyValue(), the same function
+// companyReadiness() judges, so a trailing newline or a lower-case btw-nummer in
+// the environment can neither pass the check and then be printed as typed, nor
+// end up in the permanent invoice seller block.
+const canon = (field: Parameters<typeof canonicalCompanyValue>[0], raw: string | undefined, fallback: string) =>
+  canonicalCompanyValue(field, raw) || fallback;
+
 export const COMPANY = {
-  name: env.COMPANY_NAME ?? "WasFix Pro B.V.",
-  street: env.COMPANY_STREET ?? "Hoofdstraat 1",
-  postalCode: env.COMPANY_POSTAL_CODE ?? "1234 AB",
-  city: env.COMPANY_CITY ?? "Amsterdam",
+  // No legal form in the default: "B.V." is a claim that the company is
+  // registered as one.
+  name: canon("name", env.COMPANY_NAME, DEFAULT_COMPANY_NAME),
+  /** The name without a trailing "(in oprichting)", for sentences that say so themselves. */
+  tradeName: companyTradeName(canon("name", env.COMPANY_NAME, DEFAULT_COMPANY_NAME)),
+  street: canon("street", env.COMPANY_STREET, "Hoofdstraat 1"),
+  postalCode: canon("postalCode", env.COMPANY_POSTAL_CODE, "1234 AB"),
+  // Empty rather than a plausible-looking city: "Amsterdam" was printed as the
+  // address of a company that has none.
+  city: canon("city", env.COMPANY_CITY, ""),
   country: "Nederland",
-  kvk: env.COMPANY_KVK ?? "12345678",
-  vatNumber: env.COMPANY_VAT ?? "NL123456789B01",
-  iban: env.COMPANY_IBAN ?? "NL00ABCD0123456789",
-  email: env.COMPANY_EMAIL ?? "support@wasfix.nl",
-  phone: env.COMPANY_PHONE ?? "085 - 123 45 67",
-  /** True once real registration details are configured. */
+  kvk: canon("kvk", env.COMPANY_KVK, "12345678"),
+  vatNumber: canon("vatNumber", env.COMPANY_VAT, "NL123456789B01"),
+  iban: canon("iban", env.COMPANY_IBAN, "NL00ABCD0123456789"),
+  email: env.COMPANY_EMAIL?.trim() || "support@wasfix.nl",
+  phone: env.COMPANY_PHONE?.trim() || "085 - 123 45 67",
+  /** True until the whole fiscal identity is real. See companyReadiness(). */
   get isPlaceholder() {
-    return this.kvk === "12345678";
+    return !companyReadiness().ready;
   },
 } as const;
+
+/** The seven fields (plus the contact e-mail) as configured in the environment (no fallbacks). */
+export function companyInputFromEnv(): CompanyInput {
+  return {
+    name: env.COMPANY_NAME,
+    street: env.COMPANY_STREET,
+    postalCode: env.COMPANY_POSTAL_CODE,
+    city: env.COMPANY_CITY,
+    kvk: env.COMPANY_KVK,
+    vatNumber: env.COMPANY_VAT,
+    iban: env.COMPANY_IBAN,
+    // Not mandatory; companyReadiness() only reports it in `warnings`.
+    email: env.COMPANY_EMAIL,
+  };
+}
+
+/**
+ * Whether the company may invoice and ask for money.
+ *
+ * `ready` is true only when name, street, postal code, city, KvK (8 digits),
+ * btw-nummer (NL + 9 digits + B + 2 digits) and IBAN (valid mod-97, not the
+ * placeholder) are ALL real. A partial configuration is not ready: the old
+ * check looked at the KvK alone, so setting only COMPANY_KVK let checkout
+ * invoice with a placeholder IBAN and btw-nummer.
+ *
+ * Pass `input` to evaluate other values (tests, a preflight dry run); without
+ * it the environment is read.
+ */
+export function companyReadiness(input: CompanyInput = companyInputFromEnv()): CompanyReadiness {
+  return evaluateCompany(input);
+}
 
 /**
  * The stand-in values above. Public pages must not print these as if they were
  * real registration details — a visitor reading "KvK 12345678" is being told
  * something false — so they render `null` until the real value is configured.
  */
-const COMPANY_PLACEHOLDERS: ReadonlySet<string> = new Set([
-  "Hoofdstraat 1",
-  "1234 AB",
-  "12345678",
-  "NL123456789B01",
-  "NL00ABCD0123456789",
-  "085 - 123 45 67",
-]);
-
 /** The value, or null when it is still the placeholder. */
 export function realOrNull(value: string | null | undefined): string | null {
   if (!value) return null;
-  return COMPANY_PLACEHOLDERS.has(value) ? null : value;
+  return isPlaceholderValue(value) ? null : value;
 }
 
 /** Text to show in place of a registration detail we do not have yet. */
@@ -76,7 +131,8 @@ export function companyIdentityLine(): string {
   const postcodeCity = [realOrNull(COMPANY.postalCode), realOrNull(COMPANY.city)].filter(Boolean).join(" ");
   const address = [realOrNull(COMPANY.street), postcodeCity || null].filter(Boolean).join(", ");
   const kvk = realOrNull(COMPANY.kvk);
-  return [COMPANY.name, address || null, kvk ? `KvK ${kvk}` : "in oprichting"].filter(Boolean).join(" · ");
+  const registration = kvk ? `KvK ${kvk}` : /in oprichting/i.test(COMPANY.name) ? null : "in oprichting";
+  return [COMPANY.name, address || null, registration].filter(Boolean).join(" · ");
 }
 
 /**

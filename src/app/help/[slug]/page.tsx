@@ -2,6 +2,7 @@ import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import articlesData from "@/data/help-articles.json";
+import { correctHelpText } from "../_corrections";
 
 type Article = {
   slug: string;
@@ -11,7 +12,12 @@ type Article = {
   content: string;
 };
 
-const articles = articlesData as Article[];
+const articles = (articlesData as Article[]).map((a) => ({
+  ...a,
+  title: correctHelpText(a.title),
+  summary: correctHelpText(a.summary),
+  content: correctHelpText(a.content),
+}));
 
 export function generateStaticParams() {
   return articles.map((a) => ({ slug: a.slug }));
@@ -22,7 +28,7 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const article = articles.find((a) => a.slug === slug);
   if (!article) return { title: "Helpartikel niet gevonden" };
   return {
-    title: `${article.title} · Helpcentrum WasFix Pro`,
+    title: `${article.title}`,
     description: article.summary,
     alternates: { canonical: `/help/${article.slug}` },
   };

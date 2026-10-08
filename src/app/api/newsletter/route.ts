@@ -56,12 +56,13 @@ export async function POST(req: NextRequest) {
       logger.warn("Resend audience add error", err);
     }
   } else {
-    logger.info("Newsletter signup (Resend not configured)", { email });
+    logger.info("Newsletter signup (Resend not configured)");
   }
 
   // Form submission → redirect to thanks page; JSON → JSON response
   if (!contentType.includes("application/json")) {
     return NextResponse.redirect(new URL("/blog?newsletter=ok", req.url), 303);
   }
-  return apiSuccess({ message: "Bedankt — check je inbox voor de bevestiging." });
+  // No confirmation e-mail exists, so do not promise one.
+  return apiSuccess({ message: "Bedankt, je bent aangemeld voor de nieuwsbrief." });
 }

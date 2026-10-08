@@ -3,7 +3,7 @@ import Link from "next/link";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
 export const metadata = {
-  title: "EU Right to Repair — wat zijn jouw rechten? · WasFix Pro",
+  title: "EU Right to Repair — wat zijn jouw rechten?",
   description: "Wat de EU-regels over repareren precies zeggen — met de verordening en richtlijn erbij, zodat je het zelf kunt nalezen.",
   alternates: { canonical: "/right-to-repair" },
 };
@@ -96,7 +96,7 @@ export default function RightToRepairPage() {
             <h2 className="h-section" style={{ fontSize: 28, marginBottom: 24 }}>
               Wat de wet je <em>garandeert</em>
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 14 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 14 }}>
               {RIGHTS.map((r, i) => (
                 <div key={i} className="step-card" style={{ padding: "20px 22px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
@@ -157,7 +157,7 @@ export default function RightToRepairPage() {
           {/* Sources */}
           <section style={{ marginBottom: 48 }}>
             <div className="eyebrow" style={{ marginBottom: 8 }}>Verder lezen</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(260px, 100%), 1fr))", gap: 10 }}>
               {[
                 { label: "Richtlijn (EU) 2024/1799 — repareren van goederen", href: "https://eur-lex.europa.eu/eli/dir/2024/1799/oj" },
                 { label: "Verordening (EU) 2019/2023 — ecodesign wasmachines", href: "https://eur-lex.europa.eu/eli/reg/2019/2023/oj" },

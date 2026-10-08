@@ -42,13 +42,14 @@ export async function generateMetadata({ params }: { params: Promise<{ merk: str
   if (!brand) return { title: "Merk niet gevonden" };
   const covered = await hasCatalogCoverage(brand.brand);
   return {
-    title: `${brand.brand} wasmachine reparatie — diagnose + onderdelen · WasFix Pro`,
+    title: `${brand.brand} wasmachine reparatie — diagnose + onderdelen`,
     // A brand we carry no codes or parts for is a thin page by definition.
     // Keep it reachable for someone who lands on it, keep it out of the index.
     robots: covered ? undefined : { index: false, follow: true },
     description: `${brand.brand} wasmachine kapot of foutcode? Gratis diagnose, reparatiegidsen en originele onderdelen. ${brand.tagline}.`,
     alternates: { canonical: `/${brand.slug}-wasmachine-reparatie` },
     openGraph: {
+      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
       title: `${brand.brand} wasmachine reparatie`,
       description: brand.tagline,
       type: "website",
@@ -63,7 +64,11 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
 
   // Get top error codes for this brand from our database
   const allCodes = await dbErrorCodes({});
-  const brandCodes = allCodes.filter((ec) => ec.machine.brand === brand.brand).slice(0, 12);
+  const allBrandCodes = allCodes.filter((ec) => ec.machine.brand === brand.brand);
+  const brandCodes = allBrandCodes.slice(0, 12);
+  // /merken/<Brand> exists only for brands that have machines in the catalogue;
+  // for Zanussi, Hotpoint, Candy, Haier and Panasonic that link was a 404.
+  const hasBrandPage = allBrandCodes.length > 0;
 
   // Get top parts for this brand
   const allParts = await dbParts({ where: { minStock: 1 }, take: 200 });
@@ -112,9 +117,11 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
             <Link className="btn btn-primary" href={`/diagnose?prefill=${encodeURIComponent(`Mijn ${brand.brand} wasmachine...`)}`}>
               Start {brand.brand} diagnose <Icon name="arrow" size={14} />
             </Link>
-            <Link className="btn" href={`/merken/${encodeURIComponent(brand.brand)}`}>
-              Bekijk {brand.brand} modellen
-            </Link>
+            {hasBrandPage && (
+              <Link className="btn" href={`/merken/${encodeURIComponent(brand.brand)}`}>
+                Bekijk {brand.brand} modellen
+              </Link>
+            )}
           </div>
 
           {/* Top foutcodes — only when we actually hold codes for this brand. */}
@@ -161,8 +168,8 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
             </div>
             {brandCodes.length > 9 && (
               <div style={{ marginTop: 16 }}>
-                <Link href={`/foutcodes?merk=${encodeURIComponent(brand.brand)}`} className="btn btn-sm">
-                  Alle {brandCodes.length} {brand.brand} codes <Icon name="arrow" size={13} />
+                <Link href={`/foutcodes?brand=${encodeURIComponent(brand.brand)}`} className="btn btn-sm">
+                  Alle {brand.brand} codes <Icon name="arrow" size={13} />
                 </Link>
               </div>
             )}
@@ -176,9 +183,9 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
                 Populaire {brand.brand} <em>onderdelen</em>
               </h2>
               <p className="lead" style={{ fontSize: 15, marginBottom: 20 }}>
-                We verzenden op werkdagen, met track &amp; trace zodra je pakket is aangemeld. 30 dagen retour.
+                We verzenden op werkdagen; je krijgt een track &amp; trace-code zodra je bestelling is verzonden. 30 dagen bedenktijd.
               </p>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))", gap: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(240px, 100%), 1fr))", gap: 12 }}>
                 {brandParts.map((p) => (
                   <Link
                     key={p.id}
@@ -222,7 +229,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
               {brand.brand} <em>modellen</em>
             </h2>
             <p className="lead" style={{ fontSize: 14, marginBottom: 16 }}>
-              We ondersteunen alle {brand.brand} modellen. Voorbeelden:
+              Voorbeelden van veelvoorkomende {brand.brand} modellen:
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
               {brand.modelExamples.map((m) => (
@@ -237,7 +244,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
               {brand.brand} kapot? Begin met gratis diagnose
             </h2>
             <p className="muted" style={{ marginBottom: 20, maxWidth: 520, margin: "0 auto 20px" }}>
-              60 seconden — krijg de top 3 oorzaken + welk onderdeel je nodig hebt. Geen account vereist.
+              Binnen een minuut een eerste indicatie van de oorzaak en het onderdeel dat je nodig kunt hebben. Geen account vereist; de uitkomst is een indicatie, geen zekerheid.
             </p>
             <Link className="btn btn-primary" href="/diagnose">
               Start gratis {brand.brand} diagnose <Icon name="arrow" size={14} />

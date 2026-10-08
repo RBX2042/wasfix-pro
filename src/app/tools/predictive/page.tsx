@@ -2,7 +2,7 @@ import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { PredictiveClient } from "./client";
 
 export const metadata = {
-  title: "Voorspellende onderhoud — Health-score wasmachine · WasFix Pro",
+  title: "Voorspellende onderhoud — Health-score wasmachine",
   description: "Krijg een health-score per onderdeel-categorie op basis van merk + leeftijd. Voorkom defecten met preventief bestel-pakket.",
   alternates: { canonical: "/tools/predictive" },
 };

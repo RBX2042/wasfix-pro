@@ -1,9 +1,11 @@
+import { COMPANY } from "@/lib/plans";
 import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Klachtenprocedure · WasFix Pro",
+  title: "Klachtenprocedure",
   description: "Hoe dien je een klacht in bij WasFix Pro — procedure, termijnen en welke stappen je daarna nog hebt.",
+  alternates: { canonical: "/klachten" },
 };
 
 export default function KlachtenPage() {
@@ -18,7 +20,7 @@ export default function KlachtenPage() {
         De snelste oplossing is meestal een direct gesprek. Stuur ons een bericht via één van deze kanalen:
       </p>
       <ul>
-        <li><strong>E-mail:</strong> <a href="mailto:klachten@wasfix.nl">klachten@wasfix.nl</a> (reactie binnen 24u op werkdagen)</li>
+        <li><strong>E-mail:</strong> <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> (reactie binnen 24u op werkdagen)</li>
         <li><strong>Formulier:</strong> <Link href="/contact?onderwerp=klacht">contact-pagina</Link></li>
       </ul>
       <p>

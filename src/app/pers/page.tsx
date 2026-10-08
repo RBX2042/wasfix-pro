@@ -1,9 +1,10 @@
+import { COMPANY } from "@/lib/plans";
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
 export const metadata = {
-  title: "Pers & media kit · WasFix Pro",
+  title: "Pers & media kit",
   description: "Logo's, founder bio, statistieken en persberichten van WasFix Pro. Voor journalisten en bloggers in tech, duurzaamheid en consumentenrechten.",
   alternates: { canonical: "/pers" },
 };
@@ -15,7 +16,7 @@ const CATALOG = catalogStats();
 // place to put a number a journalist might quote.
 const STATS = [
   { value: formatCount(CATALOG.errorCodes), label: "Foutcodes in database" },
-  { value: formatCount(CATALOG.partsInStock), label: "Onderdelen op voorraad" },
+  { value: formatCount(CATALOG.parts), label: "Onderdelen in de catalogus" },
   { value: formatCount(CATALOG.guides), label: "Reparatiegidsen NL" },
   { value: formatCount(CATALOG.brands), label: "Ondersteunde merken" },
 ];
@@ -42,8 +43,9 @@ const BACKGROUND = [
 
 const FOUNDER = {
   name: "Het WasFix team",
-  bio: "WasFix Pro is gebouwd door een team van techneuten en monteurs met meer dan 30 jaar gecombineerde ervaring in witgoed-reparatie. We geloven dat AI ons in staat moet stellen apparaten langer te gebruiken, niet sneller te vervangen.",
-  contact: "pers@wasfix.nl",
+  // The "meer dan 30 jaar gecombineerde ervaring" that stood here was never established.
+  bio: "WasFix Pro helpt mensen hun wasmachine langer te gebruiken: eerst een diagnose, dan het juiste onderdeel en een gids om het zelf te doen. We geloven dat AI helpt apparaten langer te gebruiken, niet sneller te vervangen.",
+  contact: COMPANY.email,
 };
 
 export default function PressPage() {
@@ -57,7 +59,7 @@ export default function PressPage() {
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>
             Logo&apos;s, cijfers over de database, teambio en achtergrond. Iets specifieks nodig? Mail{" "}
-            <a href="mailto:pers@wasfix.nl" style={{ color: "var(--acc-2)", textDecoration: "underline" }}>pers@wasfix.nl</a> — we reageren binnen 4 uur (werkdagen).
+            <a href={`mailto:${COMPANY.email}`} style={{ color: "var(--acc-2)", textDecoration: "underline" }}>{COMPANY.email}</a> — we reageren op werkdagen.
           </p>
 
           {/* WasFix in numbers */}
@@ -97,7 +99,7 @@ export default function PressPage() {
             </div>
             <div style={{ marginTop: 12 }}>
               <p className="muted" style={{ fontSize: 12.5, marginBottom: 8 }}>
-                SVG-bronnen op aanvraag via pers@wasfix.nl. Onze brand-kleuren: primair <code style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>#4f8cff</code>, accent <code style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>#00d4ff</code>, achtergrond <code style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>#060912</code>.
+                SVG-bronnen op aanvraag via {COMPANY.email}. Onze brand-kleuren: primair <code style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>#4f8cff</code>, accent <code style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>#00d4ff</code>, achtergrond <code style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>#060912</code>.
               </p>
             </div>
           </section>
@@ -132,7 +134,7 @@ export default function PressPage() {
             <p className="muted" style={{ fontSize: 12.5, marginTop: 14, lineHeight: 1.6 }}>
               We publiceren geen gebruikscijfers zolang we ze niet gemeten hebben. Heb je cijfers nodig voor
               een artikel, mail dan{" "}
-              <a href="mailto:pers@wasfix.nl" style={{ color: "var(--acc-2)", textDecoration: "underline" }}>pers@wasfix.nl</a>{" "}
+              <a href={`mailto:${COMPANY.email}`} style={{ color: "var(--acc-2)", textDecoration: "underline" }}>{COMPANY.email}</a>{" "}
               en we vertellen je precies wat we wel en niet weten.
             </p>
           </section>
@@ -160,8 +162,8 @@ export default function PressPage() {
               Voor interviews, foto&apos;s, of background calls.
             </p>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "center" }}>
-              <a href="mailto:pers@wasfix.nl" className="btn btn-primary">
-                <Icon name="send" size={13} /> pers@wasfix.nl
+              <a href={`mailto:${COMPANY.email}`} className="btn btn-primary">
+                <Icon name="send" size={13} /> {COMPANY.email}
               </a>
               <Link href="/right-to-repair" className="btn">
                 R2R landing page

@@ -2,8 +2,9 @@ import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
 
 export const metadata = {
-  title: "DIY Disclaimer · WasFix Pro",
+  title: "DIY Disclaimer",
   description: "Veiligheidsinstructies en disclaimer voor zelf-reparatie van wasmachines.",
+  alternates: { canonical: "/disclaimer" },
 };
 
 export default function DisclaimerPage() {

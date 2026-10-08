@@ -46,6 +46,7 @@ export default function CookiesPage() {
 
       <h3>2.1 Functionele cookies (altijd actief — geen toestemming vereist)</h3>
       <p>Deze zijn essentieel voor het werken van de site:</p>
+      <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
@@ -61,15 +62,20 @@ export default function CookiesPage() {
           <tr><td style={{ padding: "8px 10px" }}><code>__clerk_*</code></td><td style={{ padding: "8px 10px" }}>Auth-sessie (Clerk)</td><td style={{ padding: "8px 10px" }}>Sessie / 30 dagen</td></tr>
         </tbody>
       </table>
+      </div>
       <p>
         <strong>Geen cookies:</strong> je winkelmand (<code>wasfix-cart</code>) en je licht/donker-voorkeur (<code>theme</code>) bewaren we in de <em>localStorage</em> van je browser. Die gegevens gaan nooit met een verzoek mee naar ons of naar derden en blijven staan tot je ze via je browser wist.
       </p>
+      <p>
+        Ook zonder toestemming slaan we twee kleine dingen lokaal in je browser op: <code>wasfix-visits</code> (localStorage, telt hoe vaak je de site opent, alleen om op het juiste moment aan te bieden de site als app te installeren) en <code>wasfix-exit-shown</code> (of je de aanbieding van de gratis cheatsheet al hebt gezien of gesloten). Ook die gaan nooit naar ons of naar derden. Pas met toestemming voor analytics bewaren we daarnaast in <em>sessionStorage</em> <code>wasfix-evt-*</code>-vlaggen, zodat een gebeurtenis (zoals het eerste bezoek) in één sessie maar één keer wordt geteld.
+      </p>
 
       <h3>2.2 Analytics (opt-in)</h3>
-      <p>Alleen actief na expliciete toestemming. Geen profielen, geen ad-targeting:</p>
+      <p>Alleen actief na expliciete toestemming. Geen profielen, geen ad-targeting. Wat we meten: welke soort pagina je opent (bijvoorbeeld foutcode, onderdeel of checkout), of je een onderdeel in je winkelmand legt, of je naar de checkout gaat en of je een bestelling afrondt. Geen e-mailadres, naam, adres of bestelnummer:</p>
       <ul>
         <li><strong>Vercel Analytics</strong> — page-views en Web Vitals. Plaatst geen cookie, maar berekent een bezoeker-hash uit kenmerken van je apparaat en je verzoek. Ook dat is het uitlezen van gegevens op je apparaat, dus het script laadt pas nadat je analytics hebt aangezet.</li>
         <li><strong>Vercel Speed Insights</strong> — Core Web Vitals. Eveneens cookieloos, en om dezelfde reden pas na toestemming.</li>
+        <li><strong>Google Analytics 4</strong> — alleen als dit voor deze omgeving is ingeschakeld én je analytics hebt toegestaan. Meet dezelfde gebeurtenissen als hieronder, zonder advertentiekoppeling (Google Signals staat uit). Plaatst <code>_ga*</code>-cookies.</li>
         <li><strong>PostHog</strong> (EU-servers) — product-analytics: welke pagina&apos;s en functies worden gebruikt. Zet een <code>ph_*_posthog</code>-cookie met een willekeurig id (365 dagen). Session recording staat uit. Draait alleen als PostHog voor deze omgeving is ingeschakeld én je analytics hebt toegestaan.</li>
       </ul>
 
@@ -77,6 +83,7 @@ export default function CookiesPage() {
       <p>
         Wij doen geen retargeting en werken niet met advertentienetwerken. De enige marketing-cookies zijn die van ons doorverwijs-programma; ze worden pas geplaatst als je in de banner marketing hebt aangezet:
       </p>
+      <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
@@ -90,6 +97,7 @@ export default function CookiesPage() {
           <tr><td style={{ padding: "8px 10px" }}><code>wasfix-vid</code></td><td style={{ padding: "8px 10px" }}>Anoniem bezoeker-id bij die doorverwijs-klik, zodat één klik niet dubbel telt. httpOnly: alleen onze server leest deze, JavaScript niet</td><td style={{ padding: "8px 10px" }}>30 dagen</td></tr>
         </tbody>
       </table>
+      </div>
 
       <h2>3. Cookies van derden</h2>
       <ul>

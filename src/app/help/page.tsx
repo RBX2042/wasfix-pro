@@ -1,14 +1,16 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import articlesData from "@/data/help-articles.json";
+import { correctHelpText } from "./_corrections";
 
 export const metadata = {
-  title: "Helpcentrum · WasFix Pro",
+  title: "Helpcentrum",
   description: "Antwoorden op de meest gestelde vragen. AI diagnose, onderdelen, bestellingen, abonnement, garantie, privacy.",
+  alternates: { canonical: "/help" },
 };
 
 type Article = { slug: string; category: string; title: string; summary: string; content: string };
-const articles = articlesData as Article[];
+const articles = (articlesData as Article[]).map((a) => ({ ...a, title: correctHelpText(a.title), summary: correctHelpText(a.summary) }));
 
 export default function HelpPage() {
   // Group by category
@@ -51,7 +53,7 @@ export default function HelpPage() {
                     <h2 style={{ fontSize: 20, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>{category}</h2>
                     <span className="muted mono" style={{ fontSize: 11, marginLeft: 4 }}>{items.length} artikel{items.length === 1 ? "" : "en"}</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))", gap: 12 }}>
                     {items.map((a) => (
                       <Link
                         key={a.slug}

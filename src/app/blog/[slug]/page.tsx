@@ -2,9 +2,10 @@ import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import postsData from "@/data/blog-posts.json";
+import { correctCopy } from "@/app/help/_corrections";
 
 type Post = { slug: string; category: string; title: string; summary: string; readTime: number; publishedAt: string; heroEmoji: string; content: string };
-const posts = postsData as Post[];
+const posts = (postsData as Post[]).map((p) => ({ ...p, title: correctCopy(p.title), summary: correctCopy(p.summary), content: correctCopy(p.content) }));
 
 export function generateStaticParams() {
   return posts.map((p) => ({ slug: p.slug }));
@@ -15,10 +16,11 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const post = posts.find((p) => p.slug === slug);
   if (!post) return { title: "Artikel niet gevonden" };
   return {
-    title: `${post.title} · Blog · WasFix Pro`,
+    title: `${post.title} · Blog`,
     description: post.summary,
     alternates: { canonical: `/blog/${post.slug}` },
     openGraph: {
+      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
       title: post.title,
       description: post.summary,
       type: "article",

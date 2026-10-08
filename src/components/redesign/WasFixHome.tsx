@@ -6,11 +6,18 @@ import { useCart, cartCount } from "@/components/cart-provider";
 import { CartDrawer } from "@/components/cart-drawer";
 import { toast } from "sonner";
 import "@/app/wasfix-design.css";
+import { WasFixFooter } from "@/components/redesign/SharedLayout";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
-import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
-// Derived from the catalog so a headline number can never outrun the product.
-const STATS = catalogStats();
+// Headline numbers come from the server (page.tsx reads the real catalogue) and
+// reach the components through this context. They used to be computed here by
+// importing catalog-stats, which imports the whole catalogue JSON: that put every
+// part - purchase price and supplier included - into this component's JS chunk
+// (330 KB, shipped to every visitor of the home page).
+export type HomeStats = { errorCodes: number; parts: number; guides: number; brands: number };
+const StatsContext = React.createContext<HomeStats>({ errorCodes: 0, parts: 0, guides: 0, brands: 0 });
+const useStats = () => React.useContext(StatsContext);
+const formatCount = (n: number) => new Intl.NumberFormat("nl-NL").format(n);
 
 // ─── Icon helper ────────────────────────────────────────────────────────
 type IconName =
@@ -66,30 +73,24 @@ type Part = {
   name: string;
   code: string;
   hint: string;
+  /** Shop category this machine part is sold under, and its Dutch plural for the link text. */
+  category: string;
+  categoryLabel: string;
   hot: { cx: number; cy: number; r: number };
 };
 
 const MACHINE_PARTS: Part[] = [
-  { id: "door-lock", name: "Deurslot", code: "dE / F34", hint: "Vergrendelt de deur tijdens een programma.", hot: { cx: 393, cy: 218, r: 26 } },
-  { id: "gasket", name: "Manchet (rubber)", code: "—", hint: "Voorkomt waterlekkage rondom de deur.", hot: { cx: 300, cy: 158, r: 24 } },
-  { id: "drum", name: "Trommel + lagers", code: "F11 / d07", hint: "Roterende trommel — lagers vervangen na ±10 jaar.", hot: { cx: 300, cy: 300, r: 38 } },
-  { id: "heater", name: "Verwarmingselement", code: "tE / F19", hint: "Verwarmt het water. Verkalking is doodsoorzaak #1.", hot: { cx: 300, cy: 412, r: 22 } },
-  { id: "ntc", name: "Temperatuursensor", code: "F19 / tE", hint: "NTC meet watertemperatuur.", hot: { cx: 224, cy: 412, r: 14 } },
-  { id: "pump", name: "Afvoerpomp", code: "E18 / OE", hint: "Pompt vuil water af. Vaakst defect onderdeel.", hot: { cx: 156, cy: 472, r: 22 } },
-  { id: "filter", name: "Vuilfilter", code: "E18 / 5E", hint: "Vang muntjes en haren op. Maandelijks legen.", hot: { cx: 396, cy: 472, r: 20 } },
-  { id: "valve", name: "Inlaatventiel", code: "E12 / 4E", hint: "Regelt watertoevoer. Filter zit erachter verstopt.", hot: { cx: 478, cy: 100, r: 14 } },
-  { id: "pcb", name: "Besturingsprint", code: "F63 / UE", hint: "Het brein. Reset-poging vóór vervangen.", hot: { cx: 372, cy: 78, r: 14 } },
-  { id: "motor", name: "Motor + koolborstels", code: "F11 / 8E", hint: "Koolborstels verslijten na ±8 jaar.", hot: { cx: 196, cy: 300, r: 22 } },
+  { id: "door-lock", category: "LOCK", categoryLabel: "deursloten", name: "Deurslot", code: "dE / F34", hint: "Vergrendelt de deur tijdens een programma.", hot: { cx: 393, cy: 218, r: 26 } },
+  { id: "gasket", category: "DOOR", categoryLabel: "deuren & pakkingen", name: "Manchet (rubber)", code: "—", hint: "Voorkomt waterlekkage rondom de deur.", hot: { cx: 300, cy: 158, r: 24 } },
+  { id: "drum", category: "BEARING", categoryLabel: "lagers", name: "Trommel + lagers", code: "F11 / d07", hint: "Roterende trommel — lagers vervangen na ±10 jaar.", hot: { cx: 300, cy: 300, r: 38 } },
+  { id: "heater", category: "HEATING", categoryLabel: "verwarming", name: "Verwarmingselement", code: "tE / F19", hint: "Verwarmt het water. Kalkaanslag is een bekende oorzaak van uitval.", hot: { cx: 300, cy: 412, r: 22 } },
+  { id: "ntc", category: "NTC", categoryLabel: "temperatuursensoren", name: "Temperatuursensor", code: "F19 / tE", hint: "NTC meet watertemperatuur.", hot: { cx: 224, cy: 412, r: 14 } },
+  { id: "pump", category: "PUMP", categoryLabel: "pompen", name: "Afvoerpomp", code: "E18 / OE", hint: "Pompt vuil water af. Een veelvoorkomende oorzaak bij afvoerstoringen (E18).", hot: { cx: 156, cy: 472, r: 22 } },
+  { id: "filter", category: "FILTER", categoryLabel: "filters", name: "Vuilfilter", code: "E18 / 5E", hint: "Vang muntjes en haren op. Maandelijks legen.", hot: { cx: 396, cy: 472, r: 20 } },
+  { id: "valve", category: "VALVE", categoryLabel: "ventielen", name: "Inlaatventiel", code: "E12 / 4E", hint: "Regelt watertoevoer. Filter zit erachter verstopt.", hot: { cx: 478, cy: 100, r: 14 } },
+  { id: "pcb", category: "BOARD", categoryLabel: "moederborden", name: "Besturingsprint", code: "F63 / UE", hint: "Het brein. Reset-poging vóór vervangen.", hot: { cx: 372, cy: 78, r: 14 } },
+  { id: "motor", category: "MOTOR", categoryLabel: "motoren", name: "Motor + koolborstels", code: "F11 / 8E", hint: "Koolborstels verslijten na ±8 jaar.", hot: { cx: 196, cy: 300, r: 22 } },
 ];
-
-function priceFor(id?: string): string {
-  const map: Record<string, string> = {
-    "pump": "38,50", "filter": "6,50", "drum": "146,00", "heater": "42,90",
-    "ntc": "12,00", "valve": "24,50", "pcb": "189,00", "motor": "62,00",
-    "door-lock": "29,90", "gasket": "54,00",
-  };
-  return id && map[id] ? map[id] : "—";
-}
 
 // ─── Hotspot ────────────────────────────────────────────────────────────
 function Hotspot({ part, active, hover, predict, onHover, onClick, local = false, ox = 0, oy = 0 }: {
@@ -348,7 +349,7 @@ function Nav() {
   return (
     <nav className="nav">
       <div className="container nav-inner">
-        <Link href="/" className="brand">
+        <Link href="/" className="brand" aria-label="WasFix Pro, naar de startpagina" style={{ minHeight: 44 }}>
           <div className="brand-mark">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="7" />
@@ -396,9 +397,11 @@ function Nav() {
 
 // ─── Hero ───────────────────────────────────────────────────────────────
 function Hero() {
+  const STATS = useStats();
   const [activePart, setActivePart] = React.useState("pump");
   const part = MACHINE_PARTS.find(p => p.id === activePart);
 
+  // A fixed list of well-known codes to start from, not a measurement.
   const popular = [
     { brand: "Bosch", code: "E18", part: "Afvoer" },
     { brand: "Miele", code: "F11", part: "Pomp" },
@@ -414,29 +417,29 @@ function Hero() {
         <div className="hero-grid">
           <div>
             <div className="pill pill-acc hero-eyebrow">
-              <Icon name="sparkle" size={12} /> Powered by Google Gemini · 60s diagnose · 24/7
+              <Icon name="sparkle" size={12} /> AI-diagnose met foutcode of foto · gratis proberen
             </div>
             <h1 className="h-display">
               Wasmachine kapot?<br />
-              Wij weten wat er <em>echt</em> mis is.
+              Wij helpen je de <em>oorzaak</em> te vinden.
             </h1>
             {/* Hier stond "gemiddeld €140 bespaard per reparatie". Dat bedrag is
                 nooit gemeten — net als de CO2-teller en de testimonials die om
                 dezelfde reden uit deze pagina zijn gehaald. Wat een reparatie in
                 een concreet geval scheelt, rekent de calculator uit. */}
             <p className="lead">
-              Foto of foutcode → diagnose, juist onderdeel en stap-voor-stap reparatie. Geen voorrijkosten, geen wachtweken — en vooraf zie je wat het onderdeel kost.
+              Foto of foutcode → een eerste diagnose, het waarschijnlijke onderdeel en stap-voor-stap reparatie. Een indicatie, geen zekerheid. Geen voorrijkosten, en vooraf zie je wat het onderdeel kost.
             </p>
             <div className="hero-cta">
               <Link className="btn btn-primary btn-lg" href="/diagnose">
                 <Icon name="sparkle" size={14} /> Start gratis diagnose
               </Link>
               <a className="btn btn-lg" href="#diagnose">
-                <Icon name="play" size={12} /> Bekijk demo (90s)
+                <Icon name="play" size={12} /> Bekijk een voorbeeld
               </a>
             </div>
             <div className="hero-popular">
-              <span className="dim mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>Populair vandaag</span>
+              <span className="dim mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase" }}>Of begin met een code</span>
               {popular.map(p => (
                 <Link key={p.brand + p.code} className="hero-popular-tag"
                   href={`/diagnose?prefill=${encodeURIComponent(`Mijn ${p.brand} ${p.code}`)}`}>
@@ -450,15 +453,14 @@ function Hero() {
             <div className="machine-wrap">
               <div className="machine-hd">
                 <div className="machine-hd-l">
-                  <span className="pill"><span className="pill-dot" /> Live 3D model</span>
-                  <span className="pill pill-mono">Bosch WAT286H0NL · 2021</span>
+                  <span className="pill"><span className="pill-dot" /> Interactief schema</span>
+                  <span className="pill pill-mono">Voorbeeld · foutcode E18</span>
                 </div>
-                <span className="pill pill-acc"><span className="live-dot" /> AI ready</span>
               </div>
               <WashingMachine activeId={activePart} onSelect={(p) => setActivePart(p.id)} displayText="E 1 8" />
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, position: "relative", zIndex: 2, marginTop: 4, alignItems: "center" }}>
                 <div style={{ fontSize: 12, color: "var(--muted)" }}>
-                  Klik op een onderdeel om symptomen en prijs te zien
+                  Klik op een onderdeel voor uitleg en de bijbehorende foutcodes
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
                   <span className="pill pill-mono" style={{ fontSize: 10.5, padding: "4px 8px" }}>{MACHINE_PARTS.length} onderdelen</span>
@@ -473,12 +475,17 @@ function Hero() {
                 <div className="muted" style={{ fontSize: 12.5, marginTop: 2 }}>{part?.hint}</div>
               </div>
               <div className="card" style={{ padding: "14px 16px" }}>
-                <div className="mono" style={{ fontSize: 10.5, color: "var(--acc-2)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Onderdeel</div>
+                <div className="mono" style={{ fontSize: 10.5, color: "var(--acc-2)", letterSpacing: "0.1em", textTransform: "uppercase" }}>Veelvoorkomende foutcodes</div>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginTop: 4 }}>
-                  <span style={{ fontWeight: 500 }}>€ {priceFor(part?.id)}</span>
-                  <span className="muted mono" style={{ fontSize: 11 }}>{part?.code}</span>
+                  <span style={{ fontWeight: 500 }} className="mono">{part?.code}</span>
                 </div>
-                <div className="muted" style={{ fontSize: 12, marginTop: 2 }}>Verzending op werkdagen · 30d retour</div>
+                {/* The hard-coded prices that used to sit here (pump 38,50, drum 146,00 ...)
+                    matched no catalogue price, so the card now links to the real listing. */}
+                {part?.category && (
+                  <Link href={`/onderdelen?cat=${part.category}`} className="muted" style={{ fontSize: 12, marginTop: 2, display: "inline-block", textDecoration: "underline", padding: "6px 0" }}>
+                    Bekijk {part.categoryLabel} in de winkel →
+                  </Link>
+                )}
               </div>
             </div>
           </div>
@@ -487,7 +494,7 @@ function Hero() {
         <div style={{ marginTop: 48 }}>
           <div className="stat-strip">
             <div className="stat"><div className="stat-n">{formatCount(STATS.errorCodes)}</div><div className="stat-l">Foutcodes in database</div></div>
-            <div className="stat"><div className="stat-n">{formatCount(STATS.partsInStock)}</div><div className="stat-l">Onderdelen op voorraad</div></div>
+            <div className="stat"><div className="stat-n">{formatCount(STATS.parts)}</div><div className="stat-l">Onderdelen in de catalogus</div></div>
             <div className="stat"><div className="stat-n">{formatCount(STATS.guides)}</div><div className="stat-l">Reparatiegidsen</div></div>
             <div className="stat"><div className="stat-n">{formatCount(STATS.brands)}</div><div className="stat-l">Merken gedekt</div></div>
           </div>
@@ -509,7 +516,7 @@ function Hero() {
 // reden een notitie over een weggehaalde "73%"-bewering. De echte diagnose
 // geeft wél een zekerheidspercentage — dat komt uit het model, niet uit deze
 // animatie.
-type ChatProb = { name: string; part: string; price: string; diff: string };
+type ChatProb = { name: string; part: string; price?: string; diff: string };
 type ChatMsg = {
   role: "user" | "ai";
   text: React.ReactNode;
@@ -545,11 +552,14 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
       ),
       t: 2400,
       focus: ["pump", "filter"],
+      // Example causes only. The invented SKUs and prices that stood here (WF-PUMP-12,
+      // WF-PSW-04, "€ 38,50") do not exist in the catalogue; only the filter below
+      // is a real part with a real price, taken from the catalogue.
       probs: [
-        { name: "Vuilfilter verstopt", part: "WF-FILTER-09", price: "€ 6,50", diff: "Easy" },
-        { name: "Afvoerpomp defect", part: "WF-PUMP-12", price: "€ 38,50", diff: "Medium" },
-        { name: "Afvoerslang geknikt", part: "WF-HOSE-03", price: "€ 9,90", diff: "Easy" },
-        { name: "Drukschakelaar defect", part: "WF-PSW-04", price: "€ 18,40", diff: "Medium" },
+        { name: "Vuilfilter verstopt", part: "Filter", price: filterPart ? `€ ${filterPart.priceEur.toFixed(2).replace(".", ",")}` : undefined, diff: "Makkelijk" },
+        { name: "Afvoerpomp defect", part: "Pomp", diff: "Gemiddeld" },
+        { name: "Afvoerslang geknikt", part: "Slang", diff: "Makkelijk" },
+        { name: "Drukschakelaar defect", part: "Sensor", diff: "Gemiddeld" },
       ],
     },
     { role: "ai", text: "Begin met het vuilfilter — onderaan rechts achter het paneeltje. 5 min werk, geen gereedschap. Zal ik de stap-voor-stap gids openen?", t: 3800 },
@@ -586,7 +596,7 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
               <div style={{ display: "flex", gap: 8, alignItems: "center", flex: 1 }}>
                 <span className="live-dot" />
                 <span>WasFix AI</span>
-                <span className="muted" style={{ fontSize: 11.5 }}>· Gemini 2.0 Flash</span>
+                <span className="muted" style={{ fontSize: 11.5 }}>· voorbeeldgesprek</span>
               </div>
               <button className="btn btn-sm btn-ghost" onClick={restart}>
                 <Icon name="repeat" size={12} /> Reset
@@ -606,13 +616,15 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
                 </div>
               )}
             </div>
-            <div className="chat-input">
+            {/* The box, camera, microphone and send buttons used to do nothing at all.
+                The box now hands what you typed to the real diagnose page; the voice
+                button is gone (there is no voice input). */}
+            <form className="chat-input" action="/diagnose" method="get">
               <Icon name="plus" size={14} className="dim" />
-              <input value={input} onChange={(e) => setInput(e.target.value)} placeholder="Beschrijf de storing of plak een foto…" />
-              <button className="btn btn-sm" style={{ padding: "6px 8px" }}><Icon name="camera" size={13} /></button>
-              <button className="btn btn-sm" style={{ padding: "6px 8px" }}><Icon name="mic" size={13} /></button>
-              <button className="btn btn-sm btn-primary" style={{ padding: "6px 10px" }}><Icon name="send" size={13} /></button>
-            </div>
+              <input name="prefill" value={input} onChange={(e) => setInput(e.target.value)} aria-label="Beschrijf je storing" placeholder="Beschrijf de storing…" />
+              <Link className="btn btn-sm" href="/diagnose" aria-label="Foto uploaden in de diagnose" style={{ padding: "6px 8px" }}><Icon name="camera" size={13} /></Link>
+              <button type="submit" className="btn btn-sm btn-primary" aria-label="Start de diagnose met deze tekst" style={{ padding: "6px 10px" }}><Icon name="send" size={13} /></button>
+            </form>
           </div>
 
           <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 14 }}>
@@ -633,7 +645,7 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
                   <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Top oorzaken</div>
-                  <div style={{ fontWeight: 500, fontSize: 15, marginTop: 2 }}>Bosch WAT286H0NL · E18</div>
+                  <div style={{ fontWeight: 500, fontSize: 15, marginTop: 2 }}>Bosch · foutcode E18</div>
                 </div>
                 <span className="pill pill-mono">Voorbeeld</span>
               </div>
@@ -645,17 +657,17 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
                     {p.name}
                   </div>
                   <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{p.part} · {p.diff}</div>
-                  <div className="prob-pct" style={{ width: 52 }}>{p.price}</div>
+                  <div className="prob-pct" style={{ width: 52 }}>{p.price ?? ""}</div>
                 </div>
               ))}
 
-              {latest && (
+              {latest && filterPart && (
                 <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
                   <div>
-                    <div style={{ fontWeight: 500 }}>Aanbevolen: {filterPart?.name ?? "Vuilfilter"}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>€ {(filterPart?.priceEur ?? 6.5).toFixed(2).replace(".", ",")} · verzending op werkdagen</div>
+                    <div style={{ fontWeight: 500 }}>Uit de winkel: {filterPart.name}</div>
+                    <div className="muted" style={{ fontSize: 12 }}>€ {filterPart.priceEur.toFixed(2).replace(".", ",")} · verzending op werkdagen</div>
                   </div>
-                  <button className="btn btn-primary btn-sm" onClick={handleAddFilter} disabled={!filterPart}>
+                  <button className="btn btn-primary btn-sm" onClick={handleAddFilter}>
                     <Icon name="cart" size={13} /> Toevoegen
                   </button>
                 </div>
@@ -671,9 +683,9 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
 // ─── How it works ───────────────────────────────────────────────────────
 function HowItWorks() {
   const steps: Array<{ n: string; icon: IconName; title: string; text: string }> = [
-    { n: "01", icon: "sparkle", title: "Beschrijf · scan · spreek", text: "Tekst, foto van de display of voice memo — Gemini AI analyseert je probleem in 60s." },
+    { n: "01", icon: "sparkle", title: "Beschrijf of fotografeer", text: "Typ de foutcode of beschrijf het probleem, of upload een foto van de display. De AI geeft binnen een minuut een eerste indicatie — geen zekerheid." },
     { n: "02", icon: "pulse", title: "Diagnose met kansen", text: "Niet één gok — een rangschikking met waarschijnlijkheid, prijs en moeilijkheid." },
-    { n: "03", icon: "package", title: "Onderdeel onderweg", text: "We verzenden op werkdagen, met track & trace zodra je pakket is aangemeld. Origineel óf voordelig alternatief." },
+    { n: "03", icon: "package", title: "Onderdeel onderweg", text: "We verzenden op werkdagen en je krijgt een track & trace-code zodra je bestelling is verzonden. Origineel óf voordelig alternatief." },
   ];
   return (
     <section className="section" id="how">
@@ -791,7 +803,7 @@ function PartsCatalog({ parts }: { parts: PartItem[] }) {
           <div>
             <div className="eyebrow">Onderdelen</div>
             <h2 className="h-section">Origineel of voordelig, <em>jij kiest</em>.</h2>
-            <p className="lead">We verzenden op werkdagen, met track &amp; trace zodra je pakket is aangemeld. 30 dagen retourrecht — ook als je dacht dat het dít onderdeel was.</p>
+            <p className="lead">We verzenden op werkdagen en je krijgt een track &amp; trace-code zodra je bestelling is verzonden. 30 dagen bedenktijd — ook als je dacht dat het dít onderdeel was.</p>
           </div>
           <Link className="btn" href="/onderdelen">Alle onderdelen <Icon name="arrow" size={14} /></Link>
         </div>
@@ -810,10 +822,12 @@ function PartsCatalog({ parts }: { parts: PartItem[] }) {
                   <div className="part-price">€ {p.priceEur.toFixed(2).replace(".", ",")}</div>
                 </div>
                 <div style={{ textAlign: "right" }}>
-                  <div className="part-tag" style={{ color: p.stock > 0 ? "var(--ok)" : "var(--warn)" }}>● {p.stock} op voorraad</div>
-                  <button className="btn btn-sm" style={{ marginTop: 6 }} onClick={(e) => handleAdd(e, p)}>
-                    <Icon name="cart" size={11} /> Bestel
-                  </button>
+                  <div className="part-tag" style={{ color: p.stock > 0 ? "var(--ok)" : "var(--warn)" }}>● {p.stock > 0 ? "Op voorraad" : "Uitverkocht"}</div>
+                  {p.stock > 0 && (
+                    <button className="btn btn-sm" style={{ marginTop: 6, minHeight: 44 }} onClick={(e) => handleAdd(e, p)}>
+                      <Icon name="cart" size={11} /> In winkelmand
+                    </button>
+                  )}
                 </div>
               </div>
             </Link>
@@ -894,6 +908,7 @@ function CodeVisual({ code }: { code: CodeItem }) {
 }
 
 function CodeExplorer({ codes }: { codes: CodeItem[] }) {
+  const STATS = useStats();
   const [q, setQ] = React.useState("");
   const [sel, setSel] = React.useState<CodeItem>(codes[0] ?? { id: "E18", brand: "Bosch", desc: "Afvoer geblokkeerd", part: "Vuilfilter / pomp", url: "/foutcodes" });
   const filtered = codes.filter(c => (c.id + c.brand + c.desc).toLowerCase().includes(q.toLowerCase()));
@@ -909,7 +924,7 @@ function CodeExplorer({ codes }: { codes: CodeItem[] }) {
           <div className="code-list">
             <div className="code-search">
               <Icon name="search" size={14} className="dim" />
-              <input placeholder="Zoek code, merk, symptoom…" value={q} onChange={(e) => setQ(e.target.value)} />
+              <input aria-label="Zoek een foutcode, merk of symptoom" placeholder="Zoek code, merk, symptoom…" value={q} onChange={(e) => setQ(e.target.value)} />
               <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{filtered.length}/{codes.length}</span>
             </div>
             <div style={{ flex: 1, overflow: "auto", maxHeight: 480 }}>
@@ -961,7 +976,7 @@ function Predictive() {
   return (
     <section className="section" id="predict">
       <div className="container">
-        <div className="eyebrow">Predictive maintenance · alleen Particulier+</div>
+        <div className="eyebrow">Onderhoudsindicatie · gratis tool</div>
         <h2 className="h-section">Weet wanneer iets <em>gaat</em> stuk, niet pas als het stuk is.</h2>
         {/* Geen "1,2M reparatiedata uit Europa": die dataset bestaat niet.
             src/lib/predictive.ts rekent met vuistregels over levensduur per
@@ -971,10 +986,10 @@ function Predictive() {
 
         <div className="lifetime-grid" style={{ marginTop: 40 }}>
           <div className="card card-hi">
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12 }}>
               <div>
-                <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Bosch WAT286H0NL</div>
-                <div style={{ fontWeight: 500, fontSize: 17 }}>Geïnstalleerd in 2018 · 7 jaar oud</div>
+                <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Voorbeeld · fictieve machine</div>
+                <div style={{ fontWeight: 500, fontSize: 17 }}>Bosch, geïnstalleerd in 2018</div>
               </div>
               <div style={{ textAlign: "right" }}>
                 <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>HEALTH SCORE</div>
@@ -995,24 +1010,26 @@ function Predictive() {
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--border)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--border)", display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
               <div className="muted" style={{ fontSize: 12.5 }}>
-                2 onderdelen onder de waakzaamheidsgrens.
+                Voorbeeldweergave met fictieve gegevens, geen meting van een echte machine.
               </div>
-              <button className="btn btn-primary btn-sm">Bestel preventief pakket · € 52,80</button>
+              {/* A "Bestel preventief pakket · € 52,80" button stood here with no link,
+                  no handler and no such product. The tool itself is real. */}
+              <Link href="/tools/predictive" className="btn btn-primary btn-sm">Probeer met jouw machine</Link>
             </div>
           </div>
 
           <div>
             <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
               <FeatureRow icon="qr" title="QR-sticker op je machine"
-                desc="Scan met je telefoon → meteen serial-data, dossier en pre-diagnose. Geen typeplaatje typen." />
+                desc="Scan de sticker met je telefoon en open meteen de diagnose, foutcodes, onderdelen en gidsen. Zonder zoeken of typen." />
               <FeatureRow icon="camera" title="Foto-diagnose van de display"
-                desc="Maak een foto van de foutcode. Vision-model leest die ook bij wazige LCDs of vreemde hoeken." />
+                desc="Upload een foto van het display; de AI probeert de foutcode eruit te lezen. Lukt dat niet, dan typ je de code zelf in." />
               <FeatureRow icon="user" title="Eerlijk over wat je zelf kunt"
                 desc="Bij elke foutcode staat of het een klus voor thuis is. Netspanning, motor of besturingsmodule? Dan zeggen we: bel een monteur." />
-              <FeatureRow icon="shield" title="Garantie-check automatisch"
-                desc="WasFix checkt of je machine nog onder fabrieks- of verlengde garantie valt vóór je een onderdeel koopt." />
+              <FeatureRow icon="shield" title="Garantie-check tool"
+                desc="Vul merk en aankoopdatum in en zie welke garantie en consumentenrechten waarschijnlijk nog gelden. Dit is een losse tool, geen stap in het bestelproces." />
             </div>
           </div>
         </div>
@@ -1030,6 +1047,7 @@ function Predictive() {
  * not a measurement.
  */
 function Impact() {
+  const STATS = useStats();
   return (
     <section className="section" id="impact">
       <div className="container">
@@ -1096,22 +1114,13 @@ function Impact() {
 
 // ─── Monteur Pro ────────────────────────────────────────────────────────
 function MonteurPro() {
-  const pts = Array.from({ length: 30 }).map((_, i) => {
-    const base = 30 + Math.sin(i * 0.5) * 8 + (i * 0.6);
-    const noise = (Math.sin(i * 1.7) + 1) * 6;
-    return { x: i * 12, y: 60 - (base + noise) };
-  });
-  const d = pts.map((p, i) => `${i === 0 ? "M" : "L"}${p.x},${p.y}`).join(" ");
-  const lastPt = pts[pts.length - 1];
-  const fillD = d + ` L ${lastPt.x},70 L 0,70 Z`;
-
   return (
     <section className="section" id="monteur">
       <div className="container">
         <div style={{ display: "grid", gridTemplateColumns: "1fr 1.3fr", gap: 48, alignItems: "center" }} className="monteur-grid">
           <div>
             <div className="eyebrow">Voor monteurs</div>
-            <h2 className="h-section">De pro-tool die <em>nooit</em> meer een verkeerd onderdeel bestelt.</h2>
+            <h2 className="h-section">De pro-tool waarmee je het <em>juiste</em> onderdeel meeneemt.</h2>
             {/* Geen "bezoek halveert" (nooit gemeten), geen service-handleidingen
                 (we serveren er geen — we citeren ze alleen als bron bij een
                 foutcode) en geen witlabel (niet gebouwd, zie plans.ts). */}
@@ -1122,77 +1131,55 @@ function MonteurPro() {
               <span className="pill"><Icon name="check" size={11} /> Werkorder naar factuur</span>
               <span className="pill"><Icon name="check" size={11} /> Foutcodes met bronvermelding</span>
             </div>
-            <div style={{ display: "flex", gap: 10, marginTop: 24 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
               <Link className="btn btn-primary" href="/prijzen">Word Monteur Pro · € 29/mnd</Link>
-              <a className="btn">Bekijk API docs</a>
+              <Link className="btn" href="/api-docs">Bekijk API docs</Link>
             </div>
           </div>
 
+          {/* Voorbeeldweergave. The browser-chrome mock that stood here showed a
+              domain that does not exist (dashboard.wasfix.nl/pro), four invented
+              customers, a "Pro-fee" column, planning times and a "+22%" repairs
+              chart - none of it labelled, and the real /monteur/dashboard has four
+              counts and no chart or fee. It is now a plainly labelled example of
+              what the dashboard shows. */}
           <div className="card" style={{ padding: 0, overflow: "hidden", background: "var(--surf-1)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border)" }}>
-              <div style={{ display: "flex", gap: 6 }}>
-                <span style={{ width: 10, height: 10, borderRadius: 5, background: "#ff6363", opacity: 0.8 }}></span>
-                <span style={{ width: 10, height: 10, borderRadius: 5, background: "#f5b643", opacity: 0.8 }}></span>
-                <span style={{ width: 10, height: 10, borderRadius: 5, background: "#34d399", opacity: 0.8 }}></span>
-              </div>
-              <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>dashboard.wasfix.nl/pro</div>
-              <div style={{ marginLeft: "auto" }} className="pill pill-mono">Pro · 4 actief</div>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
+              <div className="pill pill-acc">Voorbeeld</div>
+              <div className="muted" style={{ fontSize: 12 }}>Voorbeeldweergave met fictieve gegevens</div>
             </div>
 
             <div style={{ padding: "18px 20px", display: "flex", flexDirection: "column", gap: 14 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(3,1fr)", gap: 10 }}>
                 {[
-                  // Tegels die het dashboard echt heeft (tellingen). Hier stond
-                  // "MTD omzet €4.820 · +18% vs LM"; omzet-analytics bestaat niet.
-                  { l: "Open werkorders", v: "12", sub: "3 vandaag" },
-                  { l: "Klanten", v: "38", sub: "4 deze maand" },
-                  { l: "Onderdelen", v: "€ 1.249", sub: "10% korting actief" },
+                  { l: "Open werkorders", v: "12" },
+                  { l: "Klanten", v: "38" },
+                  { l: "Facturen", v: "7" },
                 ].map(s => (
-                  <div key={s.l} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10 }}>
+                  <div key={s.l} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, minWidth: 0 }}>
                     <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{s.l}</div>
                     <div style={{ fontSize: 20, fontWeight: 500, marginTop: 4, letterSpacing: "-0.02em" }}>{s.v}</div>
-                    <div className="muted" style={{ fontSize: 11.5, marginTop: 2 }}>{s.sub}</div>
                   </div>
                 ))}
               </div>
 
               <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 90px 80px", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }} className="mono">
-                  <div>Klant · machine</div><div>Status</div><div>Pre-diag</div><div>Geplant</div><div>Pro-fee</div>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }} className="mono">
+                  <div>Klant · machine</div><div>Status</div><div>Foutcode</div>
                 </div>
                 {[
-                  { c: "M. de Vries · Bosch WAT", st: "In behandeling", dot: "#f5b643", diag: "E18", date: "vandaag 14:00", fee: "€ 95" },
-                  { c: "Cafe Nora · Miele PW6", st: "Onderdeel besteld", dot: "#4f8cff", diag: "F11", date: "morgen 09:30", fee: "€ 145" },
-                  { c: "J. Koster · Samsung", st: "Voltooid", dot: "#34d399", diag: "dE", date: "gisteren", fee: "€ 85" },
-                  { c: "R. Janssen · LG F4", st: "Pre-diag", dot: "#00d4ff", diag: "OE", date: "do 16:00", fee: "€ 95" },
+                  { c: "Klant A · Bosch", st: "In behandeling", dot: "#f5b643", diag: "E18" },
+                  { c: "Klant B · Miele", st: "Onderdeel besteld", dot: "#4f8cff", diag: "F11" },
+                  { c: "Klant C · Samsung", st: "Afgerond", dot: "#34d399", diag: "dE" },
                 ].map((j, i) => (
-                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr 80px 80px 90px 80px", gap: 12, padding: "12px 14px", borderBottom: i < 3 ? "1px solid var(--border)" : "0", alignItems: "center", fontSize: 13 }}>
-                    <div>{j.c}</div>
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "12px 14px", borderBottom: i < 2 ? "1px solid var(--border)" : "0", alignItems: "center", fontSize: 13 }}>
+                    <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>{j.c}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-2)" }}>
                       <span style={{ width: 6, height: 6, borderRadius: 3, background: j.dot }}></span>{j.st}
                     </div>
                     <div className="mono" style={{ color: "var(--acc-2)", fontSize: 12 }}>{j.diag}</div>
-                    <div className="muted" style={{ fontSize: 12 }}>{j.date}</div>
-                    <div style={{ fontWeight: 500 }}>{j.fee}</div>
                   </div>
                 ))}
-              </div>
-
-              <div style={{ border: "1px solid var(--border)", borderRadius: 10, padding: 14, background: "#070b18" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 10 }}>
-                  <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>Reparaties · 30 dagen</div>
-                  <div className="pill pill-mono pill-acc" style={{ fontSize: 10.5, padding: "2px 7px" }}>+22%</div>
-                </div>
-                <svg viewBox="0 0 360 70" style={{ width: "100%", display: "block" }}>
-                  <defs>
-                    <linearGradient id="areaGrad" x1="0" x2="0" y1="0" y2="1">
-                      <stop offset="0" stopColor="#4f8cff" stopOpacity="0.5" />
-                      <stop offset="1" stopColor="#4f8cff" stopOpacity="0" />
-                    </linearGradient>
-                  </defs>
-                  <path d={fillD} fill="url(#areaGrad)" />
-                  <path d={d} fill="none" stroke="#4f8cff" strokeWidth="1.5" />
-                </svg>
               </div>
             </div>
           </div>
@@ -1209,6 +1196,7 @@ function MonteurPro() {
 // a misleading commercial practice under the EU Omnibus directive, so the
 // section now shows what the product verifiably does, drawn from the catalog.
 function WhatYouGet() {
+  const STATS = useStats();
   const items = [
     {
       tag: "Diagnose",
@@ -1224,9 +1212,9 @@ function WhatYouGet() {
     },
     {
       tag: "Onderdelen",
-      n: formatCount(STATS.partsInStock),
-      title: "onderdelen op voorraad",
-      body: "Origineel en universeel, met vermelding waar ze op passen. Boven €50 gratis verzonden.",
+      n: formatCount(STATS.parts),
+      title: "onderdelen in de catalogus",
+      body: "Origineel en universeel, met vermelding waar ze op passen. Verzending in Nederland is gratis vanaf €50.",
     },
     {
       tag: "Kosten",
@@ -1320,11 +1308,11 @@ function FinalCTA() {
       <div className="container">
         <div className="cta-block">
           <div className="eyebrow" style={{ justifyContent: "center", marginBottom: 16 }}>Klaar?</div>
-          <h2 className="h-section" style={{ fontSize: "clamp(28px,4vw,48px)" }}>Geen creditcard. <em>Geen drempel</em>. Geen monteur nodig.</h2>
+          <h2 className="h-section" style={{ fontSize: "clamp(28px,4vw,48px)" }}>Geen creditcard. <em>Geen drempel</em>. Geen voorrijkosten.</h2>
           <p className="lead" style={{ margin: "8px auto 24px" }}>Start nu met een gratis diagnose. We wachten op je wasmachine.</p>
           <div style={{ display: "flex", gap: 12, justifyContent: "center", flexWrap: "wrap" }}>
             <Link className="btn btn-primary btn-lg" href="/diagnose"><Icon name="sparkle" size={14} /> Start gratis diagnose</Link>
-            <a className="btn btn-lg">Plan demo voor mijn bedrijf</a>
+            <Link className="btn btn-lg" href="/contact?onderwerp=monteur-demo">Vraag een demo aan voor mijn bedrijf</Link>
           </div>
         </div>
       </div>
@@ -1332,72 +1320,13 @@ function FinalCTA() {
   );
 }
 
-function Footer() {
-  return (
-    <footer className="footer">
-      <div className="container">
-        <div className="footer-grid">
-          <div>
-            <div className="brand" style={{ marginBottom: 14 }}>
-              <div className="brand-mark">
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                  <circle cx="12" cy="12" r="7" />
-                  <circle cx="12" cy="12" r="3" fill="currentColor" />
-                </svg>
-              </div>
-              <div className="brand-name"><b>WasFix</b><span>Pro</span></div>
-            </div>
-            <div className="muted" style={{ fontSize: 13.5, maxWidth: 320, lineHeight: 1.55 }}>
-              AI-gestuurde wasmachine diagnose en originele onderdelen, voor consumenten en monteurs.
-            </div>
-            <div style={{ display: "flex", gap: 8, marginTop: 18, flexWrap: "wrap" }}>
-              <span className="pill"><Icon name="leaf" size={11} /> EU Right to Repair</span>
-            </div>
-          </div>
-          <div>
-            <div className="foot-h">Product</div>
-            <div className="foot-l">
-              <Link href="/diagnose">AI Diagnose</Link>
-              <Link href="/onderdelen">Onderdelen</Link>
-              <Link href="/gidsen">Reparatiegidsen</Link>
-              <Link href="/foutcodes">Foutcodes database</Link>
-              <Link href="/tools/repareren-of-vervangen">Repareren of vervangen?</Link>
-            </div>
-          </div>
-          <div>
-            <div className="foot-h">Bedrijf</div>
-            <div className="foot-l">
-              <Link href="/prijzen">Prijzen</Link>
-              <a href="#monteur">Voor monteurs</a>
-              <Link href="/over">Over ons</Link>
-              <Link href="/contact">Contact</Link>
-            </div>
-          </div>
-          <div>
-            <div className="foot-h">Support</div>
-            <div className="foot-l">
-              <Link href="/help">Helpcentrum</Link>
-              <Link href="/contact">Contact</Link>
-              <Link href="/privacy">Privacy</Link>
-              <Link href="/voorwaarden">Voorwaarden</Link>
-            </div>
-          </div>
-        </div>
-        <div className="foot-bottom">
-          <div>© 2026 WasFix Pro. Made with care in The Netherlands.</div>
-          <div className="mono" style={{ fontSize: 11.5 }}>v 2.4.1 · Gemini 2.0 · Geist</div>
-        </div>
-      </div>
-    </footer>
-  );
-}
-
 // ─── Top-level page ─────────────────────────────────────────────────────
-export default function WasFixHome({ parts, codes }: { parts: PartItem[]; codes: CodeItem[] }) {
+export default function WasFixHome({ parts, codes, stats }: { parts: PartItem[]; codes: CodeItem[]; stats: HomeStats }) {
   const filterPart = parts.find((p) => p.sku.includes("FILTER")) ?? parts[0];
   const isOpen = useCart((s) => s.isOpen);
   const setOpen = useCart((s) => s.setOpen);
   return (
+    <StatsContext.Provider value={stats}>
     <div className="wasfix-design">
       <div className="app-bg" />
       <div className="shell">
@@ -1413,9 +1342,10 @@ export default function WasFixHome({ parts, codes }: { parts: PartItem[]; codes:
         <WhatYouGet />
         <Pricing />
         <FinalCTA />
-        <Footer />
+        <WasFixFooter />
       </div>
       <CartDrawer open={isOpen} onOpenChange={setOpen} />
     </div>
+    </StatsContext.Provider>
   );
 }

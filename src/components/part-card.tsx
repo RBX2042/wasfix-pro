@@ -1,96 +1,42 @@
-"use client";
-import Link from "next/link";
-import Image from "next/image";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { useCart } from "./cart-provider";
-import { formatEur } from "@/lib/utils";
-import { ShoppingCart, CheckCircle2, X } from "lucide-react";
-import { toast } from "sonner";
+import { PartCardClient, type PartCardPart } from "./part-card-client";
+import { toPublicPart } from "@/lib/static-db";
 
-type PartCardProps = {
-  part: {
-    id: string;
-    sku: string;
-    name: string;
-    brand: string;
-    priceEur: number;
-    imageUrl: string | null;
-    stock: number;
-    isOriginal: boolean;
-  };
+/**
+ * A part in a grid. This is a SERVER component on purpose: whatever object a
+ * page hands it is reduced to the public fields before it becomes a prop of the
+ * client component, and props of client components are written into the page's
+ * HTML. Pages used to pass full database rows, so costEur and supplier of every
+ * listed part were readable in the source of /onderdelen and every part page.
+ *
+ * Only import this from server components (every current caller is one). A
+ * client component that needs a card must receive already-public data and use
+ * PartCardClient directly.
+ */
+export function PartCard({
+  part,
+  showAddToCart = true,
+  note,
+}: {
+  part: PartCardPart & { description?: string | null };
   showAddToCart?: boolean;
-};
-
-export function PartCard({ part, showAddToCart = true }: PartCardProps) {
-  const add = useCart((s) => s.add);
-
+  note?: string;
+}) {
+  const pub = toPublicPart({ description: null, ...part });
   return (
-    <Card className="overflow-hidden hover:border-primary transition-colors group">
-      <Link href={`/onderdelen/${part.sku}`}>
-        {part.imageUrl && (
-          <div className="relative w-full h-44 sm:h-48 md:h-52 bg-muted overflow-hidden">
-            <Image
-              src={part.imageUrl}
-              alt={part.name}
-              fill
-              sizes="(max-width: 640px) 200px, (max-width: 1024px) 250px, 300px"
-              className="object-cover group-hover:scale-105 transition-transform"
-            />
-            {/* accent-foreground on bg-accent is 4.27:1 in the light theme, under the
-                4.5:1 minimum for this 10px badge; white reaches 4.64:1. The dark theme
-                uses a lighter accent, where the dark accent-foreground is the readable
-                side, so keep it there. */}
-            {part.isOriginal && (
-              <Badge variant="accent" className="absolute top-2 left-2 text-[10px] text-white dark:text-accent-foreground">
-                Origineel
-              </Badge>
-            )}
-            {part.stock === 0 && (
-              <div className="absolute inset-0 bg-background/70 flex items-center justify-center">
-                <Badge variant="danger">Uitverkocht</Badge>
-              </div>
-            )}
-          </div>
-        )}
-        <CardContent className="p-4">
-          <Badge variant="outline" className="text-[10px] mb-1.5">{part.brand}</Badge>
-          <h3 className="text-sm font-medium line-clamp-2 leading-snug min-h-[40px] group-hover:text-primary transition-colors">
-            {part.name}
-          </h3>
-          <div className="flex items-center justify-between mt-3">
-            <span className="text-lg font-bold text-primary">{formatEur(part.priceEur)}</span>
-            <span className="text-xs text-muted-foreground flex items-center gap-1">
-              {part.stock > 0 ? (
-                <><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Op voorraad</>
-              ) : (
-                <><X className="h-3 w-3 text-destructive" /> Niet op voorraad</>
-              )}
-            </span>
-          </div>
-        </CardContent>
-      </Link>
-      {showAddToCart && part.stock > 0 && (
-        <div className="px-4 pb-4">
-          {/* h-11: size="sm" is 32px, 12px under the minimum tap target, on the
-              primary purchase action repeated 60x on /onderdelen. Keep the sm
-              text and padding — the card is only ~153px wide on a phone, the
-              default size would push "In winkelmand" out of the button. */}
-          <Button
-            size="sm"
-            className="w-full h-11"
-            onClick={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              add({ partId: part.id, sku: part.sku, name: part.name, brand: part.brand, priceEur: part.priceEur, imageUrl: part.imageUrl }, 1);
-              toast.success("Toegevoegd aan winkelmand");
-            }}
-          >
-            <ShoppingCart className="h-3 w-3" /> In winkelmand
-          </Button>
-        </div>
-      )}
-    </Card>
+    <PartCardClient
+      part={{
+        id: pub.id,
+        sku: pub.sku,
+        name: pub.name,
+        brand: pub.brand,
+        category: pub.category,
+        priceEur: pub.priceEur,
+        imageUrl: pub.imageUrl,
+        stock: pub.stock,
+        isOriginal: pub.isOriginal,
+      }}
+      showAddToCart={showAddToCart}
+      note={note}
+    />
   );
 }

@@ -3,9 +3,21 @@ import { COMPANY, realOrNull, PENDING_REGISTRATION } from "@/lib/plans";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
 
-export const metadata = { title: "Contact" };
+export const metadata = {
+  title: "Contact",
+  description: "Contact met WasFix Pro: mail voor vragen over een bestelling, onderdeel of diagnose, en de bedrijfsgegevens zodra de inschrijving rond is.",
+  alternates: { canonical: "/contact" },
+};
 
-export default function ContactPage() {
+// ?onderwerp=monteur-demo is linked from the homepage monteur block ("Vraag een demo aan").
+const SUBJECTS: Record<string, string> = {
+  "monteur-demo": "Demo aanvragen voor mijn bedrijf (Monteur Pro)",
+};
+
+export default async function ContactPage({ searchParams }: { searchParams: Promise<{ onderwerp?: string }> }) {
+  const sp = await searchParams;
+  const subject = sp.onderwerp ? SUBJECTS[sp.onderwerp] : undefined;
+  const mailto = `mailto:${COMPANY.email}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}`;
   // Never print a placeholder as if it were a real registration detail.
   const phone = realOrNull(COMPANY.phone);
   const street = realOrNull(COMPANY.street);
@@ -17,7 +29,7 @@ export default function ContactPage() {
         <div className="container py-12">
           <h1 className="font-heading text-3xl md:text-4xl font-bold">Contact</h1>
           <p className="text-muted-foreground mt-2 max-w-2xl">
-            We helpen je graag verder. Reageert meestal binnen 1 werkdag.
+            We helpen je graag verder. We reageren op werkdagen.
           </p>
         </div>
       </section>
@@ -30,7 +42,8 @@ export default function ContactPage() {
                 <Mail className="h-5 w-5" />
               </div>
               <h3 className="font-heading font-semibold mb-1">E-mail</h3>
-              <a href="mailto:support@wasfix.nl" className="text-primary hover:underline text-sm">support@wasfix.nl</a>
+              <a href={mailto} className="text-primary hover:underline text-sm inline-flex items-center min-h-11 break-all">{COMPANY.email}</a>
+              {subject && <p className="text-xs text-muted-foreground">Onderwerp: {subject}</p>}
             </CardContent>
           </Card>
 
@@ -74,8 +87,10 @@ export default function ContactPage() {
               <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">
                 <Clock className="h-5 w-5" />
               </div>
-              <h3 className="font-heading font-semibold mb-1">Openingstijden</h3>
-              <p className="text-sm">Ma-vr 9:00 - 17:00<br />Za 10:00 - 14:00<br />Zo gesloten</p>
+              <h3 className="font-heading font-semibold mb-1">Reactietijd</h3>
+              <p className="text-sm text-muted-foreground">
+                We beantwoorden mail op werkdagen. Over een bestelling? Vermeld je bestelnummer.
+              </p>
             </CardContent>
           </Card>
         </div>

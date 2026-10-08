@@ -59,7 +59,7 @@ export function ReviewForm({
 
   if (!open) {
     return (
-      <Button variant="outline" size="sm" onClick={() => setOpen(true)}>
+      <Button variant="outline" size="sm" className="min-h-11" onClick={() => setOpen(true)}>
         Schrijf een review
       </Button>
     );

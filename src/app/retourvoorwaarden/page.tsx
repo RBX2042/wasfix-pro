@@ -3,8 +3,9 @@ import { COMPANY, realOrNull } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Retourvoorwaarden · WasFix Pro",
+  title: "Retourvoorwaarden",
   description: "Hoe je een onderdeel retour stuurt naar WasFix Pro — 30 dagen bedenktijd.",
+  alternates: { canonical: "/retourvoorwaarden" },
 };
 
 export default function RetourPage() {
@@ -40,7 +41,7 @@ export default function RetourPage() {
 
       <h2>3. Hoe stuur je een product retour?</h2>
       <ol>
-        <li><strong>Vraag een retour aan</strong> via het <Link href="/retour/start">retour-formulier</Link> of mail naar <a href="mailto:retour@wasfix.nl">retour@wasfix.nl</a> met vermelding van je bestelnummer.</li>
+        <li><strong>Vraag een retour aan</strong> via het <Link href="/retour/start">retour-formulier</Link> of mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> met vermelding van je bestelnummer.</li>
         <li><strong>Ontvang je RMA-nummer</strong> per e-mail (binnen 24u op werkdagen).</li>
         <li><strong>Pak het product in</strong> in originele verpakking + RMA-nummer goed zichtbaar op buitenkant.</li>
         <li><strong>Verstuur</strong> binnen 14 dagen na het ontvangen van je RMA-nummer naar het opgegeven retouradres.</li>
@@ -48,6 +49,7 @@ export default function RetourPage() {
       </ol>
 
       <h2>4. Wie betaalt de retourkosten?</h2>
+      <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
@@ -61,10 +63,11 @@ export default function RetourPage() {
           <tr><td style={{ padding: "10px 12px" }}>Garantieclaim binnen periode</td><td style={{ padding: "10px 12px" }}>Gratis</td></tr>
         </tbody>
       </table>
+      </div>
 
       <h2>5. Wanneer krijg je je geld terug?</h2>
       <p>
-        Wij betalen binnen <strong>14 dagen</strong> na je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (op het laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3); daarom is je verzendbewijs genoeg om de betaling in gang te zetten. Restitutie gebeurt op dezelfde betaalmethode waarmee je hebt betaald.
+        Wij betalen binnen <strong>14 dagen</strong> na je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (op het laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3); daarom is je verzendbewijs genoeg om de betaling in gang te zetten. Restitutie gebeurt op dezelfde betaalmethode waarmee je hebt betaald. Heb je een factuur ontvangen, dan krijg je bij de terugbetaling een creditfactuur; de oorspronkelijke factuur blijft ongewijzigd.
       </p>
 
       <h2>6. Modelformulier voor herroeping</h2>
@@ -73,7 +76,7 @@ export default function RetourPage() {
       </p>
       <pre style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.6, color: "var(--text-2)", overflowX: "auto", margin: "12px 0" }}>
 {`Aan: ${COMPANY.name}
-${address ? `   ${address}\n` : ""}   retour@wasfix.nl
+${address ? `   ${address}\n` : ""}   ${COMPANY.email}
 
 Ik/Wij* deel/delen* hierbij mee dat ik/wij* onze
 overeenkomst betreffende de verkoop van de volgende
@@ -106,7 +109,7 @@ Handtekening: ___________  Datum: ___________
       )}
 
       <p style={{ marginTop: 32 }}>
-        <strong>Vragen?</strong> Mail <a href="mailto:retour@wasfix.nl">retour@wasfix.nl</a> of bekijk de <Link href="/help">help-pagina</Link>.
+        <strong>Vragen?</strong> Mail <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> of bekijk de <Link href="/help">help-pagina</Link>.
       </p>
     </LegalPage>
   );

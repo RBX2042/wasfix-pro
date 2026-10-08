@@ -3,8 +3,9 @@ import { COMPANY, realOrNull, PENDING_REGISTRATION } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Privacybeleid · WasFix Pro",
+  title: "Privacybeleid",
   description: "Hoe WasFix Pro persoonsgegevens verwerkt — AVG-conform privacybeleid.",
+  alternates: { canonical: "/privacy" },
 };
 
 export default function PrivacyPage() {
@@ -42,7 +43,7 @@ export default function PrivacyPage() {
               KvK: {realOrNull(COMPANY.kvk) ?? PENDING_REGISTRATION} · BTW:{" "}
               {realOrNull(COMPANY.vatNumber) ?? PENDING_REGISTRATION}
               <br />
-              Contact privacy: <a href="mailto:privacy@wasfix.nl">privacy@wasfix.nl</a>
+              Contact privacy: <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
             </p>
 
             <h2>2. Welke gegevens verzamelen we</h2>
@@ -108,7 +109,7 @@ export default function PrivacyPage() {
             </ul>
 
             <h2>7. Jouw rechten</h2>
-            <p>Onder de AVG heb je de volgende rechten. Stuur een verzoek naar <a href="mailto:privacy@wasfix.nl">privacy@wasfix.nl</a> — we reageren binnen 30 dagen.</p>
+            <p>Onder de AVG heb je de volgende rechten. Stuur een verzoek naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> — we reageren binnen 30 dagen.</p>
             <ul>
               <li><strong>Inzage</strong> (art. 15) — Welke gegevens hebben we van je?</li>
               <li><strong>Correctie</strong> (art. 16) — Klopt iets niet? We passen het aan.</li>
@@ -145,7 +146,7 @@ export default function PrivacyPage() {
             <p>Onze diensten zijn gericht op personen van 16 jaar of ouder. Voor minderjarigen onder de 16 is toestemming van een ouder/voogd vereist (AVG art. 8).</p>
 
             <h2>12. Klachten</h2>
-            <p>Heb je een klacht over onze gegevensverwerking? Neem eerst contact met ons op via <a href="mailto:privacy@wasfix.nl">privacy@wasfix.nl</a>. Kom je er met ons niet uit? Je hebt het recht een klacht in te dienen bij de Autoriteit Persoonsgegevens:</p>
+            <p>Heb je een klacht over onze gegevensverwerking? Neem eerst contact met ons op via <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. Kom je er met ons niet uit? Je hebt het recht een klacht in te dienen bij de Autoriteit Persoonsgegevens:</p>
             <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 16px" }}>
               <strong>Autoriteit Persoonsgegevens</strong><br />
               Postbus 93374, 2509 AJ Den Haag<br />

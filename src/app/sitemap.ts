@@ -3,7 +3,6 @@ import { MetadataRoute } from "next";
 import { dbErrorCodes, dbMachines, dbParts, dbGuides } from "@/lib/static-db";
 import helpArticles from "@/data/help-articles.json";
 import blogPosts from "@/data/blog-posts.json";
-import cities from "@/data/cities.json";
 import brandsData from "@/data/brands.json";
 import comparisons from "@/data/comparisons.json";
 
@@ -76,21 +75,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.7,
   }));
 
-  // Programmatic SEO: 50 NL city pages
-  const cityPages = (cities as Array<{ slug: string }>).map((c) => ({
-    url: `${baseUrl}/wasmachine-kapot/${c.slug}`,
-    lastModified: now,
-    changeFrequency: "monthly" as const,
-    priority: 0.65,
-  }));
+  // City pages (/wasmachine-kapot/*) are NOT listed: they are noindex until they carry
+  // content of their own, and a sitemap that submits noindex URLs is a contradictory
+  // signal (Search Console: "Submitted URL marked noindex"). Add them back together
+  // with the removal of their noindex.
 
-  // Programmatic SEO: per-brand commercial-intent pages
-  const brandRepairPages = (brandsData as Array<{ slug: string }>).map((b) => ({
-    url: `${baseUrl}/${b.slug}-wasmachine-reparatie`,
-    lastModified: now,
-    changeFrequency: "weekly" as const,
-    priority: 0.75,
-  }));
+  // Per-brand commercial-intent pages. A brand with no machines, codes or parts in the
+  // catalogue (Zanussi, Hotpoint, Candy, Haier, Panasonic) is noindex on its page, so it
+  // is left out here by the same rule that page uses.
+  const catalogueBrands = new Set(errorCodes.map((ec) => ec.machine.brand));
+  const brandRepairPages = (brandsData as Array<{ slug: string; brand: string }>)
+    .filter((b) => catalogueBrands.has(b.brand))
+    .map((b) => ({
+      url: `${baseUrl}/${b.slug}-wasmachine-reparatie`,
+      lastModified: now,
+      changeFrequency: "weekly" as const,
+      priority: 0.75,
+    }));
 
   // Comparison pages
   const vsPages = (comparisons as Array<{ slug: string }>).map((c) => ({
@@ -136,5 +137,5 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     priority: 0.6,
   }));
 
-  return [...staticPages, ...helpPages, ...blogPages, ...cityPages, ...brandRepairPages, ...vsPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
+  return [...staticPages, ...helpPages, ...blogPages, ...brandRepairPages, ...vsPages, ...errorCodePages, ...guidePages, ...brandPages, ...modelPages, ...partPages];
 }

@@ -58,6 +58,15 @@ export const useCart = create<CartState>()(
       // Bump version when cart logic changes; old persisted carts get reset
       version: 2,
       migrate: () => ({ items: [], isOpen: false }),
+      // Persist the items only. Persisting isOpen too meant that after "In
+      // winkelmand" a full page load of /checkout (which is exactly what Stripe's
+      // cancel_url does) reopened the drawer with its dark overlay over the form.
+      partialize: (s) => ({ items: s.items }),
+      // Old stored states still carry isOpen: never restore it.
+      merge: (persisted, current) => ({
+        ...current,
+        items: (persisted as { items?: CartItem[] } | undefined)?.items ?? current.items,
+      }),
     }
   )
 );

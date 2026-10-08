@@ -1,23 +1,29 @@
 import WasFixHome from "@/components/redesign/WasFixHome";
-import { dbParts, dbErrorCodes } from "@/lib/static-db";
+import { dbParts, dbErrorCodes, dbStats } from "@/lib/static-db";
 import { formatEur } from "@/lib/utils";
 import { SHIPPING } from "@/lib/plans";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
-const STATS = catalogStats();
-
-export const dynamic = "force-dynamic";
+// Cached instead of force-dynamic: nothing on this page is per visitor (the cart
+// and the account menu are client-side), so every ad click used to cost a function
+// run and several queries for the same HTML. The catalogue reads underneath are
+// tagged CATALOG_TAG; POST /api/parts/revalidate refreshes this page on demand and
+// otherwise it is at most 60 seconds old.
+export const revalidate = 60;
 
 export const metadata = {
-  title: "WasFix Pro — AI wasmachine diagnose in 60 seconden",
+  // absolute: the root template would append " · WasFix Pro" to a title that
+  // already starts with the name.
+  title: { absolute: "WasFix Pro — AI wasmachine diagnose en onderdelen" },
+  alternates: { canonical: "/" },
   // Geen "gemiddeld €140 bespaard": dat bedrag is nooit gemeten. Een
   // besparingsclaim moet onderbouwd kunnen worden (art. 6:193c BW), en wat een
   // reparatie in een concreet geval scheelt rekent de calculator uit.
   description:
-    "Foto of foutcode → diagnose, juist onderdeel, stap-voor-stap reparatie. Geen voorrijkosten, geen wachtweken.",
+    "Foto of foutcode → een eerste AI-diagnose, het waarschijnlijke onderdeel en stap-voor-stap reparatie. Een indicatie, geen zekerheid. Geen voorrijkosten.",
   openGraph: {
     title: "WasFix Pro — AI wasmachine diagnose",
-    description: "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.",
+    description: "Eerste AI-diagnose van je wasmachine, het waarschijnlijke onderdeel en stap-voor-stap reparatie.",
     url: "https://wasfix.nl",
     siteName: "WasFix Pro",
     locale: "nl_NL",
@@ -26,13 +32,19 @@ export const metadata = {
   twitter: {
     card: "summary_large_image",
     title: "WasFix Pro — AI wasmachine diagnose",
-    description: "AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.",
+    description: "Eerste AI-diagnose van je wasmachine, het waarschijnlijke onderdeel en stap-voor-stap reparatie.",
   },
 };
 
 export default async function HomePage() {
-  // Featured parts for the catalogue strip (8 with stock, ordered by stock)
-  const partItems = (await dbParts({ where: { minStock: 0 }, orderBy: "stock-desc", take: 8 })).map((p) => ({
+  // Headline numbers from the live catalogue (database when there is one).
+  const live = await dbStats();
+  const base = catalogStats();
+  const STATS = { ...base, errorCodes: live.errorCodesCount, guides: live.guidesCount, parts: live.partsCount, machines: live.machinesCount };
+
+  // Featured parts for the catalogue strip: in-stock first, but sold-out parts are
+  // allowed in so the strip is never empty on a catalogue whose stock is still 0.
+  const partItems = (await dbParts({ orderBy: "stock-desc", take: 8 })).map((p) => ({
     id: p.id,
     sku: p.sku,
     name: p.name,
@@ -60,7 +72,6 @@ export default async function HomePage() {
       url: "https://wasfix.nl",
       logo: "https://wasfix.nl/icon",
       description: "AI-gestuurde wasmachine diagnose en originele onderdelen, voor consumenten en monteurs.",
-      sameAs: ["https://github.com/RBX2042/wasfix-pro"],
       address: { "@type": "PostalAddress", addressCountry: "NL" },
     },
     {
@@ -94,7 +105,7 @@ export default async function HomePage() {
         { "@type": "Question", name: "Is mijn wasmachine nog te repareren of moet ik een nieuwe kopen?",
           acceptedAnswer: { "@type": "Answer", text: "Gebruik onze gratis Repareren-of-Vervangen tool. We berekenen op basis van leeftijd, kosten en levensduur of repareren nog rendabel is. EU Right-to-Repair: onderdelen blijven 10 jaar beschikbaar." } },
         { "@type": "Question", name: "Hoe snel komt mijn onderdeel?",
-          acceptedAnswer: { "@type": "Answer", text: `We verzenden op werkdagen en je krijgt een track & trace zodra het pakket is aangemeld. Verzending kost ${formatEur(SHIPPING.rateEur)} en is gratis vanaf ${formatEur(SHIPPING.freeFromEur)} in NL en BE.` } },
+          acceptedAnswer: { "@type": "Answer", text: `We verzenden op werkdagen en je krijgt een track & trace-code zodra je bestelling is verzonden. Verzending kost ${formatEur(SHIPPING.rateEur)} en is gratis vanaf ${formatEur(SHIPPING.freeFromEur)} (verzending binnen Nederland).` } },
         { "@type": "Question", name: "Geld terug als de diagnose niet klopt?",
           acceptedAnswer: { "@type": "Answer", text: "30 dagen retourrecht — ook als achteraf blijkt dat het toch een ander onderdeel was. Gratis retour bij defect of fout van onze kant." } },
       ],
@@ -111,7 +122,11 @@ export default async function HomePage() {
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />
-      <WasFixHome parts={partItems} codes={codeItems} />
+      <WasFixHome
+        parts={partItems}
+        codes={codeItems}
+        stats={{ errorCodes: STATS.errorCodes, parts: STATS.parts, guides: STATS.guides, brands: STATS.brands }}
+      />
     </>
   );
 }

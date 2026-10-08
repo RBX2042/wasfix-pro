@@ -1,11 +1,11 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { dbGuide } from "@/lib/static-db";
+import { dbGuide, FREE_GUIDE_STEPS } from "@/lib/static-db";
 import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
-import Image from "next/image";
+import { PartThumb } from "@/components/part-photo";
 import { Clock, AlertTriangle, ChevronRight, Wrench, Crown, ShoppingCart, BookOpen } from "lucide-react";
 import { pickArr, formatEur } from "@/lib/utils";
 import { GuideStepper } from "./guide-stepper";
@@ -18,6 +18,9 @@ import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
 
+// Stays dynamic on purpose: what a visitor may read depends on their plan
+// (canReadPremiumGuide), so this page cannot be shared from a cache. The data reads
+// are still the cached ones.
 export const dynamic = "force-dynamic";
 
 
@@ -26,10 +29,10 @@ export async function generateMetadata({ params }: { params: Promise<{ slug: str
   const guide = await dbGuide(slug);
   if (!guide) return { title: "Gids niet gevonden" };
   return {
-    title: `${guide.title} — Stap-voor-stap reparatiegids · WasFix Pro`,
+    title: `${guide.title}: stap-voor-stap reparatiegids`,
     description: guide.summary,
     alternates: { canonical: `/gidsen/${guide.slug}` },
-    openGraph: { title: guide.title, description: guide.summary, type: "article" },
+    openGraph: { title: guide.title, description: guide.summary, type: "article", images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
   };
 }
 
@@ -49,8 +52,7 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
   const user = await getCurrentUser().catch(() => null);
   const hasPremiumAccess = canReadPremiumGuide(user?.plan);
   const isLocked = guide.isPremium && !hasPremiumAccess;
-  const FREE_STEPS = 2;
-  const steps = isLocked ? allSteps.slice(0, FREE_STEPS) : allSteps;
+  const steps = isLocked ? allSteps.slice(0, FREE_GUIDE_STEPS) : allSteps;
   const lockedStepCount = allSteps.length - steps.length;
 
   const tools = pickArr(guide.tools);
@@ -116,7 +118,7 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
           {guide.isPremium && <Badge variant="accent" className="gap-1"><Crown className="h-3 w-3" /> Premium</Badge>}
         </div>
 
-        <h1 className="font-heading text-3xl md:text-4xl font-bold leading-tight">{guide.title}</h1>
+        <h1 className="font-heading text-2xl sm:text-3xl md:text-4xl font-bold leading-tight [overflow-wrap:anywhere]">{guide.title}</h1>
         <p className="text-lg text-muted-foreground mt-3 max-w-2xl">{guide.summary}</p>
 
         {guide.warnings && (
@@ -131,8 +133,8 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
           </Card>
         )}
 
-        <div className="grid lg:grid-cols-[1fr_320px] gap-8 mt-8">
-          <div>
+        <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-8 mt-8">
+          <div className="min-w-0">
             {tools.length > 0 && (
               <Card className="mb-6">
                 <CardContent className="p-5">
@@ -192,7 +194,7 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
                   <div className="space-y-3">
                     {parts.map((p) => (
                       <Link key={p.id} href={`/onderdelen/${p.sku}`} className="flex gap-3 rounded-md border p-3 hover:border-primary transition-colors">
-                        {p.imageUrl && <Image src={p.imageUrl} alt={p.name} width={48} height={48} className="h-12 w-12 rounded bg-muted object-cover" />}
+                        <PartThumb imageUrl={p.imageUrl} name={p.name} />
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium line-clamp-2 leading-tight">{p.name}</p>
                           <p className="text-primary font-bold text-sm mt-1">{formatEur(p.priceEur)}</p>
@@ -207,8 +209,8 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
             <Card>
               <CardContent className="p-5 space-y-3">
                 <h3 className="font-heading font-semibold">Hulp nodig?</h3>
-                <p className="text-sm text-muted-foreground">Twijfel over de diagnose? Onze AI helpt je in 2 minuten verder.</p>
-                <Button asChild className="w-full">
+                <p className="text-sm text-muted-foreground">Twijfel over de diagnose? Onze AI geeft je een eerste indicatie. Een indicatie, geen zekerheid.</p>
+                <Button asChild className="w-full min-h-11">
                   <Link href="/diagnose"><BookOpen className="h-4 w-4" /> Start AI diagnose</Link>
                 </Button>
               </CardContent>

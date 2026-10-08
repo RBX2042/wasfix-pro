@@ -2,6 +2,7 @@ import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import comparisonsData from "@/data/comparisons.json";
+import { correctCopy } from "@/app/help/_corrections";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 
 type Comparison = {
@@ -35,7 +36,9 @@ function resolveTokens(text: string): string {
 
 const comparisons = (comparisonsData as Comparison[]).map((c) => ({
   ...c,
-  winsTable: c.winsTable.map((row) => ({ ...row, us: resolveTokens(row.us), them: resolveTokens(row.them) })),
+  verdict: correctCopy(c.verdict),
+  scenarios: c.scenarios.map((sc) => ({ ...sc, options: sc.options.map(correctCopy) })),
+  winsTable: c.winsTable.map((row) => ({ ...row, us: correctCopy(resolveTokens(row.us)), them: resolveTokens(row.them) })),
 }));
 
 export function generateStaticParams() {
@@ -47,10 +50,11 @@ export async function generateMetadata({ params }: { params: Promise<{ concurren
   const c = comparisons.find((x) => x.slug === concurrent);
   if (!c) return { title: "Vergelijking niet gevonden" };
   return {
-    title: `WasFix Pro vs ${c.competitor} — eerlijke vergelijking · WasFix Pro`,
+    title: `WasFix Pro vs ${c.competitor} — eerlijke vergelijking`,
     description: `${c.tagline} ${c.intro.slice(0, 110)}`,
     alternates: { canonical: `/vs/${c.slug}` },
     openGraph: {
+      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
       title: `WasFix Pro vs ${c.competitor}`,
       description: c.tagline,
       type: "article",
@@ -81,7 +85,7 @@ export default async function VsPage({ params }: { params: Promise<{ concurrent:
           </p>
 
           {/* Score-bord */}
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 36 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 12, marginBottom: 36 }}>
             <ScoreCard label="WasFix Pro wint" value={usWins} highlight />
             <ScoreCard label={`${c.competitor} wint`} value={themWins} />
             <ScoreCard label="Gelijkspel" value={ties} />
@@ -127,7 +131,7 @@ export default async function VsPage({ params }: { params: Promise<{ concurrent:
             <h2 className="h-section" style={{ fontSize: 24, marginBottom: 16 }}>
               Wanneer kies je <em>wat</em>?
             </h2>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(280px, 100%), 1fr))", gap: 12 }}>
               {c.scenarios.map((sc, i) => (
                 <div key={i} className="step-card" style={{ padding: "20px 22px" }}>
                   <div style={{ fontWeight: 500, marginBottom: 12, fontSize: 15 }}>{sc.title}</div>

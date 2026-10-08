@@ -120,6 +120,12 @@
   .wasfix-design .nav-cta { gap: 6px; flex-shrink: 0; }
   .wasfix-design .nav-cta .btn-sm { padding: 6px 9px; }
 }
+@media (max-width: 360px) {
+  /* 320px phones: logo tile + "WasFix" + cart + "Inloggen" + "Start gratis" is 344px wide in a
+     320px nav, so "Pro" and the end of the CTA were cut off. The tile alone carries the home link
+     here (it has an aria-label); every other control stays. */
+  .wasfix-design .brand-name { display: none; }
+}
 @media (max-width: 430px) {
   /* Below this the wordmark suffix has to give way; the logo tile plus "WasFix"
      keeps the home link recognisable and the CTA stays whole. */
@@ -428,6 +434,12 @@
   display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px;
 }
 @media (max-width: 880px) { .wasfix-design .parts-grid { grid-template-columns: repeat(2, 1fr); } }
+/* Grid items do not shrink below their content: the fixed-size SVG in .part-thumb pushed the
+   home page's part cards up to 136px past a 320px screen (clipped by overflow-x: hidden). */
+.wasfix-design .parts-grid > * { min-width: 0; }
+.wasfix-design .part-thumb svg { max-width: 100%; height: auto; }
+.wasfix-design .part-name, .wasfix-design .part-tag { overflow-wrap: anywhere; }
+@media (max-width: 480px) { .wasfix-design .part-card { padding: 12px; } }
 .wasfix-design .part-card {
   border: 1px solid var(--border);
   border-radius: var(--r-md);
@@ -589,6 +601,10 @@
   display: grid; grid-template-columns: 2fr 1fr 1fr 1fr; gap: 32px;
 }
 @media (max-width: 760px) { .wasfix-design .footer-grid { grid-template-columns: 1fr 1fr; } }
+/* A grid item will not shrink below its longest word ("Reparatiegidsen"), so at 320px the two
+   columns plus the 32px gap were 10px wider than the screen and the right column was cut off. */
+.wasfix-design .footer-grid > * { min-width: 0; }
+@media (max-width: 400px) { .wasfix-design .footer-grid { gap: 24px 16px; } }
 .wasfix-design .foot-h { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-family: var(--mono); margin-bottom: 12px; }
 .wasfix-design .foot-l { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--text-2); }
 .wasfix-design .foot-l a:hover { color: var(--text); }
@@ -659,3 +675,48 @@
   animation: wasfix-live 1.5s ease-in-out infinite;
 }
 @keyframes wasfix-live { 50% { opacity: 0.4; } }
+
+/* ── Storefront touch targets (S7) ─────────────────────────────────────────
+   25-65 interactive elements per dark-theme page were under 32px high on a
+   phone (footer link lists, code/part chips, nav chips). 44px is the minimum
+   for a comfortable tap (WCAG 2.5.5 / Apple HIG). Padding rather than fixed
+   heights so text still wraps; desktop pointer layouts keep their density. */
+.wasfix-design .foot-l a,
+.wasfix-design .footer a.pill,
+.wasfix-design .hero-popular-tag,
+.wasfix-design .nav-link {
+  display: inline-flex; align-items: center; min-height: 44px;
+  /* inline-flex swallows the space between text and a <b> child ("Bosch <b>E18</b>") */
+  gap: 5px;
+}
+.wasfix-design .foot-l { gap: 0; }
+.wasfix-design .foot-l a { padding: 0; }
+.wasfix-design .code-row { min-height: 44px; }
+.wasfix-design .nav-cta .btn,
+.wasfix-design .btn-sm { min-height: 44px; }
+.wasfix-design .footer .foot-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* The two search boxes on the home page were 20px high inside a larger row, so the
+   tap area was the text line only. */
+.wasfix-design .chat-input input,
+.wasfix-design .code-search input { min-height: 44px; }
+
+/* 320px phones (S7 sweep): things that were wider than the screen and silently clipped by
+   overflow-x: hidden, so the page never scrolled but content was cut off. */
+.wasfix-design h1, .wasfix-design h2, .wasfix-design h3 { overflow-wrap: anywhere; }
+.wasfix-design .foot-l a { overflow-wrap: anywhere; }
+.wasfix-design .chat-input input, .wasfix-design .code-search input { min-width: 0; }
+.wasfix-design .part-meta { flex-wrap: wrap; gap: 8px; }
+.wasfix-design .part-meta > div { min-width: 0; }
+@media (max-width: 480px) {
+  .wasfix-design .part-meta { flex-direction: column; align-items: stretch; }
+  .wasfix-design .part-meta > div { text-align: left !important; }
+  .wasfix-design .part-meta .btn { width: 100%; justify-content: center; }
+}
+
+/* The "Voor monteurs" block on the home page is an inline two-column grid (1fr 1.3fr, 48px gap) with
+   no breakpoint: on a phone the columns were squeezed and the card ran 54-109px past the screen. */
+.wasfix-design .monteur-grid > * { min-width: 0; }
+@media (max-width: 880px) {
+  .wasfix-design .monteur-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 28px !important; }
+}

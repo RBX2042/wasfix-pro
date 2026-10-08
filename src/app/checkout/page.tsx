@@ -39,7 +39,7 @@ export default async function CheckoutPage() {
   // The summary has to match what /api/checkout will charge, so the plan
   // discount is resolved server-side and handed to the client component.
   const user = await getCurrentUser();
-  const partsDiscount = user ? getPlanLimits(user.plan).partsDiscount : 0;
+  const partsDiscount = user ? getPlanLimits(user).partsDiscount : 0;
   const company = publicCompany();
 
   // Prefill from the account, but never from the demo account: in demo mode every

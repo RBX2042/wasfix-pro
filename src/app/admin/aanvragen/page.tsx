@@ -33,7 +33,13 @@ function StatusForm({ action, id, options }: { action: (fd: FormData) => Promise
   );
 }
 
-export default async function AdminRequestsPage() {
+const NOTICES: Record<string, { text: string; tone: "ok" | "warn" }> = {
+  "goedgekeurd-mail-verstuurd": { text: "Aanmelding goedgekeurd. De aanvrager heeft een e-mail met de link om het abonnement te starten. Er is geen plan of rol toegekend: toegang volgt pas na betaling.", tone: "ok" },
+  "goedgekeurd-mail-mislukt": { text: "Aanmelding goedgekeurd, maar de e-mail aan de aanvrager is NIET verstuurd (controleer RESEND_API_KEY en het verzenddomein). Stuur hem zelf de link naar /upgrade?plan=MONTEUR_PRO. Er is geen plan of rol toegekend.", tone: "warn" },
+};
+
+export default async function AdminRequestsPage({ searchParams }: { searchParams?: Promise<{ melding?: string }> }) {
+  const notice = NOTICES[(await searchParams)?.melding ?? ""];
   const user = await getCurrentUser();
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
@@ -59,6 +65,12 @@ export default async function AdminRequestsPage() {
           ? `${subscribers} nieuwsbriefabonnees · AI-feedback 👍 ${up} / 👎 ${down}`
           : "Geen database geconfigureerd — aanvragen worden alleen per e-mail afgeleverd."}
       </p>
+
+      {notice && (
+        <div role="status" className={`mb-6 rounded-md border p-4 text-sm ${notice.tone === "ok" ? "border-emerald-500/40 bg-emerald-50 text-emerald-900" : "border-amber-500/40 bg-amber-50 text-amber-900"}`}>
+          {notice.text}
+        </div>
+      )}
 
       <div className="space-y-6">
         <Card>
@@ -110,7 +122,8 @@ export default async function AdminRequestsPage() {
 
         <Card>
           <CardContent className="p-6">
-            <h2 className="font-heading text-lg font-semibold mb-4">Monteur Pro aanmeldingen ({applications.length})</h2>
+            <h2 className="font-heading text-lg font-semibold mb-1">Monteur Pro aanmeldingen ({applications.length})</h2>
+            <p className="text-xs text-muted-foreground mb-4">Goedkeuren is alleen een controle: de aanvrager krijgt een e-mail en moet zelf het abonnement afsluiten. Er wordt geen plan of rol toegekend.</p>
             {applications.length === 0 ? (
               <p className="text-sm text-muted-foreground">Geen aanmeldingen.</p>
             ) : (

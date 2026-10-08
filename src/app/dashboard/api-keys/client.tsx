@@ -12,7 +12,7 @@ type ApiKey = {
   usageCount: number;
 };
 
-export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit }: { userPlan: string; apiCallLimit: number }) {
+export function ApiKeysClient({ canCreate }: { canCreate: boolean }) {
   const [keys, setKeys] = React.useState<ApiKey[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [showNewKey, setShowNewKey] = React.useState<string | null>(null);
@@ -86,12 +86,12 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
                 Dit is de enige keer dat we de volledige key tonen. Sla &apos;m veilig op (bv. in een password manager).
               </p>
               <div className="flex gap-2 items-stretch">
-                <code className="flex-1 px-3 py-2 bg-background border rounded font-mono text-xs overflow-auto whitespace-nowrap">
+                <code className="min-w-0 flex-1 px-3 py-2 bg-background border rounded font-mono text-xs overflow-auto whitespace-nowrap">
                   {showNewKey}
                 </code>
                 <button
                   onClick={() => { navigator.clipboard.writeText(showNewKey); toast.success("Gekopieerd"); }}
-                  className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium"
+                  className="shrink-0 px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium"
                 >
                   Kopieer
                 </button>
@@ -104,8 +104,8 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
         </div>
       )}
 
-      {/* Create form */}
-      <form onSubmit={createKey} className="border rounded-lg p-5 mb-6">
+      {/* Create form: only for a plan that includes the API (the server refuses otherwise) */}
+      {canCreate && <form onSubmit={createKey} className="border rounded-lg p-5 mb-6">
         <h2 className="font-heading text-base font-semibold mb-3">Nieuwe API key</h2>
         <div className="flex gap-2 items-stretch">
           <input
@@ -115,27 +115,27 @@ export function ApiKeysClient({ userPlan: _userPlan, apiCallLimit: _apiCallLimit
             placeholder="Label (bv. 'Production app', 'Planning-tool integratie')"
             required
             maxLength={60}
-            className="flex-1 px-3 py-2 border rounded text-sm"
+            className="min-w-0 flex-1 px-3 py-2 border rounded text-sm"
           />
-          <button type="submit" disabled={creating} className="px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50">
+          <button type="submit" disabled={creating} className="shrink-0 px-4 py-2 bg-primary text-primary-foreground rounded text-sm font-medium disabled:opacity-50">
             {creating ? "..." : "Genereer key"}
           </button>
         </div>
         <p className="text-xs text-muted-foreground mt-2">
           Geef je key een herkenbaar label — bij compromise kun je de juiste revoken zonder alles te breken.
         </p>
-      </form>
+      </form>}
 
       {/* Keys list */}
-      <div className="border rounded-lg overflow-hidden">
-        <table className="w-full text-sm">
+      <div className="border rounded-lg overflow-x-auto">
+        <table className="w-full text-sm min-w-[34rem]">
           <thead className="bg-muted/30">
             <tr>
               <th className="text-left p-3 font-medium">Label</th>
               <th className="text-left p-3 font-medium">Prefix</th>
               <th className="text-left p-3 font-medium">Aangemaakt</th>
               <th className="text-left p-3 font-medium">Laatst gebruikt</th>
-              <th className="text-right p-3 font-medium">Calls</th>
+              <th className="text-right p-3 font-medium">Verzoeken (totaal)</th>
               <th className="p-3"></th>
             </tr>
           </thead>

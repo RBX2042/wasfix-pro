@@ -203,17 +203,19 @@ export default async function MonteurDashboardPage() {
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
             <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center text-primary"><Code className="h-6 w-6" /></div>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <h3 className="font-heading font-bold text-lg mb-1">API toegang</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Integreer WasFix Pro AI diagnose in je eigen systeem. 1000 calls/maand inbegrepen.
+                Integreer de WasFix Pro-diagnose in je eigen systeem. Bij je abonnement zit een maandtegoed aan calls; de actuele aantallen en limieten staan in de documentatie.
               </p>
-              <code className="block bg-muted text-xs p-3 rounded-md mb-3 overflow-x-auto">
-                curl -X POST https://api.wasfix.nl/v1/diagnose \<br/>
-                &nbsp;&nbsp;-H {`"Authorization: Bearer YOUR_API_KEY"`} \<br/>
-                &nbsp;&nbsp;-d {`'{"brand":"Bosch","model":"WAU28","symptom":"Foutcode E18"}'`}
+              {/* The same example as /api-docs: the real host, path and field names (brand, errorCode, symptoms). */}
+              <code className="block bg-muted text-xs p-3 rounded-md mb-3 overflow-x-auto whitespace-pre">
+{`curl -X POST https://wasfix.nl/api/v1/diagnose \\
+  -H "Authorization: Bearer wf_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"brand":"Bosch","errorCode":"E18","symptoms":"Water blijft staan"}'`}
               </code>
-              <Button variant="outline">API documentatie <ArrowRight className="h-3 w-3" /></Button>
+              <Button asChild variant="outline"><Link href="/api-docs">API documentatie <ArrowRight className="h-3 w-3" /></Link></Button>
             </div>
           </div>
         </CardContent>

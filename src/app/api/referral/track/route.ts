@@ -3,7 +3,8 @@ import { z } from "zod";
 import { randomUUID } from "crypto";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { REF_COOKIE, VISITOR_COOKIE, isValidCode, recordClick } from "@/lib/referrals";
+import { REF_COOKIE, REFERRAL_ENABLED, VISITOR_COOKIE, isValidCode, recordClick } from "@/lib/referrals";
+import { getCurrentUser } from "@/lib/auth";
 
 export const runtime = "nodejs";
 
@@ -17,6 +18,9 @@ const Schema = z.object({
  * the referral code and an anonymous visitor id (no personal data).
  */
 export async function POST(req: NextRequest) {
+  // The programme is off by default. Off means off: no row, no cookie, no visitor id.
+  if (!REFERRAL_ENABLED) return NextResponse.json({ tracked: false, enabled: false });
+
   if (!(await rateLimit(`referral:${getClientKey(req)}`, 30, 60 * 60 * 1000))) {
     return apiError("Te veel verzoeken", 429);
   }
@@ -28,7 +32,9 @@ export async function POST(req: NextRequest) {
   }
 
   const visitorId = req.cookies.get(VISITOR_COOKIE)?.value ?? randomUUID();
-  await recordClick(parsed.data.code, visitorId, parsed.data.landingPath);
+  // A signed-in referrer following their own link records nothing (see recordClick).
+  const actor = await getCurrentUser().catch(() => null);
+  await recordClick(parsed.data.code, visitorId, parsed.data.landingPath, actor?.id ?? null);
 
   const res = NextResponse.json({ tracked: true });
   const maxAge = 30 * 24 * 60 * 60;

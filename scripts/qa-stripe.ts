@@ -954,7 +954,7 @@ async function runScenario(scenario: string) {
       const u = await mkUser();
       signIn(u);
       const before = fake.requests.length;
-      const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       const body = (await r.json()) as Json;
       const sessions = fake.requestsTo("POST", "/v1/checkout/sessions");
       const p = sessions[0]?.body ?? {};
@@ -964,7 +964,7 @@ async function runScenario(scenario: string) {
       check(p.metadata?.userId === u.id && p.metadata?.plan === "PARTICULIER" && p.subscription_data?.metadata?.userId === u.id && p.subscription_data?.metadata?.plan === "PARTICULIER" && p.success_url === `${APP}/dashboard?upgraded=1` && p.cancel_url === `${APP}/prijzen`, "Subscribe payload: metadata keys (userId, plan) and the success/cancel URLs", `Subscribe metadata/urls wrong: ${JSON.stringify(p.metadata)} ${p.success_url}`);
       check(p.subscription_data?.trial_period_days === "14", "Subscribe payload: a first subscription gets the advertised 14-day trial", `Trial missing: ${JSON.stringify(p.subscription_data)}`);
       const first = sessions[0]?.idempotencyKey;
-      await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       const second = fake.requestsTo("POST", "/v1/checkout/sessions")[1]?.idempotencyKey;
       check(!!first && first === second && Object.keys(fake.state.sessions).length === 1 && Object.keys(fake.state.customers).length === 1 && !!fake.requestsTo("POST", "/v1/customers")[0].idempotencyKey, "Subscribe: a repeated click lands on ONE Checkout session and ONE customer at Stripe (stable idempotency keys, which the fake honours like Stripe)", `Double click made ${Object.keys(fake.state.sessions).length} sessions / ${Object.keys(fake.state.customers).length} customers (keys ${first} vs ${second})`);
       check((await userOf(u.id)).stripeCustomerId !== null, "Subscribe: the Stripe customer id is stored", "Customer id not stored");
@@ -980,7 +980,7 @@ async function runScenario(scenario: string) {
       const { u: u2, cus } = await subUser();
       fake.state.subscriptions["sub_qa_old"] = fake.subscription({ id: "sub_qa_old", customer: cus, priceId: PRICES.PARTICULIER, status: "canceled", userId: u2.id });
       signIn(u2);
-      await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       const p2 = fake.requestsTo("POST", "/v1/checkout/sessions").at(-1)?.body ?? {};
       check(p2.subscription_data && p2.subscription_data.trial_period_days === undefined, "Trial once: an account that had a subscription at Stripe before the trial column existed gets no trial either", `Trial farming possible: ${JSON.stringify(p2.subscription_data)}`);
     }
@@ -1014,20 +1014,20 @@ async function runScenario(scenario: string) {
       signIn(u);
       const mark = slackBodies.length;
       fake.state.prices[PRICES.PARTICULIER].unit_amount = 999;
-      const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       check(r.status === 500 && fake.requestsTo("POST", "/v1/checkout/sessions").length === 0 && /wijkt af: unit_amount/.test(slackText(mark)), "Price check: a Stripe price with the wrong amount blocks the Checkout and alerts the owner", `Wrong price sold: ${r.status}`);
       fake.state.prices[PRICES.PARTICULIER].unit_amount = 499;
       fake.state.prices[PRICES.PARTICULIER].tax_behavior = "unspecified";
-      const r2 = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      const r2 = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       check(r2.status === 500 && fake.requestsTo("POST", "/v1/checkout/sessions").length === 0, "Price check: tax_behavior 'unspecified' is refused", `Unspecified tax behaviour sold: ${r2.status}`);
       fake.state.prices[PRICES.PARTICULIER].tax_behavior = "inclusive";
       const mark2 = slackBodies.length;
       fake.fail("POST", "/v1/checkout/sessions", 500, 1);
-      const r3 = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      const r3 = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       check(r3.status === 500 && /Fout in abonnement afsluiten/.test(slackText(mark2)), "Stripe failure while subscribing: a clean 500 for the customer and an alert for the owner", `Stripe failure not reported: ${r3.status}`);
       const bad = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "FREE" });
       signIn(null);
-      const anon = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER" });
+      const anon = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
       check(bad.status === 400 && anon.status === 401, "Subscribe: an unknown plan is 400, a visitor who is not signed in is 401", `Guards wrong: ${bad.status}/${anon.status}`);
     }
     {
@@ -1309,7 +1309,7 @@ async function runScenario(scenario: string) {
     for (const plan of ["BEDRIJF", "PARTICULIER", "MONTEUR_PRO"]) {
       const u = await mkUser();
       signIn(u);
-      const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan });
+      const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan, withdrawalWaiver: true });
       const row = await userOf(u.id);
       check(r.status === 503 && row.plan === "FREE", `${T} Subscribe ${plan}: production + DEMO_MODE=true + no Stripe keys + signed-in user -> 503, plan stays FREE`, `${T} Free plan grant: ${r.status}, plan ${row.plan}`);
     }

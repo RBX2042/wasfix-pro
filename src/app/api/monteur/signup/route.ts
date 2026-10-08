@@ -46,7 +46,8 @@ export async function POST(req: NextRequest) {
           companyName: data.companyName,
           kvkNumber: data.kvkNumber,
           vatNumber: data.vatNumber ?? null,
-          email: data.email,
+          // Lower-case: approval finds the applicant's account by this address.
+          email: data.email.trim().toLowerCase(),
           phone: data.phone ?? null,
           contactName: data.contactName,
           yearsExperience: data.yearsExperience ?? null,
@@ -73,6 +74,6 @@ export async function POST(req: NextRequest) {
 
   return apiSuccess({
     applicationId,
-    message: "Aanmelding ontvangen. We reviewen je gegevens binnen 1 werkdag en sturen je toegangsdetails per e-mail.",
+    message: "Aanmelding ontvangen. We beoordelen je gegevens binnen 1 werkdag en mailen je daarna hoe je je Monteur Pro-abonnement start. Goedkeuring geeft nog geen toegang: Monteur Pro is een betaald abonnement.",
   });
 }

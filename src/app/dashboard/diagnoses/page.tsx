@@ -28,7 +28,7 @@ export default async function DiagnosesPage() {
 
   return (
     <DashboardLayout role={user.role}>
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-wrap items-center justify-between gap-4 mb-6">
         <div>
           <h1 className="font-heading text-2xl font-bold">Mijn diagnoses</h1>
           <p className="text-muted-foreground text-sm">{diagnoses.length} diagnoses uitgevoerd</p>

@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { extractApiKey, validateApiKey } from "@/lib/api-auth";
-import { rateLimit } from "@/lib/ratelimit";
+import { API_DOCS_URL, authorizeApiRequest } from "@/lib/api-auth";
 import { consumeUsage } from "@/lib/entitlements";
 
 export const dynamic = "force-dynamic";
@@ -25,35 +24,27 @@ export async function OPTIONS() {
 }
 
 export async function POST(req: NextRequest) {
-  const apiKey = extractApiKey(req);
-  const auth = await validateApiKey(apiKey);
-  if (!auth) {
-    return NextResponse.json({ error: "Invalid or missing API key", docs: "https://wasfix.nl/api-docs" }, { status: 401, headers: CORS });
-  }
-  if (!auth.scopes.includes("read:errorcodes")) {
-    return NextResponse.json({ error: "Insufficient scope: requires 'read:errorcodes'" }, { status: 403, headers: CORS });
-  }
-
-  // Diagnose is more expensive — lower rate limit
-  if (!(await rateLimit(`v1:diagnose:${auth.keyId}`, Math.max(10, Math.ceil(auth.monthlyCalls / 100)), 60 * 60 * 1000))) {
-    return NextResponse.json({ error: "Rate limit exceeded", retry_after: 3600 }, { status: 429, headers: CORS });
-  }
-
-  // The plan sells a monthly allowance; without this the hourly guard alone
-  // let a Monteur Pro key make roughly 720x the calls it paid for.
-  const monthly = await consumeUsage("api", auth.keyId, auth.monthlyCalls);
-  if (!monthly.allowed) {
-    return NextResponse.json(
-      { error: "Monthly call allowance exhausted", used: monthly.used, limit: monthly.limit, docs: "https://wasfix.nl/api-docs" },
-      { status: 429, headers: CORS },
-    );
-  }
+  // Key, scope and hourly burst (the burst belongs to the key owner's CURRENT plan).
+  const gate = await authorizeApiRequest(req, { scope: "read:errorcodes", bucket: "all", headers: CORS });
+  if ("response" in gate) return gate.response;
+  const { auth } = gate;
 
   const body = await req.json().catch(() => null);
   if (!body) return NextResponse.json({ error: "Invalid JSON" }, { status: 400, headers: CORS });
   const parsed = Schema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json({ error: "Invalid input", details: parsed.error.flatten() }, { status: 400, headers: CORS });
+  }
+
+  // The plan sells a monthly allowance; the hourly burst alone would let a key
+  // make hundreds of times the calls it paid for. Spent only now: a malformed
+  // request (400) costs nothing, the model call below is what is being sold.
+  const monthly = await consumeUsage("api", auth.quotaKey, auth.monthlyCalls);
+  if (!monthly.allowed) {
+    return NextResponse.json(
+      { error: "Monthly call allowance exhausted", used: monthly.used, limit: monthly.limit, docs: API_DOCS_URL },
+      { status: 429, headers: CORS },
+    );
   }
 
   const { brand, model, errorCode, symptoms, language } = parsed.data;

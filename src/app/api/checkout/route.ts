@@ -349,7 +349,7 @@ export async function POST(req: NextRequest) {
 
     let discount = 0;
     if (user) {
-      const limits = getPlanLimits(user.plan);
+      const limits = getPlanLimits(user);
       discount = money(subtotal * limits.partsDiscount);
     }
     const shipping = shippingFor(subtotal, discount);
@@ -358,7 +358,7 @@ export async function POST(req: NextRequest) {
     // Anything the customer was not shown (a price, a stock level, a part that is gone, a different
     // total) stops the order here: nothing is created, the client updates the cart and asks again.
     if (evaluation.changed || orderable.length === 0 || (expected && cents(expected.totalEur) !== cents(total))) {
-      const partsDiscount = user ? getPlanLimits(user.plan).partsDiscount : 0;
+      const partsDiscount = user ? getPlanLimits(user).partsDiscount : 0;
       return cartChanged(evaluation, orderable.length ? cartTotals(subtotal, partsDiscount) : null, expected?.totalEur, partsDiscount);
     }
 

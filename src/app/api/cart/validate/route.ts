@@ -47,7 +47,7 @@ async function answer(refs: CartRef[], withTotals: boolean) {
   let partsDiscount = 0;
   try {
     const user = await getCurrentUser();
-    if (user) partsDiscount = getPlanLimits(user.plan).partsDiscount;
+    if (user) partsDiscount = getPlanLimits(user).partsDiscount;
   } catch {
     // Anonymous: no discount.
   }

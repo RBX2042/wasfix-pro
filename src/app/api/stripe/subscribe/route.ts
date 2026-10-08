@@ -13,11 +13,16 @@ import { notifyError } from "@/lib/notify";
 import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referrals";
 import { PORTAL_SUBSCRIPTION_STATUSES, expectedTaxBehavior, priceMismatches } from "@/lib/subscription";
 import { fetchSubscription, idOf } from "../_lib/subscriptions";
+import { WITHDRAWAL_WAIVER_TEXT, requiresWithdrawalWaiver } from "@/app/upgrade/consent";
 
 export const maxDuration = 30;
 
 const SubscribeSchema = z.object({
   plan: z.enum(BILLABLE_PLANS as [PlanId, ...PlanId[]]),
+  // The consumer's explicit request for immediate start and acknowledgement of the
+  // loss of the withdrawal right (src/app/upgrade/consent.ts). Required for the
+  // consumer plan, before any Stripe session is created.
+  withdrawalWaiver: z.boolean().optional(),
 });
 
 /**
@@ -41,6 +46,13 @@ export async function POST(req: NextRequest) {
 
     const { plan } = parsed.data;
     const planConfig = getPlan(plan);
+    // The consumer's consent is needed where a NEW subscription is about to be started (the
+    // Checkout session, or the demo upgrade below), and nowhere else: a customer who already
+    // has a subscription is sent to the billing portal, which starts nothing, and the upgrade
+    // page tells them so without showing the checkbox. Checking first used to answer such a
+    // customer with a 400 about the withdrawal right instead of the portal.
+    const waiverMissing = requiresWithdrawalWaiver(plan) && parsed.data.withdrawalWaiver !== true;
+    const waiverRefusal = () => apiError("Bevestig eerst dat je wilt dat de dienst direct begint en dat je daarmee je herroepingsrecht verliest zodra de dienst is uitgevoerd.", 400);
     const priceId = stripePriceIdFor(plan);
     const stripe = getStripe();
     const visitorId = await currentVisitorId();
@@ -68,6 +80,7 @@ export async function POST(req: NextRequest) {
         );
       }
       // Demo mode — direct upgrade (persisted when a DB is available)
+      if (waiverMissing) return waiverRefusal();
       if (isDatabaseConfigured()) {
         await prisma.user.update({ where: { id: user.id }, data: { plan } }).catch((err) =>
           logger.warn("Demo upgrade could not be persisted", err)
@@ -113,6 +126,10 @@ export async function POST(req: NextRequest) {
         message: "Je hebt al een abonnement. Je kunt het hier wijzigen of opzeggen.",
       });
     }
+
+    // Nothing above started a subscription (a live one would have returned the portal), so the consent is due now,
+    // before any price lookup, customer or Checkout session is created at Stripe.
+    if (waiverMissing) return waiverRefusal();
 
     // The advertised price lives in plans.ts, the charged price in a Stripe
     // dashboard nobody here can see. Nothing caught a mismatch: the runbook
@@ -200,11 +217,16 @@ export async function POST(req: NextRequest) {
         automatic_tax: { enabled: true },
         tax_id_collection: { enabled: true },
         customer_update: { address: "auto", name: "auto" },
+        // The dashboard shows the confirmation (plan, first payment / renewal date) and waits
+        // for the webhook to write the plan before it says anything about it.
         success_url: `${env.APP_URL}/dashboard?upgraded=1`,
         cancel_url: `${env.APP_URL}/prijzen`,
-        metadata: { userId: user.id, plan, ...(visitorId ? { refVisitorId: visitorId } : {}) },
+        // The consent given on our page is repeated on Stripe's payment page and recorded on
+        // the session and the subscription, so it can be shown when a customer disputes the charge.
+        ...(requiresWithdrawalWaiver(plan) ? { custom_text: { submit: { message: WITHDRAWAL_WAIVER_TEXT } } } : {}),
+        metadata: { userId: user.id, plan, ...(requiresWithdrawalWaiver(plan) ? { withdrawalWaiver: "accepted" } : {}), ...(visitorId ? { refVisitorId: visitorId } : {}) },
         subscription_data: {
-          metadata: { userId: user.id, plan },
+          metadata: { userId: user.id, plan, ...(requiresWithdrawalWaiver(plan) ? { withdrawalWaiver: "accepted" } : {}) },
           ...(trialDays > 0 ? { trial_period_days: trialDays } : {}),
         },
       },

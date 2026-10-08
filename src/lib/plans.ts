@@ -211,10 +211,8 @@ export const PLANS: Record<PlanId, Plan> = {
     apiCallsPerMonth: 0,
     features: [
       "Onbeperkte AI diagnoses",
-      "Alle premium reparatiegidsen",
-      "5% korting op alle onderdelen",
-      "Diagnoses geschiedenis",
-      "Prioriteit e-mail support",
+      "Volledige stappen van de premium reparatiegidsen",
+      "5% korting op onderdelen (vanaf je eerste betaling)",
     ],
     highlight: true,
   },
@@ -232,10 +230,9 @@ export const PLANS: Record<PlanId, Plan> = {
     apiCallsPerMonth: 1000,
     features: [
       "Alles in Particulier",
-      "10% korting op onderdelen",
-      "Klanten-CRM en werkorders",
-      "Bulk onderdelen bestellen",
-      "B2B API (1.000 calls/maand)",
+      "10% korting op onderdelen (vanaf je eerste betaling)",
+      "Klanten-CRM en werkorders met factuur",
+      "B2B API (1.000 calls/maand, max. 120 per uur)",
     ],
   },
   BEDRIJF: {
@@ -257,8 +254,8 @@ export const PLANS: Record<PlanId, Plan> = {
     // terug als ze echt gebouwd zijn.
     features: [
       "Alles in Monteur Pro",
-      "15% korting op onderdelen",
-      "B2B API (10.000 calls/maand)",
+      "15% korting op onderdelen (vanaf je eerste betaling)",
+      "B2B API (10.000 calls/maand, max. 600 per uur)",
     ],
   },
 };

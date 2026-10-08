@@ -16,8 +16,8 @@ export const metadata = {
 const features = [
   { icon: "sparkle", title: "AI pre-diagnose", text: "Zet foutcode of foto in WasFix, en je hebt de waarschijnlijke oorzaak + benodigd onderdeel vóór je vertrekt." },
   { icon: "user", title: "Klanten-CRM", text: "Alle klantgeschiedenis, machines, eerdere reparaties en facturen op één plek." },
-  { icon: "code", title: "B2B API", text: "Integreer diagnose-data in je eigen ERP of werkorder-systeem. 1.000 calls/mnd inbegrepen." },
-  { icon: "cart", title: "10% korting", text: "Op alle onderdelen, automatisch verrekend in je winkelmand. Boven €50 verzenden we gratis." },
+  { icon: "code", title: "B2B API", text: "Integreer diagnose-data in je eigen ERP of werkorder-systeem. 1.000 calls per maand inbegrepen (maximaal 120 per uur)." },
+  { icon: "cart", title: "10% korting", text: "Op alle onderdelen, automatisch verrekend in je winkelmand zodra je eerste betaling is voldaan (niet tijdens de proefperiode). Boven €50 verzenden we gratis." },
   { icon: "chart", title: "Je cijfers in één overzicht", text: "Aantal klanten, openstaande werkorders en je diagnoses op het monteur-dashboard." },
 ];
 
@@ -35,11 +35,11 @@ const capabilities = [
   },
   {
     title: "10% korting op alle onderdelen",
-    body: "De korting wordt automatisch toegepast in je winkelmand, ook bij bulkbestellingen. Boven €50 verzenden we gratis.",
+    body: "De korting wordt automatisch toegepast in je winkelmand, zodra je eerste betaling is voldaan (niet tijdens de proefperiode). Boven €50 verzenden we gratis.",
   },
   {
     title: "B2B API voor je eigen systeem",
-    body: "1.000 calls per maand op diagnose, foutcodes en onderdelen. Koppel het aan je planning of je eigen klantportaal.",
+    body: "1.000 calls per maand op diagnose, foutcodes en onderdelen, maximaal 120 per uur. Koppel het aan je planning of je eigen klantportaal.",
   },
 ];
 
@@ -117,12 +117,12 @@ export default function MonteurLandingPage() {
           <div className="eyebrow">API</div>
           <h2 className="h-section">Integreer met <em>jouw</em> systeem.</h2>
           <p className="lead" style={{ marginBottom: 24 }}>
-            REST API voor diagnose, onderdelen-lookup, voorraadcheck. Werkt met elk planning- of werkorder-systeem. 1.000 calls per maand inbegrepen bij Monteur Pro.
+            REST API voor diagnose, onderdelen-lookup en foutcodes. Elk systeem dat JSON over HTTPS kan spreken kan koppelen. 1.000 calls per maand inbegrepen bij Monteur Pro.
           </p>
           <div style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
-            <div className="mono" style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, letterSpacing: "0.08em" }}>POST /v1/diagnose</div>
+            <div className="mono" style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, letterSpacing: "0.08em" }}>POST /api/v1/diagnose</div>
             <pre className="mono" style={{ fontSize: 13, color: "var(--text-2)", overflowX: "auto", lineHeight: 1.6, margin: 0 }}>
-{`curl -X POST https://api.wasfix.nl/v1/diagnose \\
+{`curl -X POST https://wasfix.nl/api/v1/diagnose \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{
@@ -132,13 +132,13 @@ export default function MonteurLandingPage() {
     "symptoms": "Water blijft staan in trommel"
   }'
 
-# → { confidence: 87, cause: "Verstopte pluizenfilter of afvoerpomp",
-#     parts: ["WF-FILTER-09", "WF-PUMP-04"], guides: [...] }`}
+# → { "data": { "diagnosis": {...}, "recommendedParts": [...], "recommendedGuides": [...] }, "meta": {...} }
+# Een indicatie, geen garantie: controleer de oorzaak voordat je een onderdeel vervangt.`}
             </pre>
           </div>
           <div style={{ marginTop: 16 }}>
             <Link className="btn" href="/api-info">
-              Bekijk volledige API-docs <Icon name="arrow" size={14} />
+              Bekijk de API-documentatie <Icon name="arrow" size={14} />
             </Link>
           </div>
         </div>
@@ -165,11 +165,11 @@ export default function MonteurLandingPage() {
           <h2 className="h-section">Voor je <em>begint</em>.</h2>
           <div style={{ marginTop: 32, display: "grid", gap: 12, maxWidth: 820 }}>
             {[
-              { q: "Hoeveel kost Monteur Pro?", a: "€29 per maand, exclusief BTW. Inclusief AI-diagnose, klanten-CRM, werkorders met factuur, 10% onderdelen-korting en de B2B API (1.000 calls/maand). Geen verborgen kosten." },
+              { q: "Hoeveel kost Monteur Pro?", a: "€29 per maand, exclusief BTW. Inclusief AI-diagnose, klanten-CRM, werkorders met factuur, 10% onderdelen-korting (zodra je eerste betaling is voldaan) en de B2B API (1.000 calls per maand, maximaal 120 per uur). Geen verborgen kosten." },
               { q: "Werkt het met mijn bestaande planning-systeem?", a: "Via onze REST API kan elke moderne software koppelen. Kant-en-klare integraties met bestaande planningspakketten hebben we niet — die koppeling bouw je zelf of laat je door je leverancier bouwen. Vraag onze support naar de documentatie." },
-              { q: "Hoe snel kan ik beginnen?", a: "5 minuten. Account maken, abonnement starten (14 dagen gratis), inloggen op je monteur-dashboard. Direct toegang tot alle features." },
+              { q: "Hoe snel kan ik beginnen?", a: "Account maken, abonnement starten (14 dagen gratis voor wie nog geen proefperiode heeft gehad) en je kunt direct aan de slag in je monteur-dashboard." },
               { q: "Wat als ik wil opzeggen?", a: "Maandelijks opzegbaar, per email of vanuit je dashboard. Geen lange contracten, geen opzegtermijn, geen verborgen kosten." },
-              { q: "Krijg ik training of onboarding?", a: "Ja — gratis 30-minuten 1-op-1 onboarding-call binnen 2 werkdagen na aanmelden. Plus een uitgebreide kennisbank en NL-talige videosupport." },
+              { q: "Krijg ik training of onboarding?", a: "Er is geen vaste onboarding-call of videosupport. Heb je een vraag, dan helpen we je per e-mail via de contactpagina, en de reparatiegidsen en de foutcode-database zijn voor iedereen te raadplegen." },
               { q: "Is de data van mijn klanten veilig?", a: "Je klantgegevens staan in een Europese database van onze hostingpartner, die versleutelt at-rest, en al het verkeer gaat over TLS. Elke monteur ziet uitsluitend zijn eigen klanten en werkorders — dat is afgedwongen in de query, niet alleen in de UI. We hebben geen ISO 27001-certificering; als je daar een leverancierseis voor hebt, zeg het en we sturen je wat we wél kunnen aantonen. Jij bent eigenaar van je klantdata en kunt die altijd exporteren." },
             ].map((f, i) => (
               <details key={i} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px" }}>

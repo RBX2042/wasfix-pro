@@ -266,6 +266,16 @@ export async function POST(req: NextRequest) {
           where: { userId: user.id, invoice: { isNot: null } },
           data: { email: anonymizedEmail, shippingAddress: REDACTED_ADDRESS },
         });
+        // Contact details the bookkeeping never needs, on EVERY order of this account
+        // (also the ones still waiting for an invoice, whose e-mail and address stay):
+        // the phone number and the free-text note to the courier. The guest link
+        // (?t=...) goes too, so an order URL that was mailed or shared stops working;
+        // without a token the page only answers its signed-in owner (this account no
+        // longer has a login) and an admin.
+        await tx.order.updateMany({
+          where: { userId: user.id },
+          data: { phone: null, customerNote: null, accessToken: null },
+        });
 
         // Last, so the e-mail-keyed cleanups above still matched the real address.
         // stripeCustomerId goes too: it is a live handle to a Stripe record with

@@ -3,16 +3,13 @@ import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import { prisma } from "@/lib/prisma";
 import { env, isDatabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { identityFromClerkPayload, normalizeEmail, syncSignedInUser, type ClerkWebhookUser } from "@/lib/auth";
+import { endStripeSubscription, getStripe, scrubStripeCustomer } from "@/lib/stripe";
+import { notifyOwner } from "@/lib/notify";
 
 export const runtime = "nodejs";
 
-type ClerkUserPayload = {
-  id?: string;
-  email_addresses?: Array<{ id: string; email_address: string }>;
-  primary_email_address_id?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-};
+type ClerkUserPayload = ClerkWebhookUser;
 
 /**
  * Clerk webhook receiver. Configure in Clerk dashboard → Webhooks → endpoint
@@ -61,30 +58,27 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, persisted: false });
   }
 
-  const primary = data.email_addresses?.find((e) => e.id === data.primary_email_address_id) ?? data.email_addresses?.[0];
-  const email = primary?.email_address;
-  const name = `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim() || null;
+  const identity = identityFromClerkPayload(data);
+  const email = identity?.email ?? undefined;
+  const name = identity?.name ?? null;
 
   try {
     switch (type) {
       case "user.created":
       case "user.updated": {
         if (!email) break;
-        const byClerk = await prisma.user.findUnique({ where: { clerkId } });
-        if (byClerk) {
-          await prisma.user.update({ where: { id: byClerk.id }, data: { email, name } });
-        } else {
-          const byEmail = await prisma.user.findUnique({ where: { email } });
-          if (byEmail) {
-            await prisma.user.update({ where: { id: byEmail.id }, data: { clerkId, name: name ?? byEmail.name } });
-          } else {
-            await prisma.user.create({ data: { clerkId, email, name, role: "CONSUMER", plan: "FREE" } });
-            if (type === "user.created") {
-              const { sendWelcomeEmail } = await import("@/lib/email");
-              await sendWelcomeEmail(email, name ?? email).catch((e) => logger.warn("Welcome email failed", e));
-            }
-          }
+        // The same rules as a sign-in (src/lib/auth.ts syncSignedInUser): an address
+        // Clerk has not verified neither claims an existing row nor is stored, and a
+        // verified address listed in ADMIN_EMAILS is promoted. Duplicated rules here
+        // are how a webhook ends up claiming what a sign-in refuses to.
+        const before = await prisma.user.findUnique({ where: { clerkId }, select: { id: true } });
+        // identityFromClerkPayload applies the sign-in's definition of verified (primary address only).
+        const row = await syncSignedInUser(identity!);
+        if (type === "user.created" && !before && identity!.emailVerified) {
+          const { sendWelcomeEmail } = await import("@/lib/email");
+          await sendWelcomeEmail(normalizeEmail(email), name ?? email).catch((e) => logger.warn("Welcome email failed", e));
         }
+        logger.info("[clerk] user synced", { userId: row.id, event: type });
         break;
       }
 
@@ -93,9 +87,62 @@ export async function POST(req: NextRequest) {
         // retention) stays intact.
         const existing = await prisma.user.findUnique({ where: { clerkId } });
         if (existing) {
+          const anonymisedEmail = `deleted-${existing.id}@anon.wasfix.nl`;
+
+          // Stripe FIRST, while the row still knows the ids: once they are nulled
+          // nobody can cancel the subscription, and the card of a person who erased
+          // their account would keep being charged.
+          let stripeFailed = false;
+          if (existing.stripeSubId || existing.stripeCustomerId) {
+            const stripe = getStripe();
+            if (!stripe) {
+              stripeFailed = true;
+              logger.error("[clerk] user.deleted: account has Stripe data but Stripe is not configured", { userId: existing.id });
+            } else {
+              if (existing.stripeSubId) {
+                try {
+                  await endStripeSubscription(stripe, existing.stripeSubId, `clerk-erase-${existing.id}-${existing.stripeSubId}`);
+                } catch (err) {
+                  stripeFailed = true;
+                  logger.error("[clerk] user.deleted: Stripe subscription could not be cancelled", { userId: existing.id, err: err instanceof Error ? err.message : String(err) });
+                }
+              }
+              if (existing.stripeCustomerId) {
+                try {
+                  await scrubStripeCustomer(stripe, existing.stripeCustomerId, anonymisedEmail);
+                } catch (err) {
+                  stripeFailed = true;
+                  logger.error("[clerk] user.deleted: Stripe customer could not be anonymised", { userId: existing.id, err: err instanceof Error ? err.message : String(err) });
+                }
+              }
+            }
+            if (stripeFailed) {
+              await notifyOwner({
+                event: "clerk.erase_stripe_failed",
+                level: "error",
+                title: "Verwijderde klant: Stripe handmatig afronden",
+                lines: [
+                  `Gebruiker ${existing.id} is in Clerk verwijderd, maar het abonnement of de klantgegevens bij Stripe konden niet worden opgezegd of geanonimiseerd.`,
+                  "Zeg het abonnement op en anonimiseer de klant in het Stripe-dashboard. De koppeling (abonnement- en klant-id) blijft op het account staan zodat je weet welke.",
+                ],
+              });
+            }
+          }
+
           await prisma.user.update({
             where: { id: existing.id },
-            data: { clerkId: null, email: `deleted-${existing.id.slice(0, 8)}@anon.wasfix.nl`, name: "Verwijderd account" },
+            data: {
+              clerkId: null,
+              email: anonymisedEmail,
+              name: "Verwijderd account",
+              // The plan must not outlive the person. The Stripe ids stay only when
+              // the Stripe step failed, as the handle for finishing it by hand.
+              plan: "FREE",
+              stripeSubStatus: null,
+              stripeCurrentPeriodEnd: null,
+              stripeCancelAtPeriodEnd: false,
+              ...(stripeFailed ? {} : { stripeSubId: null, stripeCustomerId: null }),
+            },
           });
           await prisma.diagnosis.deleteMany({ where: { userId: existing.id } }).catch(() => null);
           await prisma.savedMachine.deleteMany({ where: { userId: existing.id } }).catch(() => null);

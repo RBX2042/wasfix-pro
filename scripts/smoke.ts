@@ -60,9 +60,12 @@ const checks: Check[] = [
   { path: "/api/guides", expect: 200 },
   { path: "/api/search?q=bosch", expect: 200, contains: "hits" },
   { path: "/api/reviews?sku=WF-PUMP-01", expect: 200 },
-  { path: "/api/referral/stats", expect: [200, 401] },
-  { path: "/api/referral/track", method: "POST", body: { code: "SMOKE1" }, expect: 200, contains: "tracked" },
-  { path: "/api/referral/track", method: "POST", body: { code: "bad code!" }, expect: 400 },
+  // The referral programme is OFF unless NEXT_PUBLIC_FEATURE_REFERRAL=true (it cannot pay out yet, see
+  // src/lib/referrals.ts). Off means off: stats are not served, and a click records no row and sets no cookie.
+  // CI and production run it off, so that is what is asserted here; scripts/qa-plans.ts covers the on state.
+  { path: "/api/referral/stats", expect: 404 },
+  { path: "/api/referral/track", method: "POST", body: { code: "SMOKE1" }, expect: 200, contains: '"tracked":false' },
+  { path: "/api/referral/track", method: "POST", body: { code: "bad code!" }, expect: 200, contains: '"enabled":false' },
   { path: "/api/v1/parts/WF-PUMP-01", expect: 401 },
   { path: "/api/v1/parts/WF-PUMP-01?api_key=wf_demo_FREE_PUBLIC_DEMO_KEY_ONLY_LIMITED", expect: 200 },
   { path: "/api/qr/generate?brand=Bosch&model=WAU28T40NL", expect: 200 },

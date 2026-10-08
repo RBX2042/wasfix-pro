@@ -1,10 +1,10 @@
 import { NextRequest } from "next/server";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser, hasProAccess } from "@/lib/auth";
+import { getCurrentUser } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/env";
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { DEFAULT_SCOPES, PLAN_API_RATE_LIMIT, generateApiKey, hashApiKey, keyPrefix } from "@/lib/api-auth";
+import { DEFAULT_SCOPES, apiAllowanceFor, generateApiKey, hashApiKey, keyPrefix } from "@/lib/api-auth";
 import { logger } from "@/lib/logger";
 
 export const dynamic = "force-dynamic";
@@ -29,25 +29,30 @@ function serialize(k: { id: string; name: string; prefix: string; createdAt: Dat
   };
 }
 
-async function requireProUser() {
+// Anyone signed in may LIST and REVOKE their own keys, whatever their plan: a
+// lapsed subscriber must be able to see and kill the keys that still exist.
+// Only CREATING a key needs a plan with an API, and that is decided by the plan
+// the account is entitled to now (user.plan is effectivePlan), never by role.
+async function requireUser() {
   const user = await getCurrentUser();
   if (!user) return { error: apiError("Niet ingelogd", 401) } as const;
-  if (!hasProAccess(user)) return { error: apiError("API toegang vereist Monteur Pro of hoger", 403) } as const;
   return { user } as const;
 }
 
 // GET — list the caller's active keys
 export async function GET() {
-  const r = await requireProUser();
+  const r = await requireUser();
   if ("error" in r) return r.error;
-  if (!isDatabaseConfigured()) return apiSuccess({ keys: [], demo: true });
+  const allowance = apiAllowanceFor(r.user.plan);
+  if (!isDatabaseConfigured()) return apiSuccess({ keys: [], demo: true, allowance });
 
   try {
     const keys = await prisma.apiKey.findMany({
       where: { userId: r.user.id, revokedAt: null },
       orderBy: { createdAt: "desc" },
     });
-    return apiSuccess({ keys: keys.map(serialize) });
+    // `suspended`: the keys exist but do nothing, because the plan behind them has no API.
+    return apiSuccess({ keys: keys.map(serialize), allowance, suspended: !allowance && keys.length > 0 });
   } catch (err) {
     logger.error("[api-keys] list failed", err);
     return apiError("Keys konden niet worden geladen", 503);
@@ -56,8 +61,10 @@ export async function GET() {
 
 // POST — create a key; the full key is returned exactly once
 export async function POST(req: NextRequest) {
-  const r = await requireProUser();
+  const r = await requireUser();
   if ("error" in r) return r.error;
+  const allowance = apiAllowanceFor(r.user.plan);
+  if (!allowance) return apiError("API toegang vereist Monteur Pro of hoger", 403);
 
   const body = await req.json().catch(() => null);
   const parsed = CreateSchema.safeParse(body ?? {});
@@ -71,7 +78,7 @@ export async function POST(req: NextRequest) {
     return apiSuccess({
       demo: true,
       fullKey,
-      key: { id: `demo-${Date.now()}`, name: parsed.data.name, prefix, createdAt: new Date().toISOString(), lastUsedAt: null, usageCount: 0, scopes: DEFAULT_SCOPES, rateLimit: 1000 },
+      key: { id: `demo-${Date.now()}`, name: parsed.data.name, prefix, createdAt: new Date().toISOString(), lastUsedAt: null, usageCount: 0, scopes: DEFAULT_SCOPES, rateLimit: allowance.hourlyBurst },
     });
   }
 
@@ -87,7 +94,10 @@ export async function POST(req: NextRequest) {
         prefix,
         hash: hashApiKey(fullKey),
         scopes: DEFAULT_SCOPES.join(","),
-        rateLimit: PLAN_API_RATE_LIMIT[r.user.plan] ?? 1000,
+        // Informational only: what the plan allows per hour today. The API reads the
+        // owner's current plan on every request (api-auth.ts verifyApiKey), so this
+        // number is never what limits a call.
+        rateLimit: allowance.hourlyBurst,
       },
     });
     return apiSuccess({ fullKey, key: serialize(created) }, 201);
@@ -99,7 +109,7 @@ export async function POST(req: NextRequest) {
 
 // DELETE ?id=… — revoke (soft) so audit history stays intact
 export async function DELETE(req: NextRequest) {
-  const r = await requireProUser();
+  const r = await requireUser();
   if ("error" in r) return r.error;
 
   const id = req.nextUrl.searchParams.get("id");

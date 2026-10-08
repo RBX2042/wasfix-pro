@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getCurrentUser } from "@/lib/auth";
 import { env } from "@/lib/env";
-import { referralCodeFor, referralStats } from "@/lib/referrals";
+import { REFERRAL_ENABLED, referralCodeFor, referralStats } from "@/lib/referrals";
 
 export const dynamic = "force-dynamic";
 
@@ -10,6 +10,7 @@ export const dynamic = "force-dynamic";
  * matches the caller's own code, so nobody can read someone else's numbers.
  */
 export async function GET(req: NextRequest) {
+  if (!REFERRAL_ENABLED) return NextResponse.json({ error: "Het verwijsprogramma is niet beschikbaar" }, { status: 404 });
   const user = await getCurrentUser().catch(() => null);
   if (!user) {
     return NextResponse.json({ error: "Authentication required" }, { status: 401 });

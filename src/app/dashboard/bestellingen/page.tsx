@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import { formatDate, formatEur } from "@/lib/utils";
 import Link from "next/link";
+import { ORDER_STATUS_LABEL, isOrderStatus } from "@/lib/order-status";
 import { Package, ChevronRight } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -15,6 +16,7 @@ export const metadata = { title: "Mijn bestellingen" };
 
 const STATUS_VARIANT: Record<string, any> = {
   PENDING: "warning",
+  OPENSTAAND: "warning",
   PAID: "success",
   SHIPPED: "default",
   DELIVERED: "success",
@@ -57,7 +59,7 @@ export default async function OrdersPage() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="font-mono font-medium text-sm">#{o.id.slice(0, 8).toUpperCase()}</p>
-                        <Badge variant={STATUS_VARIANT[o.status] ?? "secondary"}>{o.status}</Badge>
+                        <Badge variant={STATUS_VARIANT[o.status] ?? "secondary"}>{isOrderStatus(o.status) ? ORDER_STATUS_LABEL[o.status] : o.status}</Badge>
                       </div>
                       <p className="text-sm text-muted-foreground">{formatDate(o.createdAt)} · {o.items.length} onderdelen</p>
                       <div className="flex flex-wrap gap-1 mt-2">

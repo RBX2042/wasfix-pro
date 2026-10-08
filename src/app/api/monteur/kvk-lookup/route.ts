@@ -3,11 +3,14 @@ import { z } from "zod";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { logger } from "@/lib/logger";
+import { isDemoMode } from "@/lib/demo-mode";
 
 const Schema = z.object({ kvkNumber: z.string().regex(/^\d{8}$/, "KvK-nummer is 8 cijfers") });
 
 // KvK API lookup — requires KVK_API_KEY env var.
-// Without key, returns 503 with helpful message.
+// Without a key the answer is 503: a made-up company must never be returned as
+// if the Chamber of Commerce had said it. Only demo mode (never on in
+// production, see src/lib/demo-mode.ts) gets an example company, labelled mock.
 // Real API: https://developers.kvk.nl/documentation/zoeken-api
 export async function POST(req: NextRequest) {
   if (!(await rateLimit(`kvk:${getClientKey(req)}`, 20, 60 * 60 * 1000))) {
@@ -23,14 +26,16 @@ export async function POST(req: NextRequest) {
   const apiKey = process.env.KVK_API_KEY;
 
   if (!apiKey) {
-    // Mock response for demo — returns a fake company so the form works in dev
-    logger.info("[kvk-lookup] no API key — returning mock", { kvkNumber });
+    if (!isDemoMode()) {
+      logger.warn("[kvk-lookup] KVK_API_KEY is not set — lookup unavailable");
+      return apiError("KvK-opzoeking is niet beschikbaar. Vul de bedrijfsgegevens zelf in.", 503);
+    }
     return apiSuccess({
       mock: true,
       kvkNumber,
-      companyName: `Demo Monteur ${kvkNumber.slice(-4)}`,
+      companyName: `Voorbeeldbedrijf ${kvkNumber.slice(-4)} (demo)`,
       legalForm: "Eenmanszaak",
-      address: { street: "Hoofdstraat", houseNumber: "1", postalCode: "1234 AB", city: "Amsterdam" },
+      address: { street: "Voorbeeldstraat", houseNumber: "1", postalCode: "1234 AB", city: "Amsterdam" },
       sbiCodes: ["95220"], // Repair of household appliances
     });
   }

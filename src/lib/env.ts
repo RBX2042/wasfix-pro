@@ -54,8 +54,6 @@ export const env = {
   UPSTASH_REDIS_REST_URL: read("UPSTASH_REDIS_REST_URL"),
   UPSTASH_REDIS_REST_TOKEN: read("UPSTASH_REDIS_REST_TOKEN"),
 
-  INTERNAL_API_KEY: read("INTERNAL_API_KEY"),
-
   // ── Owner operations ──────────────────────────────────────────────
   // Comma-separated e-mail addresses that may become ADMIN. DECLARED HERE ONLY:
   // this bundle does not read it. The rule the sign-in code must apply (decision

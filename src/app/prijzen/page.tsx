@@ -8,7 +8,7 @@ import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans
 
 export const metadata = {
   title: "Prijzen — Gratis tot €29/mnd excl. btw · WasFix Pro abonnementen",
-  description: "Gratis, Particulier €4,99/mnd incl. btw of Monteur Pro €29/mnd excl. btw. Onbeperkte AI-diagnoses, kortingen op onderdelen, API. 14 dagen gratis proefperiode.",
+  description: "Gratis, Particulier €4,99/mnd incl. btw of Monteur Pro €29/mnd excl. btw. Onbeperkte AI-diagnoses (redelijk gebruik), kortingen op onderdelen, API. 14 dagen gratis proefperiode.",
   alternates: { canonical: "/prijzen" },
 };
 

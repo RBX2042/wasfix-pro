@@ -1212,6 +1212,47 @@ async function runScenario(scenario: string) {
       check(r.status === 503 && (await userOf(u.id)).plan === "FREE", `${T} Subscribe: Stripe key present but no price for the plan -> 503 and no plan change, even with DEMO_MODE=true`, `${T} Plan without price: ${r.status}, plan ${(await userOf(u.id)).plan}`);
     }
 
+    // The addresses Stripe sends a customer back to are built from NEXT_PUBLIC_APP_URL. In production an unusable
+    // value (localhost fallback, http, garbage, unset) must refuse BEFORE any Stripe session exists: a customer
+    // who has just paid must not be sent to a dead page. Same for the billing portal.
+    {
+      const savedUrl = process.env.NEXT_PUBLIC_APP_URL;
+      const setUrl = (v: string | null) => { if (v === null) delete process.env.NEXT_PUBLIC_APP_URL; else process.env.NEXT_PUBLIC_APP_URL = v; };
+      try {
+        const u = await mkUser();
+        signIn(u);
+        resetFake();
+        const wrong: string[] = [];
+        for (const bad of ["http://localhost:3000", "http://shop.example.nl", "not a url", null]) {
+          setUrl(bad);
+          const r = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
+          if (r.status !== 503 || fake.requestsTo("POST", "/v1/checkout/sessions").length !== 0) wrong.push(`${bad ?? "(unset)"} -> ${r.status}, sessions ${fake.requestsTo("POST", "/v1/checkout/sessions").length}`);
+        }
+        check(wrong.length === 0, `${T} Subscribe: an unusable NEXT_PUBLIC_APP_URL in production (localhost, http, garbage, unset) is refused with 503 before any Checkout session exists`, `${T} Unusable app URL was not refused: ${wrong.join("; ")}`);
+
+        setUrl("https://shop.example.nl");
+        const ok = await post(subscribeRoute, "/api/stripe/subscribe", { plan: "PARTICULIER", withdrawalWaiver: true });
+        const body = fake.requestsTo("POST", "/v1/checkout/sessions")[0]?.body ?? {};
+        check(ok.status === 200 && body.success_url === "https://shop.example.nl/dashboard?upgraded=1" && body.cancel_url === "https://shop.example.nl/prijzen", `${T} Subscribe: with a usable public address the return URLs are built from it`, `${T} Usable address: ${ok.status} ${body.success_url} ${body.cancel_url}`);
+
+        const withCustomer = await mkUser({ stripeCustomerId: `cus_qa_url_${++n}` });
+        signIn(withCustomer);
+        resetFake();
+        const portalWrong: string[] = [];
+        for (const bad of ["http://localhost:3000", null]) {
+          setUrl(bad);
+          const r = await post(portalRoute, "/api/stripe/portal", {});
+          if (r.status !== 503 || fake.requestsTo("POST", "/v1/billing_portal/sessions").length !== 0) portalWrong.push(`${bad ?? "(unset)"} -> ${r.status}`);
+        }
+        setUrl("https://shop.example.nl");
+        const portalOk = await post(portalRoute, "/api/stripe/portal", {});
+        const portalBody = fake.requestsTo("POST", "/v1/billing_portal/sessions")[0]?.body ?? {};
+        check(portalWrong.length === 0 && portalOk.status === 200 && portalBody.return_url === "https://shop.example.nl/dashboard/profiel", `${T} Portal: refused with 503 on an unusable public address, and uses the configured one otherwise`, `${T} Portal address handling: ${portalWrong.join("; ")} ok ${portalOk.status} ${portalBody.return_url}`);
+      } finally {
+        setUrl(savedUrl ?? null);
+      }
+    }
+
     // ── Account erasure ─────────────────────────────────────────────────
     const erasable = async (extra: Record<string, unknown> = {}) => {
       resetFake();

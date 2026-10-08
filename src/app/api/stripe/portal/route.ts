@@ -1,7 +1,8 @@
 import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { getCurrentUser } from "@/lib/auth";
-import { env, isDatabaseConfigured } from "@/lib/env";
+import { isDatabaseConfigured } from "@/lib/env";
+import { siteUrl } from "@/lib/site-url";
 import { isDemoMode } from "@/lib/demo-mode";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { logger } from "@/lib/logger";
@@ -31,9 +32,18 @@ export async function POST() {
       return apiError("Geen actief abonnement", 400);
     }
 
+    // The portal sends the customer back here; in production an unusable NEXT_PUBLIC_APP_URL
+    // (missing, http, the localhost fallback) would strand them on a dead page.
+    const baseUrl = siteUrl();
+    if (!baseUrl) {
+      logger.error("Billing portal blocked: NEXT_PUBLIC_APP_URL is not a usable public address");
+      await notifyError(new Error("NEXT_PUBLIC_APP_URL is niet bruikbaar: het klantportaal is geblokkeerd"), { where: "klantportaal" });
+      return apiError(`Het klantportaal is tijdelijk niet beschikbaar. Probeer het later opnieuw of ${supportHint(supportEmail())}.`, 503);
+    }
+
     const session = await stripe.billingPortal.sessions.create({
       customer: dbUser.stripeCustomerId,
-      return_url: `${env.APP_URL}/dashboard/profiel`,
+      return_url: `${baseUrl}/dashboard/profiel`,
     });
 
     return apiSuccess({ url: session.url });

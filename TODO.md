@@ -41,7 +41,6 @@ die niemand meer kon reproduceren; die lijsten zijn weggehaald. Wil je weten wat
 - [ ] 21 bestanden in `src/` (zoek op `https://wasfix.nl`, o.a. `src/app/page.tsx`, de e-mailtemplates, JSON-LD) hebben het
       adres hard staan; laat ze `siteUrl()` uit `src/lib/site-url.ts` gebruiken, zodat een ander domein overal doorwerkt.
       Op de homepage valt het nu samen met `NEXT_PUBLIC_APP_URL`, maar alleen omdat beide wasfix.nl zijn.
-- [ ] `INTERNAL_API_KEY` staat nog in `src/lib/env.ts` maar wordt nergens meer gelezen.
 - [ ] `scripts/qa-checkout.ts`, `qa-checkout-ui.ts` en `qa-plans.ts` sturen `x-vercel-forwarded-for` om een eigen limietemmer te
       krijgen; dat werkt alleen met `VERCEL=1` (CI zet dat). Laat ze `x-forwarded-for` sturen.
 - [ ] De vier lettertypen (Inter, Syne, Geist, Geist Mono) worden allemaal gebruikt; het weghalen van één verandert het

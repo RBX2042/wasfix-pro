@@ -568,7 +568,8 @@ function section10_envExample() {
   for (const d of ["src", "scripts", "prisma"]) walk(path.join(ROOT, d));
   used.add("NEXT_PUBLIC_APP_URL");
   const NOT_FOR_THE_OWNER = new Set(["NODE_ENV", "NEXT_RUNTIME", "NEXT_DIST_DIR", "ANALYZE", "BASE_URL", "VERCEL", "VERCEL_ENV", "PLAYWRIGHT_PATH", "SEED_DEMO", "WASFIX_EXPECTED_MIGRATIONS", "NEXT_PUBLIC_CLERK_ENABLED", "HOME", "PATH", "RESEND_BASE_URL", "TSX_TSCONFIG_PATH", "CI", "INTERNAL_API_KEY", "SEED_USERS"]);
-  // INTERNAL_API_KEY: declared in src/lib/env.ts; no other file reads it (grep). SEED_USERS: prisma/seed.ts only prints that it is ignored.
+  // INTERNAL_API_KEY: no application code reads it any more (the B2B route calls the diagnosis in-process); only scripts/qa-diagnose.ts
+  // mentions it, to delete it and prove the route needs none. SEED_USERS: prisma/seed.ts only prints that it is ignored.
   const missing = [...used].filter((v) => !documented.has(v) && !NOT_FOR_THE_OWNER.has(v) && !/^(QA_|PROBE_|STRIPE_API_BASE)/.test(v)).sort();
   check(missing.length === 0, "every variable the code reads is in .env.example (or is a test/platform variable)", `missing from .env.example: ${missing.join(", ")}`);
   // SEED_DEMO is read through the env object handed to seedMode() in prisma/seed-mode.ts; the Clerk sign-in URLs are read by Clerk itself.

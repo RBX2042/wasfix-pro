@@ -1,11 +1,12 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { formatEur } from "@/lib/utils";
 import { SHIPPING, COMPANY, PLANS, realOrNull } from "@/lib/plans";
+import { PAID_DAILY_CALLS } from "@/lib/diagnose-core";
 import Link from "next/link";
 
 export const metadata = {
   title: "Algemene voorwaarden",
-  description: "Algemene voorwaarden van WasFix Pro B.V. voor diensten, onderdelen-verkoop en abonnementen.",
+  description: "Algemene voorwaarden van WasFix Pro voor diensten, onderdelen-verkoop en abonnementen.",
   alternates: { canonical: "/voorwaarden" },
 };
 
@@ -30,7 +31,7 @@ export default function VoorwaardenPage() {
 
           <div className="legal-content">
             <p style={{ fontSize: 16, lineHeight: 1.7, color: "var(--text-2)" }}>
-              Deze algemene voorwaarden zijn van toepassing op alle aanbiedingen, overeenkomsten en leveringen van WasFix Pro B.V. (&ldquo;WasFix&rdquo;, &ldquo;wij&rdquo;, &ldquo;ons&rdquo;) aan jou als gebruiker, consument of zakelijke afnemer. Door gebruik te maken van onze diensten of een bestelling te plaatsen, accepteer je deze voorwaarden.
+              Deze algemene voorwaarden zijn van toepassing op alle aanbiedingen, overeenkomsten en leveringen van {COMPANY.name} (&ldquo;WasFix&rdquo;, &ldquo;wij&rdquo;, &ldquo;ons&rdquo;) aan jou als gebruiker, consument of zakelijke afnemer. Door gebruik te maken van onze diensten of een bestelling te plaatsen, accepteer je deze voorwaarden.
             </p>
 
             <h2>Artikel 1 — Definities</h2>
@@ -123,6 +124,7 @@ export default function VoorwaardenPage() {
               <li>Particulier is inclusief btw. Monteur Pro en Bedrijf zijn zakelijke abonnementen en worden berekend exclusief btw; de btw komt er bij het afrekenen bij.</li>
               <li>Een nieuw abonnement begint met een gratis proefperiode van {PLANS.PARTICULIER.trialDays} dagen (Particulier), {PLANS.MONTEUR_PRO.trialDays} dagen (Monteur Pro) of {PLANS.BEDRIJF.trialDays} dagen (Bedrijf), één keer per account. Je kunt vóór de eerste betaling kosteloos opzeggen.</li>
               <li>De korting op onderdelen van je abonnement geldt vanaf je eerste betaling, niet tijdens de gratis proefperiode.</li>
+              <li>&ldquo;Onbeperkt&rdquo; aantal AI-diagnoses betekent: ruim voldoende voor normaal gebruik. Om misbruik en onnodige kosten te voorkomen stopt de AI na {PAID_DAILY_CALLS} berichten per dag; de volgende dag kun je gewoon verder.</li>
               <li>Opzeggen kan via je dashboard (&ldquo;Abonnement&rdquo;) of per e-mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.</li>
               <li>Bij opzegging blijft toegang behouden tot het einde van de betaalde periode. Geen pro-rata teruggave.</li>
               <li>WasFix kan prijzen aanpassen met 60 dagen aankondiging. Je hebt het recht het abonnement op te zeggen vóór de wijziging ingaat.</li>
@@ -147,7 +149,7 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 11 — Intellectueel eigendom</h2>
             <p>
-              Alle teksten, afbeeldingen, video&apos;s, gidsen, AI-output en software op deze site zijn eigendom van WasFix Pro B.V. of haar licentiegevers. Kopiëren, verspreiden of commercieel gebruiken is niet toegestaan zonder schriftelijke toestemming. Voor citaten en linkjes naar pagina&apos;s geldt de gebruikelijke fair-use uitzondering.
+              Alle teksten, afbeeldingen, video&apos;s, gidsen, AI-output en software op deze site zijn eigendom van {COMPANY.name} of haar licentiegevers. Kopiëren, verspreiden of commercieel gebruiken is niet toegestaan zonder schriftelijke toestemming. Voor citaten en linkjes naar pagina&apos;s geldt de gebruikelijke fair-use uitzondering.
             </p>
 
             <h2>Artikel 12 — Privacy</h2>

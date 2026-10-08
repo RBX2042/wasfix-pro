@@ -210,7 +210,7 @@ export const PLANS: Record<PlanId, Plan> = {
     technicianDashboard: false,
     apiCallsPerMonth: 0,
     features: [
-      "Onbeperkte AI diagnoses",
+      "Onbeperkte AI-diagnoses (redelijk gebruik)",
       "Volledige stappen van de premium reparatiegidsen",
       "5% korting op onderdelen (vanaf je eerste betaling)",
     ],

@@ -7,6 +7,7 @@ import { getStripe } from "@/lib/stripe";
 import { BILLABLE_PLANS, getPlan, stripePriceIdFor, type PlanId } from "@/lib/plans";
 import { getCurrentUser } from "@/lib/auth";
 import { env, isDatabaseConfigured } from "@/lib/env";
+import { siteUrl } from "@/lib/site-url";
 import { isDemoMode } from "@/lib/demo-mode";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { notifyError } from "@/lib/notify";
@@ -95,6 +96,16 @@ export async function POST(req: NextRequest) {
       return apiError("Abonnementen vereisen een database (DATABASE_URL). Zie BLOCKED.md.", 503);
     }
 
+    // Stripe sends the customer back to addresses built from NEXT_PUBLIC_APP_URL. In production an unusable
+    // value (missing, http, the localhost fallback) would send a customer who just paid to a dead page, so
+    // refuse before any Stripe session exists. Checkout does the same through cart-gate.
+    const baseUrl = siteUrl();
+    if (!baseUrl) {
+      logger.error("Subscription blocked: NEXT_PUBLIC_APP_URL is not a usable public address", { plan });
+      await notifyError(new Error("NEXT_PUBLIC_APP_URL is niet bruikbaar: abonnementen zijn geblokkeerd"), { where: "abonnement afsluiten", plan });
+      return apiError(`Betaalde abonnementen zijn tijdelijk niet beschikbaar. Probeer het later opnieuw of ${supportHint(supportEmail())}.`, 503);
+    }
+
     let dbUser = await prisma.user.findUnique({ where: { id: user.id } });
     if (!dbUser) return apiError("Gebruiker niet gevonden", 404);
 
@@ -117,7 +128,7 @@ export async function POST(req: NextRequest) {
       if (!customerId) return apiError("Klantportaal kon niet worden geopend", 500);
       const portal = await stripe.billingPortal.sessions.create({
         customer: customerId,
-        return_url: `${env.APP_URL}/dashboard/profiel`,
+        return_url: `${baseUrl}/dashboard/profiel`,
       });
       return apiSuccess({
         checkoutUrl: portal.url,
@@ -220,8 +231,8 @@ export async function POST(req: NextRequest) {
         customer_update: { address: "auto", name: "auto" },
         // The dashboard shows the confirmation (plan, first payment / renewal date) and waits
         // for the webhook to write the plan before it says anything about it.
-        success_url: `${env.APP_URL}/dashboard?upgraded=1`,
-        cancel_url: `${env.APP_URL}/prijzen`,
+        success_url: `${baseUrl}/dashboard?upgraded=1`,
+        cancel_url: `${baseUrl}/prijzen`,
         // The consent given on our page is repeated on Stripe's payment page and recorded on
         // the session and the subscription, so it can be shown when a customer disputes the charge.
         ...(requiresWithdrawalWaiver(plan) ? { custom_text: { submit: { message: WITHDRAWAL_WAIVER_TEXT } } } : {}),

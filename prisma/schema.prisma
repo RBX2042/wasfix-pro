@@ -23,6 +23,10 @@ model User {
   /// End of the period the customer has paid for. Access is honoured until
   /// then even after a cancellation.
   stripeCurrentPeriodEnd DateTime?
+  /// True when the customer cancelled and the plan simply runs out at
+  /// stripeCurrentPeriodEnd. Lets the dashboard say "loopt af op ..." instead of
+  /// presenting a cancelled subscription as if it renewed.
+  stripeCancelAtPeriodEnd Boolean @default(false)
   /// Set the first time this account starts a trial. A second trial on the
   /// same account (cancel and resubscribe) is refused when this is set.
   trialUsedAt      DateTime?

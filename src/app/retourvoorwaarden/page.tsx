@@ -59,7 +59,7 @@ export default function RetourPage() {
         </thead>
         <tbody>
           <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Bedenktijd / verkeerd besteld</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Voor jouw rekening</td></tr>
-          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Defect / verkeerd geleverd door ons</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Gratis (wij sturen retour-label)</td></tr>
+          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Defect / verkeerd geleverd door ons</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Gratis (de verzendkosten zijn voor ons; je krijgt de instructies per e-mail)</td></tr>
           <tr><td style={{ padding: "10px 12px" }}>Garantieclaim binnen periode</td><td style={{ padding: "10px 12px" }}>Gratis</td></tr>
         </tbody>
       </table>
@@ -104,7 +104,7 @@ Handtekening: ___________  Datum: ___________
         </p>
       ) : (
         <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
-          Het retouradres staat in de e-mail met je RMA-nummer. Stuur nog niets terug voordat je die hebt: {COMPANY.name} is nog in oprichting en het vestigingsadres staat daarom nog niet op deze pagina.
+          Het retouradres staat in de e-mail met je RMA-nummer. Stuur nog niets terug voordat je die hebt: {COMPANY.tradeName} is nog in oprichting en het vestigingsadres staat daarom nog niet op deze pagina.
         </p>
       )}
 

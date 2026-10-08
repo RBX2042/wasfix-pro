@@ -20,6 +20,10 @@ const COOKIE_DAYS = 30;
 export function ReferralTracker() {
   React.useEffect(() => {
     if (typeof window === "undefined") return;
+    // The programme is OFF unless this flag is "true" (it cannot pay out yet, see src/lib/referrals.ts).
+    // Off means off: no cookie, no request. Without this the banner's consent was being used to set a
+    // marketing cookie for a programme that does nothing.
+    if (process.env.NEXT_PUBLIC_FEATURE_REFERRAL !== "true") return;
     const params = new URLSearchParams(window.location.search);
     const ref = params.get("ref");
     if (!ref) return;

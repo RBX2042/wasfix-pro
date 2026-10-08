@@ -5,10 +5,11 @@
  * they still do. The Stripe webhook mirrors Stripe's own status and "paid
  * through" date next to it (User.stripeSubStatus, User.stripeCurrentPeriodEnd)
  * and every entitlement check should ask effectivePlan(user) instead of reading
- * User.plan directly. As of this writing NOTHING outside the Stripe bundle calls
- * effectivePlan() (src/lib/auth.ts still returns User.plan), so the grace window
- * below is only in force once that is wired in and sweepLapsedSubscriptions()
- * runs from a scheduled route.
+ * User.plan directly. getCurrentUser() (src/lib/auth.ts) applies it, so every
+ * entitlement check downstream already sees the effective plan and the grace
+ * window below is in force. The scheduled maintenance that moves a lapsed
+ * subscription back to FREE in the database runs from /api/cron/stripe-subscriptions,
+ * which only runs when the hosting platform calls it with CRON_SECRET.
  *
  * The functions here are pure: no database, no Stripe client, no environment.
  * The module imports ./plans for the plan table and nothing else at runtime.

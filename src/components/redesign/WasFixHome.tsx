@@ -1132,7 +1132,7 @@ function MonteurPro() {
               <span className="pill"><Icon name="check" size={11} /> Foutcodes met bronvermelding</span>
             </div>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10, marginTop: 24 }}>
-              <Link className="btn btn-primary" href="/prijzen">Word Monteur Pro · € 29/mnd</Link>
+              <Link className="btn btn-primary" href="/prijzen">Word Monteur Pro · € 29/mnd excl. btw</Link>
               <Link className="btn" href="/api-docs">Bekijk API docs</Link>
             </div>
           </div>

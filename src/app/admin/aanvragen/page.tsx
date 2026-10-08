@@ -6,7 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
-import { setApplicationStatus, setReviewStatus, setRmaStatus } from "./actions";
+import Link from "next/link";
+import { setApplicationStatus, setReviewStatus } from "./actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin: aanvragen" };
@@ -44,15 +45,15 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
   const hasDb = isDatabaseConfigured();
-  const [reviews, rmas, applications, subscribers, feedback] = hasDb
+  const [reviews, openReturns, applications, subscribers, feedback] = hasDb
     ? await Promise.all([
         prisma.review.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []),
-        prisma.rmaRequest.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []),
+        prisma.rmaRequest.count({ where: { status: { in: ["RECEIVED", "APPROVED", "RETURN_RECEIVED"] } } }).catch(() => 0),
         prisma.monteurApplication.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []),
         prisma.newsletterSubscriber.count().catch(() => 0),
         prisma.diagnosisFeedback.groupBy({ by: ["rating"], _count: { _all: true } }).catch(() => []),
       ])
-    : [[], [], [], 0, []];
+    : [[], 0, [], 0, []];
 
   const up = feedback.find((f) => f.rating === "up")?._count._all ?? 0;
   const down = feedback.find((f) => f.rating === "down")?._count._all ?? 0;
@@ -99,24 +100,12 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
 
         <Card>
           <CardContent className="p-6">
-            <h2 className="font-heading text-lg font-semibold mb-4">Retouraanvragen ({rmas.length})</h2>
-            {rmas.length === 0 ? (
-              <p className="text-sm text-muted-foreground">Geen retouraanvragen.</p>
-            ) : (
-              <div className="space-y-3">
-                {rmas.map((r) => (
-                  <div key={r.id} className="border rounded-md p-3 text-sm">
-                    <div className="flex flex-wrap items-center gap-2 mb-1">
-                      <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>{r.status}</Badge>
-                      <span className="font-mono font-medium">{r.rmaNumber}</span>
-                      <span className="text-muted-foreground text-xs">order {r.orderId} · {r.name} &lt;{r.email}&gt; · {r.reason} · {formatDate(r.createdAt)}</span>
-                    </div>
-                    <p className="text-muted-foreground mb-2">{r.notes}</p>
-                    <StatusForm action={setRmaStatus} id={r.id} options={["APPROVED", "REJECTED", "REFUNDED"]} />
-                  </div>
-                ))}
-              </div>
-            )}
+            <h2 className="font-heading text-lg font-semibold mb-1">Retouraanvragen ({openReturns} open)</h2>
+            <p className="text-sm text-muted-foreground">
+              Retouren worden afgehandeld op <Link href="/admin/retouren" className="underline">/admin/retouren</Link>: daar
+              hebben goedkeuren, ontvangen en terugbetalen echte gevolgen (retouradres per e-mail, creditnota, voorraad).
+              Het oude scherm hier zette alleen een label om, zonder dat er iets werd terugbetaald, en is verwijderd.
+            </p>
           </CardContent>
         </Card>
 

@@ -349,7 +349,7 @@ export async function handleSubscriptionInvoice(stripe: Stripe, invoice: Stripe.
       event: "subscription.payment_failed",
       level: "warn",
       title: "Abonnementsbetaling mislukt",
-      lines: [`Plan ${getPlan(result.storedPlan).name}, de klant heeft een herinnering gekregen.`, `Zonder betaling valt het plan ${PAST_DUE_GRACE_DAYS} dagen na het einde van de betaalde periode terug naar gratis. Dat gebeurt pas zodra effectivePlan() is ingebouwd en de dagelijkse controle (runSubscriptionMaintenance) draait.`],
+      lines: [`Plan ${getPlan(result.storedPlan).name}, de klant heeft een herinnering gekregen.`, `Zonder betaling valt het plan ${PAST_DUE_GRACE_DAYS} dagen na het einde van de betaalde periode terug naar gratis: de toegang vervalt dan direct (effectivePlan), de database volgt bij de eerstvolgende run van /api/cron/stripe-subscriptions.`],
     });
   }
 }

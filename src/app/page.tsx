@@ -101,7 +101,7 @@ export default async function HomePage() {
         { "@type": "Question", name: "Werkt WasFix Pro voor mijn wasmachine?",
           acceptedAnswer: { "@type": "Answer", text: `Ja, we ondersteunen alle grote merken: Miele, Bosch, Siemens, Samsung, LG, AEG, Electrolux, Whirlpool, Beko en Indesit. De database bevat ${formatCount(STATS.errorCodes)} foutcodes en ${formatCount(STATS.guides)} reparatiegidsen.` } },
         { "@type": "Question", name: "Hoeveel kost een diagnose?",
-          acceptedAnswer: { "@type": "Answer", text: "De eerste 3 diagnoses per maand zijn gratis. Voor onbeperkte diagnoses + voordelen: Particulier €4,99/mnd of Monteur Pro €29/mnd." } },
+          acceptedAnswer: { "@type": "Answer", text: "De eerste 3 diagnoses per maand zijn gratis. Voor onbeperkte diagnoses + voordelen: Particulier €4,99/mnd incl. btw of Monteur Pro €29/mnd excl. btw." } },
         { "@type": "Question", name: "Is mijn wasmachine nog te repareren of moet ik een nieuwe kopen?",
           acceptedAnswer: { "@type": "Answer", text: "Gebruik onze gratis Repareren-of-Vervangen tool. We berekenen op basis van leeftijd, kosten en levensduur of repareren nog rendabel is. EU Right-to-Repair: onderdelen blijven 10 jaar beschikbaar." } },
         { "@type": "Question", name: "Hoe snel komt mijn onderdeel?",

@@ -3,15 +3,14 @@
  * application itself can keep, and nothing else.
  *
  * WHAT /privacy PROMISES AND WHAT THIS DOES
- *   "IP-adres (geanonimiseerd na 7 dagen)"
+ *   "IP-adres (... verwijderd na 30 dagen zonder gebruik)"
  *       The only place an IP-derived value is stored is UsageCounter.key
  *       ("ip:" + a truncated SHA-256 of the address, see anonymousKey in
  *       entitlements.ts). Rows with such a key that have not been touched for
- *       IP_COUNTER_DAYS are DELETED. Consequence for the product: an anonymous
- *       visitor's free-diagnosis counter (a 30-day window) is forgotten after 7
- *       days without use, so that visitor gets a fresh allowance. If that is not
- *       wanted, the privacy text has to say 30 days; raise the constant only
- *       together with the text.
+ *       IP_COUNTER_DAYS are DELETED. The free-diagnosis allowance is counted in a
+ *       30-day window, so keeping the counter 30 idle days means an anonymous
+ *       visitor cannot reset their allowance by waiting a week. The constant and
+ *       the privacy text move together: change both or neither.
  *   "Diagnoses: 12 maanden gekoppeld aan account, daarna geanonimiseerd"
  *       Diagnosis rows older than DIAGNOSIS_MONTHS lose userId, sessionId and the
  *       free text the person typed (symptoms, messages). Brand, model and the
@@ -42,7 +41,7 @@
 import { prisma } from "./prisma";
 import { logger } from "./logger";
 
-export const IP_COUNTER_DAYS = 7;
+export const IP_COUNTER_DAYS = 30;
 export const DIAGNOSIS_MONTHS = 12;
 const DAY = 86_400_000;
 

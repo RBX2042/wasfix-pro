@@ -30,7 +30,8 @@ export async function processStripeEvent(stripe: Stripe, event: Stripe.Event & {
         // The plan comes from the subscription as Stripe has it now, never from
         // this session's metadata.
         await syncSubscription(stripe, subId, { userId: session.metadata?.userId, customerId: idOf(session.customer as string | { id: string } | null) });
-        if (refVisitorId) await recordConversion(refVisitorId);
+        // No referral credit here: a subscription (or trial) starting is not proof of a paid
+        // order, and a reward is only booked against a PAID order (see recordConversion).
         return;
       }
 
@@ -49,8 +50,9 @@ export async function processStripeEvent(stripe: Stripe, event: Stripe.Event & {
         return;
       }
       const outcome = await fulfilOrder(orderId, session);
-      // Referral credit: the visitor id was stashed at checkout time.
-      if (refVisitorId && outcome !== "rejected") await recordConversion(refVisitorId);
+      // Referral credit: the visitor id was stashed at checkout time. recordConversion needs the
+      // order as proof and re-checks that it is PAID, so it cannot book a reward for a refused one.
+      if (refVisitorId && outcome !== "rejected") await recordConversion(refVisitorId, undefined, { orderId });
       return;
     }
 

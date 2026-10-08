@@ -14,6 +14,7 @@ import { currentVisitorId, recordConversion, recordSignup } from "@/lib/referral
 import { PORTAL_SUBSCRIPTION_STATUSES, expectedTaxBehavior, priceMismatches } from "@/lib/subscription";
 import { fetchSubscription, idOf } from "../_lib/subscriptions";
 import { WITHDRAWAL_WAIVER_TEXT, requiresWithdrawalWaiver } from "@/app/upgrade/consent";
+import { supportEmail, supportHint } from "@/lib/support-contact";
 
 export const maxDuration = 30;
 
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
           await notifyError(new Error(!stripe ? "STRIPE_SECRET_KEY ontbreekt" : `Stripe-prijs voor ${plan} ontbreekt`), { where: "abonnement afsluiten", plan });
         }
         return apiError(
-          "Betaalde abonnementen zijn tijdelijk niet beschikbaar. Neem contact op via support@wasfix.nl.",
+          `Betaalde abonnementen zijn tijdelijk niet beschikbaar. Probeer het later opnieuw of ${supportHint(supportEmail())}.`,
           503
         );
       }
@@ -170,7 +171,7 @@ export async function POST(req: NextRequest) {
       });
       await notifyError(new Error(`Stripe-prijs ${priceId} voor ${plan} wijkt af: ${mismatch.join(", ")}`), { where: "abonnement afsluiten", plan });
       return apiError(
-        "Dit abonnement is tijdelijk niet beschikbaar. Neem contact op via support@wasfix.nl.",
+        `Dit abonnement is tijdelijk niet beschikbaar. Probeer het later opnieuw of ${supportHint(supportEmail())}.`,
         500
       );
     }

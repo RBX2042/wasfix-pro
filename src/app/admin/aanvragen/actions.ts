@@ -24,15 +24,6 @@ export async function setReviewStatus(formData: FormData) {
   revalidatePath("/admin/aanvragen");
 }
 
-export async function setRmaStatus(formData: FormData) {
-  await requireAdmin();
-  const id = String(formData.get("id") ?? "");
-  const status = String(formData.get("status") ?? "");
-  if (!id || !["RECEIVED", "APPROVED", "REJECTED", "REFUNDED"].includes(status)) return;
-  await prisma.rmaRequest.update({ where: { id }, data: { status } }).catch((e) => logger.warn("rma status update failed", e));
-  revalidatePath("/admin/aanvragen");
-}
-
 /**
  * Vetting decision on a Monteur Pro application.
  *

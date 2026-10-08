@@ -100,7 +100,9 @@ export function PartCardClient({ part, showAddToCart = true, note }: PartCardPro
             onClick={(e) => {
               e.preventDefault();
               e.stopPropagation();
-              add({ partId: part.id, sku: part.sku, name: part.name, brand: part.brand, priceEur: part.priceEur, imageUrl: part.imageUrl }, 1);
+              // add() returns how many it really added (0 at the cart limit; it has already said why).
+              const added = add({ partId: part.id, sku: part.sku, name: part.name, brand: part.brand, priceEur: part.priceEur, imageUrl: part.imageUrl, stock: part.stock }, 1);
+              if (added <= 0) return;
               track(EVT.PART_ADDED_TO_CART, { sku: part.sku, category: part.category, source: "card" });
               toast.success("Toegevoegd aan winkelmand");
             }}

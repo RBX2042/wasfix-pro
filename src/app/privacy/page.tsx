@@ -68,7 +68,7 @@ export default function PrivacyPage() {
             </ul>
             <h3>2.4 Bij gebruik van de site</h3>
             <ul>
-              <li>IP-adres (geanonimiseerd na 7 dagen)</li>
+              <li>IP-adres (alleen als onomkeerbare afkorting om je gratis diagnoses te tellen; verwijderd na 30 dagen zonder gebruik)</li>
               <li>Browser-versie, apparaattype, schermresolutie</li>
               <li>Bezochte pagina&apos;s, klikgedrag (alleen bij analytics-consent)</li>
               <li>Sessie-cookies (functioneel — winkelmand, login)</li>
@@ -100,10 +100,10 @@ export default function PrivacyPage() {
 
             <h2>6. Bewaartermijnen</h2>
             <ul>
-              <li><strong>Accountgegevens:</strong> zolang het account actief is + 30 dagen na opzegging (voor herstel)</li>
+              <li><strong>Accountgegevens:</strong> zolang het account actief is. Verwijder je je account, dan worden je gegevens direct gewist of geanonimiseerd, behalve wat wij wettelijk moeten bewaren (zie facturen hieronder)</li>
               <li><strong>Diagnoses:</strong> 12 maanden gekoppeld aan account, daarna geanonimiseerd</li>
               <li><strong>Bestellingen en facturen:</strong> 7 jaar (fiscale bewaarplicht Belastingdienst)</li>
-              <li><strong>Server-logs:</strong> 90 dagen</li>
+              <li><strong>Server-logs:</strong> bij onze hostingpartij, volgens de bewaartermijn van die partij; wij bewaren ze niet zelf langer</li>
               <li><strong>Marketing-toestemming:</strong> tot aan opzegging via unsubscribe</li>
               <li><strong>Cookies:</strong> zoals beschreven in het <Link href="/cookies">cookiebeleid</Link></li>
             </ul>

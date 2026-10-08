@@ -624,7 +624,7 @@ async function main() {
       void paidMail;
 
       // A2-05/A5-20: retention, on rows we backdate ourselves
-      const oldTime = new Date(Date.now() - 10 * 86_400_000);
+      const oldTime = new Date(Date.now() - 40 * 86_400_000);
       await prisma.usageCounter.createMany({ data: [
         { scope: "qa-admin", key: "ip:qa-admin-old", count: 2, windowEnd: new Date(Date.now() + 20 * 86_400_000) },
         { scope: "qa-admin", key: "ip:qa-admin-fresh", count: 1, windowEnd: new Date(Date.now() + 20 * 86_400_000) },
@@ -633,11 +633,11 @@ async function main() {
       ] });
       await prisma.$executeRaw`UPDATE "UsageCounter" SET "updatedAt" = ${oldTime} WHERE "key" = 'ip:qa-admin-old'`;
       await prisma.usageCounter.createMany({ data: [
-        { scope: "qa-admin", key: "ip:qa-admin-6d", count: 1, windowEnd: new Date(Date.now() + 20 * 86_400_000) },
-        { scope: "qa-admin", key: "ip:qa-admin-8d", count: 1, windowEnd: new Date(Date.now() + 20 * 86_400_000) },
+        { scope: "qa-admin", key: "ip:qa-admin-29d", count: 1, windowEnd: new Date(Date.now() + 20 * 86_400_000) },
+        { scope: "qa-admin", key: "ip:qa-admin-31d", count: 1, windowEnd: new Date(Date.now() + 20 * 86_400_000) },
       ] });
-      await prisma.$executeRaw`UPDATE "UsageCounter" SET "updatedAt" = ${new Date(Date.now() - 6 * 86_400_000)} WHERE "key" = 'ip:qa-admin-6d'`;
-      await prisma.$executeRaw`UPDATE "UsageCounter" SET "updatedAt" = ${new Date(Date.now() - 8 * 86_400_000)} WHERE "key" = 'ip:qa-admin-8d'`;
+      await prisma.$executeRaw`UPDATE "UsageCounter" SET "updatedAt" = ${new Date(Date.now() - 29 * 86_400_000)} WHERE "key" = 'ip:qa-admin-29d'`;
+      await prisma.$executeRaw`UPDATE "UsageCounter" SET "updatedAt" = ${new Date(Date.now() - 31 * 86_400_000)} WHERE "key" = 'ip:qa-admin-31d'`;
       const thirteenMonths = new Date(Date.now() - 400 * 86_400_000);
       await prisma.diagnosis.createMany({ data: [
         { id: "qa-admin-diag-old", userId: user.id, sessionId: "qa-admin-s1", brand: "Bosch", symptoms: "mijn naam is Piet en ik woon in Delft", messages: '[{"role":"user","content":"Piet"}]', result: '{"errorCode":"E18"}', createdAt: thirteenMonths },
@@ -670,7 +670,7 @@ async function main() {
       check(d360.userId === user.id && d360.symptoms === "piept" && d370.userId === null && d370.symptoms === "" && retention.DIAGNOSIS_MONTHS === 12, "Retention boundary: a diagnosis 360 days old is kept, one 370 days old is anonymised (12 months, tested 5 days either side)", `Retention boundary: 360d ${JSON.stringify(d360)} 370d ${JSON.stringify(d370)}`);
       const [fbOld, fbNew] = await Promise.all([prisma.diagnosisFeedback.findFirstOrThrow({ where: { comment: "qa-admin old" } }), prisma.diagnosisFeedback.findFirstOrThrow({ where: { comment: "qa-admin new" } })]);
       check(fbOld.sessionId === null && fbOld.rating === "down" && fbNew.sessionId === "qa-admin-s3", "Retention clears DiagnosisFeedback.sessionId of old feedback (same identifier) and leaves recent feedback alone", `Feedback: ${JSON.stringify([fbOld, fbNew])}`);
-      check((await exists("ip:qa-admin-6d")) && !(await exists("ip:qa-admin-8d")) && retention.IP_COUNTER_DAYS === 7, "Retention IP window: an ip: counter idle for 6 days stays, one idle for 8 days is deleted (7 days, tested 1 day either side)", "IP window boundary wrong");
+      check((await exists("ip:qa-admin-29d")) && !(await exists("ip:qa-admin-31d")) && retention.IP_COUNTER_DAYS === 30, "Retention IP window: an ip: counter idle for 29 days stays, one idle for 31 days is deleted (30 days, tested 1 day either side; matches /privacy and the 30-day allowance window)", "IP window boundary wrong");
       const ret2 = await call(retRoute, `Bearer ${secret}`);
       check(ret2.json.diagnosesAnonymised === 0 && ret2.json.ipCountersDeleted === 0, "Retention is idempotent: a second run does nothing", `Retention rerun: ${JSON.stringify(ret2.json)}`);
     }

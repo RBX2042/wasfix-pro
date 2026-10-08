@@ -1,6 +1,6 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { formatEur } from "@/lib/utils";
-import { SHIPPING, COMPANY, realOrNull } from "@/lib/plans";
+import { SHIPPING, COMPANY, PLANS, realOrNull } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
@@ -117,9 +117,12 @@ export default function VoorwaardenPage() {
             </ul>
 
             <h2>Artikel 8 — Abonnementen</h2>
+            {/* The days and the monthly/excl.-btw facts come from PLANS, so this text cannot drift from what Stripe is told. */}
             <ul>
-              <li>Abonnementen lopen maandelijks (Particulier, Monteur Pro) of jaarlijks (Bedrijf) en zijn altijd opzegbaar per de eerstvolgende factuurdatum.</li>
-              <li>Eerste 14 dagen gratis bij Monteur Pro — opzegbaar vóór de eerste factuurdatum zonder kosten.</li>
+              <li>Abonnementen (Particulier, Monteur Pro en Bedrijf) lopen maandelijks en lopen door totdat je opzegt. Opzeggen kan op elk moment; het abonnement eindigt aan het einde van de periode waarvoor je hebt betaald.</li>
+              <li>Particulier is inclusief btw. Monteur Pro en Bedrijf zijn zakelijke abonnementen en worden berekend exclusief btw; de btw komt er bij het afrekenen bij.</li>
+              <li>Een nieuw abonnement begint met een gratis proefperiode van {PLANS.PARTICULIER.trialDays} dagen (Particulier), {PLANS.MONTEUR_PRO.trialDays} dagen (Monteur Pro) of {PLANS.BEDRIJF.trialDays} dagen (Bedrijf), één keer per account. Je kunt vóór de eerste betaling kosteloos opzeggen.</li>
+              <li>De korting op onderdelen van je abonnement geldt vanaf je eerste betaling, niet tijdens de gratis proefperiode.</li>
               <li>Opzeggen kan via je dashboard (&ldquo;Abonnement&rdquo;) of per e-mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.</li>
               <li>Bij opzegging blijft toegang behouden tot het einde van de betaalde periode. Geen pro-rata teruggave.</li>
               <li>WasFix kan prijzen aanpassen met 60 dagen aankondiging. Je hebt het recht het abonnement op te zeggen vóór de wijziging ingaat.</li>

@@ -80,6 +80,9 @@ const checks: Check[] = [
       items: [{ sku: "WF-PUMP-01", quantity: 1 }],
       email: "smoke@example.com",
       name: "Smoke Test",
+      // Phone is required, and the payment method is explicit: checkout never switches method on its own.
+      phone: "06 12345678",
+      paymentMethod: "bank_transfer",
       address: { street: "Hoofdstraat", houseNumber: "1", postalCode: "1234 AB", city: "Amsterdam" },
     },
     expect: 200,
@@ -108,12 +111,12 @@ const checks: Check[] = [
   { path: "/upgrade?plan=MONTEUR_PRO", expect: 200, contains: formatPlanPrice(PLANS.MONTEUR_PRO) },
   { path: "/upgrade?plan=BEDRIJF", expect: 200, contains: formatPlanPrice(PLANS.BEDRIJF) },
   { path: "/upgrade?plan=NONSENSE", expect: 200, contains: "Onbekend plan" },
-  // /bestelling/* is in the middleware matcher now, so an unauthenticated
-  // caller is redirected before the page runs. That is the point: it used to
-  // answer 404 for a stranger and render for an owner, which told an
-  // unauthenticated caller whether an order id existed. Signed in, the page's
-  // own ownership check still returns 404 for someone else's order.
-  { path: "/bestelling/does-not-exist/factuur", expect: [307, 404] },
+  // /bestelling/* is NOT sent to sign-in any more: a guest who has just ordered has no account and
+  // reaches the page with the ?t= token from their link (decision D2). The page itself is the gate;
+  // anyone without the token (or a session) gets the same 404 as for an id that does not exist, so the
+  // answer does not tell a stranger which order ids are real. The positive case (right token -> 200)
+  // needs an order and is covered by scripts/qa-checkout.ts.
+  { path: "/bestelling/does-not-exist/factuur", expect: 404 },
   // Claims on public pages must match the catalog, not invented numbers.
   { path: "/", expect: 200, contains: formatCount(STATS.errorCodes) },
   { path: "/over", expect: 200, contains: formatCount(STATS.errorCodes) },

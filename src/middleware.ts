@@ -34,8 +34,9 @@ const isProtectedRoute = createRouteMatcher([
   "/monteur/werkorders(.*)",
   // KvK, BTW and IBAN live here — the page checks too, this is the outer door.
   "/monteur/instellingen(.*)",
-  // Order detail + printable invoice: name, address, amounts.
-  "/bestelling/(.*)",
+  // NOT /bestelling/(.*): a guest who has just paid has no account. Those pages
+  // check access themselves (order token, signed-in owner or admin) and answer
+  // 404 to everyone else; see src/app/bestelling/_lib/access.ts.
   "/api/orders(.*)",
   "/api/user(.*)",
   "/api/account(.*)",
@@ -131,7 +132,7 @@ function denyProtectedRoute(req: NextRequest): NextResponse {
   return NextResponse.redirect(url);
 }
 
-export default async function middleware(req: NextRequest, event: Parameters<typeof withClerk>[1]) {
+async function route(req: NextRequest, event: Parameters<typeof withClerk>[1]) {
   if (DEMO_MODE_ACTIVE) return siteMiddleware(req);
 
   if (!CLERK_READY) {
@@ -149,6 +150,43 @@ export default async function middleware(req: NextRequest, event: Parameters<typ
     if (isProtectedRoute(req)) return denyProtectedRoute(req);
     return siteMiddleware(req);
   }
+}
+
+/**
+ * A path with a broken percent-escape (/onderdelen/%ZZ) is a bad request, not a
+ * server error. Next's own routing decodes the path and throws on it; on a
+ * production build that surfaced as a 500, in dev as a 400. Answering here
+ * makes both a 400 before any page runs.
+ */
+function hasMalformedEscape(pathname: string): boolean {
+  try {
+    decodeURI(pathname);
+    return false;
+  } catch {
+    return true;
+  }
+}
+
+/**
+ * Pages that honour an order token in the address (/bestelling/<id>?t=...) must
+ * not leak it: no Referer to other sites, not indexed, not cached by a shared
+ * cache. The same is set in the pages' metadata; a header cannot be forgotten
+ * by a future page below this path.
+ */
+function guardOrderPages<T extends Response | void | undefined | null>(req: NextRequest, res: T): T {
+  if (res && req.nextUrl.pathname.startsWith("/bestelling/")) {
+    res.headers.set("Referrer-Policy", "no-referrer");
+    res.headers.set("X-Robots-Tag", "noindex, nofollow");
+    res.headers.set("Cache-Control", "private, no-store");
+  }
+  return res;
+}
+
+export default async function middleware(req: NextRequest, event: Parameters<typeof withClerk>[1]) {
+  if (hasMalformedEscape(req.nextUrl.pathname)) {
+    return new NextResponse("Bad Request", { status: 400 });
+  }
+  return guardOrderPages(req, await route(req, event));
 }
 
 export const config = {

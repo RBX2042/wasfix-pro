@@ -1,27 +1,41 @@
-import { MarketingLayout } from "@/components/marketing-layout";
-import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import type { Metadata } from "next";
+import Image from "next/image";
+import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CheckCircle2, FileText, Landmark, Loader2, Mail, Package, Truck, XCircle, ArrowRight } from "lucide-react";
+import { MarketingLayout } from "@/components/marketing-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatEur, formatDate } from "@/lib/utils";
-import { COMPANY, realOrNull } from "@/lib/plans";
-import { getInvoiceForOrder } from "@/lib/invoicing";
-import { CheckCircle2, Truck, Package, Mail, ArrowRight, FileText, Landmark } from "lucide-react";
-import Image from "next/image";
-import Link from "next/link";
+import { env } from "@/lib/env";
+import { realOrNull } from "@/lib/plans";
+import { getCreditNotesForOrder, getInvoiceForOrder } from "@/lib/invoicing";
+import { ORDER_STATUS_LABEL, isOrderStatus, orderRef, type OrderStatus } from "@/lib/order-status";
+import { carrierLabel, trackingUrl } from "@/lib/emails/tracking";
+import { loadOrderForViewer, tokenFromParam } from "../_lib/access";
+import { OrderEffects } from "./order-effects";
+import { CopyButton } from "./copy-button";
 
 export const dynamic = "force-dynamic";
 
+// The address carries the credential for guests: keep it out of search results
+// and out of Referer headers (also set as headers in src/middleware.ts).
+export const metadata: Metadata = {
+  title: "Bestelling",
+  robots: { index: false, follow: false, nocache: true },
+  referrer: "no-referrer",
+};
 
-const STATUS_LABEL: Record<string, { label: string; variant: any }> = {
-  PENDING: { label: "In afwachting", variant: "warning" },
-  OPENSTAAND: { label: "Openstaand — wacht op betaling", variant: "warning" },
-  PAID: { label: "Betaald", variant: "success" },
-  SHIPPED: { label: "Verzonden", variant: "default" },
-  DELIVERED: { label: "Geleverd", variant: "success" },
-  CANCELLED: { label: "Geannuleerd", variant: "danger" },
+type SearchParams = { success?: string; t?: string | string[]; m?: string };
+
+const BADGE: Record<OrderStatus, "warning" | "success" | "default" | "danger"> = {
+  PENDING: "warning",
+  OPENSTAAND: "warning",
+  PAID: "success",
+  SHIPPED: "default",
+  DELIVERED: "success",
+  CANCELLED: "danger",
 };
 
 export default async function OrderDetailPage({
@@ -29,160 +43,142 @@ export default async function OrderDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ success?: string }>;
+  searchParams: Promise<SearchParams>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
-  const isSuccess = sp.success === "1";
+  const fresh = sp.success === "1";
+  const token = tokenFromParam(sp.t);
 
-  // Try to load the order from DB. If DB unreachable or order is a demo id,
-  // render a generic confirmation so the customer flow completes successfully.
-  type OrderWithItems = Awaited<ReturnType<typeof prisma.order.findUnique>> & {
-    items: Array<{ id: string; quantity: number; unitPrice: number; part: { id: string; sku: string; name: string; imageUrl: string | null } }>;
-  };
-  // The order carries the buyer's name, address and e-mail. Order ids travel
-  // through Stripe redirects, confirmation mails and browser history, so the
-  // page must verify who is asking — the invoice route and /api/orders/[id]
-  // already did, this one did not.
-  let order: OrderWithItems | null = null;
-  try {
-    if (!id.startsWith("demo-")) {
-      const found = await prisma.order.findUnique({
-        where: { id },
-        include: { items: { include: { part: true } } },
-      });
-      if (found) {
-        const user = await getCurrentUser().catch(() => null);
-        const mayView = user && (found.userId === user.id || user.role === "ADMIN");
-        order = mayView ? found : null;
-        if (!mayView) notFound();
-      }
-    }
-  } catch {
-    order = null;
+  // A local development order without a database: there is nothing stored to show.
+  // In production this id format simply does not exist, so it is a plain 404.
+  if (id.startsWith("demo-")) {
+    if (env.IS_PRODUCTION) notFound();
+    return <DemoOrder id={id} />;
   }
 
-  if (!order) {
-    // Demo confirmation: no order data, but show success message
-    if (isSuccess || id.startsWith("demo-")) {
-      return (
-        <MarketingLayout>
-          <div className="container py-12 max-w-3xl">
-            <div className="rounded-lg border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-6 mb-8 flex items-start gap-4">
-              <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0 mt-0.5" />
-              <div>
-                <h2 className="font-heading text-xl font-bold text-emerald-900 dark:text-emerald-100">Bedankt voor je bestelling!</h2>
-                <p className="text-sm text-emerald-800 dark:text-emerald-200 mt-1">
-                  Bestelnummer: <strong className="font-mono">{id.toUpperCase()}</strong>
-                  <br />
-                  We sturen je binnen 1 werkdag een bevestigingsmail met track &amp; trace.
-                </p>
-              </div>
-            </div>
-            <Card className="mb-6">
-              <CardContent className="p-6 text-center">
-                <Package className="h-12 w-12 text-primary mx-auto mb-3" />
-                <h2 className="font-heading text-lg font-semibold mb-2">Wat gebeurt er nu?</h2>
-                <p className="text-sm text-muted-foreground mb-4">
-                  {/* Geen "morgen in huis": er is geen vervoerderskoppeling en
-                      geen cut-off, en de voorwaarden noemen de levertijd een
-                      indicatie. Beloof hier niets wat we niet kunnen waarmaken. */}
-                  Je ontvangt direct een e-mailbevestiging. We verzenden op werkdagen en sturen je een track &amp; trace zodra het pakket is aangemeld. Bij vragen mail je support@wasfix.nl.
-                </p>
-              </CardContent>
-            </Card>
-            <div className="mt-8 flex flex-wrap gap-3 justify-center">
-              <Button asChild>
-                <Link href="/diagnose">Nieuwe diagnose <ArrowRight className="h-4 w-4" /></Link>
-              </Button>
-              <Button asChild variant="outline">
-                <Link href="/onderdelen">Verder winkelen</Link>
-              </Button>
-            </div>
-          </div>
-        </MarketingLayout>
-      );
-    }
-    notFound();
-  }
+  const access = await loadOrderForViewer(id, token);
+  if (!access) notFound();
+  const { order, via } = access;
 
-  const address = JSON.parse(order.shippingAddress);
-  const status = STATUS_LABEL[order.status] ?? STATUS_LABEL.PENDING;
-  const awaitingBankTransfer = order.status === "OPENSTAAND" && order.paymentMethod === "BANK_TRANSFER";
-  const invoice = awaitingBankTransfer ? await getInvoiceForOrder(order.id) : null;
+  const status: OrderStatus = isOrderStatus(order.status) ? order.status : "PENDING";
+  const address = safeAddress(order.shippingAddress);
+  const awaitingTransfer = status === "OPENSTAAND" && order.paymentMethod === "BANK_TRANSFER";
+  const awaitingCard = status === "PENDING" && order.paymentMethod === "STRIPE";
+
+  const invoice = status === "CANCELLED" || awaitingTransfer || ["PAID", "SHIPPED", "DELIVERED"].includes(status) ? await getInvoiceForOrder(order.id) : null;
+  const creditNotes = status === "CANCELLED" && invoice ? await getCreditNotesForOrder(order.id) : [];
+
+  // Carry the token into the links on this page, so the invoice opens for the same guest.
+  const tokenQs = via === "token" && token ? `?t=${encodeURIComponent(token)}` : "";
+  const invoiceHref = `/bestelling/${order.id}/factuur${tokenQs}`;
+
+  const iban = realOrNull(invoice?.seller.iban);
+  const reference = invoice?.number ?? null;
+  const dueAt = order.dueAt;
+  const mailSent = fresh && sp.m === "1";
+  const trackUrl = order.trackingCode ? trackingUrl(order.carrier, order.trackingCode, address.postalCode) : null;
 
   return (
     <MarketingLayout>
-      <div className="container py-12 max-w-3xl">
-        {awaitingBankTransfer && (
-          <div className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-6 mb-8 flex items-start gap-4">
-            <Landmark className="h-8 w-8 text-amber-500 shrink-0 mt-0.5" />
-            <div className="w-full">
-              <h2 className="font-heading text-xl font-bold text-amber-900 dark:text-amber-100">Bedankt! Maak het bedrag over om te versturen</h2>
-              <p className="text-sm text-amber-800 dark:text-amber-200 mt-1 mb-4">
-                We versturen je onderdelen zodra de betaling binnen is. Je ontvangt hiervan een bevestiging per e-mail.
-              </p>
-              <div className="bg-white dark:bg-black/20 rounded-md p-4 text-sm space-y-1.5">
-                <div className="flex justify-between"><span className="text-muted-foreground">Factuurnummer</span><span className="font-mono font-semibold">{invoice?.number ?? "—"}</span></div>
-                <div className="flex justify-between"><span className="text-muted-foreground">Te betalen</span><span className="font-semibold">{formatEur(order.totalEur)}</span></div>
-                {/* A placeholder IBAN is worse than none: the customer would
-                    try to pay it. Checkout refuses to create these orders in
-                    production, so this only shows on a real configuration. */}
-                {realOrNull(COMPANY.iban) ? (
-                  <>
-                    <div className="flex justify-between"><span className="text-muted-foreground">IBAN</span><span className="font-mono font-semibold">{COMPANY.iban}</span></div>
-                    <div className="flex justify-between"><span className="text-muted-foreground">Ten name van</span><span>{COMPANY.name}</span></div>
-                  </>
-                ) : (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Betaalgegevens</span><span>volgen per e-mail</span></div>
-                )}
-                <div className="flex justify-between"><span className="text-muted-foreground">Omschrijving</span><span className="font-mono font-semibold">{invoice?.number ?? "—"}</span></div>
-                {order.dueAt && (
-                  <div className="flex justify-between"><span className="text-muted-foreground">Betalen voor</span><span>{formatDate(order.dueAt)}</span></div>
-                )}
+      <div className="container py-8 md:py-12 max-w-3xl">
+        <OrderEffects orderId={order.id} fresh={fresh} clearCartOnce={status !== "CANCELLED"} waitingForPayment={awaitingCard && fresh} />
+
+        <Headline status={status} fresh={fresh} awaitingTransfer={awaitingTransfer} awaitingCard={awaitingCard} />
+
+        {awaitingTransfer && (
+          <section aria-labelledby="pay-heading" className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-4 sm:p-6 mb-8">
+            <div className="flex items-start gap-3 mb-4">
+              <Landmark className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" aria-hidden />
+              <div className="min-w-0">
+                <h2 id="pay-heading" className="font-heading text-lg font-bold text-amber-900 dark:text-amber-100">
+                  Maak {formatEur(order.totalEur)} over om je bestelling te laten verzenden
+                </h2>
+                <p className="text-sm text-amber-900/90 dark:text-amber-200 mt-1">
+                  Je onderdelen zijn voor je gereserveerd, maar we verzenden pas als je betaling bij ons binnen is. Een overboeking staat er meestal binnen 1 tot 2 werkdagen.
+                </p>
               </div>
             </div>
+            <dl className="bg-white dark:bg-black/20 rounded-md p-3 sm:p-4 text-sm space-y-2.5">
+              <PayRow label="Te betalen" value={formatEur(order.totalEur)} strong />
+              {iban ? (
+                <>
+                  <PayRow label="IBAN" value={iban} mono copy="IBAN" />
+                  <PayRow label="Ten name van" value={invoice?.seller.name ?? ""} />
+                </>
+              ) : (
+                <PayRow label="Betaalgegevens" value="De betaalgegevens staan nog niet op deze pagina. Neem contact met ons op." />
+              )}
+              <PayRow label="Betalingskenmerk" value={reference ?? "—"} mono strong nowrap copy={reference ? "betalingskenmerk" : undefined} />
+              {dueAt && <PayRow label="Betaal uiterlijk" value={formatDate(dueAt)} />}
+              {reference && <PayRow label="Factuurnummer" value={reference} mono />}
+            </dl>
+            <p className="text-xs text-muted-foreground mt-3">
+              Vermeld het betalingskenmerk als omschrijving, anders kunnen we je betaling niet koppelen.
+              {mailSent
+                ? ` We hebben deze gegevens ook naar ${order.email} gestuurd.`
+                : fresh
+                  ? " De e-mail met deze gegevens is niet verstuurd of we weten het niet zeker: bewaar daarom deze pagina. De gegevens staan hier altijd."
+                  : ""}
+            </p>
+          </section>
+        )}
+
+        {status === "CANCELLED" && (
+          <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-4 mb-6 text-sm flex items-start gap-3">
+            <XCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" aria-hidden />
+            <p>
+              Deze bestelling is geannuleerd.
+              {creditNotes.length > 0
+                ? ` Voor de factuur ${invoice?.number} is een creditfactuur uitgegeven (${creditNotes.map((c) => c.number).join(", ")}).`
+                : ""}{" "}
+              Heb je al betaald? Dan krijg je het bedrag terug; mail ons als je daar nog niets van hebt gehoord.
+            </p>
           </div>
         )}
 
-        {isSuccess && !awaitingBankTransfer && (
-          <div className="rounded-lg border-2 border-emerald-500 bg-emerald-50 dark:bg-emerald-950/30 p-6 mb-8 flex items-start gap-4">
-            <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0 mt-0.5" />
-            <div>
-              <h2 className="font-heading text-xl font-bold text-emerald-900 dark:text-emerald-100">Bedankt voor je bestelling!</h2>
-              <p className="text-sm text-emerald-800 dark:text-emerald-200 mt-1">
-                We hebben een bevestiging gestuurd naar <strong>{order.email}</strong>. We verzenden op werkdagen en melden je het pakket zodra het onderweg is.
-              </p>
-            </div>
-          </div>
-        )}
-
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <Badge variant={status.variant}>{status.label}</Badge>
-            <h1 className="font-heading text-2xl font-bold mt-2">Bestelling #{order.id.slice(0, 8).toUpperCase()}</h1>
-            <p className="text-sm text-muted-foreground mt-1">{formatDate(order.createdAt)}</p>
+        <div className="flex flex-wrap items-start justify-between gap-3 mb-6">
+          <div className="min-w-0">
+            <Badge variant={BADGE[status]}>{ORDER_STATUS_LABEL[status]}</Badge>
+            <p className="font-heading text-xl font-bold mt-2">Bestelling #{orderRef(order.id)}</p>
+            <p className="text-sm text-muted-foreground mt-1">Geplaatst op {formatDate(order.createdAt)}</p>
           </div>
         </div>
 
+        {(status === "SHIPPED" || status === "DELIVERED") && order.trackingCode && (
+          <Card className="mb-6">
+            <CardContent className="p-4 sm:p-6 text-sm">
+              <h2 className="font-heading text-lg font-semibold mb-2 flex items-center gap-2"><Truck className="h-4 w-4" aria-hidden /> Verzending</h2>
+              <p>
+                {carrierLabel(order.carrier)}: <span className="font-mono">{order.trackingCode}</span>
+              </p>
+              {trackUrl && (
+                <p className="mt-1">
+                  <a href={trackUrl} target="_blank" rel="noopener noreferrer" className="text-primary underline">Volg je pakket</a>
+                </p>
+              )}
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="mb-6">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
-              <Package className="h-4 w-4" /> Onderdelen
+              <Package className="h-4 w-4" aria-hidden /> Onderdelen
             </h2>
             <div className="space-y-3">
               {order.items.map((it) => (
-                <div key={it.id} className="flex items-center gap-4">
+                <div key={it.id} className="flex items-center gap-3 sm:gap-4">
                   {it.part.imageUrl && (
-                    <Image src={it.part.imageUrl} alt={it.part.name} width={56} height={56} className="h-14 w-14 rounded border object-cover bg-muted" />
+                    <Image src={it.part.imageUrl} alt="" width={56} height={56} className="h-14 w-14 shrink-0 rounded border object-cover bg-muted" />
                   )}
-                  <div className="flex-1">
-                    <Link href={`/onderdelen/${it.part.sku}`} className="font-medium hover:text-primary text-sm">
+                  <div className="flex-1 min-w-0">
+                    <Link href={`/onderdelen/${it.part.sku}`} className="font-medium hover:text-primary text-sm break-words">
                       {it.part.name}
                     </Link>
                     <p className="text-xs text-muted-foreground">{it.part.sku} · {it.quantity}x {formatEur(it.unitPrice)}</p>
                   </div>
-                  <span className="font-semibold">{formatEur(it.unitPrice * it.quantity)}</span>
+                  <span className="font-semibold whitespace-nowrap">{formatEur(it.unitPrice * it.quantity)}</span>
                 </div>
               ))}
             </div>
@@ -190,57 +186,133 @@ export default async function OrderDetailPage({
             <div className="border-t mt-5 pt-4 space-y-1 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotaal</span><span>{formatEur(order.subtotalEur)}</span></div>
               {order.discountEur > 0 && (
-                <div className="flex justify-between text-emerald-600"><span>Korting</span><span>-{formatEur(order.discountEur)}</span></div>
+                <div className="flex justify-between text-emerald-600"><span>Ledenkorting</span><span>-{formatEur(order.discountEur)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Verzending</span><span>{order.shippingEur === 0 ? "Gratis" : formatEur(order.shippingEur)}</span></div>
+              <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Totaal (incl. btw)</span><span>{formatEur(order.totalEur)}</span></div>
               {order.vatEur > 0 && (
-                <>
-                  <div className="flex justify-between border-t pt-2 mt-2"><span className="text-muted-foreground">Bedrag excl. btw</span><span>{formatEur(order.totalEur - order.vatEur)}</span></div>
-                  <div className="flex justify-between"><span className="text-muted-foreground">Btw {Math.round(order.vatRate * 100)}%</span><span>{formatEur(order.vatEur)}</span></div>
-                </>
+                <div className="flex justify-between text-xs text-muted-foreground"><span>Waarvan btw {Math.round(order.vatRate * 100)}%</span><span>{formatEur(order.vatEur)}</span></div>
               )}
-              <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Totaal</span><span>{formatEur(order.totalEur)}</span></div>
             </div>
           </CardContent>
         </Card>
 
         <Card className="mb-6">
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
-              <Truck className="h-4 w-4" /> Verzendgegevens
+              <Truck className="h-4 w-4" aria-hidden /> Verzendgegevens
             </h2>
-            <div className="text-sm space-y-1">
+            <div className="text-sm space-y-1 break-words">
               <p className="font-medium">{address.name}</p>
               <p>{address.street} {address.houseNumber}</p>
               <p>{address.postalCode} {address.city}</p>
-              <p className="text-muted-foreground">{address.country ?? "NL"}</p>
+              {order.phone && <p className="text-muted-foreground pt-1">Telefoon: {order.phone}</p>}
+              {order.customerNote && <p className="text-muted-foreground">Opmerking: {order.customerNote}</p>}
             </div>
           </CardContent>
         </Card>
 
         <Card>
-          <CardContent className="p-6">
+          <CardContent className="p-4 sm:p-6">
             <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
-              <Mail className="h-4 w-4" /> Contact
+              <Mail className="h-4 w-4" aria-hidden /> Contact
             </h2>
             <p className="text-sm text-muted-foreground">
-              Vragen over je bestelling? Stuur een mail naar <a href="mailto:support@wasfix.nl" className="text-primary underline">support@wasfix.nl</a> met vermelding van bestelnummer.
+              Vragen over je bestelling? Mail ons met het bestelnummer <span className="font-mono">{orderRef(order.id)}</span>. Bewaar de link van deze pagina: daarmee kun je je bestelling en factuur altijd terugvinden.
             </p>
           </CardContent>
         </Card>
 
         <div className="mt-8 flex flex-wrap gap-3">
-          {["PAID", "SHIPPED", "DELIVERED", "OPENSTAAND"].includes(order.status) && (
+          {invoice && (
             <Button asChild variant="outline">
-              <Link href={`/bestelling/${order.id}/factuur`}><FileText className="h-4 w-4" /> Bekijk factuur</Link>
+              <Link href={invoiceHref}><FileText className="h-4 w-4" /> Bekijk factuur</Link>
             </Button>
           )}
           <Button asChild>
-            <Link href="/diagnose">Nieuwe diagnose <ArrowRight className="h-4 w-4" /></Link>
+            <Link href="/onderdelen">Verder winkelen <ArrowRight className="h-4 w-4" /></Link>
           </Button>
           <Button asChild variant="outline">
-            <Link href="/onderdelen">Verder winkelen</Link>
+            <Link href="/diagnose">Nieuwe diagnose</Link>
           </Button>
+        </div>
+      </div>
+    </MarketingLayout>
+  );
+}
+
+function Headline({ status, fresh, awaitingTransfer, awaitingCard }: { status: OrderStatus; fresh: boolean; awaitingTransfer: boolean; awaitingCard: boolean }) {
+  // The heading is what the state really is, taken from the database: a customer who has
+  // just come back from the payment page must not be told "paid" before the webhook has said so.
+  let icon = <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0" aria-hidden />;
+  let title = "Je bestelling";
+  let body: string | null = null;
+
+  if (awaitingTransfer) {
+    icon = <Landmark className="h-8 w-8 text-amber-500 shrink-0" aria-hidden />;
+    title = fresh ? "Bedankt voor je bestelling" : "Je bestelling wacht op je overschrijving";
+    body = "Hieronder staat wat je moet overmaken.";
+  } else if (awaitingCard) {
+    icon = <Loader2 className="h-8 w-8 text-amber-500 shrink-0" aria-hidden />;
+    title = fresh ? "We verwerken je betaling" : "Deze bestelling is nog niet betaald";
+    body = fresh
+      ? "Zodra de betaling is bevestigd staat hier \"Betaald\". Je hoeft niets opnieuw te betalen."
+      : "We hebben je betaling nog niet ontvangen. Rond de betaling af via de afrekenpagina, of plaats een nieuwe bestelling.";
+  } else if (status === "PAID") {
+    title = fresh ? "Bedankt, je betaling is ontvangen" : "Betaald";
+    body = "We verzenden op werkdagen en laten je weten zodra het pakket onderweg is.";
+  } else if (status === "SHIPPED") {
+    title = "Je bestelling is onderweg";
+  } else if (status === "DELIVERED") {
+    title = "Je bestelling is afgeleverd";
+  } else if (status === "CANCELLED") {
+    icon = <XCircle className="h-8 w-8 text-red-500 shrink-0" aria-hidden />;
+    title = "Geannuleerde bestelling";
+  }
+
+  return (
+    <div className="flex items-start gap-3 sm:gap-4 mb-6">
+      {icon}
+      <div className="min-w-0">
+        {/* tabIndex -1: the effect moves focus here after a purchase, so screen readers start at the confirmation. */}
+        <h1 id="order-heading" tabIndex={-1} className="font-heading text-2xl font-bold outline-none">{title}</h1>
+        {body && <p className="text-sm text-muted-foreground mt-1">{body}</p>}
+      </div>
+    </div>
+  );
+}
+
+function PayRow({ label, value, mono, strong, nowrap, copy }: { label: string; value: string; mono?: boolean; strong?: boolean; nowrap?: boolean; copy?: string }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="text-muted-foreground shrink-0">{label}</dt>
+      <dd className={`min-w-0 text-right break-words flex items-center justify-end gap-2 ${mono ? "font-mono" : ""} ${strong ? "font-semibold" : ""}`}>
+        <span className={nowrap ? "whitespace-nowrap" : "min-w-0 break-all"}>{value}</span>
+        {copy && <CopyButton value={value} label={copy} />}
+      </dd>
+    </div>
+  );
+}
+
+function safeAddress(raw: string): { name?: string; street?: string; houseNumber?: string; postalCode?: string; city?: string } {
+  try {
+    const parsed = JSON.parse(raw);
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function DemoOrder({ id }: { id: string }) {
+  return (
+    <MarketingLayout>
+      <div className="container py-12 max-w-2xl">
+        <div className="rounded-lg border-2 border-dashed p-6">
+          <h1 id="order-heading" tabIndex={-1} className="font-heading text-xl font-bold mb-2">Demo-bestelling</h1>
+          <p className="text-sm text-muted-foreground">
+            Dit is een ontwikkelomgeving zonder database. Er is niets besteld, niets afgeschreven en er is geen factuur of e-mail verstuurd. Referentie: <span className="font-mono">{id.toUpperCase()}</span>
+          </p>
+          <Button asChild className="mt-4"><Link href="/onderdelen">Verder winkelen</Link></Button>
         </div>
       </div>
     </MarketingLayout>

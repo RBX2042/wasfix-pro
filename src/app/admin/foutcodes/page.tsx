@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import { isDatabaseConfigured } from "@/lib/env";
+import { AdminShell } from "../_lib/page-shell";
+import { AdminNav } from "../_lib/admin-nav";
 import { DeleteButton, EditErrorCodeButton, NewErrorCodeButton, deleteErrorCode, type ErrorCodeRow, type MachineOption } from "../_lib/catalog-forms";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +40,9 @@ export default async function AdminErrorCodesPage() {
 
   return (
     <DashboardLayout role={user.role}>
-      <div className="flex items-center justify-between mb-6 gap-4">
+      <AdminShell>
+      <AdminNav current="/admin/foutcodes" />
+      <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Foutcodes beheren</h1>
           <p className="text-muted-foreground text-sm">{codes.length} foutcodes</p>
@@ -56,6 +60,7 @@ export default async function AdminErrorCodesPage() {
       )}
 
       <Card>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left">
             <tr>
@@ -95,7 +100,9 @@ export default async function AdminErrorCodesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
+      </AdminShell>
     </DashboardLayout>
   );
 }

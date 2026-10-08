@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Icon } from "@/components/redesign/SharedLayout";
 import { toast } from "sonner";
 
-export function RmaForm() {
+export function RmaForm({ initialOrder = "", token = "" }: { initialOrder?: string; token?: string }) {
   const [submitting, setSubmitting] = React.useState(false);
   const [done, setDone] = React.useState<string | null>(null);
 
@@ -45,7 +45,7 @@ export function RmaForm() {
           Je RMA-nummer is: <strong className="mono" style={{ color: "var(--acc-2)" }}>{done}</strong>
         </p>
         <p style={{ color: "var(--text-2)", fontSize: 14, lineHeight: 1.6, marginBottom: 20 }}>
-          Binnen 24 uur (op werkdagen) ontvang je een e-mail met retour-instructies + verzendlabel (indien gratis retour).
+          Bewaar dit nummer. Past je bestelnummer bij het e-mailadres van de bestelling, dan sturen we je ook een bevestiging per e-mail; anders neemt de winkel contact met je op nadat de aanvraag is nagekeken. Stuur nog niets op: we beoordelen je aanvraag en mailen je daarna het retouradres en de instructies.
         </p>
         <div style={{ display: "flex", flexWrap: "wrap", gap: 10, justifyContent: "center" }}>
           <Link className="btn btn-primary" href="/">
@@ -62,7 +62,8 @@ export function RmaForm() {
   return (
     <form onSubmit={handleSubmit} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 28 }}>
       <div style={{ display: "grid", gap: 16 }}>
-        <Field label="Bestelnummer" name="orderId" required placeholder="Bv. WF-2026-001234" help="Vind je in je bevestigingsmail" />
+        <Field label="Bestelnummer of factuurnummer" name="orderId" required defaultValue={initialOrder} placeholder="Bijv. 7K3F9QXA of 2026-00012" help="Het bestelnummer (8 tekens, na het #-teken) staat in je bevestigingsmail en op je bestelpagina; het factuurnummer op je factuur. Gebruik het e-mailadres waarmee je hebt besteld." />
+        {token && <input type="hidden" name="token" value={token} />}
         <Field label="Naam" name="name" required placeholder="Voor- en achternaam" />
         <Field label="E-mailadres" name="email" required type="email" placeholder="je@email.nl" />
 
@@ -130,13 +131,14 @@ const inputStyle: React.CSSProperties = {
   outline: "none",
 };
 
-function Field({ label, name, required, type = "text", placeholder, help }: {
+function Field({ label, name, required, type = "text", placeholder, help, defaultValue }: {
   label: string;
   name: string;
   required?: boolean;
   type?: string;
   placeholder?: string;
   help?: string;
+  defaultValue?: string;
 }) {
   return (
     <div>
@@ -148,6 +150,7 @@ function Field({ label, name, required, type = "text", placeholder, help }: {
         name={name}
         required={required}
         placeholder={placeholder}
+        defaultValue={defaultValue}
         style={inputStyle}
       />
       {help && <div className="muted" style={{ fontSize: 11.5, marginTop: 4 }}>{help}</div>}

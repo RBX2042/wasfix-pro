@@ -3,8 +3,10 @@
 import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
+import { categoryLabel } from "@/lib/part-categories";
 import { FormDialog, Field, Select, SubmitButton, TextArea, useActionForm } from "@/app/monteur/_lib/forms";
 import {
+  adjustStockAction,
   deleteErrorCode,
   deleteGuide,
   deletePart,
@@ -43,11 +45,14 @@ export type PartRow = {
   category: string;
   priceEur: number;
   costEur?: number | null;
+  costSource?: string | null;
   stock: number;
   description: string | null;
   imageUrl: string | null;
   supplier: string | null;
   isOriginal: boolean;
+  /** Units sold and not shipped yet; already taken off `stock`. Only the admin parts page fills it. */
+  reserved?: number;
 };
 
 function PartFields({ part, close }: { part?: PartRow; close: () => void }) {
@@ -60,11 +65,30 @@ function PartFields({ part, close }: { part?: PartRow; close: () => void }) {
         <Field label="Merk" name="brand" defaultValue={part?.brand} required placeholder="Bosch of Universeel" />
       </div>
       <Field label="Naam" name="name" defaultValue={part?.name} required placeholder="Afvoerpomp universeel" />
-      <div className="grid grid-cols-3 gap-3">
-        <Select label="Categorie" name="category" options={opts(PART_CATEGORIES)} defaultValue={part?.category} />
-        <Field label="Verkoopprijs (€, incl. btw)" name="priceEur" type="number" defaultValue={part ? String(part.priceEur) : ""} required placeholder="28.50" />
-        <Field label="Inkoopprijs (€, excl. btw)" name="costEur" type="number" defaultValue={part?.costEur != null ? String(part.costEur) : ""} placeholder="12.00" />
-        <Field label="Voorraad" name="stock" type="number" defaultValue={part ? String(part.stock) : "0"} required />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+        <Select
+          label="Categorie"
+          name="category"
+          // A category the editor does not list (a code added later in the database) stays selectable, so saving never re-files the part.
+          options={[...(part && !(PART_CATEGORIES as readonly string[]).includes(part.category) ? [part.category] : []), ...PART_CATEGORIES].map((c) => ({ value: c, label: categoryLabel(c) }))}
+          defaultValue={part?.category}
+        />
+        <Field label="Verkoopprijs (€, incl. btw)" name="priceEur" type="decimal" defaultValue={part ? String(part.priceEur) : ""} required placeholder="28,50" />
+        <Field label="Inkoopprijs (€, excl. btw)" name="costEur" type="decimal" defaultValue={part?.costEur != null ? String(part.costEur) : ""} placeholder="12,00" />
+        <Select
+          label="Herkomst inkoopprijs"
+          name="costSource"
+          options={[{ value: "ESTIMATE", label: "Schatting" }, { value: "QUOTE", label: "Offerte of factuur" }]}
+          defaultValue={part?.costSource === "QUOTE" ? "QUOTE" : "ESTIMATE"}
+        />
+        {part ? (
+          <div className="text-sm">
+            <span className="text-muted-foreground">Voorraad</span>
+            <p className="mt-1 py-2 font-medium tabular-nums">{part.stock} <span className="text-xs text-muted-foreground font-normal">(wijzig met &ldquo;Voorraad aanpassen&rdquo;)</span></p>
+          </div>
+        ) : (
+          <Field label="Beginvoorraad" name="stock" type="number" min="0" step="1" defaultValue="0" required />
+        )}
       </div>
       <TextArea label="Omschrijving" name="description" defaultValue={part?.description} />
       <div className="grid grid-cols-2 gap-3">
@@ -74,6 +98,29 @@ function PartFields({ part, close }: { part?: PartRow; close: () => void }) {
       <Checkbox name="isOriginal" label="Origineel onderdeel (geen universele vervanger)" defaultChecked={part?.isOriginal ?? true} />
       <Actions close={close} />
     </form>
+  );
+}
+
+function StockFields({ part, close }: { part: PartRow; close: () => void }) {
+  const formAction = useActionForm(adjustStockAction, close);
+  return (
+    <form action={formAction} className="space-y-3">
+      <input type="hidden" name="id" value={part.id} />
+      <p className="text-sm text-muted-foreground">Nu op voorraad: <strong className="tabular-nums text-foreground">{part.stock}</strong>. Het aantal wordt opgeteld bij of afgetrokken van de actuele voorraad, dus bestellingen die intussen binnenkomen gaan niet verloren.</p>
+      <p className="text-sm text-muted-foreground">Dit getal is wat je nog kunt <em>verkopen</em>: stuks die al verkocht maar nog niet verzonden zijn staan er niet meer in{part.reserved ? <> (nu {part.reserved} gereserveerd, dus er liggen er ongeveer {part.stock + part.reserved} op de plank)</> : null}. Tel je de plank, corrigeer dan met het verschil tussen je telling en dat aantal.</p>
+      <Select label="Soort" name="reason" options={[{ value: "ONTVANGEN", label: "Goederen ontvangen (+)" }, { value: "CORRECTIE", label: "Correctie na telling (+ of -)" }]} />
+      <Field label="Aantal (bijv. 12, of -3 bij een correctie)" name="delta" type="number" step="1" required />
+      <Field label="Notitie (optioneel)" name="note" placeholder="Leverancier, tellijst, reden" />
+      <Actions close={close} />
+    </form>
+  );
+}
+
+export function AdjustStockButton({ part }: { part: PartRow }) {
+  return (
+    <FormDialog title={`Voorraad aanpassen: ${part.sku}`} trigger={<Button size="sm" variant="outline" className="h-7 px-2 text-xs">Voorraad</Button>}>
+      {(close) => <StockFields part={part} close={close} />}
+    </FormDialog>
   );
 }
 
@@ -117,7 +164,7 @@ function GuideFields({ guide, close }: { guide?: GuideRow; close: () => void }) 
       <TextArea label="Samenvatting" name="summary" defaultValue={guide?.summary} required rows={2} />
       <div className="grid grid-cols-2 gap-3">
         <Select label="Moeilijkheid" name="difficulty" options={opts(DIFFICULTIES)} defaultValue={guide?.difficulty} />
-        <Field label="Tijd (minuten)" name="timeMinutes" type="number" defaultValue={guide ? String(guide.timeMinutes) : "30"} required />
+        <Field label="Tijd (minuten)" name="timeMinutes" type="number" step="1" min="1" defaultValue={guide ? String(guide.timeMinutes) : "30"} required />
       </div>
       <Field label="Gereedschap (gescheiden door |)" name="tools" defaultValue={guide?.tools} placeholder="Schroevendraaier|Emmer|Doek" />
       <TextArea label="Waarschuwingen" name="warnings" defaultValue={guide?.warnings} rows={2} />

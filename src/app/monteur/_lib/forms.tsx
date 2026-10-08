@@ -37,6 +37,27 @@ export function useActionForm(action: (prev: ActionResult | null, fd: FormData) 
   return formAction;
 }
 
+/**
+ * AMOUNTS ARE TEXT INPUTS. A browser number input reads the decimal separator
+ * by the browser's language, and that goes wrong in both directions:
+ *   - no step (default 1): every price with cents is refused ("valid values are
+ *     28 and 29", measured in Chromium on the admin part form);
+ *   - an English browser (en-US) does not reject the Dutch comma, it MISREADS it
+ *     as a thousands separator: typing "89,50" gives the valid value 8950, a
+ *     silent 100x price (measured in Chromium en-US on the work-order price).
+ * So type="decimal" renders a text input with inputMode="decimal" that accepts
+ * "28,50" and "28.50" whatever the browser language and sends the text as typed;
+ * the server actions read both notations (num() in admin/_lib/catalog-actions.ts,
+ * priceEur in monteur/_lib/actions.ts).
+ *
+ * For safety type="number" WITHOUT an explicit integer step is treated as
+ * "decimal" too: a caller that forgets the type can no longer reintroduce the
+ * 100x trap. Whole-number fields say so with step="1" (stock, minutes).
+ */
+function isAmountField(type: string, step: string | undefined) {
+  return type === "decimal" || (type === "number" && (step === undefined || step === "any"));
+}
+
 export function Field({
   label,
   name,
@@ -45,6 +66,8 @@ export function Field({
   required,
   placeholder,
   className,
+  step,
+  min,
 }: {
   label: string;
   name: string;
@@ -53,16 +76,25 @@ export function Field({
   required?: boolean;
   placeholder?: string;
   className?: string;
+  step?: string;
+  min?: string;
 }) {
+  const decimal = isAmountField(type, step);
   return (
     <label className={`block text-sm ${className ?? ""}`}>
       <span className="text-muted-foreground">{label}</span>
       <input
         name={name}
-        type={type}
+        type={decimal ? "text" : type}
         required={required}
         placeholder={placeholder}
         defaultValue={defaultValue ?? ""}
+        step={!decimal && type === "number" ? step : undefined}
+        min={!decimal && type === "number" ? min : undefined}
+        inputMode={decimal ? "decimal" : undefined}
+        pattern={decimal ? "[0-9]+([.,][0-9]{1,2})?" : undefined}
+        title={decimal ? "Een bedrag zoals 28,50" : undefined}
+        autoComplete={decimal ? "off" : undefined}
         className="mt-1 w-full rounded-md border bg-background px-3 py-2 text-sm"
       />
     </label>

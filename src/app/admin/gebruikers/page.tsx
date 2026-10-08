@@ -5,6 +5,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
+import { AdminShell } from "../_lib/page-shell";
+import { AdminNav } from "../_lib/admin-nav";
 
 export const dynamic = "force-dynamic";
 
@@ -22,9 +24,12 @@ export default async function AdminUsersPage() {
 
   return (
     <DashboardLayout role={user.role}>
+      <AdminShell>
+      <AdminNav current="/admin/gebruikers" />
       <h1 className="font-heading text-2xl font-bold mb-6">Gebruikers ({users.length})</h1>
 
       <Card>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left">
             <tr>
@@ -49,7 +54,9 @@ export default async function AdminUsersPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
+      </AdminShell>
     </DashboardLayout>
   );
 }

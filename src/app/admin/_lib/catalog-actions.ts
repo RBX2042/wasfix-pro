@@ -1,12 +1,15 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
+import { refreshPath as revalidatePath } from "./revalidate";
 import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { revalidateCatalog } from "@/lib/cache-tags";
+import { parseMoney } from "@/lib/export-csv";
 import { DIFFICULTIES, PART_CATEGORIES, SEVERITIES, type ActionResult } from "./catalog-constants";
+import { adjustStock } from "./stock";
 
 async function requireAdmin() {
   const user = await getCurrentUser();
@@ -30,6 +33,13 @@ function num(fd: FormData, key: string): number | undefined {
   return Number.isFinite(n) ? n : undefined;
 }
 
+/** An amount typed in Dutch or plain notation. undefined when empty; null when filled in but not a valid amount. */
+function money(fd: FormData, key: string): number | null | undefined {
+  const s = str(fd, key);
+  if (s === undefined) return undefined;
+  return parseMoney(s);
+}
+
 // ─── Parts ────────────────────────────────────────────────────────
 const PartSchema = z.object({
   sku: z.string().trim().regex(/^[A-Z0-9-]{3,32}$/i, "SKU: 3-32 tekens, letters/cijfers/streepje"),
@@ -40,26 +50,39 @@ const PartSchema = z.object({
   // Purchase price ex btw. Optional, but without it the order carries no
   // margin and drops out of the profit reporting on /admin.
   costEur: z.number().min(0).max(10000).nullable().optional(),
-  stock: z.number().int().min(0).max(100000),
+  // ESTIMATE = guessed or derived; QUOTE = a real supplier quote or invoice. Only QUOTE counts
+  // in the margin figures (decision D8).
+  costSource: z.enum(["ESTIMATE", "QUOTE"]),
 });
 
 export async function savePart(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
   const auth = await requireAdmin();
   if ("error" in auth) return { ok: false, error: auth.error };
 
+  const id = str(fd, "id");
+  const price = money(fd, "priceEur");
+  const cost = money(fd, "costEur");
+  if (price === null) return { ok: false, error: "De verkoopprijs is geen geldig bedrag. Gebruik bijvoorbeeld 28,50." };
+  // A typo must not silently clear the cost price: filled in but unreadable is an error.
+  if (cost === null) return { ok: false, error: "De inkoopprijs is geen geldig bedrag. Gebruik bijvoorbeeld 12,00, of laat hem leeg." };
   const parsed = PartSchema.safeParse({
     sku: str(fd, "sku") ?? "",
     name: str(fd, "name") ?? "",
     brand: str(fd, "brand") ?? "",
     category: str(fd, "category") ?? "OTHER",
-    priceEur: num(fd, "priceEur"),
-    costEur: num(fd, "costEur") ?? null,
-    stock: num(fd, "stock") ?? 0,
+    priceEur: price,
+    costEur: cost ?? null,
+    costSource: str(fd, "costSource") ?? "ESTIMATE",
   });
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Ongeldige gegevens" };
+  if (parsed.data.costSource === "QUOTE" && parsed.data.costEur == null) {
+    return { ok: false, error: "Een offerte-inkoopprijs heeft een bedrag nodig. Vul de inkoopprijs in of kies Schatting." };
+  }
 
   const data = {
     ...parsed.data,
+    // Without a cost there is nothing to have a source for.
+    costSource: parsed.data.costEur == null ? "ESTIMATE" : parsed.data.costSource,
     sku: parsed.data.sku.toUpperCase(),
     description: str(fd, "description") ?? null,
     imageUrl: str(fd, "imageUrl") ?? null,
@@ -67,12 +90,17 @@ export async function savePart(_prev: ActionResult | null, fd: FormData): Promis
     isOriginal: fd.get("isOriginal") === "on" || fd.get("isOriginal") === "true",
   };
 
-  const id = str(fd, "id");
   try {
     if (id) {
+      // Stock is NOT part of an edit. The form shows the number it was rendered with; saving
+      // that back would erase every order placed since (see stock.ts). Stock changes only
+      // through adjustStockAction.
       await prisma.part.update({ where: { id }, data });
     } else {
-      await prisma.part.create({ data });
+      // A new part has no concurrent orders: the opening stock may be set here.
+      const opening = num(fd, "stock") ?? 0;
+      if (!Number.isInteger(opening) || opening < 0 || opening > 100000) return { ok: false, error: "Beginvoorraad moet een heel getal van 0 of hoger zijn." };
+      await prisma.part.create({ data: { ...data, stock: opening } });
     }
   } catch (err) {
     const message = String(err);
@@ -84,6 +112,25 @@ export async function savePart(_prev: ActionResult | null, fd: FormData): Promis
   revalidatePath("/admin/onderdelen");
   revalidatePath("/onderdelen");
   revalidatePath(`/onderdelen/${data.sku}`);
+  revalidateCatalog();
+  return { ok: true };
+}
+
+/** Goods received / count correction: a signed whole number applied to the stock in the database. */
+export async function adjustStockAction(_prev: ActionResult | null, fd: FormData): Promise<ActionResult> {
+  const auth = await requireAdmin();
+  if ("error" in auth) return { ok: false, error: auth.error };
+  const partId = str(fd, "id");
+  if (!partId) return { ok: false, error: "id ontbreekt" };
+  const rawDelta = str(fd, "delta");
+  const delta = rawDelta === undefined ? NaN : Number(rawDelta);
+  if (!Number.isInteger(delta)) return { ok: false, error: "Vul een heel aantal in, bijvoorbeeld 12 of -3." };
+  const reason = str(fd, "reason") === "ONTVANGEN" ? "ONTVANGEN" : "CORRECTIE";
+  const res = await adjustStock({ partId, delta, reason, note: str(fd, "note"), actor: auth.user.email });
+  if (!res.ok) return { ok: false, error: res.error };
+  revalidatePath("/admin/onderdelen");
+  revalidatePath(`/onderdelen/${res.sku}`);
+  revalidateCatalog();
   return { ok: true };
 }
 
@@ -99,6 +146,7 @@ export async function deletePart(_prev: ActionResult | null, fd: FormData): Prom
     if (ordered > 0) {
       await prisma.part.update({ where: { id }, data: { stock: 0 } });
       revalidatePath("/admin/onderdelen");
+      revalidateCatalog();
       return { ok: false, error: "Onderdeel staat op bestellingen — voorraad op 0 gezet in plaats van verwijderd." };
     }
     await prisma.part.delete({ where: { id } });
@@ -108,6 +156,7 @@ export async function deletePart(_prev: ActionResult | null, fd: FormData): Prom
   }
   revalidatePath("/admin/onderdelen");
   revalidatePath("/onderdelen");
+  revalidateCatalog();
   return { ok: true };
 }
 

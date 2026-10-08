@@ -1,12 +1,26 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { RmaForm } from "./rma-form";
 
-export const metadata = {
+const metadata = {
   title: "Retour aanvragen · WasFix Pro",
   description: "Start hier je retour-aanvraag bij WasFix Pro. 30 dagen bedenktijd, gratis bij defecten.",
+  // The address can carry the order's access token (link from the order page): keep it out of Referer headers.
+  referrer: "no-referrer" as const,
 };
 
-export default function RetourStartPage() {
+type SP = { order?: string | string[]; t?: string | string[] };
+const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v) ?? "";
+
+// The address can carry the order's access token (D2): pages that honour it are not indexed.
+export async function generateMetadata({ searchParams }: { searchParams: Promise<SP> }) {
+  const t = first((await searchParams).t);
+  return t ? { ...metadata, robots: { index: false, follow: false } } : metadata;
+}
+
+export default async function RetourStartPage({ searchParams }: { searchParams: Promise<SP> }) {
+  const sp = await searchParams;
+  const order = first(sp.order).slice(0, 60);
+  const token = first(sp.t).slice(0, 100);
   return (
     <WasFixShell>
       <section className="section" style={{ paddingTop: 56 }}>
@@ -16,7 +30,7 @@ export default function RetourStartPage() {
             Retour <em>aanvragen</em>
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>
-            Vul onderstaand formulier in om je retour te starten. Je ontvangt binnen 24u op werkdagen je RMA-nummer + instructies per e-mail.
+            Vul onderstaand formulier in om je retour te starten. Je krijgt direct je RMA-nummer te zien. Na beoordeling mailen we je het retouradres en de instructies.
           </p>
 
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: 12, marginBottom: 32 }}>
@@ -37,7 +51,7 @@ export default function RetourStartPage() {
             ))}
           </div>
 
-          <RmaForm />
+          <RmaForm initialOrder={order} token={token} />
         </div>
       </section>
     </WasFixShell>

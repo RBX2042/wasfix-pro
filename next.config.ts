@@ -37,6 +37,10 @@ const CLERK_ENABLED =
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
 
 const nextConfig: NextConfig = {
+  // Defaults to .next. Lets several dev servers or builds run side by side from
+  // one checkout (parallel test runs, a build while a dev server is up) without
+  // overwriting each other's output — they share one directory otherwise.
+  distDir: process.env.NEXT_DIST_DIR || ".next",
   env: {
     NEXT_PUBLIC_CLERK_ENABLED: CLERK_ENABLED ? "true" : "false",
   },

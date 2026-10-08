@@ -8,7 +8,10 @@ on:
 
 env:
   NEXT_TELEMETRY_DISABLED: 1
+  # A production build refuses to start serving a shop without these. They are
+  # fictional / throw-away values, not secrets, and grant nothing.
   NEXT_PUBLIC_APP_URL: https://wasfix.nl
+  CRON_SECRET: ci-only-cron-secret-0123456789abcdef
 
 jobs:
   lint-typecheck:
@@ -26,6 +29,13 @@ jobs:
         run: npm run typecheck
       - name: ESLint
         run: npm run lint
+      - name: Dependency audit (production dependencies, informational)
+        # Never fails the build: a new advisory in a transitive package must not
+        # block an unrelated change. Read the output; see BLOCKED.md for what is
+        # known and accepted (build-time tooling, and Next's bundled postcss that
+        # only a Next major upgrade fixes).
+        continue-on-error: true
+        run: npm audit --omit=dev
 
   build:
     name: Build
@@ -51,9 +61,10 @@ jobs:
           retention-days: 7
 
   database:
-    name: Schema + seed + smoke (Postgres)
+    name: Schema + seed + QA suites + smoke (Postgres)
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # ~5 min build + ~3 min suites + ~2 min browser install; 30 leaves room for a cold runner.
+    timeout-minutes: 30
     needs: lint-typecheck
     services:
       postgres:
@@ -68,8 +79,10 @@ jobs:
           --health-timeout 5s
           --health-retries 10
     env:
+      PGHOST: localhost
+      PGUSER: postgres
+      PGPASSWORD: wasfix
       DATABASE_URL: postgresql://postgres:wasfix@localhost:5432/wasfix
-      DEMO_MODE: "true"
       # The public API sandbox is off unless a key is configured, and
       # `npm run start` below is a production build — so without this the smoke
       # test's /api/v1/parts?api_key=… call gets 401. Not a secret: it grants
@@ -93,16 +106,104 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
-      - name: Push schema + seed catalog
+
+      - name: Migrate + seed the catalogue
         run: npm run db:setup
       - name: Database smoke test
         run: npm run db:smoke
       - name: Money mechanics (VAT, invoices, quota, margin)
         run: npm run money:smoke
+
+      - name: Install Chromium (needed before the offline suites, because qa-platform runs its service-worker test in it)
+        # 1.56.1 is the version these scripts were developed against.
+        run: |
+          npm install --no-save playwright@1.56.1
+          npx playwright install --with-deps chromium
+
+      # Every suite below gets its OWN database, copied from a freshly migrated
+      # and seeded template, because they leave test rows behind and qa-admin
+      # asserts the clean 96-part catalogue (its CSV round trip). None of them
+      # needs a server, a network or a key. The first line freezes the template
+      # (nothing else is connected to `wasfix` yet).
+      - name: Offline QA suites (one database each)
+        run: |
+          psql -d postgres -qc "CREATE DATABASE wasfix_template TEMPLATE wasfix"
+          suite() {
+            name="$1"; shift
+            psql -d postgres -qc "CREATE DATABASE wasfix_$name TEMPLATE wasfix_template"
+            echo "::group::$name"
+            DATABASE_URL="postgresql://postgres:wasfix@localhost:5432/wasfix_$name" "$@"
+            code=$?
+            echo "::endgroup::"
+            return $code
+          }
+          status=0
+          # Plain tsx: these crash with --conditions=react-server.
+          suite admin    npx tsx scripts/qa-admin.ts                               || status=1
+          # VERCEL=1: these suites send x-vercel-forwarded-for to get a separate rate-limit
+          # bucket per simulated caller. The app only believes that header on Vercel
+          # (src/lib/ratelimit.ts), so the suites run as if they were on it.
+          suite plans    env VERCEL=1 npx tsx scripts/qa-plans.ts                  || status=1
+          # react-server condition: they import modules marked "server-only".
+          suite orders   npx tsx --conditions=react-server scripts/qa-orders.ts    || status=1
+          suite stripe   npx tsx --conditions=react-server scripts/qa-stripe.ts    || status=1
+          suite diagnose npx tsx --conditions=react-server scripts/qa-diagnose.ts  || status=1
+          npx tsx --conditions=react-server scripts/qa-notify.ts                   || status=1
+          # bundle S6: platform, preflight, deployment configuration
+          # QA_REQUIRE_BROWSER=1: without Chromium the service-worker half would be SKIPPED silently; here a missing browser must fail.
+          suite platform  env QA_REQUIRE_BROWSER=1 npx tsx scripts/qa-platform.ts  || status=1
+          suite preflight npx tsx scripts/qa-preflight.ts                          || status=1
+          exit $status
+
+      - name: Content-Security-Policy probe in Chromium
+        env:
+          QA_REQUIRE_BROWSER: "1"
+        run: npx tsx scripts/qa-csp.ts
+
       - name: Build
         run: npm run build
-      - name: HTTP smoke test (demo mode + DB)
+
+      - name: Start the production server
         run: |
-          npm run start -- --port 3000 &
+          # VERCEL=1: see the note on the offline suites (the checkout suite sends x-vercel-forwarded-for).
+          VERCEL=1 npm run start -- --port 3000 > server.log 2>&1 &
           for i in $(seq 1 30); do curl -sf http://localhost:3000/api/v1/health && break; sleep 2; done
-          npm run smoke
+          curl -sf http://localhost:3000/api/v1/health || { cat server.log; exit 1; }
+
+      - name: HTTP smoke test (production build, database)
+        run: npm run smoke
+
+      # The two suites that talk to the running server. It is a production build,
+      # so the caller is an anonymous guest (demo auth does not exist there).
+      # They share the server's database, which is why they come after the
+      # smoke test and not before it.
+      - name: Checkout + storefront against the production server
+        env:
+          QA_BASE_URL: http://localhost:3000
+          QA_ANON_URL: http://localhost:3000
+          QA_EXPECT: guest
+          QA_CRON_SECRET: ci-only-cron-secret-0123456789abcdef
+          VERCEL: "1"
+        run: |
+          status=0
+          npx tsx --conditions=react-server scripts/qa-checkout.ts   || status=1
+          npx tsx --conditions=react-server scripts/qa-storefront.ts || status=1
+          exit $status
+
+      - name: CSP on the real pages of the production server
+        env:
+          QA_REQUIRE_BROWSER: "1"
+          QA_BASE_URL: http://localhost:3000
+        run: npx tsx scripts/qa-csp.ts
+
+      - name: Server log
+        if: failure()
+        run: tail -n 200 server.log
+
+# Left out of CI on purpose (they work, but need either a browser session against
+# a dev server in demo mode or a longer runner than is sensible per push):
+#   scripts/qa-checkout-ui.ts, scripts/qa-plans-ui.ts, scripts/qa-storefront-browser.mjs
+#     browser suites that need a DEMO_MODE dev server and the same database;
+#   scripts/qa-seed.ts, scripts/qa-migration.ts
+#     create and drop scratch databases; run them by hand before changing
+#     migrations or the seed (see QA_CHECKLIST.md).

@@ -3,6 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
+import { reportClientError } from "@/lib/report-client-error";
 
 export default function GlobalError({
   error,
@@ -12,9 +13,11 @@ export default function GlobalError({
   reset: () => void;
 }) {
   React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      console.error("[WasFix error boundary]", error);
-    }
+    // The visitor sees a calm page and a code. The cause goes to the owner:
+    // server-side errors were reported where they happened (src/instrumentation.ts)
+    // and carry this digest; browser-side ones are posted from here.
+    console.error("[WasFix error boundary]", error);
+    reportClientError(error);
   }, [error]);
 
   return (
@@ -28,7 +31,7 @@ export default function GlobalError({
             Er ging iets <em>mis</em>
           </h1>
           <p className="lead" style={{ maxWidth: 480, margin: "0 auto 16px" }}>
-            We hebben een interne fout gelogd. Probeer de pagina opnieuw te laden — vaak helpt dat. Blijft het probleem, neem contact op met support.
+            Er ging iets mis aan onze kant. Probeer de pagina opnieuw te laden, vaak helpt dat. Blijft het probleem, neem dan contact op met support en noem de foutcode hieronder.
           </p>
           {error.digest && (
             <div className="mono" style={{ fontSize: 11, color: "var(--muted)", marginBottom: 28, letterSpacing: "0.04em" }}>

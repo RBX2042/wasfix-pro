@@ -1,7 +1,10 @@
-import { env } from "@/lib/env";
+import { siteUrl } from "@/lib/site-url";
 import { MetadataRoute } from "next";
 
 export default function robots(): MetadataRoute.Robots {
+  // null = production without a usable NEXT_PUBLIC_APP_URL: say nothing about
+  // where the sitemap is rather than name http://localhost:3000 (src/lib/site-url.ts).
+  const base = siteUrl();
   return {
     rules: [
       {
@@ -40,10 +43,6 @@ export default function robots(): MetadataRoute.Robots {
         disallow: ["/"],
       },
     ],
-    sitemap: [
-      `${env.APP_URL}/sitemap.xml`,
-      // Future: per-language sitemap-index when i18n ships
-    ],
-    host: env.APP_URL,
+    ...(base ? { sitemap: [`${base}/sitemap.xml`], host: base } : {}),
   };
 }

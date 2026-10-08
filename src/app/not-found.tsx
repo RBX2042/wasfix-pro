@@ -7,6 +7,11 @@ const STATS = catalogStats();
 export const metadata = {
   title: "Pagina niet gevonden",
   description: "Deze pagina bestaat niet of is verplaatst.",
+  // The root layout sets canonical "./" and og:url "./", which Next resolves against the route being
+  // rendered: for an unknown URL that is the internal route /_not-found, so every 404 declared
+  // https://<site>/_not-found as its canonical address. A 404 has none.
+  alternates: {},
+  openGraph: { title: "Pagina niet gevonden", siteName: "WasFix Pro", locale: "nl_NL", type: "website" },
 };
 
 const popularLinks = [

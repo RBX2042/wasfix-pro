@@ -64,7 +64,7 @@ export default function OGImage() {
         >
           <span>Wasmachine kapot?</span>
           <span style={{ display: "flex" }}>
-            <span style={{ color: "#e8eefb" }}>Wij weten wat er&nbsp;</span>
+            <span style={{ color: "#e8eefb" }}>Wij helpen je de&nbsp;</span>
             <span
               style={{
                 background: "linear-gradient(180deg, #00d4ff, #4f8cff)",
@@ -72,14 +72,14 @@ export default function OGImage() {
                 color: "transparent",
               }}
             >
-              echt
+              oorzaak
             </span>
-            <span style={{ color: "#e8eefb" }}>&nbsp;mis is.</span>
+            <span style={{ color: "#e8eefb" }}>&nbsp;te vinden.</span>
           </span>
         </div>
 
         <div style={{ display: "flex", color: "#b6c0d8", fontSize: 28, lineHeight: 1.4, maxWidth: 1000 }}>
-          AI-diagnose in 60 seconden. Het juiste onderdeel. Stap-voor-stap reparatie.
+          Een eerste AI-diagnose, het waarschijnlijke onderdeel en stap-voor-stap reparatie. Een indicatie, geen zekerheid.
         </div>
 
         {/* Bottom tags */}

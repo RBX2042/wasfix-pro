@@ -1,40 +1,82 @@
+import fs from "node:fs";
+import path from "node:path";
 import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
+import { cspFromEnv, cspHeaderName } from "./src/lib/csp";
+import { alternateHost, checkAppUrl, siteUrl } from "./src/lib/site-url";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
   openAnalyzer: false,
 });
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
 const IS_PROD = process.env.NODE_ENV === "production";
 
-// Content Security Policy — tight but functional for our stack.
-// In dev we relax it so HMR + React Refresh work.
-const CSP = [
-  "default-src 'self'",
-  // Next inline scripts + Vercel Analytics + PostHog (when added)
-  `script-src 'self' 'unsafe-inline' ${IS_PROD ? "" : "'unsafe-eval'"} https://va.vercel-scripts.com https://*.vercel-analytics.com https://*.posthog.com https://www.googletagmanager.com https://js.stripe.com`,
-  // Tailwind / inline styles for SSR-streamed content
-  "style-src 'self' 'unsafe-inline' https://fonts.googleapis.com",
-  "img-src 'self' data: blob: https://*.supabase.co https://images.unsplash.com https://cdn.jsdelivr.net https://img.clerk.com https://placehold.co https://*.gravatar.com",
-  "font-src 'self' data: https://fonts.gstatic.com",
-  "connect-src 'self' https://*.supabase.co https://*.clerk.accounts.dev https://api.stripe.com https://*.posthog.com https://va.vercel-scripts.com https://*.vercel-analytics.com https://generativelanguage.googleapis.com",
-  "frame-src 'self' https://js.stripe.com https://*.youtube-nocookie.com https://www.youtube.com",
-  "object-src 'none'",
-  "base-uri 'self'",
-  "form-action 'self'",
-  "frame-ancestors 'self'",
-  "upgrade-insecure-requests",
-].join("; ");
+// NEXT_PUBLIC_APP_URL: the one public address of this deployment (sitemap,
+// robots.txt, canonical URLs, CORS, Stripe return URLs, e-mail buttons). It used
+// to default to http://localhost:3000 and nothing complained, so a deployment
+// without it sent paying customers to localhost.
+//   - Production build on Vercel: refuse to build. A build that cannot work is
+//     better than a live shop that quietly sends customers elsewhere.
+//   - Anywhere else (a self-hosted server, a local `next build`): print the
+//     problem loudly. Checkout already answers 503 in this state
+//     (src/lib/cart-gate.ts), sitemap/robots.txt publish nothing rather than a
+//     wrong address, and `npm run preflight` reports it as a blocker. Failing
+//     every local production build would break the test setups that run
+//     `next build` + `next start` without a public domain.
+const APP_URL_CHECK = checkAppUrl(process.env.NEXT_PUBLIC_APP_URL);
+const APP_URL = siteUrl();
+if (IS_PROD && !APP_URL_CHECK.url) {
+  const message = [
+    "NEXT_PUBLIC_APP_URL is niet bruikbaar voor productie:",
+    ...APP_URL_CHECK.errors.map((e) => `  - ${e}`),
+    "Zet in de hostingomgeving bijvoorbeeld NEXT_PUBLIC_APP_URL=https://wasfix.nl en bouw opnieuw (de waarde wordt tijdens de build ingebakken).",
+  ].join("\n");
+  if (process.env.VERCEL_ENV === "production") throw new Error(message);
+  // Only for `next build`. `next lint` also loads this file with NODE_ENV=production and no
+  // way to tell it apart by phase (it passes the build phase too), so a developer with the
+  // .env.example value (http://localhost:3000) saw this on every lint run. The running server
+  // reports the same state at boot (src/lib/monitoring.ts startupProblems) and checkout answers 503.
+  if (process.argv.includes("build")) console.error(`\n[wasfix] WAARSCHUWING\n${message}\n`);
+}
 
-// Real auth is on only when DEMO_MODE is off AND both Clerk keys exist.
+// Canonical host: the www variant of the apex (or the other way round) is
+// redirected to the host named in NEXT_PUBLIC_APP_URL, so a page is never
+// indexable under two hosts. *.vercel.app is deliberately NOT redirected: preview
+// deployments live there. Redirect that alias in the hosting dashboard if wanted.
+const OTHER_HOST = alternateHost(APP_URL_CHECK.url);
+
+// Content Security Policy: src/lib/csp.ts (it derives the Clerk host from the publishable key).
+const CSP = cspFromEnv();
+
+// Real auth is on when both Clerk keys exist and the server will actually use
+// them. Demo mode only exists outside production (src/lib/demo-mode.ts), so
+// DEMO_MODE=true must not switch the sign-in UI off in a production build: it
+// used to, which rendered the "Demo modus" card on /inloggen while the
+// middleware wanted a real Clerk session, so nobody could sign in.
 // Exposed as a public build-time flag so client components (header, auth
 // pages) can render Clerk UI without importing server-only env.
 const CLERK_ENABLED =
-  process.env.DEMO_MODE !== "true" &&
+  (IS_PROD || process.env.DEMO_MODE !== "true") &&
   Boolean(process.env.CLERK_SECRET_KEY) &&
   Boolean(process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY);
+
+// The migrations this build was made for, baked in so /api/v1/health can tell
+// whether the database has them all (a serverless bundle has no prisma/ folder to
+// read at run time). Not a variable anyone sets: it is derived from the repository.
+function expectedMigrations(): string {
+  try {
+    const dir = path.join(process.cwd(), "prisma", "migrations");
+    const names = fs
+      .readdirSync(dir, { withFileTypes: true })
+      .filter((d) => d.isDirectory())
+      .map((d) => d.name)
+      .sort();
+    return names.length > 0 ? JSON.stringify(names) : "";
+  } catch {
+    return "";
+  }
+}
 
 const nextConfig: NextConfig = {
   // Defaults to .next. Lets several dev servers or builds run side by side from
@@ -43,6 +85,7 @@ const nextConfig: NextConfig = {
   distDir: process.env.NEXT_DIST_DIR || ".next",
   env: {
     NEXT_PUBLIC_CLERK_ENABLED: CLERK_ENABLED ? "true" : "false",
+    WASFIX_EXPECTED_MIGRATIONS: expectedMigrations(),
   },
   images: {
     remotePatterns: [
@@ -84,16 +127,15 @@ const nextConfig: NextConfig = {
             value: "max-age=63072000; includeSubDomains; preload",
           },
           // CSP — report-only in dev to avoid breaking HMR
-          {
-            key: IS_PROD ? "Content-Security-Policy" : "Content-Security-Policy-Report-Only",
-            value: CSP,
-          },
+          { key: cspHeaderName(IS_PROD), value: CSP },
         ],
       },
       {
         source: "/api/:path*",
         headers: [
-          { key: "Access-Control-Allow-Origin", value: APP_URL },
+          // No usable APP_URL (production misconfiguration): send no CORS header at all
+          // instead of one naming localhost. Same-origin requests do not need it.
+          ...(APP_URL ? [{ key: "Access-Control-Allow-Origin", value: APP_URL }] : []),
           { key: "Access-Control-Allow-Methods", value: "GET,POST,PUT,DELETE,OPTIONS" },
           { key: "Access-Control-Allow-Headers", value: "Content-Type, Authorization" },
           // Disable indexing of API routes
@@ -109,6 +151,9 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      ...(OTHER_HOST && APP_URL
+        ? [{ source: "/:path*", has: [{ type: "host" as const, value: OTHER_HOST.replace(/\./g, "\\.") }], destination: `${APP_URL}/:path*`, permanent: true }]
+        : []),
       // Trailing-slash normalisation handled by Next, but force https in case
       { source: "/index", destination: "/", permanent: true },
       { source: "/voor-monteurs", destination: "/monteur", permanent: true },

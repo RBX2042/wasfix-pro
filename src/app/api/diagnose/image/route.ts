@@ -1,33 +1,28 @@
 import { NextRequest } from "next/server";
-import {
-  getGemini,
-  DIAGNOSIS_MODEL,
-  IMAGE_SYSTEM_PROMPT,
-  demoModeImageReply,
-  type ImageDiagnosis,
-} from "@/lib/gemini";
-import { dbErrorCodeByCode } from "@/lib/static-db";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getPlanLimits } from "@/lib/auth";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { anonymousKey, consumeUsage } from "@/lib/entitlements";
-import { VISITOR_COOKIE } from "@/lib/visitor";
-import { getPlan } from "@/lib/plans";
+import { anonymousKey } from "@/lib/entitlements";
+import { runPhotoDiagnosis, isValidSessionId, sniffImageType, MAX_IMAGE_BYTES, type Caller } from "@/lib/diagnose-core";
 
 export const runtime = "nodejs";
+export const maxDuration = 60;
+export const dynamic = "force-dynamic";
 
-/** Photo diagnosis costs the same Gemini call as the text one, so it is
- *  metered the same way. Previously this route had no auth, no rate limit and
- *  no quota at all: an anonymous caller could upload 10 MB repeatedly and bill
- *  us for every analysis, while the text route next door enforced 3/month. */
+/**
+ * Photo diagnosis. Metered with the same per-conversation unit as the text chat
+ * (a photo and the text around it are one diagnosis), capped at a few photos per
+ * conversation. Without a model there is NO result: the previous version answered
+ * with a canned "Bosch E18, 78%" for any bytes at all, including random ones.
+ */
 export async function POST(req: NextRequest) {
   try {
     let user: Awaited<ReturnType<typeof getCurrentUser>> = null;
     try {
       user = await getCurrentUser();
     } catch {
-      // ignore — photo diagnose still works anonymously, within quota
+      // anonymous
     }
 
     const ipKey = getClientKey(req, user?.id);
@@ -37,102 +32,52 @@ export async function POST(req: NextRequest) {
 
     // Reject oversized uploads before buffering them into memory.
     const declared = Number(req.headers.get("content-length") ?? 0);
-    if (declared > 10 * 1024 * 1024) {
-      return apiError("Afbeelding mag maximaal 10MB zijn", 413);
+    if (declared > MAX_IMAGE_BYTES + 64 * 1024) {
+      return apiError("De foto is te groot (maximaal 4 MB). Maak de foto kleiner en probeer het opnieuw.", 413);
     }
 
-    // Commit the quota up front rather than peeking and committing after the
-    // model call — the gap between the two is the whole Gemini round-trip, and
-    // parallel requests all pass a peek.
-    const plan = getPlan(user?.plan ?? "FREE");
-    if (plan.diagnosesPerMonth !== -1) {
-      const visitorId = req.cookies.get(VISITOR_COOKIE)?.value ?? null;
-      const quotaKey = user ? `user:${user.id}` : anonymousKey(req, visitorId);
-      const quota = await consumeUsage("diagnose", quotaKey, plan.diagnosesPerMonth);
-      if (!quota.allowed) {
-        return apiError(
-          user
-            ? "Je hebt je gratis diagnoses voor deze maand opgebruikt. Upgrade voor onbeperkte diagnoses."
-            : "Je gratis diagnoses zijn op. Maak een account aan of upgrade voor onbeperkte diagnoses.",
-          429
-        );
-      }
+    const formData = await req.formData().catch(() => null);
+    const imageFile = formData?.get("image");
+    if (!formData || !imageFile || typeof imageFile === "string") return apiError("Geen foto ontvangen", 400);
+    if (imageFile.size > MAX_IMAGE_BYTES) {
+      return apiError("De foto is te groot (maximaal 4 MB). Maak de foto kleiner en probeer het opnieuw.", 413);
     }
+    const bytes = new Uint8Array(await imageFile.arrayBuffer());
+    const mimeType = sniffImageType(bytes);
+    if (!mimeType) return apiError("Alleen JPEG-, PNG- of WebP-foto's zijn toegestaan", 415);
 
-    const formData = await req.formData();
-    const imageFile = formData.get("image");
+    const sessionRaw = formData.get("sessionId");
+    const sessionId = typeof sessionRaw === "string" && sessionRaw ? sessionRaw : undefined;
+    if (sessionId && !isValidSessionId(sessionId)) return apiError("Ongeldige sessie", 400);
 
-    if (!imageFile || !(imageFile instanceof File)) {
-      return apiError("Geen afbeelding ontvangen", 400);
-    }
-    if (!imageFile.type.startsWith("image/")) {
-      return apiError("Alleen afbeeldingen zijn toegestaan", 400);
-    }
-    if (imageFile.size > 10 * 1024 * 1024) {
-      return apiError("Afbeelding mag maximaal 10MB zijn", 400);
-    }
+    const caller: Extract<Caller, { kind: "consumer" }> = {
+      kind: "consumer",
+      userId: user?.id ?? null,
+      quotaKey: user ? `user:${user.id}` : anonymousKey(req),
+      monthlyLimit: getPlanLimits(user ?? "FREE").diagnosesPerMonth,
+    };
 
-    const gemini = getGemini();
-    let parsed: ImageDiagnosis;
-
-    if (gemini) {
-      try {
-        const bytes = await imageFile.arrayBuffer();
-        const base64 = Buffer.from(bytes).toString("base64");
-        const mimeType = imageFile.type;
-
-        const model = gemini.getGenerativeModel({
-          model: DIAGNOSIS_MODEL,
-          systemInstruction: IMAGE_SYSTEM_PROMPT,
-          generationConfig: {
-            responseMimeType: "application/json",
-          },
-        });
-
-        const response = await model.generateContent([
-          { text: "Analyseer deze foto van mijn wasmachine en geef me de diagnose JSON." },
-          { inlineData: { mimeType, data: base64 } },
-        ]);
-
-        const text = response.response.text() ?? "{}";
-        // Strip optional markdown fences just in case the model returns them
-        const cleanJson = text.replace(/```json\n?|\n?```/g, "").trim();
-        parsed = JSON.parse(cleanJson) as ImageDiagnosis;
-      } catch (err) {
-        logger.warn("Gemini image analysis failed, falling back to demo", err);
-        parsed = demoModeImageReply();
-      }
-    } else {
-      parsed = demoModeImageReply();
-    }
-
-    // If error code detected, find matching data in database
-    let matchedErrorCode = null;
-    let recommendedParts: Array<{ id: string; sku: string; name: string; brand: string; priceEur: number; imageUrl: string | null; stock: number }> = [];
-    let recommendedGuides: Array<{ id: string; slug: string; title: string; difficulty: string; timeMinutes: number; summary: string }> = [];
-
-    if (parsed.detectedCode) {
-      const ec = await dbErrorCodeByCode(parsed.detectedCode, parsed.detectedBrand ?? undefined);
-      if (ec) {
-        matchedErrorCode = {
-          id: ec.id,
-          code: ec.code,
-          title: ec.title,
-          description: ec.description,
-        };
-        recommendedParts = ec.parts.map((ep) => ep.part);
-        recommendedGuides = ec.guides.map((eg) => eg.guide);
-      }
-    }
+    const outcome = await runPhotoDiagnosis({ base64: Buffer.from(bytes).toString("base64"), mimeType, sessionId, caller });
+    if (!outcome.ok) return apiError(outcome.error, outcome.status, { code: outcome.code, ...outcome.details });
 
     return apiSuccess({
-      ...parsed,
-      matchedErrorCode,
-      recommendedParts,
-      recommendedGuides,
+      mode: outcome.mode,
+      model: outcome.model,
+      sessionId: outcome.sessionId,
+      recognised: outcome.analysis.recognised,
+      detectedCode: outcome.analysis.detectedCode,
+      detectedBrand: outcome.analysis.detectedBrand,
+      detectedSymptom: outcome.analysis.detectedSymptom,
+      description: outcome.analysis.description,
+      suggestedQuery: outcome.analysis.suggestedQuery,
+      matchedErrorCode: outcome.matchedErrorCode,
+      recommendedParts: outcome.recommendedParts,
+      recommendedGuides: outcome.recommendedGuides,
+      notice: outcome.notice,
+      quota: outcome.quota,
     });
   } catch (err) {
     logger.error("Image diagnose error", err);
-    return apiError("Foto analyse mislukt — probeer een duidelijkere foto", 500);
+    return apiError("De foto kon niet worden beoordeeld. Probeer het opnieuw of typ de foutcode.", 500);
   }
 }

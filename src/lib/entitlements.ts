@@ -46,9 +46,30 @@ export function anonymousKey(req: NextRequest, _visitorId?: string | null): stri
   // Via clientIp(): the first x-forwarded-for entry is client-supplied, so
   // reading it here handed anyone who rotates the header an unlimited number
   // of free-tier buckets.
-  const ip = clientIp(req) || "unknown";
+  const ip = ipBucket(clientIp(req) || "unknown");
   // Hashed so we never store a raw IP against usage records.
   return `ip:${createHash("sha256").update(ip).digest("hex").slice(0, 32)}`;
+}
+
+/**
+ * The address a free-tier bucket is keyed on. An IPv4 address is its own
+ * bucket; an IPv6 address is reduced to its /64, because that is what one
+ * household or one rented host is given and the host part is theirs to
+ * rotate: keyed on the full address, one machine mints 2^64 fresh buckets.
+ * An IPv4-mapped IPv6 address (::ffff:1.2.3.4) is the IPv4 address.
+ */
+export function ipBucket(ip: string): string {
+  const raw = ip.trim().toLowerCase().split("%")[0];
+  const mapped = raw.match(/^::ffff:(\d{1,3}(?:\.\d{1,3}){3})$/);
+  if (mapped) return mapped[1];
+  if (!raw.includes(":")) return raw;
+  const [headPart, tailPart] = raw.split("::");
+  const head = headPart ? headPart.split(":") : [];
+  const tail = tailPart !== undefined && tailPart ? tailPart.split(":") : [];
+  if (head.length + tail.length > 8 || [...head, ...tail].some((g) => !/^[0-9a-f]{1,4}$/.test(g))) return raw; // not an address we understand: leave it alone
+  const groups = tailPart === undefined ? head : [...head, ...Array(8 - head.length - tail.length).fill("0"), ...tail];
+  if (groups.length !== 8) return raw;
+  return `${groups.slice(0, 4).map((g) => g.padStart(4, "0")).join(":")}::/64`;
 }
 
 /**
@@ -165,6 +186,30 @@ export async function consumeUsage(
     logger.warn("[entitlements] usage counter unavailable — using memory", err);
     const r = memoryConsume(`${scope}:${key}`, limit, windowMs, commit);
     return { allowed: r.allowed, used: r.used, limit };
+  }
+}
+
+/**
+ * Give back one unit that consumeUsage() committed up front, because the thing
+ * it paid for did not happen (the model call failed, so the customer got no
+ * answer). Never goes below zero and never touches a window that has rolled over
+ * since: a refund for last window's unit must not erase a unit spent in the new
+ * one. Best effort by design - failing to refund costs the customer one unit, it
+ * must not turn into an error on top of the upstream error they already got.
+ */
+export async function refundUsage(scope: string, key: string): Promise<void> {
+  if (!isDatabaseConfigured()) {
+    const existing = memoryCounters.get(`${scope}:${key}`);
+    if (existing && existing.count > 0 && existing.windowEnd >= Date.now()) existing.count--;
+    return;
+  }
+  try {
+    await prisma.usageCounter.updateMany({
+      where: { scope, key, count: { gt: 0 }, windowEnd: { gte: new Date() } },
+      data: { count: { decrement: 1 } },
+    });
+  } catch (err) {
+    logger.warn("[entitlements] could not refund a usage unit", { scope, err: err instanceof Error ? err.message : String(err) });
   }
 }
 

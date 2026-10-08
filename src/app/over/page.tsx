@@ -24,12 +24,15 @@ export default function OverPage() {
       <div className="container py-12 max-w-3xl">
         <div className="grid sm:grid-cols-2 gap-4 mb-12">
           {/* Geen "we trainen modellen": we trainen niets. De diagnose is Google
-              Gemini met een systeem-prompt op onze eigen foutcode- en
-              gidsendatabase. Geen absolute CO₂-claim meer: 70 kg had geen bron
-              en sprak de calculator tegen, die ±300 kg productie-uitstoot
-              verdeelt over de jaren die een reparatie erbij wint. Milieuclaims
-              moeten specifiek en onderbouwd zijn (Richtlijn (EU) 2024/825). */}
-          <ValueCard icon={<Sparkles className="h-5 w-5" />} title="AI gestuurd" text="We laten Google Gemini je storing analyseren tegen onze eigen foutcode-database en reparatiegidsen, zodat je in 2 minuten weet wat er aan de hand is." />
+              Gemini met een systeem-prompt. Alleen wanneer in het bericht een
+              foutcode herkend wordt die in onze foutcode-database staat, krijgt
+              het model die rij mee, met vermelding of de betekenis gecontroleerd is (src/lib/diagnose-core.ts, groundingFor);
+              zonder herkende code antwoordt het model uit de omschrijving alleen.
+              Geen absolute CO₂-claim meer: 70 kg had geen bron en sprak de
+              calculator tegen, die ±300 kg productie-uitstoot verdeelt over de
+              jaren die een reparatie erbij wint. Milieuclaims moeten specifiek en
+              onderbouwd zijn (Richtlijn (EU) 2024/825). */}
+          <ValueCard icon={<Sparkles className="h-5 w-5" />} title="AI-indicatie, geen garantie" text="Een AI (Google Gemini) leest je omschrijving en geeft een eerste indicatie van de oorzaak. Staat je foutcode in onze foutcode-database, dan krijgt de AI die rij erbij, met per regel of de betekenis gecontroleerd is. Het blijft een indicatie: de AI kan zich vergissen. Is de AI niet beschikbaar, dan zeggen we dat en zoeken we alleen je foutcode op." />
           <ValueCard icon={<Recycle className="h-5 w-5" />} title="Duurzaam" text="Een nieuwe wasmachine maken kost naar schatting ±300 kg CO₂. Repareren stelt een deel daarvan uit — hoeveel hangt af van de jaren die je erbij wint. Reken het door met onze calculator." />
           <ValueCard icon={<Users className="h-5 w-5" />} title="Voor iedereen" text="Van particulier tot zelfstandige monteur tot reparatiebedrijf — we bouwen tools voor de hele keten." />
           <ValueCard icon={<Award className="h-5 w-5" />} title="Origineel of universeel" text="Bij elk onderdeel staat of het een origineel is of een universele vervanger, en op welke merken en modellen het past. Jij kiest zelf." />

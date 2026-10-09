@@ -50,7 +50,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
         prisma.review.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []),
         prisma.rmaRequest.count({ where: { status: { in: ["RECEIVED", "APPROVED", "RETURN_RECEIVED"] } } }).catch(() => 0),
         prisma.monteurApplication.findMany({ orderBy: { createdAt: "desc" }, take: 50 }).catch(() => []),
-        prisma.newsletterSubscriber.count().catch(() => 0),
+        prisma.newsletterSubscriber.count({ where: { confirmedAt: { not: null }, unsubscribedAt: null } }).catch(() => 0),
         prisma.diagnosisFeedback.groupBy({ by: ["rating"], _count: { _all: true } }).catch(() => []),
       ])
     : [[], 0, [], 0, []];
@@ -63,7 +63,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
       <h1 className="font-heading text-2xl font-bold mb-1">Aanvragen &amp; moderatie</h1>
       <p className="text-muted-foreground text-sm mb-6">
         {hasDb
-          ? `${subscribers} nieuwsbriefabonnees · AI-feedback 👍 ${up} / 👎 ${down}`
+          ? `${subscribers} bevestigde nieuwsbriefabonnees · AI-feedback 👍 ${up} / 👎 ${down}`
           : "Geen database geconfigureerd — aanvragen worden alleen per e-mail afgeleverd."}
       </p>
 

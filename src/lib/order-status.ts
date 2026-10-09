@@ -17,6 +17,8 @@
  *   orderRef(id)                   the short order number shown everywhere ("#" + this):
  *                                  the first 8 characters of the id, upper case
  *   customerOrderUrl(id, token)    absolute /bestelling/<id>?t=<token>
+ *   creditNoteUrl(id, number, t)   absolute /bestelling/<id>/creditnota/<CN-number>?t=<token>
+ *   returnUrl(id, token)           absolute /retour/start?order=<ref>&t=<token>
  *
  * The lifecycle:
  *
@@ -31,13 +33,14 @@
  * callers cannot both win. canTransition() is the guard in front of that update
  * and the table the tests walk; it does not take the lock itself.
  *
- * CANCELLED -> PAID is NOT one of the edges the project lead listed (D3); it is
- * a deliberate addition by the author of this file, kept because refusing it
- * would turn a customer's real payment into a stuck order. It exists for exactly one case: a bank transfer that arrives
- * after an unpaid order was cancelled and its stock released. It is allowed
- * only for BANK_TRANSFER orders that have no credit note, and only if the
- * stock can be taken again; markOrderPaidByBankTransfer enforces those three
- * conditions. No other code may use this edge.
+ * There is no way back from CANCELLED (decision D14, terms 7.1). A cancelled
+ * order has had its units put back on the shelf and its invoice credited with a
+ * credit note, so a bank wire that arrives afterwards is paid back or the
+ * customer orders again; markOrderPaidByBankTransfer refuses it and says so. An
+ * earlier version of this table allowed CANCELLED -> PAID for exactly that wire;
+ * every cancelled bank-transfer order carries a credit note, so the edge could
+ * never be used and only made the code and the screens promise the opposite of
+ * the terms.
  *
  * Stock, as src/app/api/checkout/route.ts and the Stripe webhook stood when this
  * was written (read, not re-derived): an OPENSTAAND order reserves its units
@@ -71,8 +74,7 @@ export const ORDER_TRANSITIONS: Readonly<Record<OrderStatus, readonly OrderStatu
   PAID: ["SHIPPED", "CANCELLED"],
   SHIPPED: ["DELIVERED"],
   DELIVERED: [],
-  // Late bank transfer only; see the module comment.
-  CANCELLED: ["PAID"],
+  CANCELLED: [],
 };
 
 export function canTransition(from: string, to: string): boolean {
@@ -80,13 +82,9 @@ export function canTransition(from: string, to: string): boolean {
   return ORDER_TRANSITIONS[from].includes(to);
 }
 
-/** Every state from which `to` can be reached, minus the late-payment edge. */
-export function statusesThatCanGo(to: OrderStatus, opts: { includeLatePayment?: boolean } = {}): OrderStatus[] {
-  return ORDER_STATUSES.filter((from) => {
-    if (!ORDER_TRANSITIONS[from].includes(to)) return false;
-    if (from === "CANCELLED" && !opts.includeLatePayment) return false;
-    return true;
-  });
+/** Every state from which `to` can be reached. */
+export function statusesThatCanGo(to: OrderStatus): OrderStatus[] {
+  return ORDER_STATUSES.filter((from) => ORDER_TRANSITIONS[from].includes(to));
 }
 
 /** Are the order's units off the shelf? (PENDING reserves nothing.) */
@@ -111,4 +109,19 @@ export function customerOrderUrl(orderId: string, accessToken?: string | null, e
   for (const [k, v] of Object.entries(extraQuery ?? {})) q.set(k, v);
   const qs = q.toString();
   return `${base}/bestelling/${encodeURIComponent(orderId)}${qs ? `?${qs}` : ""}`;
+}
+
+/** The printable credit note (creditfactuur) of an order. Same rules as the invoice page: token, owner or admin. */
+export function creditNoteUrl(orderId: string, creditNoteNumber: string, accessToken?: string | null): string {
+  const base = env.APP_URL.replace(/\/+$/, "");
+  const qs = accessToken ? `?t=${encodeURIComponent(accessToken)}` : "";
+  return `${base}/bestelling/${encodeURIComponent(orderId)}/creditnota/${encodeURIComponent(creditNoteNumber)}${qs}`;
+}
+
+/** The return form, prefilled with the order number and carrying the token as proof of ownership. */
+export function returnUrl(orderId: string, accessToken?: string | null): string {
+  const base = env.APP_URL.replace(/\/+$/, "");
+  const q = new URLSearchParams({ order: orderRef(orderId) });
+  if (accessToken) q.set("t", accessToken);
+  return `${base}/retour/start?${q.toString()}`;
 }

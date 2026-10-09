@@ -8,11 +8,11 @@
  * every view is its own database query with its own count, and the module has no
  * Next.js imports so scripts/qa-admin.ts can run it against a real database.
  */
-import type { Prisma } from "@prisma/client";
+import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import type { OrderStatus } from "@/lib/order-status";
 
-export const ORDER_VIEWS = ["te-verzenden", "te-betalen", "onderweg", "afgerond", "geannuleerd", "stripe", "alles"] as const;
+export const ORDER_VIEWS = ["te-verzenden", "te-betalen", "onderweg", "afgerond", "terugbetaald", "geannuleerd", "stripe", "zonder-factuur", "alles"] as const;
 export type OrderView = (typeof ORDER_VIEWS)[number];
 
 export const VIEW_LABEL: Record<OrderView, string> = {
@@ -20,20 +20,43 @@ export const VIEW_LABEL: Record<OrderView, string> = {
   "te-betalen": "Te betalen",
   onderweg: "Onderweg",
   afgerond: "Afgerond",
+  terugbetaald: "Volledig terugbetaald",
   geannuleerd: "Geannuleerd",
   stripe: "Wacht op Stripe",
+  "zonder-factuur": "Betaald zonder factuur",
   alles: "Alles",
 };
 
-/** The status each view shows. "alles" has none. */
-export const VIEW_STATUS: Record<Exclude<OrderView, "alles">, OrderStatus> = {
+/**
+ * The views that are exactly one status. The others are defined in listOrders / orderCounts:
+ * "onderweg" and "afgerond" leave out orders that are completely refunded, "terugbetaald" is those,
+ * "zonder-factuur" is paid orders that never got an invoice, "alles" is everything.
+ */
+export const VIEW_STATUS = {
   "te-verzenden": "PAID",
   "te-betalen": "OPENSTAAND",
-  onderweg: "SHIPPED",
-  afgerond: "DELIVERED",
   geannuleerd: "CANCELLED",
   stripe: "PENDING",
-};
+} as const satisfies Partial<Record<OrderView, OrderStatus>>;
+
+const PAID_STATES = ["PAID", "SHIPPED", "DELIVERED"] as const;
+
+/**
+ * A shipped or delivered order whose whole total has been credited back (a return that was refunded in
+ * full). It is not "on its way" any more: it leaves "Onderweg" and "Afgerond" and shows in "Volledig
+ * terugbetaald". Prisma cannot compare two columns, hence SQL; compared in whole cents like the domain does.
+ */
+const FULLY_REFUNDED_SQL = Prisma.sql`"status" IN ('SHIPPED', 'DELIVERED') AND "refundedEur" > 0 AND ROUND("refundedEur"::numeric * 100) >= ROUND("totalEur"::numeric * 100)`;
+
+async function fullyRefundedIds(): Promise<string[]> {
+  const rows = await prisma.$queryRaw<{ id: string }[]>(Prisma.sql`SELECT "id" FROM "Order" WHERE ${FULLY_REFUNDED_SQL} LIMIT 5000`);
+  return rows.map((r) => r.id);
+}
+
+/** True when the order is completely refunded although it was shipped (same rule as FULLY_REFUNDED_SQL). */
+export function isFullyRefunded(o: { status: string; totalEur: number; refundedEur: number }): boolean {
+  return (o.status === "SHIPPED" || o.status === "DELIVERED") && o.refundedEur > 0 && Math.round(o.refundedEur * 100) >= Math.round(o.totalEur * 100);
+}
 
 export const PAGE_SIZE = 25;
 
@@ -88,7 +111,7 @@ function clauseFor(terms: SearchTerms): Prisma.OrderWhereInput[] {
 
 export const ORDER_LIST_INCLUDE = {
   items: { include: { part: { select: { id: true, sku: true, name: true, stock: true } } } },
-  invoice: { select: { number: true, issuedAt: true, totalEur: true, creditNotes: { select: { number: true, totalEur: true }, orderBy: { issuedAt: "asc" } } } },
+  invoice: { select: { number: true, issuedAt: true, totalEur: true, creditNotes: { select: { number: true, totalEur: true, issuedAt: true, linesJson: true }, orderBy: { issuedAt: "asc" } } } },
 } satisfies Prisma.OrderInclude;
 
 export type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_LIST_INCLUDE }>;
@@ -132,6 +155,16 @@ export async function listOrders(opts: { view?: OrderView; q?: string; page?: nu
   } else if (view === "alles") {
     where = {};
     orderBy = [{ createdAt: "desc" }];
+  } else if (view === "onderweg" || view === "afgerond") {
+    where = { status: view === "onderweg" ? "SHIPPED" : "DELIVERED", id: { notIn: await fullyRefundedIds() } };
+    orderBy = [{ createdAt: "desc" }];
+  } else if (view === "terugbetaald") {
+    where = { id: { in: await fullyRefundedIds() } };
+    orderBy = [{ createdAt: "desc" }];
+  } else if (view === "zonder-factuur") {
+    // Paid, but the invoice step was refused or failed (company details incomplete at the time). Oldest first.
+    where = { status: { in: [...PAID_STATES] }, invoice: { is: null } };
+    orderBy = [{ createdAt: "asc" }];
   } else {
     where = { status: VIEW_STATUS[view] };
     // Work first-in first-out; unpaid invoices by due date so the overdue ones lead.
@@ -158,14 +191,21 @@ export type OrderCounts = Record<OrderView, number> & {
 };
 
 export async function orderCounts(now: Date = new Date()): Promise<OrderCounts> {
-  const [grouped, overdue, shipLate] = await Promise.all([
+  const [grouped, overdue, shipLate, refundedByStatus, withoutInvoice] = await Promise.all([
     prisma.order.groupBy({ by: ["status"], _count: { _all: true } }),
     prisma.order.count({ where: { status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER", dueAt: { lt: now } } }),
     prisma.order.count({ where: { status: "PAID", createdAt: { lt: new Date(now.getTime() - 2 * 86_400_000) } } }),
+    prisma.$queryRaw<{ status: string; n: number }[]>(Prisma.sql`SELECT "status", COUNT(*)::int AS n FROM "Order" WHERE ${FULLY_REFUNDED_SQL} GROUP BY "status"`),
+    prisma.order.count({ where: { status: { in: [...PAID_STATES] }, invoice: { is: null } } }),
   ]);
   const byStatus = new Map(grouped.map((g) => [g.status, g._count._all]));
+  const refunded = new Map(refundedByStatus.map((r) => [r.status, Number(r.n)]));
   const out = { overdue, shipLate, alles: grouped.reduce((s, g) => s + g._count._all, 0) } as OrderCounts;
-  for (const [view, status] of Object.entries(VIEW_STATUS)) out[view as Exclude<OrderView, "alles">] = byStatus.get(status) ?? 0;
+  for (const [view, status] of Object.entries(VIEW_STATUS)) out[view as keyof typeof VIEW_STATUS] = byStatus.get(status) ?? 0;
+  out.onderweg = (byStatus.get("SHIPPED") ?? 0) - (refunded.get("SHIPPED") ?? 0);
+  out.afgerond = (byStatus.get("DELIVERED") ?? 0) - (refunded.get("DELIVERED") ?? 0);
+  out.terugbetaald = (refunded.get("SHIPPED") ?? 0) + (refunded.get("DELIVERED") ?? 0);
+  out["zonder-factuur"] = withoutInvoice;
   return out;
 }
 

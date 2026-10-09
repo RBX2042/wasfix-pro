@@ -12,7 +12,7 @@ import { MARGIN_ESTIMATE_LABEL } from "@/lib/invoicing";
 import { PLANS } from "@/lib/plans";
 import { AdminShell } from "./_lib/page-shell";
 import { AdminNav } from "./_lib/admin-nav";
-import { ordersPerDay, openCounts, paidRevenue, shopMargin, subscriptionStats, vatByQuarter, type DayCount, type OpenCounts, type RevenueFigures, type SubscriptionStats } from "./_lib/economics";
+import { accountStats, ordersPerDay, openCounts, paidRevenue, paidWithoutInvoice, revenuePerDay, shopMargin, subscriptionStats, vatByQuarter, type DayCount, type OpenCounts, type RevenueDay, type RevenueFigures, type SubscriptionStats } from "./_lib/economics";
 import RevenueChart from "@/components/charts/RevenueChart";
 import ErrorCodeFrequency from "@/components/charts/ErrorCodeFrequency";
 
@@ -42,9 +42,6 @@ export default async function AdminPage() {
   // src/app/admin/_lib/economics.ts: margins count QUOTE costs only (decision D8) and
   // Order.costEur is not summed anywhere.
   const now = new Date();
-  const chartStart = new Date(now);
-  chartStart.setDate(chartStart.getDate() - 29);
-  chartStart.setHours(0, 0, 0, 0);
 
   // Diagnosis.result is JSON inside a string column, so errorCode cannot be
   // grouped in SQL. Hence a window plus a hard cap instead of the whole table.
@@ -53,7 +50,7 @@ export default async function AdminPage() {
   const diagnosisSince = new Date(now);
   diagnosisSince.setDate(diagnosisSince.getDate() - DIAGNOSIS_WINDOW_DAYS);
 
-  let usersCount = 0, partsCount = 20, ordersCount = 0, diagnosesCount = 0, guidesCount = 6, errorCodesCount = 26;
+  let accountInfo = { accounts: 0, guests: 0 }, noInvoice = { count: 0, grossEur: 0 }, partsCount = 20, ordersCount = 0, diagnosesCount = 0, guidesCount = 6, errorCodesCount = 26;
   let revenue: RevenueFigures = { grossEur: 0, vatEur: 0, netEur: 0, paidOrders: 0 };
   let margin: Awaited<ReturnType<typeof shopMargin>> | null = null;
   let counts: OpenCounts = { toShip: 0, unpaidInvoices: 0, overdueInvoices: 0, openRma: 0, pendingApplications: 0, pendingReviews: 0 };
@@ -61,8 +58,8 @@ export default async function AdminPage() {
   let subs: SubscriptionStats | null = null;
   let quarterVat: { quarter: number; vatPayableEur: number } | null = null;
   let recentOrders: Array<{ id: string; createdAt: Date; totalEur: number; status: string; invoice: { number: string } | null }> = [];
-  let recentUsers: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
-  let chartOrders: Array<{ createdAt: Date; totalEur: number }> = [];
+  let recentUsers: Array<{ id: string; name: string | null; email: string; plan: string }> = [];
+  let revenueDays: RevenueDay[] = [];
   let recentDiagnoses: Array<{ result: string | null }> = [];
   let allErrorCodes: Array<{ code: string; severity: string }> = [];
   let dbError = false;
@@ -70,8 +67,9 @@ export default async function AdminPage() {
     const year = Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", year: "numeric" }).format(now));
     const currentQuarter = Math.floor((Number(new Intl.DateTimeFormat("en-CA", { timeZone: "Europe/Amsterdam", month: "numeric" }).format(now)) - 1) / 3) + 1;
     let quarters: Awaited<ReturnType<typeof vatByQuarter>>;
-    [usersCount, partsCount, ordersCount, diagnosesCount, guidesCount, errorCodesCount, revenue, margin, counts, perDay, subs, quarters, recentOrders, recentUsers, chartOrders, recentDiagnoses, allErrorCodes] = await Promise.all([
-      prisma.user.count(),
+    [accountInfo, noInvoice, partsCount, ordersCount, diagnosesCount, guidesCount, errorCodesCount, revenue, margin, counts, perDay, subs, quarters, recentOrders, recentUsers, revenueDays, recentDiagnoses, allErrorCodes] = await Promise.all([
+      accountStats(),
+      paidWithoutInvoice(),
       prisma.part.count(),
       prisma.order.count(),
       prisma.diagnosis.count(),
@@ -84,11 +82,8 @@ export default async function AdminPage() {
       subscriptionStats(),
       vatByQuarter(year),
       prisma.order.findMany({ take: 5, orderBy: { createdAt: "desc" }, select: { id: true, createdAt: true, totalEur: true, status: true, invoice: { select: { number: true } } } }),
-      prisma.user.findMany({ take: 5, orderBy: { createdAt: "desc" } }),
-      prisma.order.findMany({
-        where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] }, createdAt: { gte: chartStart } },
-        select: { createdAt: true, totalEur: true },
-      }),
+      prisma.user.findMany({ where: { clerkId: { not: null } }, take: 5, orderBy: { createdAt: "desc" }, select: { id: true, name: true, email: true, plan: true } }),
+      revenuePerDay(30, now),
       prisma.diagnosis.findMany({
         where: { createdAt: { gte: diagnosisSince }, result: { not: null } },
         select: { result: true },
@@ -110,25 +105,18 @@ export default async function AdminPage() {
     errorCodesCount = s.errorCodesCount;
   }
 
+  const usersCount = accountInfo.accounts;
+  const guestsCount = accountInfo.guests;
   const grossTurnover = revenue.grossEur;
   const netRevenue = revenue.netEur;
   const peak = Math.max(1, ...perDay.map((d) => d.created));
   const createdLast14 = perDay.reduce((s, d) => s + d.created, 0);
 
-  // Build revenue chart data — group orders by day, last 30 days
-  const days: Array<{ date: string; revenue: number; orders: number }> = [];
-  for (let i = 29; i >= 0; i--) {
-    const d = new Date(now);
-    d.setDate(d.getDate() - i);
-    d.setHours(0, 0, 0, 0);
-    const next = new Date(d); next.setDate(next.getDate() + 1);
-    const dayOrders = chartOrders.filter(o => o.createdAt >= d && o.createdAt < next);
-    days.push({
-      date: `${d.getDate()}/${d.getMonth() + 1}`,
-      revenue: dayOrders.reduce((s, o) => s + Number(o.totalEur), 0),
-      orders: dayOrders.length,
-    });
-  }
+  // Revenue chart: Invoice minus CreditNote per Amsterdam day (see revenuePerDay), the same books as the card above it.
+  const days = revenueDays.map((d) => {
+    const [, m, dd] = d.day.split("-");
+    return { date: `${Number(dd)}/${Number(m)}`, revenue: d.revenueEur, orders: d.invoices };
+  });
 
   // Build error-code frequency from diagnoses
   const severityByCode = new Map(allErrorCodes.map((e) => [e.code, e.severity]));
@@ -202,7 +190,7 @@ export default async function AdminPage() {
       </Card>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
-        <StatCard icon={<Users className="h-4 w-4" />} label="Gebruikers" value={usersCount.toString()} />
+        <StatCard icon={<Users className="h-4 w-4" />} label="Gebruikers (met account)" value={usersCount.toString()} hint={`${guestsCount} gast${guestsCount === 1 ? "" : "en"} bestelden zonder account`} />
         <StatCard icon={<Package className="h-4 w-4" />} label="Bestellingen" value={ordersCount.toString()} />
         <StatCard icon={<TrendingUp className="h-4 w-4" />} label="Omzet incl. btw (betaald)" value={formatEur(grossTurnover)} />
         <StatCard icon={<MessageCircle className="h-4 w-4" />} label="Diagnoses" value={diagnosesCount.toString()} />
@@ -264,7 +252,9 @@ export default async function AdminPage() {
         <Card>
           <CardContent className="p-6">
             <h2 className="font-heading text-lg font-semibold mb-1">Omzet (30 dagen)</h2>
-            <p className="text-xs text-muted-foreground mb-3">Dagelijkse omzet en aantal bestellingen</p>
+            <p className="text-xs text-muted-foreground mb-3">Omzet incl. btw per factuurdatum van betaalde bestellingen, min creditnota&apos;s (zelfde cijfers als het kaartje &ldquo;Omzet incl. btw&rdquo;). De lijn telt facturen.{noInvoice.count > 0 && (
+                <> <Link href="/admin/bestellingen?view=zonder-factuur" className="text-amber-700 underline">{noInvoice.count} betaalde bestelling{noInvoice.count === 1 ? "" : "en"} ({formatEur(noInvoice.grossEur)}) heeft nog geen factuur</Link> en staat dus niet in deze grafiek.</>
+              )}</p>
             <RevenueChart data={days} />
           </CardContent>
         </Card>
@@ -286,8 +276,9 @@ export default async function AdminPage() {
         </Card>
       </div>
 
-      <div className="grid md:grid-cols-2 gap-6">
-        <Card>
+      {/* grid-cols-1 = minmax(0,1fr): without it the single mobile column grows to the widest unbreakable string (a long e-mail address) and the page scrolls sideways. */}
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+        <Card className="min-w-0">
           <CardContent className="p-6">
             <h2 className="font-heading text-lg font-semibold mb-4">Recente bestellingen</h2>
             <div className="space-y-2">
@@ -309,17 +300,19 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="min-w-0">
           <CardContent className="p-6">
-            <h2 className="font-heading text-lg font-semibold mb-4">Recente gebruikers</h2>
+            <h2 className="font-heading text-lg font-semibold mb-1">Recente gebruikers</h2>
+            <p className="text-xs text-muted-foreground mb-3">Alleen accounts; gasten staan niet in deze lijst.</p>
             <div className="space-y-2">
+              {recentUsers.length === 0 && <p className="text-sm text-muted-foreground">Nog geen accounts.</p>}
               {recentUsers.map((u) => (
-                <div key={u.id} className="flex items-center justify-between p-3 rounded-md border">
-                  <div>
-                    <p className="font-medium text-sm">{u.name ?? u.email}</p>
-                    <p className="text-xs text-muted-foreground">{u.email}</p>
+                <div key={u.id} className="flex items-center justify-between gap-2 p-3 rounded-md border">
+                  <div className="min-w-0">
+                    <p className="font-medium text-sm break-words">{u.name ?? u.email}</p>
+                    <p className="text-xs text-muted-foreground break-all">{u.email}</p>
                   </div>
-                  <Badge variant="outline">{u.plan}</Badge>
+                  <Badge variant="outline" className="shrink-0">{u.plan}</Badge>
                 </div>
               ))}
             </div>
@@ -355,12 +348,13 @@ function WorkCard({ href, label, value, sub, urgent }: { href: string; label: st
   );
 }
 
-function StatCard({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
+function StatCard({ icon, label, value, hint }: { icon: React.ReactNode; label: string; value: string; hint?: string }) {
   return (
     <Card>
       <CardContent className="p-4">
         <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1">{icon} {label}</div>
         <p className="font-heading text-2xl font-bold">{value}</p>
+        {hint && <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>}
       </CardContent>
     </Card>
   );

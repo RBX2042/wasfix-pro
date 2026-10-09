@@ -8,6 +8,18 @@ import type { ActionState } from "./guard";
 
 type Action = (prev: ActionState | null, fd: FormData) => Promise<ActionState>;
 
+/** Set by ActionForm while its action runs, so the submit button knows even though the form has no `action` prop. */
+const PendingContext = React.createContext(false);
+
+/**
+ * False until ActionForm has hydrated. The form has no `action` prop, so before React attaches its
+ * onSubmit a click (or Enter, or a browser with scripting off) would submit it natively: a GET to the
+ * current page with every field, amounts and cancellation reasons included, in the address bar and the
+ * history. A disabled submit button also blocks implicit submission with Enter. Outside an ActionForm
+ * the default is true: those forms are bound with `action` and React blocks the native submit itself.
+ */
+const HydratedContext = React.createContext(true);
+
 /** Submit button that disables itself while the action runs: the first line of defence against a double click. */
 export function Submit({ children, variant = "default", size = "sm", className }: {
   children: React.ReactNode;
@@ -15,9 +27,12 @@ export function Submit({ children, variant = "default", size = "sm", className }
   size?: "sm" | "default";
   className?: string;
 }) {
-  const { pending } = useFormStatus();
+  const status = useFormStatus();
+  const running = React.useContext(PendingContext);
+  const hydrated = React.useContext(HydratedContext);
+  const pending = status.pending || running;
   return (
-    <Button type="submit" size={size} variant={variant} disabled={pending} className={className}>
+    <Button type="submit" size={size} variant={variant} disabled={pending || !hydrated} className={className}>
       {pending ? "Bezig…" : children}
     </Button>
   );
@@ -31,11 +46,18 @@ export function Submit({ children, variant = "default", size = "sm", className }
  * very form in the same render (the card moves to another list or shows other buttons), and an
  * effect of an unmounted component never runs. The first version used useActionState with an
  * effect and the success message of "betaling geboekt" was never shown (seen in the browser).
- * A form action that is a client function keeps useFormStatus (the pending button) working.
+ *
+ * The form is submitted with onSubmit and NOT through the `action` prop. React 19 resets an
+ * uncontrolled form after every action, failed ones included, so a refused "markeer betaald"
+ * (one cent off) wiped the amount the owner had just typed and made them type it again from the
+ * bank statement. Here the form is only reset when the action SUCCEEDED.
  */
 export function ActionForm({ action, children, className }: { action: Action; children: React.ReactNode; className?: string }) {
   const [state, setState] = React.useState<ActionState | null>(null);
-  const run = async (fd: FormData) => {
+  const [pending, startTransition] = React.useTransition();
+  const [hydrated, setHydrated] = React.useState(false);
+  React.useEffect(() => setHydrated(true), []);
+  const run = async (fd: FormData): Promise<ActionState> => {
     let res: ActionState;
     try {
       res = await action(null, fd);
@@ -45,10 +67,23 @@ export function ActionForm({ action, children, className }: { action: Action; ch
     if (res.ok) toast.success(res.message ?? "Gelukt", { duration: 12000 });
     else toast.error(res.error ?? "Mislukt", { duration: 12000 });
     setState(res);
+    return res;
+  };
+  const onSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    if (pending || !hydrated) return;
+    const form = e.currentTarget;
+    const fd = new FormData(form);
+    startTransition(async () => {
+      const res = await run(fd);
+      if (res.ok) form.reset();
+    });
   };
   return (
-    <form action={run} className={className}>
-      {children}
+    <form onSubmit={onSubmit} className={className}>
+      <HydratedContext.Provider value={hydrated}>
+        <PendingContext.Provider value={pending}>{children}</PendingContext.Provider>
+      </HydratedContext.Provider>
       {state && !state.ok && state.error && (
         <p role="alert" className="mt-2 text-sm text-destructive break-words">{state.error}</p>
       )}

@@ -13,8 +13,9 @@ import { FileText, Landmark, Printer, Search } from "lucide-react";
 import { AdminShell } from "../_lib/page-shell";
 import { AdminNav } from "../_lib/admin-nav";
 import { dateNl, dateTimeNl, eur, parseShippingAddress, stripeDashboardUrl } from "../_lib/format";
-import { ORDER_VIEWS, VIEW_LABEL, isOrderView, listOrders, orderCounts, type OrderRow, type OrderView } from "../_lib/orders-query";
-import { CancelForm, DeliverForm, MarkPaidForm, RefundForm, ShipForm, TrackingForm } from "./order-actions";
+import { ORDER_VIEWS, VIEW_LABEL, isFullyRefunded, isOrderView, listOrders, orderCounts, type OrderRow, type OrderView } from "../_lib/orders-query";
+import { restockedFromNotes } from "@/lib/invoicing";
+import { CancelForm, DeliverForm, IssueInvoiceForm, MarkPaidForm, RefundForm, ResendMailForm, ShipForm, TrackingForm, type ResendKind } from "./order-actions";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Admin: bestellingen" };
@@ -73,6 +74,9 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
             {counts["te-verzenden"]} te verzenden · {counts["te-betalen"]} wachten op betaling
             {counts.overdue > 0 && <span className="text-red-600 font-medium"> ({counts.overdue} te laat)</span>}
             {counts.shipLate > 0 && <span className="text-amber-600 font-medium"> · {counts.shipLate} betaald en al meer dan 2 dagen niet verzonden</span>}
+            {counts["zonder-factuur"] > 0 && (
+              <span className="text-red-600 font-medium"> · <Link className="underline" href={href("zonder-factuur", "", 1)}>{counts["zonder-factuur"]} betaald zonder factuur</Link></span>
+            )}
           </p>
         </div>
         <div className="flex gap-2">
@@ -144,6 +148,13 @@ function OrderCard({ order: o, now }: { order: OrderRow; now: Date }) {
   const daysLate = overdue && o.dueAt ? Math.max(1, Math.floor((now.getTime() - o.dueAt.getTime()) / 86_400_000)) : 0;
   const remaining = Math.round((o.totalEur - o.refundedEur) * 100) / 100;
   const credited = o.invoice?.creditNotes ?? [];
+  const fullyRefunded = isFullyRefunded(o);
+  const paidState = status === "PAID" || status === "SHIPPED" || status === "DELIVERED";
+  // Units that earlier refunds already put back on the shelf: the restock boxes offer what is LEFT.
+  const restocked = restockedFromNotes(credited);
+  // The one customer mail that belongs to this state, for the "send again" button.
+  const resendKind: ResendKind | null =
+    bank && status === "OPENSTAAND" ? "bank-instructions" : paidState && !bank ? "order-paid" : paidState && bank ? "payment-received" : null;
   const track = o.trackingCode ? trackingUrl(o.carrier, o.trackingCode, addr.postalCode) : null;
   const stripeUrl = stripeDashboardUrl(o.stripePaymentIntentId);
 
@@ -174,6 +185,7 @@ function OrderCard({ order: o, now }: { order: OrderRow; now: Date }) {
               <span className="font-mono text-sm font-semibold">#{orderRef(o.id)}</span>
               {o.invoice && <span className="font-mono text-sm" title="Factuurnummer: dit staat op het bankafschrift">Factuur {o.invoice.number}</span>}
               <Badge variant={STATUS_VARIANT[status]}>{ORDER_STATUS_LABEL[status]}</Badge>
+              {fullyRefunded && <Badge variant="secondary">Volledig terugbetaald</Badge>}
               {bank ? <Badge variant="secondary"><Landmark className="h-3 w-3 mr-1 inline" />Op rekening</Badge> : <Badge variant="outline">Stripe (kaart/iDEAL)</Badge>}
               {overdue && <Badge variant="danger">{daysLate} dag{daysLate === 1 ? "" : "en"} te laat</Badge>}
             </div>
@@ -242,31 +254,36 @@ function OrderCard({ order: o, now }: { order: OrderRow; now: Date }) {
 
         <div className="flex flex-wrap items-center gap-2">
           {o.invoice && <Button asChild variant="ghost" size="sm" className="text-xs"><Link href={`/bestelling/${o.id}/factuur`}><FileText className="h-3 w-3" /> Factuur</Link></Button>}
+          {credited.map((c) => (
+            <Button key={c.number} asChild variant="ghost" size="sm" className="text-xs"><Link href={`/bestelling/${o.id}/creditnota/${c.number}`}><FileText className="h-3 w-3" /> {c.number}</Link></Button>
+          ))}
+          {resendKind && <ResendMailForm orderId={o.id} kind={resendKind} />}
           {(status === "PAID" || status === "SHIPPED" || status === "DELIVERED") && (
             <Button asChild variant="ghost" size="sm" className="text-xs"><Link href={`/admin/bestellingen/${o.id}/pakbon`}><Printer className="h-3 w-3" /> Pakbon</Link></Button>
           )}
         </div>
 
         <div className="grid gap-3 md:grid-cols-2">
+          {paidState && !o.invoice && <IssueInvoiceForm orderId={o.id} />}
           {status === "OPENSTAAND" && bank && <MarkPaidForm orderId={o.id} totalLabel={eur(o.totalEur)} />}
-          {status === "CANCELLED" && bank && credited.length === 0 && <MarkPaidForm orderId={o.id} totalLabel={eur(o.totalEur)} late />}
-          {status === "CANCELLED" && bank && credited.length > 0 && (
+          {status === "CANCELLED" && bank && (
             <p className="rounded-md border bg-muted/20 p-3 text-sm text-muted-foreground">
-              Deze bestelling is geannuleerd en de factuur is gecrediteerd ({credited.map((c) => c.number).join(", ")}). Komt er toch nog een betaling binnen, dan kan de bestelling niet worden hersteld: betaal het bedrag terug of laat de klant opnieuw bestellen.
+              Deze bestelling is geannuleerd{credited.length > 0 ? ` en de factuur is gecrediteerd (${credited.map((c) => c.number).join(", ")})` : ""}. Komt er toch nog een betaling binnen, dan kan de bestelling niet worden hersteld: de onderdelen zijn weer vrijgegeven. Betaal het bedrag terug of laat de klant opnieuw bestellen.
             </p>
           )}
           {status === "PAID" && <ShipForm orderId={o.id} />}
-          {status === "SHIPPED" && <DeliverForm orderId={o.id} />}
+          {status === "SHIPPED" && !fullyRefunded && <DeliverForm orderId={o.id} />}
           {(status === "SHIPPED" || status === "DELIVERED") && <TrackingForm orderId={o.id} carrier={o.carrier} trackingCode={o.trackingCode} />}
-          {(status === "PENDING" || status === "OPENSTAAND" || status === "PAID") && <CancelForm orderId={o.id} consequences={cancelConsequences} />}
-          {(status === "PAID" || status === "SHIPPED" || status === "DELIVERED") && o.invoice && remaining > 0 && (
+          {(status === "PENDING" || status === "OPENSTAAND" || status === "PAID") && <CancelForm orderId={o.id} status={status} consequences={cancelConsequences} />}
+          {paidState && o.invoice && remaining > 0 && (
             <RefundForm
               orderId={o.id}
               remainingEur={remaining}
               expectedRefundedEur={o.refundedEur}
               idempotencyKey={randomUUID()}
-              items={o.items.map((i) => ({ partId: i.partId, sku: i.part.sku, quantity: i.quantity }))}
+              items={o.items.map((i) => ({ partId: i.partId, sku: i.part.sku, ordered: i.quantity, quantity: Math.max(0, i.quantity - (restocked.get(i.partId) ?? 0)) }))}
               how={refundHow}
+              canRestock={status === "SHIPPED" || status === "DELIVERED"}
             />
           )}
         </div>

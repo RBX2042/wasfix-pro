@@ -20,6 +20,7 @@ import http from "node:http";
 import os from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
+import net from "node:net";
 import { spawn } from "node:child_process";
 import { alternateHost, checkAppUrl, siteUrl, type EnvLike } from "../src/lib/site-url";
 import { AlertGate, ErrorReporter, firstLine, makeErrorSink, normaliseForSignature, pathOnly, reportableFields, startupProblems } from "../src/lib/monitoring";
@@ -618,6 +619,236 @@ function section11_docs() {
   check(/per serverinstantie/.test(blocked.slice(blocked.indexOf("afkoelperiode"))), "BLOCKED.md says the hourly cap is per server instance");
 }
 
+/**
+ * A TCP proxy in front of Postgres whose traffic can be frozen, as the rehearsal used: the connections stay open and
+ * warm, nothing is forwarded any more. That is what a hung database looks like to the application.
+ */
+async function stallProxy(target: URL) {
+  let frozen = false;
+  // When armed, the proxy freezes at the moment the client sends COMMIT (a simple-query message "Q ... COMMIT\0")
+  // and withholds that message: the transaction's last step is the one that never gets answered.
+  let freezeAtCommit = false;
+  const COMMIT_MSG = Buffer.from("COMMIT\0");
+  const socks = new Set<net.Socket>();
+  const server = net.createServer((client) => {
+    const upstream = net.connect(Number(target.port || 5432), target.hostname);
+    socks.add(client);
+    socks.add(upstream);
+    const pipe = (from: net.Socket, to: net.Socket, fromClient = false) => {
+      from.on("data", (d) => {
+        if (fromClient && freezeAtCommit && d.includes(COMMIT_MSG)) { frozen = true; freezeAtCommit = false; }
+        if (!frozen) return void to.write(d);
+        from.pause();
+        const t = setInterval(() => { if (!frozen) { clearInterval(t); to.write(d); from.resume(); } }, 50);
+      });
+      from.on("close", () => to.destroy());
+      from.on("error", () => to.destroy());
+    };
+    pipe(client, upstream, true);
+    pipe(upstream, client);
+  });
+  await new Promise<void>((r) => server.listen(0, "127.0.0.1", r));
+  const port = (server.address() as AddressInfo).port;
+  return {
+    port,
+    urlFor: (extra = "") => { const u = new URL(target.toString()); u.hostname = "127.0.0.1"; u.port = String(port); return u.toString() + extra; },
+    freeze: () => { frozen = true; },
+    freezeOnCommit: () => { freezeAtCommit = true; },
+    thaw: () => { frozen = false; },
+    close: () => { for (const s of socks) s.destroy(); server.close(); },
+  };
+}
+
+async function section12_bundleFB() {
+  note("bundle FB: database timeout (R2-17), fallback stock (R2-10), public host (R2-19), share image (R2-06)");
+  const { databaseUrlWithTimeouts, DB_SOCKET_TIMEOUT_SECONDS, DB_QUERY_TIMEOUT_MS, withDeadline } = await import("../src/lib/prisma");
+  const { absoluteUrl, clientSiteUrl } = await import("../src/lib/site-url");
+
+  // ── pure ──
+  check(databaseUrlWithTimeouts("postgresql://u:p@h:6543/db?pgbouncer=true&connection_limit=1") === `postgresql://u:p@h:6543/db?pgbouncer=true&connection_limit=1&socket_timeout=${DB_SOCKET_TIMEOUT_SECONDS}` && databaseUrlWithTimeouts("postgresql://u:p@h/db") === `postgresql://u:p@h/db?socket_timeout=${DB_SOCKET_TIMEOUT_SECONDS}`, `DATABASE_URL gets socket_timeout=${DB_SOCKET_TIMEOUT_SECONDS} appended, behind a pooler URL too (it is a client-side parameter: a pgbouncer transaction pooler would refuse a statement_timeout startup option)`);
+  check(databaseUrlWithTimeouts("postgresql://u:p@h/db?socket_timeout=3") === "postgresql://u:p@h/db?socket_timeout=3" && databaseUrlWithTimeouts("") === undefined && databaseUrlWithTimeouts("  ") === undefined, "an explicit socket_timeout in DATABASE_URL wins; no URL stays no URL");
+  check(DB_QUERY_TIMEOUT_MS > 0 && DB_QUERY_TIMEOUT_MS * 2 < 30_000, `the per-query deadline (${DB_QUERY_TIMEOUT_MS} ms) is far below the 30 s maxDuration of POST /api/checkout`);
+  const slow = withDeadline(new Promise<number>((r) => setTimeout(() => r(1), 400)), 100, "qa");
+  const fast = withDeadline(Promise.resolve(7), 100, "qa");
+  const [slowRes, fastRes] = await Promise.allSettled([slow, fast]);
+  check(slowRes.status === "rejected" && (slowRes.reason as { code?: string; constructor: { name: string } }).code === "P1008" && /^PrismaClient/.test((slowRes.reason as object).constructor.name) && fastRes.status === "fulfilled" && fastRes.value === 7, "withDeadline(): a slow call is rejected with a PrismaClientKnownRequestError P1008 (so checkout's isPrismaError maps it to a 503 and an owner alert), a fast one passes through");
+
+  // ── R2-19: URLs are built from NEXT_PUBLIC_APP_URL ──
+  const prod = { NODE_ENV: "production", NEXT_PUBLIC_APP_URL: "https://shop.example.nl" };
+  check(absoluteUrl("/onderdelen/WF-PUMP-01", prod) === "https://shop.example.nl/onderdelen/WF-PUMP-01" && absoluteUrl("gidsen", prod) === "https://shop.example.nl/gidsen" && absoluteUrl("/x", { NODE_ENV: "production", NEXT_PUBLIC_APP_URL: "wasfix.nl" }) === "/x" && absoluteUrl("/x", { NODE_ENV: "development" }) === "http://localhost:3000/x", "absoluteUrl(): the configured host; the bare path (never a wrong host) when production has no usable address; localhost in development");
+  check(typeof clientSiteUrl === "function", "clientSiteUrl() exists for client components (literal process.env reads that the bundler inlines)");
+  const offenders: string[] = [];
+  const ALLOWED = new Set(["src/lib/site-url.ts", "src/app/layout.tsx"]);
+  const walkSrc = (dir: string) => {
+    for (const e of fs.readdirSync(dir, { withFileTypes: true })) {
+      const p = path.join(dir, e.name);
+      if (e.isDirectory()) walkSrc(p);
+      else if (/\.(ts|tsx)$/.test(e.name) && ALLOWED.has(path.relative(ROOT, p)) === false && /https:\/\/wasfix\.nl/.test(fs.readFileSync(p, "utf8"))) offenders.push(path.relative(ROOT, p));
+    }
+  };
+  walkSrc(path.join(ROOT, "src"));
+  check(offenders.length === 0, "no source file hard-codes the public host https://wasfix.nl (JSON-LD, breadcrumbs, API productUrl/buyUrl/detailUrl, QR scanUrl, API_DOCS_URL, docs examples); allowed: layout.tsx fallback, site-url.ts docs", `hard-coded https://wasfix.nl in: ${offenders.join(", ")}`);
+
+  // ── R2-06: the share image ──
+  const og = fs.readFileSync(path.join(ROOT, "src/app/opengraph-image.tsx"), "utf8");
+  check(!/Powered by|Gemini/i.test(og.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")) && /siteUrl\(\)/.test(og) && !/wasfix\.nl/.test(og.replace(/\/\*[\s\S]*?\*\//g, "").replace(/\/\/.*$/gm, "")), "share image: no 'Powered by Gemini' line (it claimed an AI provider whatever the configuration), and the host comes from siteUrl() (the rendered PNG was looked at: see the report)");
+
+  // ── R2-10: fallback stock ──
+  const stockProbe = `
+    const sdb = await imp("@repo/src/lib/static-db.ts");
+    const one = await sdb.dbPart("WF-BELT-05");
+    const pub = await sdb.dbPublicPart("WF-BELT-05");
+    const list = await sdb.dbParts({ orderBy: "stock-desc" });
+    const rel = await sdb.dbRelatedParts("BELT", "x", 4);
+    const full = await sdb.dbPartFull("WF-BELT-05");
+    console.log("RESULT " + JSON.stringify({ one: one?.stock, pub: pub?.stock, listMax: Math.max(...list.map((p) => p.stock)), listLen: list.length, relStocks: rel.map((p) => p.stock), full: full?.stock }));`;
+  const parseResult = (r: Sub) => JSON.parse((r.out.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as Record<string, number | number[]>;
+  const parseStrings = (r: Sub) => JSON.parse((r.out.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as Record<string, string>;
+  const noDb = parseResult(await sub(stockProbe, { NODE_ENV: "test" }, ["--conditions=react-server"]));
+  check(noDb.one === 124 && noDb.pub === 124 && Number(noDb.listMax) > 0, "no database configured at all (static demo, tests): the JSON demo stock is kept (WF-BELT-05 = 124)", JSON.stringify(noDb));
+  const down = parseResult(await sub(stockProbe, { NODE_ENV: "test", DATABASE_URL: "postgresql://wasfix:wasfix@127.0.0.1:1/none?connect_timeout=2" }, ["--conditions=react-server"]));
+  check(down.one === 0 && down.pub === 0 && down.listMax === 0 && Number(down.listLen) === 96 && (down.relStocks as number[]).every((n) => n === 0) && down.full === 0, "database configured but unreachable: the fallback serves the catalogue with stock 0 everywhere (single part, public part, list, related parts, full part), never 'op voorraad' (fails before: WF-BELT-05 = 124)", JSON.stringify(down));
+
+  // ── the wrapper must be invisible when the database works ──
+  if (process.env.DATABASE_URL && /^postgres/.test(process.env.DATABASE_URL)) {
+    const happy = parseStrings(await sub(`
+      const { prisma } = await imp("@repo/src/lib/prisma.ts");
+      const tag = "qa-wrapper-" + Date.now();
+      const out = {};
+      out.batch = (await prisma.$transaction([prisma.part.count(), prisma.user.count()])).every((n) => typeof n === "number") ? "ok" : "bad";
+      out.value = await prisma.$transaction(async (t) => (await t.part.count()) >= 0 ? "ok" : "bad", { timeout: 5000, maxWait: 2000 });
+      // a callback that throws: the caller gets the callback's OWN error (not a timeout), and nothing was written
+      try { await prisma.$transaction(async (t) => { await t.newsletterSubscriber.create({ data: { email: tag + "@wrapper.test" } }); throw new Error("callback boom"); }); out.rollback = "returned"; }
+      catch (e) { out.rollback = e.message === "callback boom" ? "own error" : "other: " + e.message; }
+      out.rolledBack = (await prisma.newsletterSubscriber.count({ where: { email: tag + "@wrapper.test" } })) === 0 ? "nothing written" : "ROW LEFT BEHIND";
+      // a real Prisma error still carries its own code
+      try { await prisma.newsletterSubscriber.create({ data: { email: tag + "@wrapper.test" } }); await prisma.newsletterSubscriber.create({ data: { email: tag + "@wrapper.test" } }); out.p2002 = "returned"; }
+      catch (e) { out.p2002 = e.code; }
+      await prisma.newsletterSubscriber.deleteMany({ where: { email: tag + "@wrapper.test" } });
+      console.log("RESULT " + JSON.stringify(out));
+      process.exit(0);`, { DATABASE_URL: process.env.DATABASE_URL }));
+    check(happy.batch === "ok" && happy.value === "ok" && happy.rollback === "own error" && happy.rolledBack === "nothing written" && happy.p2002 === "P2002", "database up: the deadline wrapper is invisible (batch and interactive transactions return, a throwing callback surfaces ITS error and rolls back, a unique violation still says P2002)", JSON.stringify(happy));
+  }
+
+  // ── R2-17: a frozen database ──
+  const dbUrl = process.env.DATABASE_URL;
+  if (!dbUrl || !/^postgres/.test(dbUrl)) {
+    note("SKIPPED the frozen-database proof: set DATABASE_URL to a migrated local database");
+    return;
+  }
+  const target = new URL(dbUrl);
+  const proxy = await stallProxy(target);
+  // The child cannot reach the parent's proxy object, so it freezes by talking to a control socket.
+  const control = net.createServer((c) => { c.on("data", (d) => { if (String(d).startsWith("commit")) proxy.freezeOnCommit(); else proxy.freeze(); c.end("ok"); }); });
+  await new Promise<void>((r) => control.listen(0, "127.0.0.1", r));
+  const controlPort = (control.address() as AddressInfo).port;
+  const withFreeze = (src: string) => `import net from "node:net";\nglobalThis.__freeze = () => new Promise((r) => { const c = net.connect(${controlPort}, "127.0.0.1"); c.on("data", () => {}); c.on("close", r); c.write("freeze"); });\nglobalThis.__freezeOnCommit = () => new Promise((r) => { const c = net.connect(${controlPort}, "127.0.0.1"); c.on("data", () => {}); c.on("close", r); c.write("commit"); });\n` + src;
+  const parse = (r: Sub) => JSON.parse((r.out.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as Record<string, string>;
+  const ms = (v: string | undefined) => Number(/after (\d+)/.exec(v ?? "")?.[1] ?? -1);
+  const limit = DB_QUERY_TIMEOUT_MS;
+  // P1008 = our deadline (or Prisma's socket limit); P1001 = a NEW connection that could not be set up within Prisma's own 5 s connect timeout
+  // (the pool opens extra connections when several calls arrive at once). Both are fine: the point is that the call FAILS, in bounded time.
+  const inWindow = (v: string | undefined, extra = 0) => /^P100[18] after/.test(v ?? "") && ms(v) > 0 && ms(v) < limit + extra + 2500;
+  try {
+    // 1. Five kinds of call on a database whose connections are open and warm but no longer answer. The statements below
+    //    were NOT run before the freeze: Prisma's own socket_timeout does not cover those (that is the measured gap).
+    const kinds = parse(await sub(withFreeze(`
+      const { prisma } = await imp("@repo/src/lib/prisma.ts");
+      await prisma.part.count();                      // a warm pooled connection with one prepared statement
+      await globalThis.__freeze();
+      const t0 = Date.now();
+      const run = async (fn) => { try { await fn(); return "returned"; } catch (e) { return (e.code ?? e.name) + " after " + (Date.now() - t0); } };
+      const r = await Promise.all([
+        run(() => prisma.part.findMany({ where: { sku: { in: ["a", "b"] } }, select: { id: true } })),   // a statement this connection has not seen
+        run(() => prisma.user.count()),                                                                    // another model
+        run(() => prisma.$queryRaw\`SELECT 1\`),                                                              // raw
+        run(() => prisma.$transaction(async (t) => { await t.order.count(); }, { timeout: 20000, maxWait: 8000 })),  // the start of an interactive transaction (BEGIN)
+        run(() => prisma.$transaction([prisma.part.count(), prisma.user.count()])),                        // the array form
+      ]);
+      console.log("RESULT " + JSON.stringify({ findMany: r[0], otherModel: r[1], raw: r[2], tx: r[3], batch: r[4] }));
+      process.exit(0);`), { DATABASE_URL: proxy.urlFor(target.search ? "&connection_limit=3" : "?connection_limit=3") }));
+    check(Object.values(kinds).length === 5 && Object.values(kinds).every((v) => inWindow(v)), `frozen database: a new statement, another model, a raw query, the start of an interactive transaction and a batch transaction ALL fail (P1008 at the ${limit} ms deadline, or P1001 when a new connection cannot be set up) within ${limit + 2500} ms instead of hanging (${Object.values(kinds).join(" | ")}). Before: each of them hung for the whole 40 s of the test`, JSON.stringify(kinds));
+    proxy.thaw();
+
+    // 2. A transaction that freezes in the middle: the query that stalls is bounded, and the caller is not kept waiting for the ROLLBACK.
+    const mid = parse(await sub(withFreeze(`
+      const { prisma } = await imp("@repo/src/lib/prisma.ts");
+      await prisma.part.count();
+      const t0 = Date.now();
+      let tx = "returned", msg = "";
+      try { await prisma.$transaction(async (t) => { await t.part.count(); await globalThis.__freeze(); await t.order.findMany({ take: 1, select: { id: true } }); }, { timeout: 20000, maxWait: 8000 }); } catch (e) { tx = (e.code ?? e.name) + " after " + (Date.now() - t0); msg = String(e.message); }
+      console.log("RESULT " + JSON.stringify({ tx, msg }));
+      process.exit(0);`), { DATABASE_URL: proxy.urlFor(target.search ? "&connection_limit=3" : "?connection_limit=3") }));
+    // The error text must be OUR deadline ("within 8000 ms"): P1001/P1008 inside the window could also be Prisma's own connect or socket timeout.
+    check(/^P1008 after/.test(mid.tx) && inWindow(mid.tx, 2000) && ms(mid.tx) >= limit - 200 && new RegExp(`within ${limit} ms`).test(mid.msg), `frozen in the middle of a transaction: the stalled query fails and the caller gets that error ${ms(mid.tx)} ms in (deadline plus at most 2 s for the rollback), not after the 20 s transaction limit`, JSON.stringify(mid));
+    proxy.thaw();
+
+    // 2b. A freeze that lands exactly on the COMMIT. COMMIT is not a query, so the per-query deadline never sees it:
+    //     with the options of the bank-transfer checkout the caller used to wait 30.0 s (maxWait + timeout + 2 s) = the
+    //     platform limit, with no 503 and no alert. Run with those options AND with the defaults. The wrapper itself must be
+    //     the cause, so the error text has to name the commit: Prisma's own connect timeout would say something else.
+    const commitRun = async (opts: string) => parse(await sub(withFreeze(`
+      const { prisma } = await imp("@repo/src/lib/prisma.ts");
+      await prisma.part.count();
+      const t0 = Date.now();
+      let tx = "returned", msg = "";
+      try { await prisma.$transaction(async (t) => { await t.part.count(); await globalThis.__freezeOnCommit(); }, ${opts}); } catch (e) { tx = (e.code ?? e.name) + " after " + (Date.now() - t0); msg = String(e.message); }
+      console.log("RESULT " + JSON.stringify({ tx, msg }));
+      process.exit(0);`), { DATABASE_URL: proxy.urlFor(target.search ? "&connection_limit=3&sslmode=disable" : "?connection_limit=3&sslmode=disable") }));
+    // sslmode=disable: over TLS the proxy cannot read the COMMIT message (it was measured: with TLS the freeze never triggers and the transaction just returns).
+    const commitBig = await commitRun("{ timeout: 20000, maxWait: 8000 }");
+    proxy.thaw();
+    const commitDefault = await commitRun("undefined");
+    proxy.thaw();
+    check(/^P1008 after/.test(commitBig.tx) && ms(commitBig.tx) < limit + 2500 && /commit/.test(commitBig.msg) && /^P1008 after/.test(commitDefault.tx) && ms(commitDefault.tx) < limit + 2500 && /commit/.test(commitDefault.msg),
+      `frozen on the COMMIT: the caller gets P1008 naming the commit after ${ms(commitBig.tx)} ms with checkout's options (maxWait 8 s, timeout 20 s) and ${ms(commitDefault.tx)} ms with the defaults, not after 30 s (fails before: 30.0 s with checkout's options, no wrapper timer on the commit)`, JSON.stringify({ commitBig, commitDefault }));
+    // A transaction that asks for a 60 s timeout on a HEALTHY database but runs on (a slow callback): the caller is still released at the cap,
+    // before the 30 s platform kill. (The proxy is thawed; this talks to the database directly.)
+    const capped = parse(await sub(`
+      const { prisma, DB_TRANSACTION_CAP_MS } = await imp("@repo/src/lib/prisma.ts");
+      await prisma.part.count();
+      const t0 = Date.now();
+      let tx = "returned", msg = "";
+      try { await prisma.$transaction(async (t) => { await t.part.count(); await new Promise((r) => setTimeout(r, 40000)); }, { timeout: 60000, maxWait: 8000 }); } catch (e) { tx = (e.code ?? e.name) + " after " + (Date.now() - t0); msg = String(e.message); }
+      console.log("RESULT " + JSON.stringify({ tx, msg, cap: String(DB_TRANSACTION_CAP_MS) }));
+      process.exit(0);`, { DATABASE_URL: dbUrl }));
+    check(/^P1008 after/.test(capped.tx) && ms(capped.tx) >= 24_000 && ms(capped.tx) < 28_000 && Number(capped.cap) < 30_000, `a transaction that asks for a 60 s timeout is still released at the ${capped.cap} ms cap (${ms(capped.tx)} ms), before the 30 s maxDuration of the routes (fails before: it kept the caller until the platform killed the request)`, JSON.stringify(capped));
+
+    // 3. End to end: POST /api/checkout answers 503 and the owner is told.
+    const slackBodies: string[] = [];
+    const slack = http.createServer((req, res) => { let b = ""; req.on("data", (c) => (b += c)); req.on("end", () => { slackBodies.push(b); res.end("ok"); }); });
+    await new Promise<void>((r) => slack.listen(0, "127.0.0.1", r));
+    const slackUrl = `http://127.0.0.1:${(slack.address() as AddressInfo).port}/hook`;
+    const e2e = await sub(withFreeze(`
+      const { prisma } = await imp("@repo/src/lib/prisma.ts");
+      const { NextRequest } = await imp("@repo/node_modules/next/server.js");
+      const route = await imp("@repo/src/app/api/checkout/route.ts");
+      await prisma.part.count();
+      await globalThis.__freeze();
+      const t0 = Date.now();
+      const res = await route.POST(new NextRequest("http://localhost/api/checkout", { method: "POST", headers: { "content-type": "application/json", "x-vercel-forwarded-for": "10.9.8.7" }, body: JSON.stringify({
+        items: [{ sku: "WF-PUMP-01", quantity: 1 }], email: "qa@frozen.test", name: "Piet Jansen", phone: "06 12345678", paymentMethod: "bank_transfer",
+        address: { street: "Teststraat", houseNumber: "1", postalCode: "1011 AB", city: "Amsterdam" } }) }));
+      const json = await res.json();
+      console.log("RESULT " + JSON.stringify({ status: res.status, code: json.code, ms: Date.now() - t0 }));
+      await new Promise((r) => setTimeout(r, 800));
+      process.exit(0);`), {
+      DATABASE_URL: proxy.urlFor(target.search ? "&connection_limit=3" : "?connection_limit=3"), SLACK_WEBHOOK_URL: slackUrl, VERCEL: "1", NODE_ENV: "test",
+      COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789", COMPANY_EMAIL: "qa@frozen.test",
+    }, ["--conditions=react-server"]);
+    const r = JSON.parse((e2e.out.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as { status?: number; code?: string; ms?: number };
+    const told = slackBodies.map((b) => { try { return String(JSON.parse(b).text); } catch { return b; } }).join(" | ");
+    // Each database call that needs a NEW connection fails after Prisma's own 5 s connect timeout, and checkout makes two of them in a row (the
+    // optional sign-in lookup, then the catalogue), so a fully frozen database costs 8 to 13 s here: far below the 30 s platform limit and the
+    // 75+ s of the rehearsal. The assertion is the bound, not the exact number.
+    check(r.status === 503 && r.code === "unavailable" && Number(r.ms) < 20_000 && /\/api\/checkout/.test(told), `frozen database: POST /api/checkout answers 503 'unavailable' after ${r.ms} ms (before: no answer in 75 s) and the owner is notified in Slack (${told.replace(/\s+/g, " ").slice(0, 90)})`, `checkout on a frozen database: ${JSON.stringify(r)} slack: ${told.slice(0, 200)} ${e2e.err.slice(-300)}`);
+    slack.close();
+  } finally {
+    control.close();
+    proxy.close();
+  }
+}
+
 async function main() {
   await section1_siteUrl();
   await section1c_cartGate();
@@ -634,6 +865,7 @@ async function main() {
   await section9_serviceWorker();
   section10_envExample();
   section11_docs();
+  await section12_bundleFB();
   fs.rmSync(tmp, { recursive: true, force: true });
   process.exit(finish());
 }

@@ -6,6 +6,10 @@ import { Code, Shield, BarChart, Zap } from "lucide-react";
 import { PLAN_API_HOURLY_BURST, PLAN_API_MONTHLY_CALLS } from "@/lib/api-auth";
 import { PLANS, formatPlanPrice } from "@/lib/plans";
 import { apiAccountDailyCalls } from "@/lib/ai-guard";
+import { siteUrl } from "@/lib/site-url";
+
+// The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
+const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
 export const metadata = { title: "API toegang" };
 
@@ -70,7 +74,7 @@ export default function ApiPage() {
           <CardContent className="p-6">
             <h2 className="font-heading text-xl font-semibold mb-3">Voorbeeld: diagnose-endpoint</h2>
             <pre className="bg-muted text-xs p-4 rounded-md overflow-x-auto">
-{`curl -X POST https://wasfix.nl/api/v1/diagnose \\
+{`curl -X POST ${SITE}/api/v1/diagnose \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

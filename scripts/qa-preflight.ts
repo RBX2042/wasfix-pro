@@ -68,11 +68,11 @@ let seq = 0;
 
 type Run = { code: number; report: { verdict: string; blockers: number; warnings: number; checks: Array<{ group: string; level: string; message: string; fix?: string }> } | null; text: string };
 
-function runCli(env: Record<string, string | undefined>, extra: string[] = []): Promise<Run> {
+function runCli(env: Record<string, string | undefined>, extra: string[] = [], json = true): Promise<Run> {
   const file = path.join(dir, `env-${++seq}.env`);
   fs.writeFileSync(file, Object.entries(env).filter(([, v]) => v !== undefined).map(([k, v]) => `${k}="${v}"`).join("\n"));
   return new Promise((resolve) => {
-    const child = spawn("npx", ["--no-install", "tsx", "--conditions=react-server", "scripts/preflight.ts", "--env-file", file, "--json", ...extra], { cwd: process.cwd(), env: { PATH: process.env.PATH, HOME: process.env.HOME } as unknown as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] as const });
+    const child = spawn("npx", ["--no-install", "tsx", "--conditions=react-server", "scripts/preflight.ts", "--env-file", file, ...(json ? ["--json"] : []), ...extra], { cwd: process.cwd(), env: { PATH: process.env.PATH, HOME: process.env.HOME } as unknown as NodeJS.ProcessEnv, stdio: ["ignore", "pipe", "pipe"] as const });
     let out = "";
     let err = "";
     child.stdout.on("data", (d) => (out += d));
@@ -109,6 +109,7 @@ const CASES: Case[] = [
   { name: "COMPANY_KVK test number is only a warning on staging", env: { ...GOOD, COMPANY_KVK: "90000001" }, args: ["--target", "staging"], expect: "warn", mention: /COMPANY_KVK/ },
   { name: "COMPANY_VAT malformed", env: { ...GOOD, COMPANY_VAT: "NL123" }, expect: "block", mention: /COMPANY_VAT/ },
   { name: "COMPANY_EMAIL missing", env: without("COMPANY_EMAIL"), expect: "block", mention: /COMPANY_EMAIL/ },
+  { name: "COMPANY_EMAIL is not an address (decision D15: part of readiness)", env: { ...GOOD, COMPANY_EMAIL: "geen-adres" }, expect: "block", mention: /COMPANY_EMAIL is geen geldig/ },
   { name: "COMPANY_IBAN has a bad checksum", env: { ...GOOD, COMPANY_IBAN: "NL44RABO0123456788" }, expect: "block", mention: /COMPANY_IBAN/ },
   { name: "Clerk keys missing", env: without("NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY"), expect: "block", mention: /Clerk/ },
   { name: "Clerk test keys in production", env: { ...GOOD, NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY: `pk_test_${b64("casual-lion-1.clerk.accounts.dev")}`, CLERK_SECRET_KEY: "sk_test_aaaaaaaaaaaaaaaaaaaa" }, expect: "block", mention: /TESTinstantie/ },
@@ -157,12 +158,13 @@ async function liveDatabase() {
 }
 const runWith = runCli;
 
-function stubSite(kind: "good" | "bad") {
+function stubSite(kind: "good" | "bad" | "stale") {
   const server = http.createServer((req, res) => {
     const origin = `http://${req.headers.host}`;
     const url = req.url ?? "/";
     const send = (status: number, body: string, headers: Record<string, string> = {}) => { res.writeHead(status, { "content-type": "text/html", ...headers }); res.end(body); };
-    const good = kind === "good";
+    // "stale": healthy in every way, but the legal pages were prerendered by a build that had no COMPANY_* values.
+    const good = kind !== "bad";
     const csp: Record<string, string> = good ? { "content-security-policy": "default-src 'self'; script-src 'self' https://clerk.shop.example.nl", "strict-transport-security": "max-age=1" } : {};
     if (url.startsWith("/api/v1/health")) return send(good ? 200 : 503, JSON.stringify(good ? { status: "ok", checks: { database: "ok", migrations: "ok" } } : { status: "unavailable", checks: { database: "ok", migrations: "pending" } }), { "content-type": "application/json" });
     if (url === "/inloggen") return send(200, good ? "<html>clerk.shop.example.nl</html>" : "<html>Demo modus</html>", csp);
@@ -172,6 +174,8 @@ function stubSite(kind: "good" | "bad") {
     if (url.startsWith("/onderdelen/")) return send(200, `<link rel="canonical" href="${good ? origin : "https://wasfix.nl"}${url}"/>`);
     if (url === "/api/stripe/webhook") return send(good ? 400 : 200, good ? "{}" : '{"demo":true}');
     if (url.startsWith("/api/cron/")) return send(good ? 401 : 503, "{}");
+    if (url === "/voorwaarden") return send(200, kind === "good" ? "<h1>Algemene voorwaarden</h1><p>Shop Example B.V., Voorbeeldstraat 12, KvK <!-- -->12345679</p>" : "<p>WasFix Pro (in oprichting), KvK volgt na inschrijving</p>");
+    if (url === "/contact") return send(200, kind === "good" ? '<a href="mailto:info@shop.example.nl">info@shop.example.nl</a><dd>12345679</dd>' : "<p>Contact: (e-mailadres volgt na inschrijving)</p>");
     if (url === "/checkout") return send(200, good ? '<p>NL44RABO0123456789</p><input placeholder="1234 AB"><input placeholder="06 12345678"><input placeholder="NL123456789B01">' : "<p>NL123456789B01</p>");
     return send(200, "<html>home</html>", csp);
   });
@@ -195,19 +199,37 @@ async function main() {
   note("--strict turns warnings into a failing exit code");
   const strict = await runCli(without("UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"), ["--strict"]);
   check(strict.code === 1 && strict.report?.verdict === "READY WITH WARNINGS", "READY WITH WARNINGS + --strict exits 1", `exit ${strict.code} verdict ${strict.report?.verdict}`);
+  note("D9: the text report is Dutch, and a passing company line never sits next to a company BLOCK");
+  const textGood = await runCli(GOOD, ["--only", "company"], false);
+  check(/UITSLAG: KLAAR \(0 blokkerend, 0 waarschuwing\(en\)\)/.test(textGood.text) && !/RESULT:|NOTE:|NEXT STEP:/.test(textGood.text) && /\[company\]\n  ok    ?Bedrijfsgegevens .* zijn compleet, geldig en geen testnummers/.test(textGood.text), "text report: Dutch labels (UITSLAG), no RESULT/NOTE/NEXT STEP, and the company line is ok for a real identity", textGood.text.slice(0, 600));
+  const textBad = await runCli({ ...GOOD, COMPANY_KVK: "90000001", COMPANY_IBAN: "NL02ABNA0123456789" }, ["--only", "company"], false);
+  check(/UITSLAG: NIET KLAAR/.test(textBad.text) && /VOLGENDE STAP: \[company\]/.test(textBad.text) && !/zijn compleet, geldig/.test(textBad.text) && /BLOCK COMPANY_KVK is een testnummer/.test(textBad.text), "text report: test numbers give BLOCK lines and NO 'compleet en geldig' ok line for the same fields (before: both)", textBad.text.slice(0, 700));
+  const jsonBad = await runCli({ ...GOOD, COMPANY_KVK: "90000001" }, ["--only", "company"]);
+  check(!(jsonBad.report?.checks ?? []).some((c) => c.group === "company" && c.level === "ok"), "json report: no 'ok' check in the company group when the same group blocks", JSON.stringify(jsonBad.report?.checks));
+  const noMail = await runCli(without("COMPANY_EMAIL"), ["--only", "company"]);
+  check((noMail.report?.checks ?? []).some((c) => c.group === "company" && c.level === "block" && /COMPANY_EMAIL ontbreekt/.test(c.message) && /deploy opnieuw/.test(c.fix ?? "")), "COMPANY_EMAIL missing is a readiness PROBLEM (blocker with a fix), not a warning", JSON.stringify(noMail.report?.checks));
+  const noMailStaging = await runCli(without("COMPANY_EMAIL"), ["--only", "company", "--target", "staging"]);
+  check(noMailStaging.code === 1, "COMPANY_EMAIL missing blocks on staging too (checkout is closed without it everywhere)", `exit ${noMailStaging.code}`);
+
   note("a run without a variables file takes NOTHING from this shell's app variables when --env-file is given");
   const empty = await runCli({});
   check(empty.code === 1 && blocksOf(empty).length >= 8, "an empty environment is NOT READY with many blockers", `exit ${empty.code}, blockers ${blocksOf(empty).length}`);
   check((empty.report?.checks ?? []).filter((c) => c.level === "skip").length >= 4 && (empty.report?.checks ?? []).every((c) => c.level !== "ok" || !/bereikbaar/.test(c.message)), "offline: network checks are reported as skipped, never as passed");
 
   note("--url: the deployed site, probed over HTTP (stub servers)");
-  for (const kind of ["good", "bad"] as const) {
+  for (const kind of ["good", "bad", "stale"] as const) {
     const site = await stubSite(kind);
     try {
       const r = await runCli({ ...GOOD, NEXT_PUBLIC_APP_URL: site.origin }, ["--url", site.origin, "--only", "live"]);
       const liveBlocks = blocksOf(r).map((c) => c.message);
-      if (kind === "good") check(r.code === 0 && liveBlocks.length === 0, "a correctly deployed site passes every deployed-site check", liveBlocks.join(" | ") || r.text.slice(0, 300));
-      else {
+      if (kind === "good") {
+        check(r.code === 0 && liveBlocks.length === 0, "a correctly deployed site passes every deployed-site check", liveBlocks.join(" | ") || r.text.slice(0, 300));
+        check((r.report?.checks ?? []).some((c) => c.level === "ok" && /live \/voorwaarden toont de ingestelde bedrijfsgegevens/.test(c.message)) && (r.report?.checks ?? []).some((c) => c.level === "ok" && /live \/contact toont de ingestelde/.test(c.message)), "live: /voorwaarden and /contact are compared with COMPANY_* and match", (r.report?.checks ?? []).map((c) => c.message).join(" | "));
+      } else if (kind === "stale") {
+        // R2-19: a build without COMPANY_* started later with them. Every other check passes; only the comparison objects.
+        check(liveBlocks.some((m) => /voorbeeldgegevens/.test(m)) && liveBlocks.filter((m) => /COMPANY_\*/.test(m)).length === 2 && liveBlocks.length === 3 && liveBlocks.some((m) => /\/voorwaarden toont de bedrijfsnaam en het KvK-nummer/.test(m)) && liveBlocks.some((m) => /\/contact toont het KvK-nummer en het contactadres/.test(m)) && (blocksOf(r).find((c) => /voorwaarden/.test(c.message))?.fix ?? "").includes("bouw opnieuw"), "stale build: /voorwaarden and /contact that do not show the COMPANY_* values are blockers, and the fix says to rebuild", liveBlocks.join(" | ") || r.text.slice(0, 300));
+        check(r.code === 1, "stale build: exit code 1");
+      } else {
         for (const [what, re] of [["health 503", /health/], ["demo login", /Demo modus/], ["unprotected /admin", /\/admin/], ["localhost robots", /robots\.txt/], ["localhost sitemap", /sitemap\.xml/], ["demo webhook", /webhook/], ["cron without secret", /CRON_SECRET/], ["placeholder IBAN on /checkout", /voorbeeldgegevens/], ["no enforced CSP", /Content-Security-Policy/]] as const) {
           check(liveBlocks.some((m) => re.test(m)), `bad site: ${what} is a blocker`, `bad site: ${what} not reported. blocks: ${liveBlocks.join(" | ")}`);
         }

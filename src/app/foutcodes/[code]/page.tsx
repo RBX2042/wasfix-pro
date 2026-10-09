@@ -11,6 +11,7 @@ import { clipAtWord } from "@/lib/seo-text";
 import { TrustStrip } from "@/components/trust-strip";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, BookOpen, Sparkles, ChevronRight, Wrench, UserRound } from "lucide-react";
+import { absoluteUrl } from "@/lib/site-url";
 
 // ISR instead of force-dynamic: these 329 pages are the Google entry points and
 // nothing on them depends on the visitor. The catalogue reads underneath are tagged
@@ -137,8 +138,8 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Foutcodes", item: "https://wasfix.nl/foutcodes" },
-      { "@type": "ListItem", position: 2, name: errorCode.machine.brand, item: `https://wasfix.nl/merken/${encodeURIComponent(errorCode.machine.brand)}` },
+      { "@type": "ListItem", position: 1, name: "Foutcodes", item: absoluteUrl("/foutcodes") },
+      { "@type": "ListItem", position: 2, name: errorCode.machine.brand, item: absoluteUrl(`/merken/${encodeURIComponent(errorCode.machine.brand)}`) },
       { "@type": "ListItem", position: 3, name: errorCode.code },
     ],
   };

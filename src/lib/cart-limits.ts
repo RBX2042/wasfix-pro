@@ -70,8 +70,17 @@ export const ABANDONED_STRIPE_ORDER_HOURS = 48;
  * Bank-transfer orders per IP address per 24 hours. The counter is bumped just before the order is
  * written, after the per-buyer and pool checks, so a request refused for those reasons does not use
  * up the allowance. Without UPSTASH_* it lives in the memory of one server instance only.
+ *
+ * 10, not 3 (decision D17). An address is not a person: households, offices and mobile carriers
+ * (carrier-grade NAT) put many customers behind one IP, and until Stripe is live bank transfer is the
+ * ONLY way to pay, so a cap of 3 turned away real customers from the 4th order of the day (rehearsal
+ * D12; whether this happens on mobile networks was not measured). The real guards are the value-based
+ * caps above: OPEN_BANK_TRANSFER_LIMITS per buyer and the shop-wide MAX_OPEN_*_BANK_TRANSFER_VALUE_EUR
+ * ceilings, which bound what an anonymous caller can hold in reservations whatever number of addresses
+ * they use. This one only stops a single address from hammering the endpoint. The owner is still told
+ * when it keeps being hit (CAP_HITS_BEFORE_OWNER_NOTICE).
  */
-export const MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY = 3;
+export const MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY = 10;
 /** Orders (any method) per IP address per hour. */
 export const MAX_ORDERS_PER_IP_PER_HOUR = 10;
 /** Checkout requests of any kind (including refused ones) per IP address per hour. */

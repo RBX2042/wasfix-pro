@@ -3,14 +3,13 @@ import { z } from "zod";
 import { logger } from "@/lib/logger";
 import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
-import { prisma } from "@/lib/prisma";
-import { isDatabaseConfigured } from "@/lib/env";
+import { requestNewsletterSubscription } from "@/lib/newsletter";
 
 // Only the magnets that exist. "onderhoudskalender" used to be accepted too and
 // silently served the foutcode cheatsheet (its file was a TODO), so it is gone
 // until it exists.
 const Schema = z.object({
-  email: z.string().email(),
+  email: z.string().email().max(254),
   magnetId: z.enum(["foutcodes-cheatsheet"]).default("foutcodes-cheatsheet"),
   source: z.string().max(80).optional(),
 });
@@ -28,6 +27,13 @@ const MAGNET_URLS: Record<string, string> = {
  * promise "Check je inbox", but its mail step imported getResend/FROM from
  * lib/email, which does not export them, so the send was dead code even with a
  * Resend key - and the modal told people a PDF was on its way.
+ *
+ * The address is also offered the newsletter, with a confirmation step like
+ * /api/newsletter (src/lib/newsletter.ts): it is stored UNCONFIRMED and a mail
+ * with a link is sent; only the click subscribes. The download does not depend
+ * on that. What the route does NOT do any more is answer "success" when the
+ * address could not be stored (rehearsal R2-18): that is an error, and the
+ * visitor can try again.
  */
 export async function POST(req: NextRequest) {
   if (!(await rateLimit(`leadmagnet:${getClientKey(req)}`, 10, 60 * 60 * 1000))) {
@@ -46,30 +52,25 @@ export async function POST(req: NextRequest) {
   // of the request and personal data does not belong in it.
   logger.info("[lead-magnet] requested", { magnetId, source });
 
-  if (isDatabaseConfigured()) {
-    await prisma.newsletterSubscriber
-      .upsert({ where: { email }, update: {}, create: { email, source: `lead-magnet:${magnetId}` } })
-      .catch((err) => logger.warn("[lead-magnet] persist failed", err));
+  const result = await requestNewsletterSubscription(email, `lead-magnet:${magnetId}`);
+  if (!result.ok) {
+    return apiError("Aanmelden lukt nu niet. Er is niets opgeslagen. Probeer het later opnieuw.", 503);
   }
 
-  const apiKey = process.env.RESEND_API_KEY;
-  const audienceId = process.env.RESEND_AUDIENCE_ID;
-  if (apiKey && audienceId) {
-    await fetch(`https://api.resend.com/audiences/${audienceId}/contacts`, {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ email, unsubscribed: false }),
-    })
-      .then((res) => {
-        if (!res.ok) logger.warn("[lead-magnet] Resend audience add failed", { status: res.status });
-      })
-      .catch((err) => logger.warn("[lead-magnet] Resend audience add error", err));
-  }
+  const newsletter =
+    result.status === "mail_sent"
+      ? "We hebben je ook een e-mail gestuurd om je aanmelding voor de nieuwsbrief te bevestigen; zonder die bevestiging sturen we je geen nieuwsbrief."
+      : result.status === "already_subscribed"
+        ? "Je was al aangemeld voor de nieuwsbrief."
+        : result.status === "demo"
+          ? "Demo: er is niets opgeslagen."
+          : "De bevestigingsmail voor de nieuwsbrief kon niet worden verstuurd; je bent dus niet aangemeld voor de nieuwsbrief.";
 
   return apiSuccess({
-    message: "Bedankt! Je cheatsheet staat hieronder klaar.",
+    message: `Bedankt! Je cheatsheet staat hieronder klaar. ${newsletter}`,
     url,
     // Kept for older callers of this endpoint.
     pdfUrl: url,
+    newsletter: result.status,
   });
 }

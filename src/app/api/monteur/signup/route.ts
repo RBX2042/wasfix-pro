@@ -5,6 +5,7 @@ import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
+import { supportEmail, supportHint } from "@/lib/support-contact";
 
 const Schema = z.object({
   companyName: z.string().min(2).max(120),
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
     } catch (err) {
       logger.error("[monteur-signup] persist failed", err);
       return apiError(
-        "Je aanmelding kon nu niet worden opgeslagen. Probeer het over een paar minuten opnieuw of mail monteur@wasfix.nl.",
+        `Je aanmelding kon nu niet worden opgeslagen. Probeer het over een paar minuten opnieuw of ${supportHint(supportEmail())}.`,
         503,
       );
     }

@@ -95,6 +95,14 @@ export async function fetchSubscription(stripe: Stripe, subId: string): Promise<
 
 export type SyncHint = { userId?: string | null; customerId?: string | null };
 
+/** How often a sync starts over because the account changed under it, before it gives up and lets Stripe retry the event. */
+const MAX_SYNC_ATTEMPTS = 4;
+
+/** Everything a sync reads from or writes to the account, as one comparable string: the "version" of the row. */
+function accountVersion(u: { updatedAt: Date; plan: string; email: string; stripeCustomerId: string | null; stripeSubId: string | null; stripeSubStatus: string | null; stripeCurrentPeriodEnd: Date | null; stripeCancelAtPeriodEnd: boolean; trialUsedAt: Date | null }): string {
+  return JSON.stringify([u.updatedAt.getTime(), u.plan, u.email, u.stripeCustomerId, u.stripeSubId, u.stripeSubStatus, u.stripeCurrentPeriodEnd?.getTime() ?? null, u.stripeCancelAtPeriodEnd, u.trialUsedAt?.getTime() ?? null]);
+}
+
 export type SyncResult =
   | {
       kind: "applied";
@@ -139,84 +147,110 @@ export async function syncSubscription(stripe: Stripe, subId: string, hint: Sync
     return { kind: "ignored", reason: "no_user" };
   }
 
-  const outcome = await prisma.$transaction(
-    async (tx): Promise<{ result: SyncResult; mail: { email: string; plan: PlanId; trial: boolean } | null; unknownPrice: string | null; duplicate: string | null; cancelDuplicate: boolean }> => {
-      // Serialise every sync for this user: two events about the same account
-      // must not each fetch, then write in the opposite order.
-      await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${found.id}))`;
-      const user = await tx.user.findUniqueOrThrow({ where: { id: found.id } });
-      const none = { mail: null, unknownPrice: null, duplicate: null, cancelDuplicate: false };
+  type Outcome = { result: SyncResult; mail: { email: string; plan: PlanId; trial: boolean } | null; unknownPrice: string | null; duplicate: string | null; cancelDuplicate: boolean };
 
-      const fresh = await fetchSubscription(stripe, subId);
-      const live = !!fresh && isLiveSubscriptionStatus(fresh.status);
-      const customerId = idOf(fresh?.customer);
-      const isCurrent = user.stripeSubId === subId;
+  // Stripe is asked BEFORE any transaction is opened. An interactive transaction holds a database
+  // connection for its whole life; with the pooled limit of 1 that this deployment may run on, one
+  // slow Stripe round trip inside it starved every other request of the instance. The transaction below
+  // is only for the writes.
+  //
+  // What the lock used to guarantee (two events about one account must not each fetch, then write in
+  // the opposite order) is kept by checking, under the same per-user advisory lock, that the account row
+  // is exactly the version the Stripe answer was fetched against. A writer that got in between changed
+  // the row; this attempt then throws its answer away and starts again from a fresh fetch.
+  let outcome: Outcome | null = null;
+  for (let attempt = 1; attempt <= MAX_SYNC_ATTEMPTS && !outcome; attempt++) {
+    const seen = await prisma.user.findUniqueOrThrow({ where: { id: found.id } });
+    const fresh = await fetchSubscription(stripe, subId);
+    const live = !!fresh && isLiveSubscriptionStatus(fresh.status);
+    const customerId = idOf(fresh?.customer);
+    const isCurrentSeen = seen.stripeSubId === subId;
+    // The user's stored subscription is only consulted when this one wants to REPLACE it.
+    const wantsReplace =
+      !isCurrentSeen && live && !!seen.stripeSubId && !seen.email.endsWith(ANONYMISED_EMAIL_SUFFIX) &&
+      !(seen.stripeCustomerId && customerId && seen.stripeCustomerId !== customerId) &&
+      (isLiveSubscriptionStatus(seen.stripeSubStatus) || !seen.stripeSubStatus);
+    const stored = wantsReplace ? await fetchSubscription(stripe, seen.stripeSubId as string) : null;
 
-      if (user.email.endsWith(ANONYMISED_EMAIL_SUFFIX)) {
-        // An erased account must never be handed a plan again. If Stripe still
-        // bills a subscription for it, the caller cancels it.
-        return { ...none, result: { kind: "ignored", reason: "anonymised" }, cancelDuplicate: live };
-      }
-      if (!isCurrent && user.stripeCustomerId && customerId && user.stripeCustomerId !== customerId) {
-        // The user id in metadata was set by whoever created the subscription; an
-        // id pointing at somebody else's Stripe customer never earns a plan.
-        return { ...none, result: { kind: "ignored", reason: "customer_mismatch" } };
-      }
+    const attemptOutcome = await prisma.$transaction(
+      async (tx): Promise<Outcome | "changed"> => {
+        // Serialise every sync for this user.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtext(${found.id}))`;
+        const user = await tx.user.findUniqueOrThrow({ where: { id: found.id } });
+        if (accountVersion(user) !== accountVersion(seen)) return "changed";
+        const none = { mail: null, unknownPrice: null, duplicate: null, cancelDuplicate: false };
+        const isCurrent = isCurrentSeen;
 
-      if (!isCurrent) {
-        // A subscription that is not the user's current one may only REPLACE it
-        // when it is live and the stored one no longer is.
-        if (!live) return { ...none, result: { kind: "ignored", reason: "not_current" } };
-        if (user.stripeSubId) {
-          const stored = isLiveSubscriptionStatus(user.stripeSubStatus) || !user.stripeSubStatus ? await fetchSubscription(stripe, user.stripeSubId) : null;
-          if (stored && isLiveSubscriptionStatus(stored.status)) {
+        if (user.email.endsWith(ANONYMISED_EMAIL_SUFFIX)) {
+          // An erased account must never be handed a plan again. If Stripe still
+          // bills a subscription for it, the caller cancels it.
+          return { ...none, result: { kind: "ignored", reason: "anonymised" }, cancelDuplicate: live };
+        }
+        if (!isCurrent && user.stripeCustomerId && customerId && user.stripeCustomerId !== customerId) {
+          // The user id in metadata was set by whoever created the subscription; an
+          // id pointing at somebody else's Stripe customer never earns a plan.
+          return { ...none, result: { kind: "ignored", reason: "customer_mismatch" } };
+        }
+
+        if (!isCurrent) {
+          // A subscription that is not the user's current one may only REPLACE it
+          // when it is live and the stored one no longer is.
+          if (!live) return { ...none, result: { kind: "ignored", reason: "not_current" } };
+          if (user.stripeSubId && stored && isLiveSubscriptionStatus(stored.status)) {
             return { ...none, result: { kind: "ignored", reason: "duplicate_live" }, duplicate: user.stripeSubId };
           }
         }
-      }
 
-      const now = new Date();
-      const paidThrough = fresh ? paidThroughOf(fresh) : null;
-      const status = fresh ? fresh.status : "canceled";
-      const { plan: pricedPlan, priceId } = fresh ? planOf(fresh) : { plan: null, priceId: null };
-      // The plan ends with the subscription. "canceled" is an ended subscription
-      // whatever period Stripe still shows on it: it comes from an immediate
-      // cancellation or from Stripe giving up on a card that never paid, and
-      // neither is owed the rest of the month (see src/lib/subscription.ts).
-      // An "unpaid" subscription is not ended, its invoices can still be paid in
-      // the billing portal, so the account keeps pointing at it (plan FREE).
-      const lapsed = !fresh || status === "unpaid" || status === "incomplete_expired" || status === "canceled";
-      const ended = !fresh || status === "canceled" || status === "incomplete_expired";
-      const wasLive = isCurrent && isLiveSubscriptionStatus(user.stripeSubStatus);
-      const trialStart = fresh?.trial_start ? new Date(fresh.trial_start * 1000) : null;
-      const usedTrial = !!fresh && (status === "trialing" || !!fresh.trial_end);
+        const now = new Date();
+        const paidThrough = fresh ? paidThroughOf(fresh) : null;
+        const status = fresh ? fresh.status : "canceled";
+        const { plan: pricedPlan, priceId } = fresh ? planOf(fresh) : { plan: null, priceId: null };
+        // The plan ends with the subscription. "canceled" is an ended subscription
+        // whatever period Stripe still shows on it: it comes from an immediate
+        // cancellation or from Stripe giving up on a card that never paid, and
+        // neither is owed the rest of the month (see src/lib/subscription.ts).
+        // An "unpaid" subscription is not ended, its invoices can still be paid in
+        // the billing portal, so the account keeps pointing at it (plan FREE).
+        const lapsed = !fresh || status === "unpaid" || status === "incomplete_expired" || status === "canceled";
+        const ended = !fresh || status === "canceled" || status === "incomplete_expired";
+        const wasLive = isCurrent && isLiveSubscriptionStatus(user.stripeSubStatus);
+        const trialStart = fresh?.trial_start ? new Date(fresh.trial_start * 1000) : null;
+        const usedTrial = !!fresh && (status === "trialing" || !!fresh.trial_end);
 
-      const nextPlan = lapsed ? "FREE" : pricedPlan ?? user.plan;
-      const updated = await tx.user.update({
-        where: { id: user.id },
-        data: {
-          plan: nextPlan,
-          stripeSubId: ended ? null : subId,
-          stripeSubStatus: status,
-          stripeCurrentPeriodEnd: paidThrough,
-          // Mirrors Stripe: a cancelled-at-period-end subscription is still active until then.
-          stripeCancelAtPeriodEnd: !!fresh?.cancel_at_period_end && !ended,
-          ...(!user.stripeCustomerId && customerId ? { stripeCustomerId: customerId } : {}),
-          ...(usedTrial && !user.trialUsedAt ? { trialUsedAt: trialStart ?? now } : {}),
-        },
-      });
+        const nextPlan = lapsed ? "FREE" : pricedPlan ?? user.plan;
+        const updated = await tx.user.update({
+          where: { id: user.id },
+          data: {
+            plan: nextPlan,
+            stripeSubId: ended ? null : subId,
+            stripeSubStatus: status,
+            stripeCurrentPeriodEnd: paidThrough,
+            // Mirrors Stripe: a cancelled-at-period-end subscription is still active until then.
+            stripeCancelAtPeriodEnd: !!fresh?.cancel_at_period_end && !ended,
+            ...(!user.stripeCustomerId && customerId ? { stripeCustomerId: customerId } : {}),
+            ...(usedTrial && !user.trialUsedAt ? { trialUsedAt: trialStart ?? now } : {}),
+          },
+        });
 
-      const activated = live && !wasLive && !(isCurrent && !user.stripeSubStatus);
-      return {
-        result: { kind: "applied", userId: updated.id, email: updated.email, plan: effectivePlan(updated, now), storedPlan: updated.plan, status, activated, paidThrough },
-        mail: activated && pricedPlan ? { email: updated.email, plan: pricedPlan, trial: status === "trialing" } : null,
-        unknownPrice: live && !pricedPlan ? priceId ?? "(geen prijs)" : null,
-        duplicate: null,
-        cancelDuplicate: false,
-      };
-    },
-    { maxWait: 10_000, timeout: 30_000 },
-  );
+        const activated = live && !wasLive && !(isCurrent && !user.stripeSubStatus);
+        return {
+          result: { kind: "applied", userId: updated.id, email: updated.email, plan: effectivePlan(updated, now), storedPlan: updated.plan, status, activated, paidThrough },
+          mail: activated && pricedPlan ? { email: updated.email, plan: pricedPlan, trial: status === "trialing" } : null,
+          unknownPrice: live && !pricedPlan ? priceId ?? "(geen prijs)" : null,
+          duplicate: null,
+          cancelDuplicate: false,
+        };
+      },
+      { maxWait: 10_000, timeout: 10_000 },
+    );
+    if (attemptOutcome === "changed") {
+      logger.info("Subscription sync: the account changed while Stripe was being asked — fetching again", { subscription: subId, attempt });
+      continue;
+    }
+    outcome = attemptOutcome;
+  }
+  // Only reachable under sustained contention on ONE account. Failing makes the webhook answer 500, so Stripe retries the event.
+  if (!outcome) throw new Error(`subscription_sync_contended:${subId}`);
 
   // Side effects only after the commit, so a slow mail or a dead Slack cannot
   // hold the user lock.

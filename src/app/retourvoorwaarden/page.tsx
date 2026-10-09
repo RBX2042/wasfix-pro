@@ -1,5 +1,6 @@
+import { ContactEmail, contactEmailText } from "@/lib/contact-email";
 import { LegalPage } from "@/components/redesign/LegalPage";
-import { COMPANY, realOrNull } from "@/lib/plans";
+import { COMPANY, realOrNull, SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
 import Link from "next/link";
 
 export const metadata = {
@@ -18,7 +19,7 @@ export default function RetourPage() {
   const address = street && postalCode ? `${street}, ${postalCode} ${COMPANY.city}` : null;
 
   return (
-    <LegalPage title="Retour" emphasis="voorwaarden">
+    <LegalPage title="Retour" emphasis="voorwaarden" lastUpdate="9 oktober 2026" version="2.2">
       <p>
         Niet tevreden of toch het verkeerde onderdeel? Geen probleem. Wij hanteren een ruimhartig retourbeleid van <strong>30 dagen bedenktijd</strong> — bijna 2x zo lang als de wettelijk verplichte 14 dagen. Onderstaande pagina legt uit hoe het werkt.
       </p>
@@ -41,8 +42,8 @@ export default function RetourPage() {
 
       <h2>3. Hoe stuur je een product retour?</h2>
       <ol>
-        <li><strong>Vraag een retour aan</strong> via het <Link href="/retour/start">retour-formulier</Link> of mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> met vermelding van je bestelnummer.</li>
-        <li><strong>Ontvang je RMA-nummer</strong> per e-mail (binnen 24u op werkdagen).</li>
+        <li><strong>Vraag een retour aan</strong> via het <Link href="/retour/start">retour-formulier</Link> of mail naar <ContactEmail /> met vermelding van je bestelnummer.</li>
+        <li><strong>Ontvang je RMA-nummer</strong> per e-mail (binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen).</li>
         <li><strong>Pak het product in</strong> in originele verpakking + RMA-nummer goed zichtbaar op buitenkant.</li>
         <li><strong>Verstuur</strong> binnen 14 dagen na het ontvangen van je RMA-nummer naar het opgegeven retouradres.</li>
         <li><strong>Bewaar het verzendbewijs</strong> tot je restitutie hebt ontvangen.</li>
@@ -76,7 +77,7 @@ export default function RetourPage() {
       </p>
       <pre style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.6, color: "var(--text-2)", overflowX: "auto", margin: "12px 0" }}>
 {`Aan: ${COMPANY.name}
-${address ? `   ${address}\n` : ""}   ${COMPANY.email}
+${address ? `   ${address}\n` : ""}   ${contactEmailText()}
 
 Ik/Wij* deel/delen* hierbij mee dat ik/wij* onze
 overeenkomst betreffende de verkoop van de volgende
@@ -109,7 +110,7 @@ Handtekening: ___________  Datum: ___________
       )}
 
       <p style={{ marginTop: 32 }}>
-        <strong>Vragen?</strong> Mail <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> of bekijk de <Link href="/help">help-pagina</Link>.
+        <strong>Vragen?</strong> Mail <ContactEmail /> of bekijk de <Link href="/help">help-pagina</Link>.
       </p>
     </LegalPage>
   );

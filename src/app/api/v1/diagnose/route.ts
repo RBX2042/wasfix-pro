@@ -5,6 +5,7 @@ import { consumeUsage, refundUsage } from "@/lib/entitlements";
 import { runDiagnosis } from "@/lib/diagnose-core";
 import { aiAvailability } from "@/lib/ai-guard";
 import { logger } from "@/lib/logger";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
@@ -101,12 +102,12 @@ export async function POST(req: NextRequest) {
             name: p.name,
             priceEur: p.priceEur,
             inStock: p.stock > 0,
-            buyUrl: `https://wasfix.nl/onderdelen/${p.sku}`,
+            buyUrl: absoluteUrl(`/onderdelen/${p.sku}`),
           })),
           recommendedGuides: outcome.recommendedGuides.map((g) => ({
             slug: g.slug,
             title: g.title,
-            url: `https://wasfix.nl/gidsen/${g.slug}`,
+            url: absoluteUrl(`/gidsen/${g.slug}`),
           })),
           notice: outcome.notice,
         },

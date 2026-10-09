@@ -5,7 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { env, isDatabaseConfigured } from "@/lib/env";
 import { prisma } from "@/lib/prisma";
 import { COMPANY, realOrNull } from "@/lib/plans";
-import { orderRef } from "@/lib/order-status";
+import { ORDER_STATUS_LABEL, isOrderStatus, orderRef } from "@/lib/order-status";
 import { dateNl, parseShippingAddress } from "../../../_lib/format";
 import { PrintStyles } from "../../print-styles";
 import { PrintButton } from "../../print-button";
@@ -28,6 +28,10 @@ export default async function PackingSlipPage({ params }: { params: Promise<{ id
   });
   if (!order) notFound();
   const a = parseShippingAddress(order.shippingAddress);
+  // Only an order that is paid goes in a box. The list does not link this page for the other states, but a
+  // bookmark or the browser history does; a clean-looking pakbon of a cancelled or unpaid order gets packed.
+  const shippable = order.status === "PAID" || order.status === "SHIPPED" || order.status === "DELIVERED";
+  const statusLabel = isOrderStatus(order.status) ? ORDER_STATUS_LABEL[order.status] : order.status;
   const retourUrl = `${env.APP_URL.replace(/\/+$/, "")}/retour/start`;
   const street = realOrNull(COMPANY.street);
   const postal = realOrNull(COMPANY.postalCode);
@@ -41,7 +45,12 @@ export default async function PackingSlipPage({ params }: { params: Promise<{ id
           <Link href="/admin/bestellingen" className="text-sm text-muted-foreground hover:text-foreground">← Terug naar bestellingen</Link>
           <PrintButton />
         </div>
-        <article className="rounded-lg border bg-background p-8 print:border-0 print:p-0">
+        {!shippable && (
+          <div role="alert" className="mb-4 rounded-lg border-2 border-red-600 bg-red-50 p-4 text-red-800 font-semibold print:border-red-600">
+            {order.status === "CANCELLED" ? "GEANNULEERD" : "NIET BETAALD"}: deze bestelling staat op &ldquo;{statusLabel}&rdquo;. Niet inpakken en niet verzenden.
+          </div>
+        )}
+        <article className={`rounded-lg border bg-background p-8 print:border-0 print:p-0 ${shippable ? "" : "opacity-60"}`}>
           <header className="flex flex-wrap justify-between gap-6 border-b pb-4">
             <div>
               <h1 className="font-heading text-2xl font-bold">Pakbon</h1>

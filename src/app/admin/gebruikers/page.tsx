@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { formatDate } from "@/lib/utils";
 import { AdminShell } from "../_lib/page-shell";
 import { AdminNav } from "../_lib/admin-nav";
+import { accountStats } from "../_lib/economics";
 
 export const dynamic = "force-dynamic";
 
@@ -18,15 +19,29 @@ export default async function AdminUsersPage() {
   if (!user || user.role !== "ADMIN") redirect("/dashboard");
 
   let users: Awaited<ReturnType<typeof prisma.user.findMany>> = [];
+  let accounts = 0;
+  let guests = 0;
   try {
-    users = await prisma.user.findMany({ orderBy: { createdAt: "desc" } });
+    // Accounts are people who signed up (they have a Clerk id). Every guest checkout also creates a User row so
+    // the order has an owner; those are not users and are counted apart, their details live on the order.
+    const [rows, stats] = await Promise.all([
+      prisma.user.findMany({ where: { clerkId: { not: null } }, orderBy: { createdAt: "desc" }, take: 500 }),
+      accountStats(),
+    ]);
+    users = rows;
+    accounts = stats.accounts;
+    guests = stats.guests;
   } catch { /* DB unreachable */ }
 
   return (
     <DashboardLayout role={user.role}>
       <AdminShell>
       <AdminNav current="/admin/gebruikers" />
-      <h1 className="font-heading text-2xl font-bold mb-6">Gebruikers ({users.length})</h1>
+      <h1 className="font-heading text-2xl font-bold mb-1">Gebruikers ({accounts})</h1>
+      <p className="text-sm text-muted-foreground mb-6">
+        Alleen accounts. {guests} gast{guests === 1 ? "" : "en"} bestelde{guests === 1 ? "" : "n"} zonder account; hun gegevens staan bij de bestelling in{" "}
+        <a className="underline" href="/admin/bestellingen">Bestellingen</a>.{accounts > users.length ? ` De ${users.length} nieuwste worden getoond.` : ""}
+      </p>
 
       <Card>
         <div className="overflow-x-auto">

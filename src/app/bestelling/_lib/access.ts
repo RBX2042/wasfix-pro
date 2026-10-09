@@ -18,6 +18,7 @@ import { prisma } from "@/lib/prisma";
 import { getCurrentUser } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/env";
 import { orderAccessOk } from "@/lib/invoicing";
+import { realImageUrl } from "@/lib/static-db";
 
 export type Viewer = { id: string; role: string } | null;
 export type AccessVia = "token" | "owner" | "admin";
@@ -58,8 +59,12 @@ export async function loadOrderForViewer(
   if (!isDatabaseConfigured()) return null;
   // Ids are cuids; refuse anything else before it reaches the database.
   if (!/^[A-Za-z0-9_-]{8,64}$/.test(id)) return null;
-  const order = await fetchOrder(id);
-  if (!order) return null;
+  const found = await fetchOrder(id);
+  if (!found) return null;
+  // The seed catalogue points at placehold.co text tiles. A shop that shows one as the
+  // photo of what the customer bought contradicts the product page ("Foto volgt"), so a
+  // placeholder URL never leaves this function: the page then renders no image at all.
+  const order = { ...found, items: found.items.map((it) => ({ ...it, part: { ...it.part, imageUrl: realImageUrl(it.part.imageUrl) } })) };
 
   // A valid token needs no session, so skip the (Clerk) user lookup then.
   let via = decideOrderAccess(order, null, token);

@@ -30,7 +30,8 @@ export type PublicCompany = {
   vatNumber: string | null;
   /** Only set when the whole identity is ready: never show a bare IBAN otherwise. */
   iban: string | null;
-  email: string;
+  /** COMPANY_EMAIL, or null when it is not configured (checkout is closed then; never an invented address). */
+  email: string | null;
   phone: string | null;
   /** True when the complete fiscal identity is configured. */
   ready: boolean;
@@ -49,7 +50,7 @@ export function publicCompany(): PublicCompany {
     kvk: realOrNull(COMPANY.kvk),
     vatNumber: realOrNull(COMPANY.vatNumber),
     iban: ready ? realOrNull(COMPANY.iban) : null,
-    email: COMPANY.email,
+    email: realOrNull(COMPANY.email),
     phone: realOrNull(COMPANY.phone),
     ready,
     identityLine: companyIdentityLine(),

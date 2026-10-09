@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { API_DOCS_URL, authorizeApiRequest } from "@/lib/api-auth";
 import { dbPart, dbPartFull } from "@/lib/static-db";
 import { consumeUsage } from "@/lib/entitlements";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ sku:
     description: part.description,
     imageUrl: part.imageUrl,
     oemNumbers: ("oemNumbers" in part && typeof part.oemNumbers === "string") ? part.oemNumbers.split("|").filter(Boolean) : [],
-    productUrl: `https://wasfix.nl/onderdelen/${part.sku}`,
+    productUrl: absoluteUrl(`/onderdelen/${part.sku}`),
   };
 
   return NextResponse.json({ data: publicPart, meta: { version: "v1" } }, { headers: CORS });

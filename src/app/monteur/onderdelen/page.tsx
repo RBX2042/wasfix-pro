@@ -1,6 +1,7 @@
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { getCurrentUser, getPlanLimits, hasProAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -39,14 +40,21 @@ export default async function MonteurOnderdelenPage() {
 
   const limits = getPlanLimits(user);
   let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
+  let stockUnavailable = false;
   try {
     parts = await prisma.part.findMany({
       where: { stock: { gt: 0 } },
       orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
     });
   } catch {
-    const { staticParts } = await import("@/lib/static-db");
-    parts = staticParts({ where: { minStock: 0 }, orderBy: "stock-then-price" }) as typeof parts;
+    if (isDatabaseConfigured()) {
+      // A configured database that cannot be read: say so. The demo catalogue's stock numbers are made up
+      // and must not be shown as what is on the shelf.
+      stockUnavailable = true;
+    } else {
+      const { staticParts } = await import("@/lib/static-db");
+      parts = staticParts({ where: { minStock: 0 }, orderBy: "stock-then-price" }) as typeof parts;
+    }
   }
 
   return (
@@ -71,6 +79,15 @@ export default async function MonteurOnderdelenPage() {
               <p className="font-semibold text-sm">Jouw monteurkorting is actief</p>
               <p className="text-xs text-muted-foreground">{(limits.partsDiscount * 100).toFixed(0)}% korting op alle onderdelen + gratis verzending vanaf €50</p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stockUnavailable && (
+        <Card className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="p-4 text-sm">
+            <p className="font-semibold">Voorraad nu niet beschikbaar</p>
+            <p className="text-muted-foreground">We kunnen de voorraad op dit moment niet laden. Probeer het over een paar minuten opnieuw.</p>
           </CardContent>
         </Card>
       )}

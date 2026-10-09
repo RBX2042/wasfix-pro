@@ -2,7 +2,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasProAccess } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/env";
-import { parts as staticPartList } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { formatEur } from "@/lib/utils";
 import { Wrench, TrendingUp, Users, Calendar, ArrowRight, Code } from "lucide-react";
+import { siteUrl } from "@/lib/site-url";
+
+// The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
+const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +41,10 @@ export default async function MonteurDashboardPage() {
     );
   }
 
-  // Live numbers when a DB is connected; static catalog otherwise.
+  // Live numbers when a DB is connected. Without one (or when it cannot be read) the stock tile says so
+  // instead of showing the demo catalogue's made-up quantities as if they were counted.
   const hasDb = isDatabaseConfigured();
-  let stockTotal = staticPartList.reduce((sum, p) => sum + p.stock, 0);
+  let stockTotal: number | null = null;
   let totalDiagnoses = 0;
   let recentOrders: Array<{ id: string; totalEur: number; items: Array<{ id: string }> }> = [];
   let customerCount = 0;
@@ -88,7 +92,7 @@ export default async function MonteurDashboardPage() {
           include: { customer: { select: { name: true } } },
         }),
       ]);
-      stockTotal = partsTotal._sum.stock ?? stockTotal;
+      stockTotal = partsTotal._sum.stock ?? 0;
       recentOrders = orders;
       totalDiagnoses = diagCount;
       customerCount = custTotal;
@@ -97,10 +101,9 @@ export default async function MonteurDashboardPage() {
       workOrdersThisWeek = woWeek;
       openWorkOrders = woList;
     } catch {
-      // DB unreachable — keep static numbers
+      // DB unreachable: the numbers stay at their empty values and the stock tile shows a dash
     }
   }
-  const partsTotal = { _sum: { stock: stockTotal } };
 
   return (
     <DashboardLayout role={user.role}>
@@ -132,7 +135,7 @@ export default async function MonteurDashboardPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1"><Wrench className="h-4 w-4" /> Voorraad</div>
-            <p className="font-heading text-2xl font-bold">{partsTotal._sum.stock ?? 0}</p>
+            <p className="font-heading text-2xl font-bold">{stockTotal ?? "—"}</p>
             <p className="text-xs text-muted-foreground">items</p>
           </CardContent>
         </Card>
@@ -210,7 +213,7 @@ export default async function MonteurDashboardPage() {
               </p>
               {/* The same example as /api-docs: the real host, path and field names (brand, errorCode, symptoms). */}
               <code className="block bg-muted text-xs p-3 rounded-md mb-3 overflow-x-auto whitespace-pre">
-{`curl -X POST https://wasfix.nl/api/v1/diagnose \\
+{`curl -X POST ${SITE}/api/v1/diagnose \\
   -H "Authorization: Bearer wf_live_YOUR_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{"brand":"Bosch","errorCode":"E18","symptoms":"Water blijft staan"}'`}

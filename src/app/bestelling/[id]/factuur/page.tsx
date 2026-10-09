@@ -209,7 +209,9 @@ export default async function InvoicePage({
               <ul className="mt-3 space-y-1">
                 {creditNotes.map((c) => (
                   <li key={c.number}>
-                    Creditfactuur <span className="font-mono">{c.number}</span> van {formatDate(c.issuedAt)}: <span className="tabular-nums">-{formatEur(c.totalEur)}</span> (incl. btw)
+                    Creditfactuur{" "}
+                    <Link href={`/bestelling/${order.id}/creditnota/${encodeURIComponent(c.number)}${tokenQs}`} className="font-mono text-primary underline print:no-underline">{c.number}</Link>{" "}
+                    van {formatDate(c.issuedAt)}: <span className="tabular-nums">-{formatEur(c.totalEur)}</span> (incl. btw)
                   </li>
                 ))}
               </ul>
@@ -221,7 +223,7 @@ export default async function InvoicePage({
               Alle bedragen in euro. De prijzen op de website zijn inclusief {Math.round(invoice.vatRate * 100)}% btw;
               bovenstaande specificatie splitst het btw-bedrag conform de Wet op de omzetbelasting.
             </p>
-            <p>Bewaar deze factuur — hij geldt ook als garantiebewijs. Vragen? {seller.email}</p>
+            <p>Bewaar deze factuur — hij geldt ook als garantiebewijs.{seller.email ? ` Vragen? ${seller.email}` : ""}</p>
           </footer>
         </article>
       </div>

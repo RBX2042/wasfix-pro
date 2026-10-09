@@ -4,6 +4,7 @@ import * as React from "react";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { categoryLabel } from "@/lib/part-categories";
+import { decimalNl } from "@/lib/emails/money";
 import { FormDialog, Field, Select, SubmitButton, TextArea, useActionForm } from "@/app/monteur/_lib/forms";
 import {
   adjustStockAction,
@@ -73,8 +74,8 @@ function PartFields({ part, close }: { part?: PartRow; close: () => void }) {
           options={[...(part && !(PART_CATEGORIES as readonly string[]).includes(part.category) ? [part.category] : []), ...PART_CATEGORIES].map((c) => ({ value: c, label: categoryLabel(c) }))}
           defaultValue={part?.category}
         />
-        <Field label="Verkoopprijs (€, incl. btw)" name="priceEur" type="decimal" defaultValue={part ? String(part.priceEur) : ""} required placeholder="28,50" />
-        <Field label="Inkoopprijs (€, excl. btw)" name="costEur" type="decimal" defaultValue={part?.costEur != null ? String(part.costEur) : ""} placeholder="12,00" />
+        <Field label="Verkoopprijs (€, incl. btw)" name="priceEur" type="decimal" defaultValue={part ? decimalNl(part.priceEur) : ""} required placeholder="28,50" />
+        <Field label="Inkoopprijs (€, excl. btw)" name="costEur" type="decimal" defaultValue={part?.costEur != null ? decimalNl(part.costEur) : ""} placeholder="12,00" />
         <Select
           label="Herkomst inkoopprijs"
           name="costSource"

@@ -12,6 +12,19 @@ import { button, esc, eur, shell } from "@/lib/emails/layout";
 import { customerOrderUrl, orderRef } from "@/lib/order-status";
 
 const dateNl = (d: Date) => new Intl.DateTimeFormat("nl-NL", { day: "numeric", month: "long", year: "numeric", timeZone: "Europe/Amsterdam" }).format(d);
+const dayKey = (d: Date) => new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(d); // YYYY-MM-DD
+
+/**
+ * Where "now" stands against the due date, on the Amsterdam calendar. The daily cron
+ * sends the first reminder at its first run AFTER the due date, i.e. normally the day
+ * after, so a text that says "loopt vandaag af" is wrong more often than right: the
+ * words come from this, not from the stage.
+ */
+export function dueStanding(dueAt: Date, now: Date): "today" | "past" | "future" {
+  const due = dayKey(dueAt);
+  const today = dayKey(now);
+  return due === today ? "today" : due < today ? "past" : "future";
+}
 
 export async function sendPaymentReminderEmail(
   to: string,
@@ -28,12 +41,28 @@ export async function sendPaymentReminderEmail(
     stage: "due" | "last";
     /** When the reservation ends and the order is cancelled. */
     cancelOn: Date;
+    /** Defaults to the current time. Only tests set it. */
+    now?: Date;
   },
 ): Promise<MailResult> {
   const last = d.stage === "last";
-  const subject = last ? `Laatste herinnering: factuur ${d.invoiceNumber} is nog niet betaald` : `Herinnering: factuur ${d.invoiceNumber} vervalt vandaag`;
+  const standing = dueStanding(d.dueAt, d.now ?? new Date());
+  const subject = last
+    ? `Laatste herinnering: factuur ${d.invoiceNumber} is nog niet betaald`
+    : standing === "today"
+      ? `Herinnering: factuur ${d.invoiceNumber} vervalt vandaag`
+      : standing === "future"
+        ? `Herinnering: factuur ${d.invoiceNumber} vervalt op ${dateNl(d.dueAt)}`
+        : `Herinnering: factuur ${d.invoiceNumber} is nog niet betaald`;
+  const dueSentence =
+    standing === "today"
+      ? `De betaaltermijn van factuur <strong>${esc(d.invoiceNumber)}</strong> loopt vandaag af (${esc(dateNl(d.dueAt))}). We hebben je betaling nog niet ontvangen.`
+      : standing === "future"
+        ? `De betaaltermijn van factuur <strong>${esc(d.invoiceNumber)}</strong> loopt af op ${esc(dateNl(d.dueAt))}. We hebben je betaling nog niet ontvangen.`
+        : `De betaaltermijn van factuur <strong>${esc(d.invoiceNumber)}</strong> is verlopen op ${esc(dateNl(d.dueAt))}. We hebben je betaling nog niet ontvangen.`;
   return sendMail({
     template: last ? "payment-reminder-last" : "payment-reminder",
+    orderRef: orderRef(d.orderId),
     to,
     subject,
     html: shell(`
@@ -42,7 +71,7 @@ export async function sendPaymentReminderEmail(
         <p style="font-size:16px;line-height:1.6;">
           ${last
             ? `We hebben je betaling voor factuur <strong>${esc(d.invoiceNumber)}</strong> nog niet ontvangen. De vervaldatum was ${esc(dateNl(d.dueAt))}. Maak het bedrag uiterlijk <strong>${esc(dateNl(d.cancelOn))}</strong> over; daarna annuleren we de bestelling en geven we de onderdelen weer vrij.`
-            : `De betaaltermijn van factuur <strong>${esc(d.invoiceNumber)}</strong> loopt vandaag af (${esc(dateNl(d.dueAt))}). We hebben je betaling nog niet ontvangen. Is het bedrag net overgemaakt? Dan kun je deze herinnering negeren.`}
+            : `${dueSentence} Is het bedrag net overgemaakt? Dan kun je deze herinnering negeren.`}
         </p>
         <table style="width:100%;border-collapse:collapse;font-size:14px;margin:16px 0;">
           <tr><td style="padding:6px 0;color:#666;">Bedrag</td><td style="font-weight:600;">${esc(eur(d.totalEur))}</td></tr>

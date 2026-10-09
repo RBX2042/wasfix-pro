@@ -41,7 +41,7 @@ export const VAT_RATE = 0.21;
  * The fallbacks exist so local development and the demo render something. They
  * are never accepted as real: companyReadiness() looks at the environment, not
  * at these fields, and `isPlaceholder` is true until ALL of name, street,
- * postal code, city, KvK, btw-nummer and IBAN are configured and valid.
+ * postal code, city, KvK, btw-nummer, IBAN and the contact e-mail are configured and valid.
  */
 // Every fiscal field goes through canonicalCompanyValue(), the same function
 // companyReadiness() judges, so a trailing newline or a lower-case btw-nummer in
@@ -65,15 +65,19 @@ export const COMPANY = {
   kvk: canon("kvk", env.COMPANY_KVK, "12345678"),
   vatNumber: canon("vatNumber", env.COMPANY_VAT, "NL123456789B01"),
   iban: canon("iban", env.COMPANY_IBAN, "NL00ABCD0123456789"),
-  email: env.COMPANY_EMAIL?.trim() || "support@wasfix.nl",
-  phone: env.COMPANY_PHONE?.trim() || "085 - 123 45 67",
+  // "" when not configured, NEVER an invented address: the old fallback (support@wasfix.nl) was
+  // printed on the legal pages and the invoice as if it were a mailbox (decision D15). A missing
+  // address now makes companyReadiness() fail, so checkout stays closed in production, and public
+  // pages render PENDING_REGISTRATION through realOrNull(COMPANY.email). The same goes for the phone.
+  email: env.COMPANY_EMAIL?.trim() || "",
+  phone: env.COMPANY_PHONE?.trim() || "",
   /** True until the whole fiscal identity is real. See companyReadiness(). */
   get isPlaceholder() {
     return !companyReadiness().ready;
   },
 } as const;
 
-/** The seven fields (plus the contact e-mail) as configured in the environment (no fallbacks). */
+/** The seven fiscal fields plus the contact e-mail as configured in the environment (no fallbacks). */
 export function companyInputFromEnv(): CompanyInput {
   return {
     name: env.COMPANY_NAME,
@@ -83,7 +87,8 @@ export function companyInputFromEnv(): CompanyInput {
     kvk: env.COMPANY_KVK,
     vatNumber: env.COMPANY_VAT,
     iban: env.COMPANY_IBAN,
-    // Not mandatory; companyReadiness() only reports it in `warnings`.
+    // Part of readiness (decision D15): the key is always passed here, so a missing or malformed
+    // COMPANY_EMAIL is a problem and checkout is closed until it is set.
     email: env.COMPANY_EMAIL,
   };
 }
@@ -92,8 +97,9 @@ export function companyInputFromEnv(): CompanyInput {
  * Whether the company may invoice and ask for money.
  *
  * `ready` is true only when name, street, postal code, city, KvK (8 digits),
- * btw-nummer (NL + 9 digits + B + 2 digits) and IBAN (valid mod-97, not the
- * placeholder) are ALL real. A partial configuration is not ready: the old
+ * btw-nummer (NL + 9 digits + B + 2 digits), IBAN (valid mod-97, not the
+ * placeholder) and the contact e-mail (COMPANY_EMAIL, decision D15) are ALL
+ * real. A partial configuration is not ready: the old
  * check looked at the KvK alone, so setting only COMPANY_KVK let checkout
  * invoice with a placeholder IBAN and btw-nummer.
  *
@@ -117,6 +123,17 @@ export function realOrNull(value: string | null | undefined): string | null {
 
 /** Text to show in place of a registration detail we do not have yet. */
 export const PENDING_REGISTRATION = "volgt na inschrijving";
+
+/**
+ * How fast we promise to answer a customer's mail, in working days. ONE number for
+ * every page that states a response time (contact, complaints, terms, help articles,
+ * privacy): five different promises (24 hours, 2 working days, 7 working days)
+ * were on the site at once, and a promise nobody checks is worth nothing. The
+ * owner decides what he can keep and changes it here.
+ */
+export const SUPPORT_RESPONSE_WORKDAYS = 7;
+/** How long a complaint may take to be resolved, in days (stated next to the response time). */
+export const COMPLAINT_RESOLUTION_DAYS = 30;
 
 /**
  * One-line seller identity for e-mail footers and legal pages.

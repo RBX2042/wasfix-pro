@@ -1,21 +1,21 @@
 /**
- * Hourly order housekeeping. Needs `Authorization: Bearer <CRON_SECRET>`.
+ * Order housekeeping. Needs `Authorization: Bearer <CRON_SECRET>`.
  *
- * INTENDED SCHEDULE: hourly ("0 * * * *"); bundle S6 writes vercel.json from this header.
- * NOT VERIFIED: whether the hosting plan allows a cron this often (vercel.com could
- * not be read from here, and one reviewer believed a Vercel Hobby plan only allows
- * daily crons, which would make a deploy with an hourly entry fail). Check the plan
- * before copying this into vercel.json. Run once a day, or from an external
- * scheduler that sends the same Bearer header, the route does the same work,
- * only later: expired orders are cancelled up to a day after their deadline and a
- * reminder is sent at the first run after it is due.
+ * SCHEDULE: whatever vercel.json says (it is the source of truth; at the time of
+ * writing one run per day). A run later than the deadline only means expired
+ * orders are cancelled and reminders go out later: the first payment reminder is
+ * sent at the first run AFTER the due date, which under a daily schedule is the
+ * day after it (the mail is worded from "now versus the due date" for that reason).
  *
  * WHAT IT DOES, in this order, with the existing domain functions:
  *   1. Unpaid bank-transfer orders past due date + BANK_TRANSFER_GRACE_DAYS are
  *      cancelled through cancelOrder() (units back, credit note for the invoice,
- *      customer mailed, owner pinged), at most 25 per run. This is what lets the
- *      sweep work with zero traffic: until now it only ran inside a checkout.
- *   2. Stripe orders still PENDING after ABANDONED_STRIPE_ORDER_HOURS are closed.
+ *      customer mailed, owner pinged), at most 25 per run, and only while they are
+ *      still OPENSTAAND: one the owner marked paid in the meantime is counted as a
+ *      conflict and left alone. This is what lets the sweep work with zero traffic.
+ *   2. Stripe orders still PENDING after ABANDONED_STRIPE_ORDER_HOURS are settled
+ *      THROUGH STRIPE (paid -> fulfilled, expired -> cancelled, unknown -> left and
+ *      the owner is told), never cancelled on the clock alone.
  *   3. Payment reminders at the due date and shortly before the cancellation (one
  *      mail each, recorded; see ../_lib/reminders.ts).
  * Returns the counts as JSON. The owner gets ONE summary when anything was cancelled
@@ -35,7 +35,7 @@ async function job() {
   const abandoned = await expireAbandonedStripeOrders();
   const reminders = await sendPaymentReminders();
   if (expiry.cancelled > 0) revalidateCatalog();
-  if (expiry.cancelled > 0 || expiry.failed > 0) {
+  if (expiry.cancelled > 0 || expiry.failed > 0 || expiry.conflicts > 0) {
     await notifyOwner({
       event: "cron.orders",
       level: expiry.failed > 0 ? "warn" : "info",
@@ -43,6 +43,7 @@ async function job() {
       lines: [
         `${expiry.cancelled} geannuleerd, de voorraad is teruggezet en de klanten zijn gemaild.`,
         ...(expiry.failed > 0 ? [`${expiry.failed} konden niet worden geannuleerd: kijk in de log.`] : []),
+        ...(expiry.conflicts > 0 ? [`${expiry.conflicts} stonden niet meer open (bijvoorbeeld net als betaald gemarkeerd) en zijn met rust gelaten.`] : []),
       ],
       url: "/admin/bestellingen?view=geannuleerd",
     });

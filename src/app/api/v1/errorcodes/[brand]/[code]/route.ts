@@ -3,6 +3,7 @@ import { API_DOCS_URL, authorizeApiRequest } from "@/lib/api-auth";
 import { dbErrorCode } from "@/lib/static-db";
 import { consumeUsage } from "@/lib/entitlements";
 import { pickArr } from "@/lib/utils";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 
@@ -51,7 +52,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ bran
     diyFriendly: ec.diyFriendly,
     relatedParts: ec.parts.map((ep) => ({ sku: ep.part.sku, name: ep.part.name, priceEur: ep.part.priceEur })),
     relatedGuides: ec.guides.map((eg) => ({ slug: eg.guide.slug, title: eg.guide.title, difficulty: eg.guide.difficulty })),
-    detailUrl: `https://wasfix.nl/foutcodes/${encodeURIComponent(ec.machine.brand)}-${encodeURIComponent(ec.code)}`,
+    detailUrl: absoluteUrl(`/foutcodes/${encodeURIComponent(ec.machine.brand)}-${encodeURIComponent(ec.code)}`),
   };
 
   return NextResponse.json({ data: out, meta: { version: "v1" } }, { headers: CORS });

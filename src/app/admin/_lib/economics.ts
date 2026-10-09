@@ -107,6 +107,72 @@ export async function shopMargin(): Promise<{ confirmed: MarginFigure; estimated
   return { confirmed, estimated, unknownLines, orders };
 }
 
+/**
+ * The last `n` Europe/Amsterdam calendar days ending today, oldest first, as YYYY-MM-DD. Counted on the DATE,
+ * not by subtracting 24 hours: across a clock change a day has 23 or 25 hours and subtracting 24 h would skip
+ * or repeat a label, which for the revenue chart means a day of revenue missing.
+ */
+export function amsterdamDays(n: number, now: Date = new Date()): string[] {
+  const [y, m, d] = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }).format(now).split("-").map(Number);
+  const out: string[] = [];
+  for (let i = n - 1; i >= 0; i--) out.push(new Date(Date.UTC(y, m - 1, d - i)).toISOString().slice(0, 10));
+  return out;
+}
+
+/**
+ * Paid orders that never got an invoice (the company details were incomplete when they were paid). They are in the
+ * "Omzet" card, which counts paid orders, but NOT in the revenue chart, which reads the invoices: this is the
+ * difference between the two, so the dashboard can say so instead of letting them disagree silently.
+ */
+export async function paidWithoutInvoice(): Promise<{ count: number; grossEur: number }> {
+  const r = await prisma.order.aggregate({ where: { status: { in: [...PAID_STATUSES] }, invoice: { is: null } }, _sum: { totalEur: true }, _count: true });
+  return { count: r._count, grossEur: money(r._sum.totalEur ?? 0) };
+}
+
+export type RevenueDay = {
+  /** YYYY-MM-DD, Europe/Amsterdam. */
+  day: string;
+  /** Invoiced incl. VAT on this day for orders that are paid, minus the credit notes issued on this day for them. Can be negative on a refund day. */
+  revenueEur: number;
+  /** Invoices issued on this day for paid orders. */
+  invoices: number;
+  /** Credit notes issued on this day for paid orders. */
+  creditNotes: number;
+};
+
+/**
+ * The revenue chart's numbers, from the same two tables as the VAT ledger: Invoice minus CreditNote, by the
+ * Europe/Amsterdam day of issue, for orders that count as paid (the same orders paidRevenue() counts). It
+ * used to group paid orders by createdAt in server-local (UTC) days and ignore credit notes, so after any
+ * refund the chart disagreed with the card next to it. Over a window that holds every invoice the series
+ * adds up to paidRevenue().grossEur; scripts/qa-admin.ts checks exactly that. Zero-filled, oldest first.
+ */
+export async function revenuePerDay(days = 30, now: Date = new Date()): Promise<RevenueDay[]> {
+  const since = new Date(now.getTime() - (days + 1) * 86_400_000);
+  const [inv, cn] = await Promise.all([
+    prisma.$queryRaw<{ day: string; gross: number; n: number }[]>`
+      SELECT to_char((i."issuedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Amsterdam', 'YYYY-MM-DD') AS day,
+             COALESCE(SUM(i."totalEur"), 0)::float8 AS gross, COUNT(*)::int AS n
+        FROM "Invoice" i JOIN "Order" o ON o."id" = i."orderId"
+       WHERE o."status" IN ('PAID', 'SHIPPED', 'DELIVERED') AND i."issuedAt" >= ${since}
+       GROUP BY 1`,
+    prisma.$queryRaw<{ day: string; gross: number; n: number }[]>`
+      SELECT to_char((c."issuedAt" AT TIME ZONE 'UTC') AT TIME ZONE 'Europe/Amsterdam', 'YYYY-MM-DD') AS day,
+             COALESCE(SUM(c."totalEur"), 0)::float8 AS gross, COUNT(*)::int AS n
+        FROM "CreditNote" c JOIN "Invoice" i ON i."id" = c."invoiceId" JOIN "Order" o ON o."id" = i."orderId"
+       WHERE o."status" IN ('PAID', 'SHIPPED', 'DELIVERED') AND c."issuedAt" >= ${since}
+       GROUP BY 1`,
+  ]);
+  const invBy = new Map(inv.map((r) => [r.day, r]));
+  const cnBy = new Map(cn.map((r) => [r.day, r]));
+  return amsterdamDays(days, now).map((key) => ({
+    day: key,
+    revenueEur: money(Number(invBy.get(key)?.gross ?? 0) - Number(cnBy.get(key)?.gross ?? 0)),
+    invoices: Number(invBy.get(key)?.n ?? 0),
+    creditNotes: Number(cnBy.get(key)?.n ?? 0),
+  }));
+}
+
 // ─── Is anyone buying? ────────────────────────────────────────────────
 
 export type DayCount = { date: string; created: number; paid: number };
@@ -121,14 +187,26 @@ export async function ordersPerDay(days = 14, now: Date = new Date()): Promise<D
      WHERE "createdAt" >= ${new Date(now.getTime() - (days + 1) * 86_400_000)}
      GROUP BY 1`;
   const byDay = new Map(rows.map((r) => [r.day, r]));
-  const fmt = new Intl.DateTimeFormat("sv-SE", { timeZone: "Europe/Amsterdam" }); // YYYY-MM-DD
-  const out: DayCount[] = [];
-  for (let i = days - 1; i >= 0; i--) {
-    const key = fmt.format(new Date(now.getTime() - i * 86_400_000));
+  return amsterdamDays(days, now).map((key) => {
     const r = byDay.get(key);
-    out.push({ date: key, created: r?.created ?? 0, paid: r?.paid ?? 0 });
-  }
-  return out;
+    return { date: key, created: r?.created ?? 0, paid: r?.paid ?? 0 };
+  });
+}
+
+// ─── Who is a user? ───────────────────────────────────────────────────
+
+/**
+ * Accounts are people who signed up: they have a Clerk id. Checkout also creates a User row for every guest
+ * so the order has an owner (decision D16: a guest order is attached to a real account only when the placer
+ * is signed in as it). Counting those rows as "Gebruikers" inflated the number and listed guests, by name and
+ * e-mail, as if they were leads. They are reported apart: `guests` = rows without an account that placed an order.
+ */
+export async function accountStats(): Promise<{ accounts: number; guests: number }> {
+  const [accounts, guests] = await Promise.all([
+    prisma.user.count({ where: { clerkId: { not: null } } }),
+    prisma.user.count({ where: { clerkId: null, orders: { some: {} } } }),
+  ]);
+  return { accounts, guests };
 }
 
 // ─── Open work ────────────────────────────────────────────────────────

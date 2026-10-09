@@ -1,4 +1,5 @@
-import { COMPANY } from "@/lib/plans";
+import { ContactEmail } from "@/lib/contact-email";
+import { SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
 import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
 import { WARRANTY_ROWS, formatWarranty } from "@/lib/warranty";
@@ -11,7 +12,7 @@ export const metadata = {
 
 export default function GarantiePage() {
   return (
-    <LegalPage title="Garantie" emphasis="voorwaarden">
+    <LegalPage title="Garantie" emphasis="voorwaarden" lastUpdate="9 oktober 2026" version="2.2">
       <p>
         Op alle onderdelen die je bij WasFix Pro koopt geldt de wettelijke conformiteitsgarantie. Aanvullend bieden we langere fabrieksgarantie op originele onderdelen en onze WasFix-garantie op universele onderdelen. Dit document legt uit wat je rechten zijn, hoe je een garantieclaim indient, en wat er buiten de garantie valt.
       </p>
@@ -68,8 +69,8 @@ export default function GarantiePage() {
 
       <h2>5. Hoe dien je een garantieclaim in?</h2>
       <ol>
-        <li>Stuur een mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> met je bestelnummer, foto&apos;s van het defect, en korte beschrijving.</li>
-        <li>Wij beoordelen binnen 5 werkdagen.</li>
+        <li>Stuur een mail naar <ContactEmail /> met je bestelnummer, foto&apos;s van het defect, en korte beschrijving.</li>
+        <li>Wij beoordelen binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen.</li>
         <li>Bij goedkeuring: wij sturen een retour-label. Stuur het onderdeel retour.</li>
         <li>Na ontvangst: vervanging, reparatie, of volledige restitutie binnen 14 dagen.</li>
       </ol>
@@ -80,7 +81,7 @@ export default function GarantiePage() {
       </p>
 
       <p style={{ marginTop: 32, padding: "14px 16px", background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 10 }}>
-        <strong>Twijfel je of je iets onder garantie kan claimen?</strong> Stuur een mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> — we kijken graag met je mee, zonder verplichting.
+        <strong>Twijfel je of je iets onder garantie kan claimen?</strong> Stuur een mail naar <ContactEmail /> — we kijken graag met je mee, zonder verplichting.
       </p>
     </LegalPage>
   );

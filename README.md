@@ -108,7 +108,7 @@ gebeuren.
 |---|---|---|
 | Auth | Iedereen is de demo-beheerder | Clerk (`/inloggen`, `/registreren`); middleware beschermt dashboard, admin, monteur en API |
 | Beheerder | n.v.t. | `ADMIN_EMAILS` (alleen een door Clerk bevestigd adres) of `scripts/make-admin.ts` |
-| Betalen | Zonder Stripe-sleutels: bankoverschrijving | iDEAL en kaart via Stripe, of bankoverschrijving |
+| Betalen | Zonder Stripe-sleutels: bankoverschrijving | iDEAL en kaart via Stripe (alleen met `STRIPE_SECRET_KEY` én `STRIPE_WEBHOOK_SECRET`), of bankoverschrijving |
 | AI | Trefwoorden-terugval tenzij `GEMINI_API_KEY` (de terugval zegt dat) | idem |
 | E-mail | Geen verzending tenzij `RESEND_API_KEY` | idem |
 | Data | Statische catalogus, of persistent met `DATABASE_URL` | De database is verplicht |
@@ -119,7 +119,7 @@ Elke koppeling gaat aan zodra zijn variabele bestaat; `.env.example` noemt ze al
 
 Het volledige, geordende draaiboek met tijdschattingen staat in **[BLOCKED.md](BLOCKED.md)**. In het kort:
 
-1. Bedrijf inschrijven en de `COMPANY_*`-gegevens verzamelen (de lange pool: weken).
+1. Bedrijf inschrijven en de `COMPANY_*`-gegevens verzamelen, inclusief `COMPANY_EMAIL` (de lange pool: weken). Zonder een van de acht blijft de winkel dicht, en na elke wijziging moet je opnieuw bouwen en deployen: de juridische pagina's worden bij de build klaargemaakt.
 2. Domein, `NEXT_PUBLIC_APP_URL` (verplicht; zet hem vóór de build en laat hem gezet staan, zie BLOCKED.md stap 2).
 3. Supabase: `DATABASE_URL` (transaction pooler, `?pgbouncer=true&connection_limit=1`) en `DIRECT_URL`
    (poort 5432, alleen voor migraties). `npm run db:migrate:deploy`, daarna `npm run db:seed`.

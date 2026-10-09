@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import brandsData from "@/data/brands.json";
 import { dbErrorCodes, dbParts } from "@/lib/static-db";
+import { absoluteUrl } from "@/lib/site-url";
 
 /**
  * Does the catalogue hold anything for this brand? Five brands in brands.json
@@ -79,7 +80,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
       "@context": "https://schema.org",
       "@type": "Service",
       serviceType: `${brand.brand} wasmachine reparatie`,
-      provider: { "@type": "Organization", name: "WasFix Pro", url: "https://wasfix.nl" },
+      provider: { "@type": "Organization", name: "WasFix Pro", url: absoluteUrl("/") },
       areaServed: { "@type": "Country", name: "Nederland" },
       offers: { "@type": "Offer", price: "0", priceCurrency: "EUR", description: "Gratis AI-diagnose" },
     },

@@ -1,6 +1,7 @@
 "use client";
 
 import { ActionForm, Submit, inputCls } from "../_lib/action-form";
+import { decimalNl } from "@/lib/emails/money";
 import { approveRmaAction, closeRmaAction, linkRmaAction, refundRmaAction, rejectRmaAction, returnReceivedAction } from "./actions";
 
 function Details({ summary, children, open }: { summary: string; children: React.ReactNode; open?: boolean }) {
@@ -66,12 +67,16 @@ export function RefundRmaForm({
   expectedRefundedEur,
   items,
   how,
+  canRestock,
 }: {
   id: string;
   remainingEur: number;
   expectedRefundedEur: number;
+  /** `quantity` is what can still go back on the shelf: ordered minus what earlier refunds put back. */
   items: Array<{ partId: string; sku: string; quantity: number }>;
   how: string;
+  /** Only goods that shipped can come back; an unshipped order is cancelled instead. */
+  canRestock: boolean;
 }) {
   return (
     <Details summary="Terugbetalen" open>
@@ -80,14 +85,14 @@ export function RefundRmaForm({
         <input type="hidden" name="expectedRefundedEur" value={String(expectedRefundedEur)} />
         <p className="text-sm text-muted-foreground">{how} De klant krijgt een e-mail met de creditnota.</p>
         <label className="block text-sm">
-          <span className="text-muted-foreground">Bedrag incl. btw (maximaal € {remainingEur.toFixed(2).replace(".", ",")})</span>
-          <input name="amount" required inputMode="decimal" autoComplete="off" defaultValue={remainingEur.toFixed(2).replace(".", ",")} className={`${inputCls} mt-1`} />
+          <span className="text-muted-foreground">Bedrag incl. btw (maximaal € {decimalNl(remainingEur)})</span>
+          <input name="amount" required inputMode="decimal" autoComplete="off" defaultValue={decimalNl(remainingEur)} className={`${inputCls} mt-1`} />
         </label>
-        {items.length > 0 && (
+        {canRestock && items.some((i) => i.quantity > 0) && (
           <fieldset className="rounded-md border p-2">
             <legend className="px-1 text-xs text-muted-foreground">Terug op voorraad (alleen in goede staat)</legend>
             <div className="grid gap-2 sm:grid-cols-2">
-              {items.map((i) => (
+              {items.filter((i) => i.quantity > 0).map((i) => (
                 <label key={i.partId} className="flex items-center justify-between gap-2 text-sm">
                   <span className="font-mono truncate">{i.sku}</span>
                   <input name={`restock_${i.partId}`} type="number" min={0} max={i.quantity} step={1} placeholder={`0 van ${i.quantity}`} className="w-24 rounded-md border bg-background px-2 py-1 text-sm" />

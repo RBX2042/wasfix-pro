@@ -288,8 +288,18 @@ async function phase2() {
     refund: htmls[4].includes("CN-2026-00004") && htmls[4].includes("10,00"),
     footer: htmls.every((h) => h.includes("WasFix")),
     noOldLink: htmls.every((h) => !/\/bestelling\/abc12345xyz"/.test(h)),
+    // FA: the credit note is a document of its own, linked from the mails that mention it; a return has a link.
+    cancelLink: htmls[3].includes("/bestelling/abc12345xyz/creditnota/CN-2026-00003?t=TOK123"),
+    refundLink: htmls[4].includes("/bestelling/abc12345xyz/creditnota/CN-2026-00004?t=TOK123"),
+    shippedReturn: htmls[2].includes("/retour/start?order=ABC12345&amp;t=TOK123"),
+    // D3: without a Stripe refund nobody has sent any money yet; the mail must not say so.
+    refundBankWording: !/teruggestort/i.test(htmls[4]) && /creditfactuur/i.test(htmls[4]) && /Gaat het om een herroeping, dan staat het bedrag uiterlijk 14 dagen na je melding/.test(htmls[4]) && !/binnen 14 dagen/.test(htmls[4]) && /Creditfactuur voor bestelling/.test(subjects[4]),
   };
+  resendRequests.length = 0;
+  await em.sendRefundEmail("ok@example.com", { ...base, amountEur: 10, creditNoteNumber: "CN-2026-00004", partial: false, via: "stripe" });
+  (content as Record<string, unknown>).refundStripeWording = /teruggestort/i.test(String(resendRequests[0].html)) && /Terugbetaling voor bestelling/.test(String(resendRequests[0].subject));
 
+  slack.hits.length = 0;
   const rejected = await em.sendBankTransferInstructions("reject@example.com", {
     orderId: "abc12345xyz", name: "Piet", accessToken: "tok", invoiceNumber: "2026-00001", totalEur: 30.45, dueAt: new Date(), iban: "NL02ABNA0123456789", ibanName: "WasFix Test B.V.",
   });
@@ -405,8 +415,12 @@ async function main() {
     check(c.shipped === true, "Mails: shipped mail has carrier, plain code and the PostNL link with the postcode", `Shipped mail: ${JSON.stringify(c)}`);
     check(c.cancelled === true && c.refund === true, "Mails: cancellation names the credit note and the refunded amount; refund mail names its credit note", `Cancel/refund mails: ${JSON.stringify(c)}`);
     check(c.footer === true, "Mails: every mail carries the seller identity footer", `Footers: ${JSON.stringify(c)}`);
+    check(c.cancelLink === true && c.refundLink === true, "R2-13: the cancellation and the refund mail link the credit note document (with the guest token)", `Credit note links: ${JSON.stringify(c)}`);
+    check(c.shippedReturn === true, "D5: the shipped mail links /retour/start with the order number and the token", `Shipped mail has no return link: ${JSON.stringify(c)}`);
+    check(c.refundBankWording === true && c.refundStripeWording === true, "D3: the refund mail says 'teruggestort' only for a Stripe refund; without one it says the credit note is issued and the money follows within 14 days", `Refund wording: ${JSON.stringify(c)}`);
     check(r.rejected?.ok === false && /not verified/.test(r.rejected?.error ?? ""), "E-mail with an unverified domain: Resend answers 422 and the sender returns {ok:false, error} (the old code returned undefined)", `Rejected mail: ${JSON.stringify(r.rejected)}`);
     check(typeof r.alert === "string" && r.alert.includes("E-mail niet verstuurd (bank-transfer-instructions)") && r.alert.includes("not verified"), "E-mail failure is escalated to the owner by template name, with Resend's reason", `No escalation: ${r.alert}`);
+    check(typeof r.alert === "string" && r.alert.includes("#ABC12345") && !r.alert.includes("Piet"), "R2-11: the failure alert names the ORDER (#ABC12345) the mail belongs to, not the customer", `Alert without order reference: ${r.alert}`);
     check(r.errorLogged === true, "E-mail failure is logged at error level", `No error log: ${line}`);
     check(r.addressInLogs === false && r.addressInAlert === false, "E-mail failure: the customer's address is in neither the log nor the owner alert", `Address leaked: ${line}`);
     check(r.hung?.ok === false && /timeout/.test(r.hung?.error ?? "") && (r.hungMs ?? 0) >= 9500 && (r.hungMs ?? 0) < 13000, `E-mail to a Resend that never answers: given up after the 10 s transport timeout (${r.hungMs} ms)`, `Hung Resend: ${JSON.stringify(r.hung)} ${r.hungMs} ms`);
@@ -419,7 +433,8 @@ async function main() {
     };
     const partial = guard({ COMPANY_KVK: "90000001" });
     check(partial.ok === false && partial.error === "company_not_ready", "Wire instructions: in production with only COMPANY_KVK set the bank-transfer mail is refused (no placeholder IBAN reaches a customer)", `Wire instructions guard: ${JSON.stringify(partial)}`);
-    const whole = guard({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" });
+    // COMPANY_EMAIL is part of the identity since decision D15 (bundle FB): without it the company is not ready and no wire instruction goes out.
+    const whole = guard({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789", COMPANY_EMAIL: "hallo@example.test" });
     check(whole.error !== "company_not_ready", "Wire instructions: with the full identity the mail is attempted (it then fails only at the network)", `Wire instructions with full identity: ${JSON.stringify(whole)}`);
 
     // ── Half-configured: Resend key but no owner address ──────────────────

@@ -23,16 +23,20 @@
  * snapshot). When they are not set the defaults below are used; the server under test must run with
  * the same values (COMPANY_NAME="WasFix Test B.V." COMPANY_STREET="Teststraat 1"
  * COMPANY_POSTAL_CODE="1011 AB" COMPANY_CITY=Amsterdam COMPANY_KVK=90000001
- * COMPANY_VAT=NL900000010B01 COMPANY_IBAN=NL02ABNA0123456789) and, in production mode, with
+ * COMPANY_VAT=NL900000010B01 COMPANY_IBAN=NL02ABNA0123456789 COMPANY_EMAIL=qa@qa-checkout.test: the contact address
+ * is part of readiness, decision D15, so checkout is closed without it) and, in production mode, with
  * NEXT_PUBLIC_APP_URL set to a non-local address.
  */
+import fs from "node:fs";
+import path from "node:path";
 import http from "node:http";
 import { spawnSync } from "node:child_process";
 import type { AddressInfo } from "node:net";
+import { loadPlaywright } from "./lib/browser";
 
 // The HTTP section creates invoices in this process; without a company identity they would snapshot
 // a placeholder IBAN and two checks would fail for a reason that has nothing to do with the code.
-const DEFAULT_QA_COMPANY: Record<string, string> = { COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" };
+const DEFAULT_QA_COMPANY: Record<string, string> = { COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789", COMPANY_EMAIL: "qa@qa-checkout.test" };
 for (const [k, v] of Object.entries(DEFAULT_QA_COMPANY)) if (!process.env[k]) process.env[k] = v;
 
 const DOMAIN = "qa-checkout.test";
@@ -178,7 +182,7 @@ async function pureChecks() {
 // ───────────────────────────── in-process scenarios ─────────────────────────────
 type Json = Record<string, any>;
 
-async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-baddb" | "prod-nocompany" | "prod-dbdown" | "prod-ok" | "prod-nourl" | "prod-localurl") {
+async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "stripe-nowebhook" | "prod-noemail" | "prod-baddb" | "prod-nocompany" | "prod-dbdown" | "prod-ok" | "prod-nourl" | "prod-localurl") {
   const slackBodies: string[] = [];
   // A slow webhook is how a sweep that runs inside a customer's request shows itself.
   let slackDelayMs = 0;
@@ -193,18 +197,21 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
   delete process.env.DISCORD_WEBHOOK_URL;
   delete process.env.ORDER_NOTIFY_EMAIL;
 
-  if (kind === "guest" || kind === "nostripe" || kind === "prod-ok" || kind === "prod-nocompany" || kind === "prod-dbdown" || kind === "prod-baddb" || kind === "prod-nourl" || kind === "prod-localurl") {
+  if (kind === "guest" || kind === "nostripe" || kind === "stripe-nowebhook" || kind === "prod-noemail" || kind === "prod-ok" || kind === "prod-nocompany" || kind === "prod-dbdown" || kind === "prod-baddb" || kind === "prod-nourl" || kind === "prod-localurl") {
     // Clerk keys present and DEMO_MODE unset = not demo mode, so nobody is signed in: a guest.
     process.env.CLERK_SECRET_KEY = "sk_test_qa";
     process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = "pk_test_qa";
     delete process.env.DEMO_MODE;
   }
   if (kind === "member") process.env.DEMO_MODE = "true";
-  if (kind === "nostripe") delete process.env.STRIPE_SECRET_KEY;
-  else process.env.STRIPE_SECRET_KEY = "sk_test_qa_fake";
+  // Stripe is offered only with BOTH keys (stripeCheckoutAvailable, rehearsal R2-04); "stripe-nowebhook" has just the secret key.
+  if (kind === "nostripe") { delete process.env.STRIPE_SECRET_KEY; delete process.env.STRIPE_WEBHOOK_SECRET; }
+  else if (kind === "stripe-nowebhook") { process.env.STRIPE_SECRET_KEY = "sk_test_qa_fake"; delete process.env.STRIPE_WEBHOOK_SECRET; }
+  else { process.env.STRIPE_SECRET_KEY = "sk_test_qa_fake"; process.env.STRIPE_WEBHOOK_SECRET = "whsec_qa_fake"; }
 
   const company = { COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789", COMPANY_EMAIL: "qa@qa-checkout.test" };
   if (kind === "prod-nocompany" || kind === "prod-baddb") for (const k of Object.keys(company)) delete process.env[k];
+  else if (kind === "prod-noemail") { Object.assign(process.env, company); delete process.env.COMPANY_EMAIL; }
   else Object.assign(process.env, company);
 
   const { PrismaClient } = await import("@prisma/client");
@@ -282,6 +289,7 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
     await prisma.order.deleteMany({ where: { id: { in: ids } } });
     await prisma.part.deleteMany({ where: { sku: { startsWith: SKU_PREFIX } } });
     await prisma.user.deleteMany({ where: { email: { endsWith: `@${DOMAIN}` } } });
+    await prisma.user.deleteMany({ where: { email: "gastbestellingen@guest.invalid", orders: { none: {} } } });
     // This is a test database: rewind the sequences to what really exists, as if the test invoices had never been issued.
     for (const { year } of await prisma.invoiceSequence.findMany()) {
       const rows = await prisma.invoice.findMany({ where: { year }, select: { number: true } });
@@ -321,6 +329,9 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
     const dear = await mkPart(50, 300);
     const value = await call(body({ items: [{ sku: dear.sku, quantity: 2 }] }));
     const ip = freshIp();
+    // The daily allowance per address is 10 (D17) while the hourly one for any order is also 10: use 7 places up through the route's own counter.
+    const { rateLimit: spend } = await import("../src/lib/ratelimit");
+    for (let i = 0; i < limits.MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY - 3; i++) await spend(`checkout-bank-ip:${ip}`, limits.MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY, 24 * 60 * 60 * 1000);
     for (let i = 0; i < 3; i++) await call(body({ items: [{ sku: cheap.sku, quantity: 1 }] }), { ip });
     const ipRes = await call(body({ items: [{ sku: cheap.sku, quantity: 1 }] }), { ip });
     const filler = await mkOpenOrder(2990, { registered: true });
@@ -333,8 +344,8 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
     await cleanup();
 
     // ─────────────────────────── production fail-closed child scenarios ───────────────────────────
-    if (kind === "prod-baddb" || kind === "prod-dbdown" || kind === "prod-nocompany" || kind === "prod-nourl" || kind === "prod-localurl") {
-      const part = kind === "prod-nocompany" || kind === "prod-nourl" || kind === "prod-localurl" ? await mkPart(5, 12) : null;
+    if (kind === "prod-baddb" || kind === "prod-dbdown" || kind === "prod-nocompany" || kind === "prod-noemail" || kind === "prod-nourl" || kind === "prod-localurl") {
+      const part = kind === "prod-nocompany" || kind === "prod-noemail" || kind === "prod-nourl" || kind === "prod-localurl" ? await mkPart(5, 12) : null;
       const before = await counts();
       const r = await call(body({ items: [{ sku: part?.sku ?? "WF-PUMP-01", quantity: 1 }], paymentMethod: "bank_transfer" }));
       const r2 = await call(body({ items: [{ sku: part?.sku ?? "WF-PUMP-01", quantity: 1 }], paymentMethod: "stripe" }));
@@ -342,7 +353,7 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
       check(r.status === 503 && r2.status === 503, `[${kind}] production: POST /api/checkout answers 503 for bank transfer and for Stripe`, `[${kind}] production answered ${r.status} / ${r2.status}: ${text.slice(0, 200)}`);
       check(!/demo/i.test(text) && !/bedankt/i.test(text) && !r.json.orderId, `[${kind}] production: the answer carries no orderId, no 'demo', no 'bedankt'`, `[${kind}] production: answer looks like success: ${text.slice(0, 200)}`);
       check(/niet mogelijk/i.test(String(r.json.error)) && !/DATABASE|COMPANY|IBAN|KvK|env/i.test(String(r.json.error)), `[${kind}] the message tells the customer nothing about the configuration`, `[${kind}] message leaks configuration: ${r.json.error}`);
-      if (kind === "prod-nocompany" || kind === "prod-nourl" || kind === "prod-localurl") {
+      if (kind === "prod-nocompany" || kind === "prod-noemail" || kind === "prod-nourl" || kind === "prod-localurl") {
         const after = await counts();
         check(after.orders === before.orders && after.invoices === before.invoices && (await stockOf(part!.id)) === 5, `[${kind}] no order, no invoice and no stock change were made`, `[${kind}] something was written`);
       }
@@ -352,8 +363,15 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
       const gate = await import("../src/lib/cart-gate");
       const g = gate.checkoutBlockedReason();
       // The page gate knows about configuration, not about a database that is configured but down: that case is the 503 above.
-      const wantCode = kind === "prod-nocompany" ? "company" : kind === "prod-nourl" || kind === "prod-localurl" ? "app_url" : "database";
+      const wantCode = kind === "prod-nocompany" || kind === "prod-noemail" ? "company" : kind === "prod-nourl" || kind === "prod-localurl" ? "app_url" : "database";
       check(kind === "prod-dbdown" ? g === null : g !== null && g.code === wantCode && g.missing.length > 0, `[${kind}] checkoutBlockedReason() (used by the /checkout page): ${g ? `${g.code} (${g.missing.join(",")})` : "null: configured, the outage is caught by the 503 above"}`, `[${kind}] page gate wrong: ${JSON.stringify(g)}`);
+      if (kind === "prod-noemail") {
+        // Decision D15 / rehearsal D1+R2-05: all seven fiscal fields are fine, only the contact address is missing. Before: checkout was OPEN and invoices said support@wasfix.nl.
+        check(g?.missing.join() === "email", "[prod-noemail] the gate names exactly the missing field ('email'), never a value", `[prod-noemail] gate: ${JSON.stringify(g)}`);
+        const { companyReadiness: readiness } = await import("../src/lib/plans");
+        const { COMPANY: co } = await import("../src/lib/plans");
+        check(readiness().ready === false && co.email === "" && !/support@wasfix\.nl/.test(JSON.stringify(co)), "[prod-noemail] COMPANY.email is empty, not the old built-in support@wasfix.nl (and not ready)", `[prod-noemail] COMPANY.email: ${JSON.stringify(co.email)}`);
+      }
       if (kind === "prod-nourl" || kind === "prod-localurl") {
         check(!/localhost|NEXT_PUBLIC|APP_URL/i.test(JSON.stringify(r.json)), `[${kind}] the customer is told nothing about the address configuration`, `[${kind}] message leaks the configuration: ${JSON.stringify(r.json)}`);
       }
@@ -369,6 +387,27 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
       await settle();
       const warn = slackTexts().filter((t) => /Bedrijfsgegevens zien er niet echt uit/.test(t));
       check(warn.length === 1, "[prod-ok] the company identity has test numbers: the owner got the one warning (warnAboutUnrealCompany)", `[prod-ok] expected one 'niet echt' warning, got ${warn.length}`);
+      return;
+    }
+
+    if (kind === "stripe-nowebhook") {
+      // R2-04: STRIPE_SECRET_KEY without STRIPE_WEBHOOK_SECRET. Every payment would succeed at Stripe while the webhook answers 503 and
+      // the order stays PENDING until the daily reconcile: so iDEAL/kaart is not offered and not accepted.
+      const gate = await import("../src/lib/cart-gate");
+      const part = await mkPart(5, 12);
+      const before = await counts();
+      const r = await call(body({ items: [{ sku: part.sku, quantity: 1 }], paymentMethod: "stripe" }));
+      const after = await counts();
+      check(gate.stripeCheckoutAvailable() === false && r.status === 400 && r.json.code === "payment_method_unavailable" && after.orders === before.orders && stripeCalls.length === 0 && (await stockOf(part.id)) === 5, "[stripe-nowebhook] secret key but no webhook secret: Stripe is refused (payment_method_unavailable), no order, no Stripe session created", `[stripe-nowebhook] ${r.status} ${JSON.stringify(r.json).slice(0, 160)} available=${gate.stripeCheckoutAvailable()} stripe calls ${stripeCalls.length}`);
+      const ok = await call(body({ items: [{ sku: part.sku, quantity: 1 }], paymentMethod: "bank_transfer" }));
+      check(ok.status === 200 && ok.json.paymentMethod === "bank_transfer", "[stripe-nowebhook] [guard] bank transfer still works", `[stripe-nowebhook] bank transfer: ${ok.status}`);
+      // The cap refusal must not point at a method that is not offered.
+      const caps = await capScenarios();
+      check(caps.address.status === 429 && !/iDEAL|kaart/i.test(String(caps.address.json.error)), "[stripe-nowebhook] a cap refusal does not send the customer to iDEAL/kaart (it is not offered)", `[stripe-nowebhook] cap message: ${caps.address.json.error}`);
+      process.env.STRIPE_WEBHOOK_SECRET = "whsec_qa_fake";
+      const env = (await import("../src/lib/env")).env as unknown as Record<string, string | undefined>;
+      env.STRIPE_WEBHOOK_SECRET = "whsec_qa_fake";
+      check(gate.stripeCheckoutAvailable() === true, "[stripe-nowebhook] with both keys the same gate says Stripe is available", "[stripe-nowebhook] gate still false with both keys");
       return;
     }
 
@@ -690,22 +729,30 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
       const exp = await mkPart(50, 300);
       const val = await call(body({ items: [{ sku: exp.sku, quantity: 2 }] }));
       check(val.status === 429 && val.json.code === "bank_transfer_limit_value" && /iDEAL of kaart/.test(String(val.json.error)), `Caps value: a guest bank-transfer order above EUR ${limits.OPEN_BANK_TRANSFER_LIMITS.guest.valueEur} -> 429 with the way out (Stripe is on, so iDEAL/kaart is offered)`, `Value cap: ${val.status} ${JSON.stringify(val.json).slice(0, 200)}`);
-      // per IP per day
+      // per IP per day. Decision D17 / rehearsal D12: 10, not 3. The hourly cap for any order is also 10, so to reach the DAILY one with
+      // real requests the allowance is first used up through the same counter the route uses (rateLimit "checkout-bank-ip:<ip>"),
+      // leaving exactly 3 places; the next request after those 3 must be refused by the daily cap.
+      const { rateLimit } = await import("../src/lib/ratelimit");
+      const DAYMS = 24 * 60 * 60 * 1000;
+      const N = limits.MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY;
+      check(N === 10, "Caps per IP: the daily bank-transfer allowance per address is 10 (decision D17; it was 3 and refused households, offices and mobile networks)", `Caps per IP: constant is ${N}`);
       const ip = "203.0.113.77";
+      for (let i = 0; i < N - 3; i++) await rateLimit(`checkout-bank-ip:${ip}`, N, DAYMS);
       const ipRes: number[] = [];
-      for (let i = 0; i < limits.MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY + 1; i++) ipRes.push((await call(body({ items: [{ sku: part.sku, quantity: 1 }] }), { ip })).status);
-      check(ipRes.slice(0, limits.MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY).every((s) => s === 200) && ipRes[ipRes.length - 1] === 429, `Caps per IP: ${limits.MAX_BANK_TRANSFER_ORDERS_PER_IP_PER_DAY} bank-transfer orders per day from one address, then 429 (${ipRes.join(",")})`, `Caps per IP: ${ipRes.join(",")}`);
+      for (let i = 0; i < 4; i++) ipRes.push((await call(body({ items: [{ sku: part.sku, quantity: 1 }] }), { ip })).status);
+      check(ipRes.slice(0, 3).every((s) => s === 200) && ipRes[3] === 429, `Caps per IP: after ${N - 3} of the ${N} daily places were used, the next 3 orders from the address pass and the one after is refused (${ipRes.join(",")})`, `Caps per IP: ${ipRes.join(",")}`);
 
       // The counter counts ORDERS. A request refused for another reason (here: the per-address cap) must not
       // use up the allowance, and the refusal that follows must be true about how many orders were placed.
       const ip2 = "203.0.113.88";
+      for (let i = 0; i < N - 3; i++) await rateLimit(`checkout-bank-ip:${ip2}`, N, DAYMS);
       const [ea, eb, ec] = [freshEmail("ipa"), freshEmail("ipb"), freshEmail("ipc")];
       const one = (e: string) => call(body({ email: e, items: [{ sku: part.sku, quantity: 1 }] }), { ip: ip2 });
       const seq2 = [(await one(ea)).status, (await one(ea)).status, (await one(ea)).status, (await one(eb)).status];
       const last2 = await one(ec);
       const placed = await prisma.order.count({ where: { email: { in: [ea, eb, ec] } } });
       check(seq2.join(",") === "200,200,429,200" && last2.status === 429 && last2.json.code === "bank_transfer_limit_ip" && placed === 3, `Caps per IP: a refusal for another reason does not burn the allowance (${seq2.join(",")}, then ${last2.status} after ${placed} real orders)`, `Caps per IP counts refused attempts: ${seq2.join(",")} then ${last2.status} ${last2.json.code}; ${placed} orders`);
-      check(/3 bestellingen/.test(String(last2.json.error)) && placed === 3, "Caps per IP: the refusal says '3 bestellingen' and exactly 3 exist (it used to say 3 after only 2)", `Caps per IP message: "${last2.json.error}" with ${placed} orders`);
+      check(new RegExp(`maximum van ${N} bestellingen`).test(String(last2.json.error)) && placed === 3, `Caps per IP: the refusal quotes the real daily maximum ('${N} bestellingen') and exactly the 3 remaining places were used`, `Caps per IP message: "${last2.json.error}" with ${placed} orders`);
     }
 
     // G10c the attacker: try to reserve everything
@@ -750,6 +797,38 @@ async function inProcessScenarios(kind: "guest" | "member" | "nostripe" | "prod-
       const viaLegacy = await call(body({ email: legacy.toLowerCase(), items: [{ sku: part.sku, quantity: 1 }] }));
       const ord = viaLegacy.json.orderId ? await prisma.order.findUnique({ where: { id: viaLegacy.json.orderId } }) : null;
       check(ord?.userId === row.id && (await prisma.user.count({ where: { email: { equals: legacy, mode: "insensitive" } } })) === 1, "E-mail identity: an existing mixed-case user row is reused for the lower-case address", "E-mail identity: legacy row duplicated");
+    }
+
+    // G11b decision D16 / rehearsal R2-12: a guest order is attached to an existing REAL account (one with a Clerk id) only when the
+    // placer is signed in as that account. Typing somebody's address must not put the order in their dashboard or block their erasure.
+    {
+      const part = await mkPart(50, 5);
+      const { GUEST_HOLDER_EMAIL } = await import("../src/lib/checkout-user");
+      const memberEmail = freshEmail("member-real");
+      const member = await prisma.user.create({ data: { email: memberEmail, name: "Echte klant", clerkId: `user_qa_real_${Date.now()}_${++mailCounter}` } });
+      const stranger = await call(body({ email: memberEmail.toUpperCase().replace("@QA-CHECKOUT.TEST", "@QA-CHECKOUT.TEST"), items: [{ sku: part.sku, quantity: 1 }] }));
+      const sOrder = stranger.json.orderId ? await prisma.order.findUnique({ where: { id: stranger.json.orderId }, include: { user: true } }) : null;
+      check(stranger.status === 200 && !!sOrder && sOrder.userId !== member.id && sOrder.user.clerkId === null && sOrder.user.email === GUEST_HOLDER_EMAIL && sOrder.email === memberEmail, "Guest attach: a guest typing the address of a REAL account gets a guest order on the placeholder row (the order keeps the typed address), NOT on that account", `Guest attach: ${stranger.status} order user ${sOrder?.userId} vs member ${member.id}, holder ${sOrder?.user.email}`);
+      check((await prisma.order.count({ where: { userId: member.id } })) === 0, "Guest attach: the real account's dashboard (orders of that user) stays empty", "Guest attach: the stranger's order is in the member's account");
+      // ...so the member can erase their account (the 21-day block of rehearsal R2-12 is gone)
+      const { ordersBlockingErasure } = await import("../src/lib/erasure");
+      check((await ordersBlockingErasure(prisma, member.id)).length === 0, "Guest attach: the stranger's open order does not block the real account's erasure", "Guest attach: erasure of the member is still blocked");
+      // ...and the guest still has their way in: the token on the answer opens exactly that order
+      const access = await import("../src/app/bestelling/_lib/access");
+      const tok = new URL(`http://x${stranger.json.redirectUrl}`).searchParams.get("t");
+      const viaToken = sOrder ? await access.loadOrderForViewer(sOrder.id, tok) : null;
+      check(viaToken?.via === "token", "Guest attach: the guest reaches their order with the token (guest access, decision D2)", `Guest attach: token access ${viaToken?.via}`);
+      // The per-address cap still counts the TYPED address, whatever row holds the orders.
+      const second = await call(body({ email: memberEmail, items: [{ sku: part.sku, quantity: 1 }] }));
+      const third = await call(body({ email: memberEmail, items: [{ sku: part.sku, quantity: 1 }] }));
+      check(second.status === 200 && third.status === 429 && third.json.code === "bank_transfer_limit_orders", "Guest attach: the guest limit (2 open orders) still counts by the typed address on the placeholder row", `Guest attach caps: ${second.status}/${third.status} ${third.json.code}`);
+      // A guest row WITHOUT a Clerk id (created by an earlier checkout) keeps today's behaviour: reused, claimed by the verified owner at first sign-in.
+      const guestEmail = freshEmail("guest-row");
+      const guestRow = await prisma.user.create({ data: { email: guestEmail, name: "Eerdere gast" } });
+      const again = await call(body({ email: guestEmail, items: [{ sku: part.sku, quantity: 1 }] }));
+      const aOrder = again.json.orderId ? await prisma.order.findUnique({ where: { id: again.json.orderId } }) : null;
+      check(aOrder?.userId === guestRow.id, "Guest attach: a guest-created row without a Clerk id is still reused (claimed by the verified owner at first sign-in)", `Guest attach: guest row not reused: ${aOrder?.userId} vs ${guestRow.id}`);
+      await resetOpenReservations();
     }
 
     // G12 field errors
@@ -1073,7 +1152,7 @@ async function httpChecks(base: string, expect: "guest" | "admin") {
     check(checkout.status === 200, `${tag} /checkout answers 200`, `${tag} /checkout ${checkout.status}`);
     if (!/niet mogelijk/.test(cplain)) {
       check(/Vooruitbetalen per bankoverschrijving/.test(cplain) && !/Op rekening/i.test(cplain), `${tag} checkout: 'Vooruitbetalen per bankoverschrijving', no 'Op rekening'`, `${tag} checkout wording`);
-      check(!/Bancontact|Belgi|\bBE\b/i.test(cplain), `${tag} checkout: no Belgium / Bancontact wording`, `${tag} checkout mentions Belgium/Bancontact`);
+      check(!/Bancontact|Belgi/i.test(cplain) && !/\bBE\b/.test(cplain), `${tag} checkout: no Belgium / Bancontact wording`, `${tag} checkout mentions Belgium/Bancontact`);
       check(/Verzendkosten/.test(cplain) && /gratis vanaf/i.test(cplain) && /incl\. btw|inclusief btw/i.test(cplain), `${tag} checkout: shipping cost, free-shipping threshold and incl. btw are stated at the top`, `${tag} checkout lacks shipping/btw statement`);
       check(/href="\/voorwaarden"/.test(checkout.text) && /href="\/privacy"/.test(checkout.text) && /href="\/retourvoorwaarden"/.test(checkout.text), `${tag} checkout: links to voorwaarden, privacy and retourvoorwaarden next to the order button`, `${tag} checkout lacks the legal links`);
       check(/Telefoonnummer/.test(cplain) && /Opmerking voor de bezorger/.test(cplain), `${tag} checkout asks for a phone number and an optional delivery note`, `${tag} checkout lacks phone/note`);
@@ -1082,6 +1161,96 @@ async function httpChecks(base: string, expect: "guest" | "admin") {
       // amount (an empty cart would print "Totaal 5,95" with shipping and mismatch the client render).
       const summary = /Jouw bestelling([\s\S]*?)Bestelling met betalingsverplichting/.exec(cplain)?.[1] ?? "";
       check(summary.length > 0 && !/\d,\d\d/.test(summary) && (summary.match(/—/g) ?? []).length >= 4, `${tag} checkout SSR: the order summary prints "—" for subtotal, shipping, btw and total and no amount at all (hydration)`, `${tag} checkout SSR summary prints an amount: ${summary.slice(0, 200)}`);
+    }
+
+    // Decision D15 / rehearsal D1+R2-05: no invented contact address anywhere; every address comes from COMPANY_EMAIL.
+    // QA_COMPANY_EMAIL = the COMPANY_EMAIL the server was started with (default: the one in DEFAULT_QA_COMPANY);
+    // QA_EXPECT_EMAIL=none when the server was BUILT and started WITHOUT it (then the pages say "volgt na inschrijving"). Both: the legal pages
+    // are prerendered at build time with the COMPANY_* values of that build (rehearsal R2-19), so a server built with the address and started
+    // without it still prints the address on them; only /contact, which reads the query string, follows the runtime value.
+    {
+      // Neither variable set (the CI job starts its server without COMPANY_EMAIL): ask the running server what it was started with.
+      // /contact follows the runtime value. The checks below stay meaningful either way: with an address EVERY page must print it,
+      // without one every page must say 'volgt na inschrijving' and carry no mailto.
+      const explicitMail = process.env.QA_COMPANY_EMAIL !== undefined || process.env.QA_EXPECT_EMAIL !== undefined;
+      const detected = explicitMail ? null : /href="mailto:([^"?]+)/.exec((await get("/contact")).text)?.[1] ?? null;
+      const serverMail = process.env.QA_COMPANY_EMAIL ?? detected ?? DEFAULT_QA_COMPANY.COMPANY_EMAIL;
+      const noMail = process.env.QA_EXPECT_EMAIL === "none" || (!explicitMail && detected === null);
+      const MAIL_PAGES = ["/contact", "/privacy", "/voorwaarden", "/retourvoorwaarden", "/garantie", "/klachten", "/pers", "/help/klacht-indienen", "/help/is-mijn-data-veilig", "/help/garantie-uitleg", "/help/abonnement-opzeggen", "/help/levertijden-verzending", "/help/welk-onderdeel-heb-ik-nodig"];
+      const wrong: string[] = [];
+      const missing: string[] = [];
+      for (const path of MAIL_PAGES) {
+        const r = await get(path);
+        // React puts <!-- --> between adjacent text nodes (the help renderer emits one node per character): drop them first.
+        const html = r.text.replace(/<!--[\s\S]*?-->/g, "");
+        const text = html.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+        const hits = [...(html.match(/[A-Za-z0-9._-]+@(?:[A-Za-z0-9-]+\.)*wasfix\.nl/gi) ?? [])];
+        if (r.status !== 200 || hits.length > 0 || /contact-formulier|Formulier:|contact\?onderwerp=klacht/i.test(text)) wrong.push(`${path}: ${r.status} ${hits.join(",")}`);
+        if (noMail ? !/volgt na inschrijving/.test(text) || r.text.includes("mailto:") : !text.includes(serverMail)) missing.push(path);
+      }
+      check(wrong.length === 0, `${tag} ${MAIL_PAGES.length} pages (contact, privacy, voorwaarden, retour, garantie, klachten, pers, help articles) print no @wasfix.nl mailbox and refer to no contact form`, `${tag} invented mailbox or form reference: ${wrong.join(" ; ")}`);
+      check(missing.length === 0, noMail ? `${tag} without COMPANY_EMAIL every one of those pages says 'volgt na inschrijving' and has no mailto link` : `${tag} every one of those pages prints COMPANY_EMAIL (${serverMail})`, `${tag} COMPANY_EMAIL ${noMail ? "placeholder missing" : "not printed"} on: ${missing.join(", ")}`);
+      const retour = (await get("/retourvoorwaarden")).text.replace(/<[^>]+>/g, " ");
+      check(noMail ? /volgt na inschrijving/.test(retour) : retour.includes(serverMail), `${tag} the model withdrawal form on /retourvoorwaarden carries the configured address`, `${tag} withdrawal form address wrong`);
+      // R2-20: copy that promised what nothing does
+      const vs = (await get("/vs/monteur")).text.replace(/<[^>]+>/g, " ");
+      const klachten = (await get("/klachten")).text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      const voorwaarden = (await get("/voorwaarden")).text.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ");
+      const helpKlacht = (await get("/help/klacht-indienen")).text.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      const predictive = (await get("/tools/predictive")).text.replace(/<[^>]+>/g, " ");
+      check(!/Vandaag besteld = morgen/.test(vs) && /betaling binnen is/.test(vs), `${tag} /vs/monteur no longer promises 'Vandaag besteld = morgen' (a bank-transfer order ships after the wire)`, `${tag} /vs/monteur still promises next-day`);
+      check(!/24\s?u/.test(klachten) && /binnen 7 werkdagen/.test(klachten) && /binnen 7 werkdagen/.test(voorwaarden) && /binnen 7 werkdagen/.test(helpKlacht) && /30 dagen/.test(klachten) && /30 dagen/.test(helpKlacht) && !/binnen 14 dagen/.test(klachten), `${tag} ONE response time (7 werkdagen) and ONE resolution time (30 dagen) on /klachten, /voorwaarden and the help article (it was 24 u, 2 werkdagen, 14 dagen and 7 werkdagen)`, `${tag} response times differ: klachten ${(klachten.match(/\d+ ?(u|werkdagen|dagen)/g) ?? []).join(",")} help ${(helpKlacht.match(/\d+ ?(u|werkdagen|dagen)/g) ?? []).join(",")}`);
+      // The same promise on EVERY page that makes one (/help said 24u next to 7 werkdagen, /retourvoorwaarden promised the RMA number in 24u, /garantie said 5 werkdagen).
+      const promisePages: Record<string, string> = {};
+      for (const pth of ["/help", "/retourvoorwaarden", "/garantie", "/help/retour-en-restitutie", "/help/garantie-uitleg"]) promisePages[pth] = (await get(pth)).text.replace(/<!--[\s\S]*?-->/g, "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      const stray = Object.entries(promisePages).filter(([, t]) => /\b(24 ?(u|uur)|48 ?uur|[1-6] werkdagen)\b/.test(t)).map(([k, t]) => `${k}: ${(t.match(/\b(24 ?(u|uur)|48 ?uur|[1-6] werkdagen)\b/) ?? [""])[0]}`);
+      check(stray.length === 0 && /binnen 7 werkdagen/.test(promisePages["/help"]) && /binnen 7 werkdagen/.test(promisePages["/retourvoorwaarden"]) && /binnen 7 werkdagen/.test(promisePages["/garantie"]) && /binnen 7 werkdagen/.test(promisePages["/help/retour-en-restitutie"]) && /Versie 2\.2/.test(klachten) && /9 oktober 2026/.test(klachten),
+        `${tag} the response time is 7 werkdagen on /help, /retourvoorwaarden (RMA number), /garantie (assessment) and the help articles too, with no 24u / 48 uur / 5 werkdagen left, and /klachten carries the bumped version label`,
+        `${tag} other promises left: ${stray.join(" ; ")} klachten label ${(klachten.match(/Laatste update[^·]*· Versie [\d.]+/) ?? [""])[0]}`);
+      check(!/aanmaning|veertiendagenbrief|handelsrente|netto na bevestigingsmail|MONTEUR_PRO|BEDRIJF,/.test(voorwaarden) && /geen incassokosten/.test(voorwaarden) && /pas nadat de betaling/.test(voorwaarden), `${tag} the terms no longer describe aanmaning, incassokosten or net-14 credit that nothing does, and say shipping follows payment; no raw plan ids`, `${tag} terms 7.2/7.3 still describe collection/credit or plan ids`);
+      check(!/bekende failure-rates/.test(predictive) && /vuistregels/.test(predictive) && !/90%/.test((await get("/tools/predictive")).text), `${tag} the predictive tool does not claim 'bekende failure-rates' or an unsourced 90%`, `${tag} predictive tool copy`);
+      // D7: the member price asks /api/user/plan on behalf of every visitor. The middleware answers a guest with a 401 (unchanged, the
+      // post-payment poll relies on it), so the page must not ASK when nobody can be signed in: no Clerk in a production build.
+      const planGuest = await fetch(`${base}/api/user/plan`);
+      const memberPrice = fs.readFileSync(path.join(process.cwd(), "src/components/member-price.tsx"), "utf8");
+      // A demo-mode dev server (expect=admin) makes every visitor the superadmin, so /api/user/plan answers 200 there; the 401 is the production guest contract.
+      check((expect === "admin" || planGuest.status === 401) && /process\.env\.NEXT_PUBLIC_CLERK_ENABLED !== "true"\) return process\.env\.NODE_ENV === "production"/.test(memberPrice), `${tag} /api/user/plan still answers a guest 401 (the poll relies on it), and member-price.tsx no longer asks when no session can exist (no Clerk in a production build)`, `${tag} D7: plan ${planGuest.status}`);
+      // D7, behaviour: a real browser on the production build requests /api/user/* zero times as a guest (the check above only reads source).
+      // Only meaningful for the production build the guest run is made against (no Clerk there); a dev/demo server can legitimately ask.
+      if (expect === "guest") {
+        const pw = loadPlaywright();
+        if (!pw) {
+          if (process.env.QA_REQUIRE_BROWSER === "1") check(false, `${tag} D7 browser check: Chromium/Playwright not found`);
+          else log.push(`ℹ️  SKIPPED the D7 browser check: Chromium/Playwright not found`);
+        } else {
+          const browser = await pw.chromium.launch();
+          try {
+            const page = await (await browser.newContext({ viewport: { width: 375, height: 812 } })).newPage();
+            const asked: string[] = [];
+            page.on("request", (rq: { url: () => string }) => { if (/\/api\/user\//.test(rq.url())) asked.push(rq.url()); });
+            for (const pth of ["/", "/onderdelen", "/onderdelen/WF-PUMP-01", "/checkout"]) {
+              await page.goto(`${base}${pth}`, { waitUntil: "networkidle" });
+              await page.waitForTimeout(400);
+            }
+            check(asked.length === 0, `${tag} a guest browsing /, /onderdelen, a part page and /checkout in a real browser (375 px) makes ZERO requests to /api/user/* (no 401 in the console of every visitor)`, `${tag} D7: the browser asked ${asked.join(", ")}`);
+          } finally {
+            await browser.close();
+          }
+        }
+      }
+      // /contact?onderwerp= is a plain object lookup in the page: inherited names must not reach the page as a function (500 on every hit)
+      const hostile = await Promise.all(["constructor", "__proto__", "toString", "hasOwnProperty", "klacht", "monteur-demo"].map(async (v) => [v, (await get(`/contact?onderwerp=${v}`)).status] as const));
+      const demoSubject = (await get("/contact?onderwerp=monteur-demo")).text;
+      check(hostile.every(([, s]) => s === 200) && /Demo aanvragen voor mijn bedrijf/.test(demoSubject), `${tag} /contact?onderwerp=constructor, __proto__, toString, hasOwnProperty, an unknown subject and the real one all answer 200 (the first four were a 500), and the real subject still shows`, `${tag} /contact statuses: ${hostile.map(([v, s]) => `${v}=${s}`).join(" ")}`);
+      // R2-06: the share image
+      const og = await fetch(`${base}/opengraph-image`);
+      const ogBytes = Buffer.from(await og.arrayBuffer());
+      check(og.status === 200 && /image\/png/.test(og.headers.get("content-type") ?? "") && ogBytes.length > 5000 && ogBytes.subarray(1, 4).toString() === "PNG" && ogBytes.readUInt32BE(16) === 1200 && ogBytes.readUInt32BE(20) === 630, `${tag} /opengraph-image is a 1200x630 PNG (${ogBytes.length} bytes; what is drawn on it is only checked in source, qa-platform, and by eye)`, `${tag} /opengraph-image: ${og.status} ${og.headers.get("content-type")} ${ogBytes.length}`);
+    }
+    // R2-04: iDEAL/card is offered only when the server has BOTH Stripe keys. QA_EXPECT_STRIPE=on|off says which the server was started with.
+    if (process.env.QA_EXPECT_STRIPE) {
+      const on = process.env.QA_EXPECT_STRIPE === "on";
+      check(on ? /Direct betalen met iDEAL of kaart/.test(cplain) : !/Direct betalen met iDEAL of kaart/.test(cplain) && /Vooruitbetalen per bankoverschrijving/.test(cplain), `${tag} the checkout page ${on ? "offers" : "does NOT offer"} iDEAL/kaart (QA_EXPECT_STRIPE=${process.env.QA_EXPECT_STRIPE})`, `${tag} checkout page Stripe offer wrong for QA_EXPECT_STRIPE=${process.env.QA_EXPECT_STRIPE}`);
     }
 
     // malformed escapes
@@ -1155,12 +1324,16 @@ async function main() {
   runChild("guest", base);
   runChild("member", { ...base, DEMO_MODE: "true" });
   runChild("nostripe", { ...base, STRIPE_SECRET_KEY: "" });
+  // R2-04: a Stripe secret key without a webhook secret does not make iDEAL/kaart available.
+  runChild("stripe-nowebhook", base);
   const prod = { ...base, NODE_ENV: "production", NEXT_PUBLIC_APP_URL: "https://shop.qa-checkout.test" };
   runChild("prod-ok", prod);
   // Without a public address every link in a mail and every owner notice would point at localhost (the Stripe branch already refused).
   runChild("prod-nourl", { ...prod, NEXT_PUBLIC_APP_URL: "" });
   runChild("prod-localurl", { ...prod, NEXT_PUBLIC_APP_URL: "http://localhost:3000" });
   runChild("prod-nocompany", prod);
+  // D15: every fiscal field set, only COMPANY_EMAIL missing: checkout is closed.
+  runChild("prod-noemail", prod);
   runChild("prod-baddb", { ...prod, DATABASE_URL: "postgresql://postgres:[YOUR-PASSWORD]@db.x.supabase.co:5432/postgres" });
   runChild("prod-dbdown", { ...prod, DATABASE_URL: "postgresql://wasfix:wasfix@127.0.0.1:1/none?connect_timeout=2" });
 

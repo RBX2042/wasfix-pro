@@ -63,21 +63,31 @@ const nowSec = () => Math.floor(Date.now() / 1000);
 async function runScenario(scenario: string) {
   // ── Outside services ───────────────────────────────────────────────────
   const slackBodies: string[] = [];
+  // Only what Slack ACCEPTED (status 200). slackBodies also holds attempts that were answered 500.
+  const slackDelivered: string[] = [];
   const slackState = { fail: false };
   const slack = await listen((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
       slackBodies.push(body);
+      if (!slackState.fail) slackDelivered.push(body);
       res.statusCode = slackState.fail ? 500 : 200;
       res.end("ok");
     });
   });
   const mails: Array<{ to: string; subject: string; html: string; text: string }> = [];
+  const resendDown = { fail: false };
   const resend = await listen((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
+      if (resendDown.fail) {
+        res.statusCode = 500;
+        res.setHeader("content-type", "application/json");
+        res.end(JSON.stringify({ name: "application_error", message: "qa: down", statusCode: 500 }));
+        return;
+      }
       try {
         const m = JSON.parse(body);
         mails.push({ to: Array.isArray(m.to) ? m.to.join(",") : String(m.to), subject: String(m.subject), html: String(m.html), text: String(m.text ?? "") });
@@ -93,6 +103,10 @@ async function runScenario(scenario: string) {
   process.env.SLACK_WEBHOOK_URL = slack.url;
   delete process.env.DISCORD_WEBHOOK_URL;
   delete process.env.ORDER_NOTIFY_EMAIL;
+  // The owner's e-mail channel is ORDER_NOTIFY_EMAIL ?? COMPANY_EMAIL. The main scenario counts mails to
+  // customers and expects Slack to be the only owner channel (the dispute check below needs that channel to
+  // be the only one that can fail), so a COMPANY_EMAIL from the shell must not turn on a second one.
+  if (scenario === "main") delete process.env.COMPANY_EMAIL;
   process.env.RESEND_API_KEY = "re_qa_fake_key";
   process.env.RESEND_BASE_URL = resend.url;
   process.env.NEXT_PUBLIC_APP_URL = APP;
@@ -150,6 +164,8 @@ async function runScenario(scenario: string) {
   const readiness = await import("../src/lib/stripe-readiness");
   const plans = await import("../src/lib/plans");
   const notify = await import("../src/lib/notify");
+  const { eurNl } = await import("../src/lib/emails/money");
+  const st = (id: string) => id.slice(0, 8).toUpperCase(); // the order reference people quote
   const lease = await import("../src/app/api/stripe/_lib/lease");
   const subsLib = await import("../src/app/api/stripe/_lib/subscriptions");
   const webhook = await import("../src/app/api/stripe/webhook/route");
@@ -185,7 +201,9 @@ async function runScenario(scenario: string) {
           { stripeEventId: { startsWith: "evt_fake_" } },
           { stripeEventId: { startsWith: "evt_qa_" } },
           // markers (see lease.ts) of the orders this run created
-          ...ids.flatMap((id) => [{ stripeEventId: `mail:order-paid:${id}` }, { stripeEventId: { startsWith: `reconcile-rejected:${id}:` } }]),
+          ...ids.flatMap((id) => [{ stripeEventId: `mail:order-paid:${id}` }, { stripeEventId: { startsWith: `reconcile-rejected:${id}:` } }, { stripeEventId: `abandoned-stripe-unresolved:${id}` }]),
+          // "this extra refund was reported" markers of the fixed refund ids used by this script
+          { stripeEventId: { startsWith: "refund-extra:re_qa_" } },
         ],
       },
     });
@@ -248,6 +266,7 @@ async function runScenario(scenario: string) {
   const userOf = (id: string) => prisma.user.findUniqueOrThrow({ where: { id } });
   const invoiceCount = (orderId: string) => prisma.invoice.count({ where: { orderId } });
   const slackText = (from: number) => slackBodies.slice(from).join("\n");
+  const deliveredText = (from: number) => slackDelivered.slice(from).join("\n");
   const mailsTo = (to: string) => mails.filter((m) => m.to === to);
 
   const sessionFor = (order: { id: string; totalEur: number }, o: Json = {}): Json => ({
@@ -638,7 +657,7 @@ async function runScenario(scenario: string) {
       const r = await deliver(ev);
       const s = slackText(mark);
       const dueYear = String(new Date(due * 1000).getUTCFullYear());
-      checkEvent(["charge.dispute.created"], r.status === 200 && /Betwisting/.test(s) && s.includes(`€ ${o.order.totalEur.toFixed(2)}`) && s.includes("fraudulent") && s.includes(dueYear) && /reactiedatum/i.test(s) && s.includes(o.order.id.slice(0, 8).toUpperCase()), "Dispute: the owner gets amount, reason, evidence deadline and the order number", `Dispute message wrong: ${r.status} ${s.slice(0, 300)}`);
+      checkEvent(["charge.dispute.created"], r.status === 200 && /Betwisting/.test(s) && s.includes(eurNl(o.order.totalEur)) && s.includes("fraudulent") && s.includes(dueYear) && /reactiedatum/i.test(s) && s.includes(o.order.id.slice(0, 8).toUpperCase()), "Dispute: the owner gets amount, reason, evidence deadline and the order number", `Dispute message wrong: ${r.status} ${s.slice(0, 300)}`);
       slackState.fail = true;
       const ev2 = makeEvent("charge.dispute.created", { id: "dp_qa_2", object: "dispute", amount: 1000, currency: "eur", reason: "general", payment_intent: null, evidence_details: { due_by: due } }, { id: evId() });
       const failed = await deliver(ev2);
@@ -777,8 +796,8 @@ async function runScenario(scenario: string) {
       checkEvent(["invoice.payment_failed"], r.status === 200 && row.stripeSubStatus === "past_due" && row.plan === "MONTEUR_PRO" && sub.effectivePlan(row) === "MONTEUR_PRO", "Dunning: payment failed -> status past_due stored, plan kept during the grace window", `past_due handling wrong: ${row.stripeSubStatus} ${row.plan}`);
       check(m.length === 1 && m[0].html.includes("/dashboard/profiel") && /poging 1/.test(m[0].html) && /Abonnementsbetaling mislukt/.test(ownerText) && /Monteur Pro/.test(ownerText) && !ownerText.includes(u.email), "Dunning: the customer is mailed (attempt number, link to the profile/portal page) and the owner is told", `Dunning mail/notice missing: ${m.length} mails`);
       check(row.stripeCurrentPeriodEnd !== null && Math.abs(row.stripeCurrentPeriodEnd.getTime() - periodStart * 1000) < 1000, "Dunning: for past_due the stored 'paid through' date is the START of the unpaid period", `paid-through wrong: ${row.stripeCurrentPeriodEnd}`);
-      const grace = sub.PAST_DUE_GRACE_DAYS;
       const day = 86400_000;
+      const grace = sub.PAST_DUE_GRACE_DAYS;
       const end = row.stripeCurrentPeriodEnd!.getTime();
       check(sub.effectivePlan(row, new Date(end + (grace - 0.5) * day)) === "MONTEUR_PRO" && sub.effectivePlan(row, new Date(end + (grace + 0.5) * day)) === "FREE", `Dunning: the plan lapses to FREE ${grace} days after the last paid period (constant PAST_DUE_GRACE_DAYS)`, "Grace window boundaries wrong");
       // the grace is over: stored paid-through is 10 days old
@@ -798,7 +817,6 @@ async function runScenario(scenario: string) {
     {
       // cancelled with paid time left, unpaid, unknown customer/price, erased account
       resetFake();
-      const day = 86400_000;
       const { u, cus } = await subUser();
       const s = fake.subscription({ id: `sub_qa_c${++n}`, customer: cus, priceId: PRICES.PARTICULIER, status: "active", userId: u.id });
       fake.state.subscriptions[s.id] = s;
@@ -1131,6 +1149,247 @@ async function runScenario(scenario: string) {
       check(!failed.ok && !zero.ok && fake.requestsTo("POST", "/v1/refunds").length === before, "refundStripePayment: a Stripe failure or a zero amount returns {ok:false} (never throws) and a zero amount sends nothing", "refundStripePayment threw or sent a zero refund");
     }
 
+    // ── 8c. FA: abandoned Stripe orders are settled through Stripe, never cancelled blind ──
+    {
+      resetFake();
+      const { expireAbandonedStripeOrders } = await import("../src/lib/cart-expiry");
+      const longAgo = new Date(Date.now() - 50 * 3600_000);
+      const mk = async (tag: string, state: Json | null, createdAt = longAgo) => {
+        const sid = `cs_test_fa_${tag}_${n}`;
+        const o = await mkOrder({ qty: 1, stock: 5, stripePaymentId: state ? sid : null, createdAt });
+        if (state) fake.state.sessions[sid] = { id: sid, object: "checkout.session", metadata: { orderId: o.order.id }, amount_total: cents(o.order.totalEur), currency: "eur", payment_intent: `pi_qa_${o.order.id}`, ...state };
+        return { ...o, sid };
+      };
+      // Every PENDING order with a session that earlier sections left behind is older than nothing here (they are minutes old), so only these are swept.
+      const paid = await mk("paid", { status: "complete", payment_status: "paid" });
+      const expired = await mk("expired", { status: "expired", payment_status: "unpaid" });
+      const open = await mk("open", { status: "open", payment_status: "unpaid" });
+      const unknown = await mk("unknown", null);
+      await prisma.order.update({ where: { id: unknown.order.id }, data: { stripePaymentId: `cs_test_fa_ghost_${n}` } }); // a session id Stripe has never heard of
+      const never = await mk("never", null);
+      const fresh = await mk("fresh", { status: "complete", payment_status: "paid" }, new Date(Date.now() - 2 * 3600_000));
+      const mark = slackBodies.length;
+      const mailsBefore = mails.length;
+      const res = await expireAbandonedStripeOrders();
+      const rows = { paid: await orderOf(paid.order.id), expired: await orderOf(expired.order.id), open: await orderOf(open.order.id), unknown: await orderOf(unknown.order.id), never: await orderOf(never.order.id), fresh: await orderOf(fresh.order.id) };
+      check(rows.paid.status === "PAID" && (await invoiceCount(paid.order.id)) === 1 && (await paid.stockNow()) === 4 && mailsTo(paid.order.email).length === 1 && rows.paid.cancelledAt === null,
+        "R2-02 AFTER: a 50 h old PENDING order whose session Stripe says is PAID (the webhook never came) is fulfilled, not cancelled: PAID, invoice, stock, confirmation mail", `R2-02 paid order ended ${rows.paid.status}, invoices ${await invoiceCount(paid.order.id)}, result ${JSON.stringify(res)}`);
+      check(/zonder webhook/.test(slackText(mark)), "R2-02: the owner is told that a payment had no webhook", `R2-02: no owner notice: ${slackText(mark).slice(0, 200)}`);
+      check(rows.expired.status === "CANCELLED" && rows.open.status === "CANCELLED" && fake.requestsTo("POST", `/v1/checkout/sessions/${open.sid}/expire`).length === 1 && fake.state.sessions[open.sid].status === "expired",
+        "R2-02: an expired session is cancelled; a session still open after 48 h is EXPIRED AT STRIPE first (nobody can pay it any more) and then cancelled", `R2-02 expired/open: ${rows.expired.status} ${rows.open.status} expire calls ${fake.requestsTo("POST", `/v1/checkout/sessions/${open.sid}/expire`).length}`);
+      check(rows.never.status === "CANCELLED" && /niet afgerond/.test(rows.never.cancelReason ?? ""), "R2-02: an order that never reached Stripe (no session, no payment intent) is cancelled directly: nobody can have paid it", `R2-02 never-sent: ${rows.never.status}`);
+      check(rows.unknown.status === "PENDING" && rows.unknown.cancelledAt === null && /zonder uitslag/.test(slackText(mark)) && res.left >= 1, "R2-02: a session Stripe does not know is LEFT (still PENDING) and the owner is told", `R2-02 unknown: ${rows.unknown.status} left ${res.left} ${slackText(mark).slice(0, 200)}`);
+      check(rows.fresh.status === "PENDING", "R2-02: an order younger than 48 h is not touched even if its session is paid (the webhook and reconcile own those)", `R2-02 fresh: ${rows.fresh.status}`);
+      check(res.fulfilled === 1 && res.cancelled === 3 && mails.length - mailsBefore === 1, `R2-02: the result counts it (${JSON.stringify(res)}) and nobody but the paying customer was mailed`, `R2-02 counts: ${JSON.stringify(res)} mails ${mails.length - mailsBefore}`);
+      // R2-14: the abandoned ones (expired, open, never sent) did not ping the owner one by one.
+      check(!/Bestelling #.*geannuleerd/.test(slackText(mark)), "R2-14 AFTER: cancelling abandoned, never-invoiced Stripe orders sends no 'Bestelling geannuleerd' notice", `R2-14: ${slackText(mark).slice(0, 300)}`);
+      // The owner is told ONCE about the unresolved order, however often the sweep runs.
+      const again = slackBodies.length;
+      const askedBefore = fake.requestsTo("GET", `/v1/checkout/sessions/${rows.unknown.stripePaymentId}`).length;
+      await expireAbandonedStripeOrders();
+      await expireAbandonedStripeOrders();
+      const askedAfter = fake.requestsTo("GET", `/v1/checkout/sessions/${rows.unknown.stripePaymentId}`).length;
+      check(!/zonder uitslag/.test(slackText(again)) && (await orderOf(unknown.order.id)).status === "PENDING" && askedAfter === askedBefore && askedBefore >= 1,
+        "R2-02: running the sweep again does not repeat the notice about the unresolved order, still leaves it alone, and does not ask Stripe about it again (the sweep runs after every checkout; reconcile is the retry path)", `R2-02 repeat: ${slackText(again).slice(0, 200)} asked ${askedBefore} -> ${askedAfter}`);
+
+      // A Stripe outage: the call fails, the order is left (not cancelled), the owner is told.
+      resetFake();
+      const down = await mk("down", { status: "expired", payment_status: "unpaid" });
+      fake.fail("GET", `/v1/checkout/sessions/${down.sid}`, 500, 6);
+      const markDown = slackBodies.length;
+      const resDown = await expireAbandonedStripeOrders();
+      check((await orderOf(down.order.id)).status === "PENDING" && resDown.left >= 1 && /zonder uitslag/.test(slackText(markDown)), "R2-02: when Stripe cannot be reached the order is left untouched and the owner is told (an error is never read as 'unpaid')", `R2-02 outage: ${(await orderOf(down.order.id)).status} ${JSON.stringify(resDown)}`);
+      resetFake();
+    }
+
+    // ── 8c2. FA repair: refused payments are reported once; "told" is only remembered when a channel took the message ──
+    {
+      resetFake();
+      const { expireAbandonedStripeOrders } = await import("../src/lib/cart-expiry");
+      const { reconcilePendingStripeOrders, rejectedMarker } = await import("../src/app/api/stripe/_lib/reconcile");
+      const longAgo = new Date(Date.now() - 50 * 3600_000);
+      const mkSession = async (tag: string, state: Json | null) => {
+        const sid = `cs_test_fa2_${tag}_${n}`;
+        const o = await mkOrder({ qty: 1, stock: 5, stripePaymentId: sid, createdAt: longAgo });
+        if (state) fake.state.sessions[sid] = { id: sid, object: "checkout.session", metadata: { orderId: o.order.id }, amount_total: cents(o.order.totalEur), currency: "eur", payment_intent: `pi_qa_${o.order.id}`, ...state };
+        return { ...o, sid };
+      };
+      const hasMarker = async (id: string) => (await prisma.stripeEvent.count({ where: { stripeEventId: id } })) === 1;
+
+      // (1) A paid session whose amount is wrong: five sweeps (the sweep runs after EVERY checkout) give ONE alert and ONE Stripe look.
+      const wrong = await mkSession("wrong", { status: "complete", payment_status: "paid", amount_total: 1 });
+      const markWrong = slackBodies.length;
+      const looks = () => fake.requestsTo("GET", `/v1/checkout/sessions/${wrong.sid}`).length;
+      const sweeps = [] as Awaited<ReturnType<typeof expireAbandonedStripeOrders>>[];
+      for (let i = 0; i < 5; i++) sweeps.push(await expireAbandonedStripeOrders());
+      const wrongAlerts = slackBodies.slice(markWrong).filter((b) => /niet overeen/.test(b)).length;
+      check(wrongAlerts === 1 && (await orderOf(wrong.order.id)).status === "PENDING" && (await hasMarker(rejectedMarker(wrong.order.id, wrong.sid))) && looks() === 1,
+        "Reviewer defect 1: a 50 h old PENDING order whose session is paid with the WRONG amount alerts the owner once in five sweeps (it used to alert on every sweep) and is asked of Stripe once", `rejected storm: alerts ${wrongAlerts}, looks ${looks()}, status ${(await orderOf(wrong.order.id)).status}, sweeps ${JSON.stringify(sweeps)}`);
+      check((await invoiceCount(wrong.order.id)) === 0 && (await wrong.stockNow()) === 5, "...and nothing was booked for it (no invoice, stock untouched)", "rejected order was booked");
+
+      // (2) Slack is down while the sweep finds an order Stripe does not know: nothing is remembered; after recovery the owner IS told, once.
+      const ghost = await mkSession("ghost", null);
+      const markDown = slackDelivered.length;
+      slackState.fail = true;
+      const down1 = await expireAbandonedStripeOrders();
+      const down2 = await expireAbandonedStripeOrders();
+      slackState.fail = false;
+      const unresolvedId = `abandoned-stripe-unresolved:${ghost.order.id}`;
+      check(down1.left >= 1 && down2.left >= 1 && !(await hasMarker(unresolvedId)) && deliveredText(markDown) === "" && (await orderOf(ghost.order.id)).status === "PENDING",
+        "Reviewer defect 2: while Slack is down the 'told once' marker is NOT written (two sweeps, nothing delivered, the order stays PENDING)", `marker written without delivery: marker ${await hasMarker(unresolvedId)}, delivered ${deliveredText(markDown).slice(0, 200)}`);
+      const markUp = slackDelivered.length;
+      await expireAbandonedStripeOrders();
+      const told = /zonder uitslag/.test(deliveredText(markUp)) && deliveredText(markUp).includes(`#${st(ghost.order.id)}`);
+      await expireAbandonedStripeOrders();
+      const toldAgain = slackDelivered.slice(markUp).filter((b) => /zonder uitslag/.test(b)).length;
+      check(told && toldAgain === 1 && (await hasMarker(unresolvedId)), "...after Slack recovers the next sweep tells the owner (order number, no customer) and writes the marker; the sweep after that is silent", `no recovery notice: told ${told}, notices ${toldAgain}, marker ${await hasMarker(unresolvedId)}`);
+
+      // (3) The same for a refused payment found by the sweep and by the reconcile run: the 'reported' marker needs a delivered alert.
+      resetFake();
+      const wrong2 = await mkSession("wrong2", { status: "complete", payment_status: "paid", amount_total: 1 });
+      slackState.fail = true;
+      const mark3 = slackDelivered.length;
+      const sweepDown = await expireAbandonedStripeOrders();
+      const recDown = await reconcilePendingStripeOrders();
+      slackState.fail = false;
+      const rejId = rejectedMarker(wrong2.order.id, wrong2.sid);
+      check(sweepDown.left >= 1 && recDown.errors >= 1 && !(await hasMarker(rejId)) && deliveredText(mark3) === "" && (await orderOf(wrong2.order.id)).status === "PENDING",
+        "Reviewer defect 2: a refused payment whose alert reached nobody (Slack down) is not marked as reported by the sweep or by reconcile", `rejected marker without delivery: marker ${await hasMarker(rejId)} sweep ${JSON.stringify(sweepDown)} rec ${JSON.stringify(recDown)}`);
+      const mark3b = slackDelivered.length;
+      await expireAbandonedStripeOrders();
+      const recUp = await reconcilePendingStripeOrders();
+      const alerts3 = slackDelivered.slice(mark3b).filter((b) => /niet overeen/.test(b)).length;
+      check(alerts3 === 1 && (await hasMarker(rejId)) && recUp.skipped >= 1, "...once Slack is back exactly one alert is delivered and the marker is written (reconcile then skips it)", `rejected recovery: alerts ${alerts3}, marker ${await hasMarker(rejId)}, reconcile ${JSON.stringify(recUp)}`);
+      resetFake();
+
+      // (4) Two overlapping sweeps on an order whose session is still open: the other sweep expires and cancels it while this one is
+      // between "open" and its own expire call. Stripe then refuses the second expire; the order is already CANCELLED, so the owner is NOT
+      // told "no result" about it (the reviewer saw that false alarm).
+      const racing = await mkSession("racing", { status: "open", payment_status: "unpaid" });
+      const client = fake.client();
+      const realExpire = client.checkout.sessions.expire.bind(client.checkout.sessions);
+      (client.checkout.sessions as unknown as { expire: unknown }).expire = async (id: string, ...rest: unknown[]) => {
+        await prisma.order.updateMany({ where: { id: racing.order.id, status: "PENDING" }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "Betaalsessie verlopen" } });
+        void realExpire;
+        throw Object.assign(new Error(`The Checkout Session ${id} is not open (${rest.length})`), { statusCode: 400, type: "invalid_request_error" });
+      };
+      stripeLib._setStripeForTests(client);
+      const markRace = slackBodies.length;
+      try {
+        await expireAbandonedStripeOrders();
+      } finally {
+        stripeLib._setStripeForTests(fake.client());
+      }
+      check((await orderOf(racing.order.id)).status === "CANCELLED" && !slackText(markRace).includes(`#${st(racing.order.id)}`),
+        "Reviewer minor: an order that another sweep cancelled while this one waited on Stripe is not reported to the owner as 'zonder uitslag'", `false alarm: ${slackText(markRace).slice(0, 300)}`);
+      resetFake();
+    }
+
+    // ── 8d. FA: a second refund of an already fully credited order is not swallowed ──
+    {
+      const o = await paidOrder(2, 5);
+      const cancelled = await inv.cancelOrder(o.order.id, { reason: "klant belde", actor: "admin", stripeRefundId: "re_qa_dup_A", notifyCustomer: false });
+      const mark = slackBodies.length;
+      fake.state.refunds.push({ id: "re_qa_dup_A", object: "refund", amount: cents(o.order.totalEur), currency: "eur", status: "succeeded", charge: "ch_qa_dup", payment_intent: `pi_qa_${o.order.id}`, created: nowSec() });
+      fake.state.refunds.push({ id: "re_qa_dup_B", object: "refund", amount: cents(o.order.totalEur), currency: "eur", status: "succeeded", charge: "ch_qa_dup", payment_intent: `pi_qa_${o.order.id}`, created: nowSec() + 1 });
+      const charge = { id: "ch_qa_dup", object: "charge", payment_intent: `pi_qa_${o.order.id}` };
+      const r = await deliver(makeEvent("charge.refunded", charge, { id: evId() }));
+      const text = slackText(mark);
+      check(cancelled.ok && r.status === 200 && (await inv.getCreditNotesForOrder(o.order.id)).length === 1 && /Dubbele terugbetaling bij Stripe/.test(text) && text.includes("re_qa_dup_B") && text.includes(st(o.order.id)) && !text.includes(o.order.email),
+        "R2-03 AFTER: a second full Stripe refund of an order that is already cancelled and credited tells the owner 'Dubbele terugbetaling bij Stripe' with the refund id and the order number (no customer data); still one credit note", `R2-03: ${r.status} notes ${(await inv.getCreditNotesForOrder(o.order.id)).length} owner: ${text.slice(0, 300)}`);
+      const afterFirst = slackBodies.length;
+      await deliver(makeEvent("charge.refunded", charge, { id: evId() }));
+      check(!/Dubbele terugbetaling/.test(slackText(afterFirst)), "R2-03: the same extra refund is reported once, not on every later charge.refunded event", "R2-03: the notice repeats");
+      // A cancelled order that never had an invoice has nothing to credit: that stays a quiet log line.
+      const bare = await mkOrder({ qty: 1, stock: 5, status: "CANCELLED", pi: `pi_qa_bare_${n}` });
+      fake.state.refunds.push({ id: `re_qa_bare_${n}`, object: "refund", amount: 500, currency: "eur", status: "succeeded", charge: `ch_qa_bare_${n}`, payment_intent: `pi_qa_bare_${n}`, created: nowSec() });
+      const markBare = slackBodies.length;
+      const rb = await deliver(makeEvent("charge.refunded", { id: `ch_qa_bare_${n}`, object: "charge", payment_intent: `pi_qa_bare_${n}` }, { id: evId() }));
+      check(rb.status === 200 && !/Dubbele/.test(slackText(markBare)) && (await invoiceCount(bare.order.id)) === 0, "R2-03: a refund on a cancelled order that never had an invoice stays silent (nothing to credit)", `R2-03 bare: ${rb.status} ${slackText(markBare).slice(0, 200)}`);
+    }
+
+    // ── 8d2. FA repair: the duplicate-payout notice is not lost when no channel takes it ──
+    {
+      const o = await paidOrder(2, 5);
+      await inv.cancelOrder(o.order.id, { reason: "klant belde", actor: "admin", stripeRefundId: "re_qa_dup2_A", notifyCustomer: false });
+      fake.state.refunds.push({ id: "re_qa_dup2_A", object: "refund", amount: cents(o.order.totalEur), currency: "eur", status: "succeeded", charge: "ch_qa_dup2", payment_intent: `pi_qa_${o.order.id}`, created: nowSec() });
+      fake.state.refunds.push({ id: "re_qa_dup2_B", object: "refund", amount: cents(o.order.totalEur), currency: "eur", status: "succeeded", charge: "ch_qa_dup2", payment_intent: `pi_qa_${o.order.id}`, created: nowSec() + 1 });
+      const ev = makeEvent("charge.refunded", { id: "ch_qa_dup2", object: "charge", payment_intent: `pi_qa_${o.order.id}` }, { id: evId() });
+      const markerId = "refund-extra:re_qa_dup2_B";
+      const before = slackDelivered.length;
+      slackState.fail = true;
+      const down = await deliver(ev);
+      slackState.fail = false;
+      const markerAfterDown = (await prisma.stripeEvent.count({ where: { stripeEventId: markerId } })) === 1;
+      check(down.status === 500 && !markerAfterDown && deliveredText(before) === "",
+        "Reviewer defect 2: a duplicate Stripe refund of a credited order while Slack is down answers 500 (Stripe delivers the event again) and writes no 'told' marker", `refund-extra with Slack down: ${down.status}, marker ${markerAfterDown}`);
+      const again = await deliver(ev);
+      const text = deliveredText(before);
+      check(again.status === 200 && /Dubbele terugbetaling bij Stripe/.test(text) && text.includes("re_qa_dup2_B") && (await prisma.stripeEvent.count({ where: { stripeEventId: markerId } })) === 1 && (await inv.getCreditNotesForOrder(o.order.id)).length === 1,
+        "...Stripe's redelivery of the same event, with Slack back, tells the owner and writes the marker; still one credit note", `refund-extra redelivery: ${again.status} ${text.slice(0, 200)}`);
+    }
+
+    // ── 8e. FA: the confirmation marker is completed only when the mail went out ──
+    {
+      const o = await mkOrder({ qty: 1, stock: 5 });
+      const markerId = `mail:order-paid:${o.order.id}`;
+      const mark = slackBodies.length;
+      resendDown.fail = true;
+      await deliver(makeEvent("checkout.session.completed", sessionFor(o.order), { id: evId() }));
+      resendDown.fail = false;
+      const failed = await prisma.stripeEvent.findUnique({ where: { stripeEventId: markerId } });
+      const alert = slackText(mark);
+      check((await orderOf(o.order.id)).status === "PAID" && failed !== null && failed.completedAt === null && mailsTo(o.order.email).length === 0,
+        "R2-11 AFTER: Resend refuses while the customer pays: the order is PAID and acknowledged, but the 'confirmation sent' marker is NOT completed", `R2-11 marker: ${JSON.stringify(failed)} mails ${mailsTo(o.order.email).length}`);
+      check(/E-mail niet verstuurd/.test(alert) && alert.includes(`#${st(o.order.id)}`) && !alert.includes(o.order.email), "R2-11: the failure alert names the order (#reference) and not the customer", `R2-11 alert: ${alert.slice(0, 300)}`);
+      const owner1 = slackBodies.length;
+      await deliver(makeEvent("checkout.session.async_payment_succeeded", sessionFor(o.order), { id: evId() }));
+      const done = await prisma.stripeEvent.findUnique({ where: { stripeEventId: markerId } });
+      check(mailsTo(o.order.email).length === 1 && done?.completedAt !== null && !/Betaling ontvangen/.test(slackText(owner1)), "R2-11: a replay after Resend recovered sends the confirmation, completes the marker, and does not tell the owner 'Betaling ontvangen' a second time", `R2-11 replay: mails ${mailsTo(o.order.email).length} marker ${JSON.stringify(done)} owner ${slackText(owner1).slice(0, 200)}`);
+      await deliver(makeEvent("checkout.session.completed", sessionFor(o.order), { id: evId() }));
+      check(mailsTo(o.order.email).length === 1, "R2-11: once sent, a further replay sends nothing more", `R2-11 third delivery: ${mailsTo(o.order.email).length} mails`);
+    }
+
+    // ── 8f. FA: syncSubscription asks Stripe BEFORE it opens a transaction ──
+    {
+      resetFake();
+      const cust = `cus_qa_tx_${++n}`;
+      const user = await mkUser({ stripeCustomerId: cust });
+      const sub0 = fake.subscription({ id: `sub_qa_tx_${n}`, customer: cust, priceId: PRICES.PARTICULIER, status: "active", userId: user.id, plan: "PARTICULIER" });
+      const subId = sub0.id;
+      fake.state.subscriptions[subId] = sub0;
+      // While the Stripe client is answering, how many connections of this database sit "idle in transaction"? Our own transaction
+      // would: it has run its advisory-lock statement and is waiting for JavaScript. A pooled connection limit of 1 starves on that.
+      const client = fake.client();
+      const origRetrieve = client.subscriptions.retrieve.bind(client.subscriptions);
+      const seenIdle: number[] = [];
+      (client.subscriptions as unknown as { retrieve: (...a: unknown[]) => Promise<unknown> }).retrieve = async (...a: unknown[]) => {
+        const rows = await prisma.$queryRaw<{ n: number }[]>`SELECT COUNT(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND state = 'idle in transaction' AND pid <> pg_backend_pid()`;
+        seenIdle.push(Number(rows[0].n));
+        return (origRetrieve as unknown as (...x: unknown[]) => Promise<unknown>)(...a);
+      };
+      const res = await subsLib.syncSubscription(client, subId, { userId: user.id, customerId: cust });
+      check(res.kind === "applied" && (await userOf(user.id)).plan === "PARTICULIER" && seenIdle.length >= 1 && seenIdle.every((c) => c === 0),
+        `R2 notVerified AFTER: no database transaction is open while Stripe is asked (idle-in-transaction connections seen during ${seenIdle.length} Stripe call(s): ${seenIdle.join(",")})`, `syncSubscription held a transaction open during a Stripe call: ${seenIdle.join(",")} / ${JSON.stringify(res)}`);
+      // The version check: the account changes while Stripe is being asked -> the answer is discarded and fetched again, not written stale.
+      fake.state.subscriptions[subId] = { ...sub0, status: "canceled", current_period_end: nowSec() - 86400 };
+      let asked = 0;
+      (client.subscriptions as unknown as { retrieve: (...a: unknown[]) => Promise<unknown> }).retrieve = async (...a: unknown[]) => {
+        const answer = await (origRetrieve as unknown as (...x: unknown[]) => Promise<unknown>)(...a);
+        asked += 1;
+        if (asked === 1) {
+          // A concurrent writer touches the account after the (stale) answer was produced.
+          await prisma.user.update({ where: { id: user.id }, data: { stripeCancelAtPeriodEnd: true } });
+          fake.state.subscriptions[subId] = sub0;
+        }
+        return answer;
+      };
+      const raced = await subsLib.syncSubscription(client, subId, { userId: user.id, customerId: cust });
+      const after = await userOf(user.id);
+      check(raced.kind === "applied" && after.stripeSubStatus === "active" && after.plan === "PARTICULIER" && asked >= 2,
+        "Subscription sync: when the account changes between the Stripe answer and the write, the stale answer ('canceled') is thrown away and Stripe is asked again (the account ends 'active', not 'canceled')", `Stale write: ${JSON.stringify(raced)} status ${after.stripeSubStatus} plan ${after.plan}`);
+    }
+
     // ── 9. Readiness ────────────────────────────────────────────────────
     {
       const good = async () => {
@@ -1361,6 +1620,17 @@ async function runScenario(scenario: string) {
     const gone = await post(deleteRoute, "/api/account/delete", { confirmation: "VERWIJDER MIJN ACCOUNT" });
     check(gone.status === 503 && (await userOf(u.id)).email === u.email, `${T} Erasure of an account with a subscription while Stripe is unreachable: refused, nothing erased`, `${T} Erasure answered ${gone.status}`);
     signIn(null);
+
+    // R2-02: without a Stripe client a PENDING Stripe order cannot be settled. It is left alone, and the owner is told once.
+    const { expireAbandonedStripeOrders } = await import("../src/lib/cart-expiry");
+    const stale = await mkOrder({ qty: 1, stock: 5, stripePaymentId: `cs_test_nostripe_${n}`, createdAt: new Date(Date.now() - 50 * 3600_000) });
+    const mark = slackBodies.length;
+    const res = await expireAbandonedStripeOrders();
+    const text = slackText(mark);
+    check((await orderOf(stale.order.id)).status === "PENDING" && res.left >= 1 && res.cancelled === 0 && /Stripe is niet geconfigureerd/.test(text), `${T} R2-02: with no Stripe client the abandoned Stripe order is left PENDING (not cancelled blind) and the owner is told`, `${T} R2-02 no stripe: ${(await orderOf(stale.order.id)).status} ${JSON.stringify(res)} ${text.slice(0, 200)}`);
+    const again = slackBodies.length;
+    await expireAbandonedStripeOrders();
+    check(slackText(again) === "" && (await orderOf(stale.order.id)).status === "PENDING", `${T} R2-02: ...once: the next sweep does not repeat the notice`, `${T} R2-02 repeat: ${slackText(again).slice(0, 200)}`);
   }
 
   async function noCompanyScenario() {
@@ -1400,6 +1670,8 @@ const COMPANY_TEST = {
   COMPANY_KVK: "90000001",
   COMPANY_VAT: "NL900000010B01",
   COMPANY_IBAN: "NL02ABNA0123456789",
+  // Decision D15: the contact address is part of company readiness. Fictional.
+  COMPANY_EMAIL: "info@wasfix-test.nl",
 };
 const NO_COMPANY = Object.fromEntries(Object.keys(COMPANY_TEST).map((k) => [k, undefined])) as Record<string, undefined>;
 

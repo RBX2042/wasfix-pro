@@ -1,6 +1,10 @@
 import Link from "next/link";
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { Icon } from "@/components/redesign/SharedLayout";
+import { siteUrl } from "@/lib/site-url";
+
+// The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
+const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
 export const metadata = {
   title: "Voor monteurs — De pro-tool voor wasmachine-reparatie · WasFix Pro",
@@ -122,7 +126,7 @@ export default function MonteurLandingPage() {
           <div style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
             <div className="mono" style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, letterSpacing: "0.08em" }}>POST /api/v1/diagnose</div>
             <pre className="mono" style={{ fontSize: 13, color: "var(--text-2)", overflowX: "auto", lineHeight: 1.6, margin: 0 }}>
-{`curl -X POST https://wasfix.nl/api/v1/diagnose \\
+{`curl -X POST ${SITE}/api/v1/diagnose \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
   -H "Content-Type: application/json" \\
   -d '{

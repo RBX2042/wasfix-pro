@@ -27,6 +27,7 @@
  *   - stock in the file overwrites the stock, deliberately: it is the result of a count.
  *     The token check is what makes that safe against orders placed in between.
  */
+import { decimalNl } from "@/lib/emails/money";
 import { createHash } from "node:crypto";
 import type { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
@@ -89,7 +90,11 @@ function normaliseSource(raw: string): "ESTIMATE" | "QUOTE" | null {
 }
 
 const same = (a: number | null, b: number | null) => (a === null || b === null ? a === b : Math.round(a * 100) === Math.round(b * 100));
-const show = (v: unknown) => (v === null || v === undefined || v === "" ? "leeg" : typeof v === "number" ? String(v).replace(".", ",") : String(v));
+/** Dutch notation in the preview: money always with two decimals and a comma ("7,20", never "7,2" or "7.2"), counts as integers. */
+const show = (v: unknown, money = false) =>
+  v === null || v === undefined || v === "" ? "leeg" : typeof v === "number" ? (money ? decimalNl(v) : Number.isInteger(v) ? String(v) : decimalNl(v)) : String(v);
+/** The fields whose value is an amount in euro. */
+const MONEY_FIELDS = new Set<string>(["priceEur", "costEur"]);
 
 /**
  * Bytes of an uploaded file to text. The export is UTF-8 with a BOM, but Dutch Excel saves a plain
@@ -156,7 +161,7 @@ export async function planPartsImport(csvText: string, db: Db = prisma): Promise
     const data: PlanRow["data"] = {};
     const set = <K extends keyof PartData>(key: K, value: PartData[K], before: PartData[K] | undefined, label: string) => {
       data[key] = value;
-      if (!current || before !== value) row.changes.push(`${label}: ${current ? show(before) : "nieuw"} → ${show(value)}`);
+      if (!current || before !== value) row.changes.push(`${label}: ${current ? show(before, MONEY_FIELDS.has(key)) : "nieuw"} → ${show(value, MONEY_FIELDS.has(key))}`);
     };
 
     const name = cell(raw, "name");

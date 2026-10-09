@@ -17,8 +17,13 @@
  *     sendStripeOrderConfirmation(email, data)       Stripe order paid: lines, total, invoice number, order link
  *     sendPaymentReceivedEmail(email, data)          bank transfer confirmed ("betaling ontvangen")
  *     sendOrderShippedEmail(email, data)             carrier + code + tracking link (PostNL, DHL, DPD, UPS, GLS)
- *     sendOrderCancelledEmail(email, data)           mentions the credit note when there is one
- *     sendRefundEmail(email, data)                   refund confirmation with the credit note number
+ *     sendOrderCancelledEmail(email, data)           mentions the credit note when there is one, with a link to the document
+ *     sendRefundEmail(email, data)                   refund confirmation with the credit note number and link; "teruggestort" only
+ *                                                    when data.via is "stripe", otherwise the wording says the owner still wires it
+ *     sendOrderMailForOrder(orderId, kind)           (re)send one order mail from what is stored: "bank-instructions",
+ *                                                    "order-paid" (Stripe) or "payment-received" (bank). Sends only; changes nothing.
+ *     sendBankTransferInstructionsForOrder(orderId)  the instructions mail of a bank-transfer order, loaded by id, so a caller can
+ *                                                    run it again later (order desk); the checkout awaits its own send so the page can say honestly whether it went out
  *     sendDiagnosisSummary(email, data)
  *     sendSubscriptionConfirmation(email, plan)
  *     sendRmaNotification(data)                      owner alert + customer acknowledgement
@@ -30,7 +35,9 @@
  *     domain instead of throwing; sendRaw (./emails/transport) reads it.
  *   - A failed send is logged at error level (template name only, never the
  *     address) and escalated through notifyOwner, so a dropped payment
- *     instruction reaches the owner.
+ *     instruction reaches the owner. When the mail belongs to an order the alert
+ *     names the order reference (never the customer), so the owner knows whose
+ *     mail to resend from the order desk.
  *   - Without RESEND_API_KEY a send is logged ("e-mail skipped") and returns
  *     {ok: false, error: "no_resend_key"}; the owner is warned once per process.
  *   - Customer mails set replyTo to COMPANY_EMAIL when it is configured,
@@ -46,8 +53,9 @@
  */
 import { env } from "./env";
 import { logger } from "./logger";
-import { companyReadiness } from "./plans";
-import { customerOrderUrl, orderRef } from "./order-status";
+import { prisma } from "./prisma";
+import { companyReadiness, SUPPORT_RESPONSE_WORKDAYS } from "./plans";
+import { creditNoteUrl, customerOrderUrl, orderRef, returnUrl } from "./order-status";
 import { notifyOwner } from "./notify";
 import { getResend, FROM, sendRaw, type MailResult } from "./emails/transport";
 import { esc, eur, button, shell, lineTable, type MailLine } from "./emails/layout";
@@ -89,6 +97,8 @@ export type SendMailOptions = {
   text?: string;
   /** Defaults to the configured COMPANY_EMAIL (none when unset) so a customer's reply reaches a person. */
   replyTo?: string;
+  /** The short order number ("#" + this) when the mail belongs to an order. Goes into the failure alert, instead of the customer. */
+  orderRef?: string;
 };
 
 export async function sendMail(opts: SendMailOptions): Promise<MailResult> {
@@ -120,8 +130,13 @@ export async function sendMail(opts: SendMailOptions): Promise<MailResult> {
       await notifyOwner({
         event: "email.failed",
         level: "error",
-        title: `E-mail niet verstuurd (${opts.template})`,
-        lines: [`Reden: ${result.error ?? "onbekend"}`, "Controleer RESEND_API_KEY en of het verzenddomein in Resend is geverifieerd."],
+        title: `E-mail niet verstuurd (${opts.template})${opts.orderRef ? ` voor bestelling #${opts.orderRef}` : ""}`,
+        lines: [
+          ...(opts.orderRef ? [`Bestelling #${opts.orderRef}: stuur de mail opnieuw vanaf de bestelkaart in het beheer.`] : []),
+          `Reden: ${result.error ?? "onbekend"}`,
+          "Controleer RESEND_API_KEY en of het verzenddomein in Resend is geverifieerd.",
+        ],
+        ...(opts.orderRef ? { url: "/admin/bestellingen" } : {}),
       });
     }
     return result;
@@ -214,6 +229,7 @@ export async function sendOrderConfirmation(
 ): Promise<MailResult> {
   return sendMail({
     template: "order-confirmation",
+    orderRef: orderRef(data.orderId),
     to: email,
     subject: `Bestelling bevestigd #${orderRef(data.orderId)}`,
     html: shell(`
@@ -235,6 +251,7 @@ export async function sendStripeOrderConfirmation(
   const url = customerOrderUrl(data.orderId, data.accessToken);
   return sendMail({
     template: "order-paid-stripe",
+    orderRef: orderRef(data.orderId),
     to: email,
     subject: `Betaling ontvangen — bestelling #${orderRef(data.orderId)}`,
     html: shell(`
@@ -270,6 +287,7 @@ export async function sendBankTransferInstructions(
   }
   return sendMail({
     template: "bank-transfer-instructions",
+    orderRef: orderRef(data.orderId),
     to: email,
     subject: `Betaalverzoek — factuur ${data.invoiceNumber}`,
     html: shell(`
@@ -300,6 +318,7 @@ export async function sendPaymentReceivedEmail(
 ): Promise<MailResult> {
   return sendMail({
     template: "payment-received",
+    orderRef: orderRef(data.orderId),
     to: email,
     subject: `Betaling ontvangen — bestelling #${orderRef(data.orderId)}`,
     html: shell(`
@@ -320,6 +339,7 @@ export async function sendOrderShippedEmail(
   const who = carrierLabel(data.carrier);
   return sendMail({
     template: "order-shipped",
+    orderRef: orderRef(data.orderId),
     to: email,
     subject: `Je bestelling #${orderRef(data.orderId)} is verzonden`,
     html: shell(`
@@ -330,7 +350,8 @@ export async function sendOrderShippedEmail(
           <tr><td style="padding:6px 0; color:#666;">Trackingcode</td><td style="text-align:right; font-family: monospace; font-weight:bold;">${esc(data.trackingCode)}</td></tr>
         </table>
         ${link ? button(link, "Volg je pakket") : `<p style="font-size:14px; color:#666;">Volg je pakket met de trackingcode op de website van ${esc(who)}.</p>`}
-        <p style="margin-top: 16px;"><a href="${esc(customerOrderUrl(data.orderId, data.accessToken))}" style="color:#1a6b6b; font-size:14px;">Bekijk bestelling</a></p>`),
+        <p style="margin-top: 16px;"><a href="${esc(customerOrderUrl(data.orderId, data.accessToken))}" style="color:#1a6b6b; font-size:14px;">Bekijk bestelling</a></p>
+        <p style="margin-top: 8px; font-size:13px; color:#666;">Past het onderdeel niet of heb je het niet nodig? Je hebt 30 dagen bedenktijd: <a href="${esc(returnUrl(data.orderId, data.accessToken))}" style="color:#1a6b6b;">retour aanvragen</a>.</p>`),
   });
 }
 
@@ -349,11 +370,13 @@ export async function sendOrderCancelledEmail(
     data.wasPaid && data.refundEur
       ? `<p style="font-size: 16px; line-height: 1.6;">Het betaalde bedrag van ${eur(data.refundEur)} krijg je terug.</p>`
       : `<p style="font-size: 16px; line-height: 1.6;">Je hoeft niets meer te betalen. Heb je het bedrag al overgemaakt? Antwoord dan op deze e-mail, dan regelen we de terugbetaling.</p>`;
+  // The credit note is a document of its own (terms 7.1 promise "een creditfactuur"): link it.
   const credit = data.creditNoteNumber
-    ? `<p style="font-size: 14px; color:#444;">De factuur is gecorrigeerd met creditnota ${esc(data.creditNoteNumber)}.</p>`
+    ? `<p style="font-size: 14px; color:#444;">De factuur is gecorrigeerd met creditfactuur ${esc(data.creditNoteNumber)}. <a href="${esc(creditNoteUrl(data.orderId, data.creditNoteNumber, data.accessToken))}" style="color:#1a6b6b;">Bekijk de creditfactuur</a>.</p>`
     : "";
   return sendMail({
     template: "order-cancelled",
+    orderRef: orderRef(data.orderId),
     to: email,
     subject: `Bestelling #${orderRef(data.orderId)} is geannuleerd`,
     html: shell(`
@@ -368,19 +391,119 @@ export async function sendOrderCancelledEmail(
 
 export async function sendRefundEmail(
   email: string,
-  data: OrderMailBase & { amountEur: number; creditNoteNumber: string; partial: boolean },
+  data: OrderMailBase & {
+    amountEur: number;
+    creditNoteNumber: string;
+    partial: boolean;
+    /**
+     * How the money goes back. "stripe": a Stripe refund exists, so it IS sent
+     * ("teruggestort"). "bank" (the default): the credit note is issued but the
+     * owner still has to wire the money, so the mail must not say it was done.
+     */
+    via?: "stripe" | "bank";
+  },
 ): Promise<MailResult> {
+  const stripe = data.via === "stripe";
+  const lead = stripe
+    ? `we hebben ${eur(data.amountEur)} teruggestort voor bestelling #${esc(orderRef(data.orderId))}. Dit gebeurt op de rekening of kaart waarmee je hebt betaald.`
+    : `voor bestelling #${esc(orderRef(data.orderId))} is een creditfactuur van ${eur(data.amountEur)} uitgegeven. Het bedrag maken we over op de rekening waarvan je hebt betaald. Je hoeft zelf niets te doen. Gaat het om een herroeping, dan staat het bedrag uiterlijk 14 dagen na je melding op je rekening, zoals in onze voorwaarden staat.`;
   return sendMail({
     template: "refund",
+    orderRef: orderRef(data.orderId),
     to: email,
-    subject: `Terugbetaling voor bestelling #${orderRef(data.orderId)}`,
+    subject: stripe ? `Terugbetaling voor bestelling #${orderRef(data.orderId)}` : `Creditfactuur voor bestelling #${orderRef(data.orderId)}`,
     html: shell(`
-        <h1 style="color: #1a6b6b;">${data.partial ? "Deel van je bestelling is terugbetaald" : "Je bestelling is terugbetaald"}</h1>
-        <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)}, we hebben ${eur(data.amountEur)} teruggestort voor bestelling #${esc(orderRef(data.orderId))}. Dit gebeurt op de rekening of kaart waarmee je hebt betaald.</p>
-        <p style="font-size: 14px; color:#444;">Creditnota: ${esc(data.creditNoteNumber)}</p>
+        <h1 style="color: #1a6b6b;">${stripe ? (data.partial ? "Deel van je bestelling is terugbetaald" : "Je bestelling is terugbetaald") : data.partial ? "Je krijgt een deel van je bestelling terug" : "Je krijgt je bestelling terug"}</h1>
+        <p style="font-size: 16px; line-height: 1.6;">Hi ${esc(data.name)}, ${lead}</p>
+        <p style="font-size: 14px; color:#444;">Creditfactuur: ${esc(data.creditNoteNumber)}. <a href="${esc(creditNoteUrl(data.orderId, data.creditNoteNumber, data.accessToken))}" style="color:#1a6b6b;">Bekijk de creditfactuur</a>.</p>
         ${button(customerOrderUrl(data.orderId, data.accessToken), "Bekijk bestelling")}
         <p style="margin-top: 24px; font-size: 13px; color: #666;">Vragen? Antwoord op deze e-mail.</p>`),
   });
+}
+
+// ─── Resend, from what is stored ─────────────────────────────────────
+
+export type OrderMailKind = "bank-instructions" | "order-paid" | "payment-received";
+
+export const ORDER_MAIL_LABEL: Record<OrderMailKind, string> = {
+  "bank-instructions": "betaalinstructies",
+  "order-paid": "bevestiging",
+  "payment-received": "betaling-ontvangen-mail",
+};
+
+const PAID_STATES = ["PAID", "SHIPPED", "DELIVERED"];
+
+/**
+ * Send one of the three order mails again, built from what the database holds
+ * now, and nothing else: no status changes, no stock, no invoice. Safe to call
+ * any number of times; the caller rate-limits (the order desk does).
+ *
+ * Refuses (ok:false, error "not_applicable") when the order is not in the state
+ * that mail belongs to, so a wrong button cannot mail "betaling ontvangen" for
+ * an unpaid order or the IBAN of a cancelled one.
+ */
+export async function sendOrderMailForOrder(orderId: string, kind: OrderMailKind): Promise<MailResult> {
+  try {
+    const order = await prisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: { include: { part: { select: { name: true } } } }, invoice: { select: { number: true, sellerJson: true } } },
+    });
+    if (!order) return { ok: false, error: "not_found" };
+    const name = (() => {
+      try {
+        return (JSON.parse(order.shippingAddress)?.name as string | undefined)?.trim() || "klant";
+      } catch {
+        return "klant";
+      }
+    })();
+    const common = { orderId: order.id, name, accessToken: order.accessToken };
+
+    if (kind === "bank-instructions") {
+      if (order.paymentMethod !== "BANK_TRANSFER" || order.status !== "OPENSTAAND" || !order.invoice || !order.dueAt) return { ok: false, error: "not_applicable" };
+      let seller: { iban?: string; name?: string } = {};
+      try {
+        seller = JSON.parse(order.invoice.sellerJson) ?? {};
+      } catch {
+        /* the sender below refuses an empty IBAN in production through the readiness check */
+      }
+      return await sendBankTransferInstructions(order.email, {
+        ...common,
+        invoiceNumber: order.invoice.number,
+        totalEur: order.totalEur,
+        dueAt: order.dueAt,
+        iban: seller.iban ?? "",
+        ibanName: seller.name ?? "",
+      });
+    }
+    if (kind === "order-paid") {
+      if (order.paymentMethod !== "STRIPE" || !PAID_STATES.includes(order.status)) return { ok: false, error: "not_applicable" };
+      return await sendStripeOrderConfirmation(order.email, {
+        ...common,
+        invoiceNumber: order.invoice?.number ?? null,
+        totalEur: order.totalEur,
+        items: order.items.map((i) => ({ name: i.part.name, quantity: i.quantity, total: Math.round(i.unitPrice * i.quantity * 100) / 100 })),
+      });
+    }
+    if (order.paymentMethod !== "BANK_TRANSFER" || !PAID_STATES.includes(order.status)) return { ok: false, error: "not_applicable" };
+    return await sendPaymentReceivedEmail(order.email, { ...common, invoiceNumber: order.invoice?.number ?? null, totalEur: order.totalEur });
+  } catch (err) {
+    logger.error("[email] could not resend an order mail", { kind, err });
+    return { ok: false, error: err instanceof Error ? err.message : String(err) };
+  }
+}
+
+/**
+ * The payment instructions of a bank-transfer order, loaded by id, for a caller that
+ * has no request data at hand. The order desk runs it from "stuur betaalinstructies
+ * opnieuw". The checkout deliberately does NOT run it after its response:
+ * src/app/api/checkout/route.ts awaits sendBankTransferInstructions inline, because the
+ * confirmation page only says "we hebben de instructies gemaild" when the provider really
+ * accepted the mail. The price is that a hung provider holds the customer for at most
+ * the 10 s Resend timeout plus the owner notice; the instructions are on the order page
+ * either way. Returns the MailResult; never throws.
+ */
+export function sendBankTransferInstructionsForOrder(orderId: string): Promise<MailResult> {
+  return sendOrderMailForOrder(orderId, "bank-instructions");
 }
 
 // ─── Forms that reach the owner ──────────────────────────────────────
@@ -475,13 +598,13 @@ export async function sendRmaNotification(data: {
           <div style="font-family: monospace; font-size: 18px; font-weight: 600; color: #1a6b6b;">${esc(data.rmaNumber)}</div>
         </div>
         <p style="font-size: 14px; line-height: 1.6;">
-          Wat nu? Binnen 24 uur (op werkdagen) ontvang je een e-mail met retour-instructies, inclusief een verzendlabel als je in aanmerking komt voor gratis retour (defect of fout van onze kant).
+          Wat nu? Binnen ${SUPPORT_RESPONSE_WORKDAYS} werkdagen ontvang je een e-mail met retour-instructies. Kosten van het terugsturen staan in onze retourvoorwaarden.
         </p>
         <p style="font-size: 14px; line-height: 1.6;">
           Pak je product in originele verpakking met het RMA-nummer duidelijk op de buitenkant geschreven. Zodra wij het ontvangen verwerken wij de restitutie binnen 14 dagen.
         </p>
         <p style="font-size: 13px; color: #666; margin-top: 24px;">
-          Vragen? Antwoord gewoon op deze e-mail — we reageren op werkdagen binnen 24 uur.
+          Vragen? Antwoord gewoon op deze e-mail — we reageren binnen ${SUPPORT_RESPONSE_WORKDAYS} werkdagen.
         </p>`),
   });
   // The customer's acknowledgement is what the form promises; the owner alert

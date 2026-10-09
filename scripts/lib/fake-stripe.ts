@@ -211,6 +211,14 @@ export async function startFakeStripe(): Promise<FakeStripe> {
         const wanted = query.payment_intent;
         return list(Object.values(state.sessions).filter((s) => !wanted || s.payment_intent === wanted));
       }
+      if (method === "POST" && (m = p.match(/^\/v1\/checkout\/sessions\/([^/]+)\/expire$/))) {
+        // Modelled on the documented behaviour (not checked against live Stripe): only an open session can be expired.
+        const s = state.sessions[m[1]];
+        if (!s) return missing(`checkout session: '${m[1]}'`);
+        if (s.status !== "open") return send(400, { error: { type: "invalid_request_error", message: "Only Checkout Sessions with a status of `open` can be expired." } });
+        s.status = "expired";
+        return send(200, s);
+      }
       if (method === "GET" && (m = p.match(/^\/v1\/checkout\/sessions\/(.+)$/))) {
         const s = state.sessions[m[1]];
         return s ? send(200, s) : missing(`checkout session: '${m[1]}'`);

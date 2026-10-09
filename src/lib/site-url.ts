@@ -69,6 +69,28 @@ export function siteUrl(env: EnvLike = process.env): string | null {
 }
 
 /**
+ * An absolute URL on the public host for `path` ("/onderdelen/WF-PUMP-04"), built from NEXT_PUBLIC_APP_URL.
+ *
+ * JSON-LD, breadcrumbs, the B2B API's productUrl / buyUrl / detailUrl, the QR sticker's scan URL and
+ * the API docs link used to carry the literal https://wasfix.nl (658 occurrences in a crawl), on pages
+ * whose canonical is NEXT_PUBLIC_APP_URL: a deployment on any other domain pointed search engines and
+ * API clients at somebody else's site. When the address is unusable (production without a proper
+ * NEXT_PUBLIC_APP_URL) the path is returned as it is, relative: wrong-host links are worse than none.
+ */
+export function absoluteUrl(path: string, env: EnvLike = process.env): string {
+  return `${siteUrl(env) ?? ""}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
+/**
+ * siteUrl() for CLIENT components. A bundler only replaces the literal expressions
+ * process.env.NEXT_PUBLIC_APP_URL and process.env.NODE_ENV; reading them from the process.env object
+ * (the default of siteUrl()) finds nothing in the browser and would answer http://localhost:3000.
+ */
+export function clientSiteUrl(): string | null {
+  return siteUrl({ NEXT_PUBLIC_APP_URL: process.env.NEXT_PUBLIC_APP_URL, NODE_ENV: process.env.NODE_ENV });
+}
+
+/**
  * Host counterpart for the canonical-host redirect: the www variant of an apex
  * domain and vice versa. null for hosts where the question does not arise
  * (localhost, *.vercel.app, IP addresses).

@@ -1,6 +1,7 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const metadata = {
   title: "EU Right to Repair — wat zijn jouw rechten?",
@@ -63,7 +64,7 @@ export default function RightToRepairPage() {
     headline: "EU Right to Repair — wat zijn jouw rechten?",
     description: "Wat de EU-regels over repareren precies zeggen, met bronvermelding per recht.",
     author: { "@type": "Organization", name: "WasFix Pro" },
-    publisher: { "@type": "Organization", name: "WasFix Pro", logo: { "@type": "ImageObject", url: "https://wasfix.nl/icon" } },
+    publisher: { "@type": "Organization", name: "WasFix Pro", logo: { "@type": "ImageObject", url: absoluteUrl("/icon") } },
     about: { "@type": "Thing", name: "EU Right to Repair Directive 2024/1799" },
   };
 

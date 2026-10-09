@@ -1,6 +1,7 @@
+import { ContactEmail } from "@/lib/contact-email";
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { formatEur } from "@/lib/utils";
-import { SHIPPING, COMPANY, PLANS, realOrNull } from "@/lib/plans";
+import { SHIPPING, COMPANY, PLANS, realOrNull, SUPPORT_RESPONSE_WORKDAYS, COMPLAINT_RESOLUTION_DAYS } from "@/lib/plans";
 import { PAID_DAILY_CALLS } from "@/lib/diagnose-core";
 import Link from "next/link";
 
@@ -26,7 +27,7 @@ export default function VoorwaardenPage() {
             Algemene <em>voorwaarden</em>
           </h1>
           <p className="muted mono" style={{ fontSize: 12, marginBottom: 36, letterSpacing: "0.04em" }}>
-            Laatste update: 8 oktober 2026 · Versie 2.2
+            Laatste update: 9 oktober 2026 · Versie 2.3
           </p>
 
           <div className="legal-content">
@@ -74,7 +75,7 @@ export default function VoorwaardenPage() {
             </p>
             <h3>5.1 Hoe oefen je het herroepingsrecht uit?</h3>
             <ul>
-              <li>Stuur een mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> of vul het <Link href="/retour/start">retour-formulier</Link> in.</li>
+              <li>Stuur een mail naar <ContactEmail /> of vul het <Link href="/retour/start">retour-formulier</Link> in.</li>
               <li>Stuur het product binnen 14 dagen na je melding retour.</li>
               <li>Je mag het onderdeel uitpakken, bekijken en beoordelen zoals je in een winkel zou doen (art. 6:230s lid 2 BW). Een geopende verpakking, een verbroken zegel of een kort gepast onderdeel kost je je herroepingsrecht dus niet. Ga je verder dan nodig is om aard en werking vast te stellen en is het onderdeel daardoor minder waard, dan verrekenen we alleen die waardevermindering.</li>
               <li>Wij betalen binnen 14 dagen na ontvangst van je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3).</li>
@@ -103,18 +104,18 @@ export default function VoorwaardenPage() {
             <h3>7.1 Betaalmogelijkheden</h3>
             <ul>
               <li>Betaling vooraf via iDEAL of creditcard (via Stripe).</li>
-              <li><strong>Op rekening:</strong> in de checkout kun je ook kiezen voor betaling op rekening — dit staat open voor iedere klant, dus ook voor consumenten. Kies je op rekening, dan ontvang je meteen een factuur en betaal je per bankoverschrijving binnen <strong>14 dagen</strong> na factuurdatum. Lukt een betaling via iDEAL of creditcard niet, dan blijf je in de checkout met een melding; wij schakelen je nooit zelf over naar een andere betaalmethode en maken dan ook geen bestelling of factuur aan.</li>
+              <li><strong>Bankoverschrijving (vooruitbetaling):</strong> in de checkout kun je ook kiezen voor betaling per bankoverschrijving — dit staat open voor iedere klant, dus ook voor consumenten. Kies je dit, dan ontvang je meteen een factuur en maak je het bedrag binnen <strong>14 dagen</strong> na factuurdatum over. <strong>Wij verzenden pas nadat de betaling op onze rekening is bijgeschreven;</strong> er wordt dus nooit geleverd op krediet. Lukt een betaling via iDEAL of creditcard niet, dan blijf je in de checkout met een melding; wij schakelen je nooit zelf over naar een andere betaalmethode en maken dan ook geen bestelling of factuur aan.</li>
               <li>De bestelde onderdelen worden bij een bestelling op rekening direct voor je gereserveerd. Is de factuur 7 dagen na de vervaldatum nog niet betaald, dan mogen wij de bestelling annuleren; de gereserveerde onderdelen komen dan weer beschikbaar voor andere klanten. Een factuur wijzigen of verwijderen wij nooit: bij annulering of terugbetaling van een gefactureerde bestelling sturen wij je een creditfactuur. Betaal je daarna alsnog, dan storten wij het bedrag terug of plaatsen we in overleg een nieuwe bestelling.</li>
               <li>Eigendom van producten gaat pas over op de Klant na volledige betaling.</li>
             </ul>
-            <h3>7.2 Te late betaling door consumenten</h3>
+            <h3>7.2 Betaling blijft uit</h3>
             <p>
-              Betaal je als consument niet binnen de termijn, dan sturen wij eerst een kosteloze betalingsherinnering. Blijft betaling uit, dan volgt een aanmaning waarin je nog eens veertien dagen krijgt om zonder extra kosten te betalen, met vermelding van de kosten die daarna volgen (de zogenoemde veertiendagenbrief, art. 6:96 lid 6 BW). Pas als die termijn is verstreken mogen wij buitengerechtelijke incassokosten in rekening brengen, en dan alleen volgens de wettelijke staffel van de Wet incassokosten (Besluit vergoeding voor buitengerechtelijke incassokosten): 15% over de eerste € 2.500 van de hoofdsom, met een minimum van € 40 en aflopende percentages over hogere bedragen. Vanaf het moment dat je in verzuim bent is de wettelijke rente van art. 6:119 BW verschuldigd. De wettelijke <em>handels</em>rente van art. 6:119a BW geldt niet voor consumenten en brengen wij je dus niet in rekening.
+              Omdat wij pas verzenden na ontvangst van de betaling, ontstaat er bij een bestelling geen vordering op jou. Betaal je niet binnen de termijn, dan sturen wij rond de vervaldatum en kort voor de annulering een kosteloze betalingsherinnering. Is de factuur 7 dagen na de vervaldatum nog niet betaald, dan mogen wij de bestelling annuleren (zie 7.1). Wij brengen daarbij geen incassokosten, rente of andere kosten in rekening.
             </p>
-            <h3>7.3 Te late betaling door zakelijke afnemers</h3>
+            <h3>7.3 Zakelijke afnemers en abonnementen</h3>
             <ul>
-              <li>Zakelijke afnemers (MONTEUR_PRO, BEDRIJF): factuur 14 dagen netto na bevestigingsmail.</li>
-              <li>Bij niet-tijdige betaling is zonder nadere ingebrekestelling de wettelijke handelsrente (art. 6:119a BW) verschuldigd, vermeerderd met buitengerechtelijke incassokosten van ten minste € 40 (art. 6:96 lid 4 BW). De veertiendagenbrief uit 7.2 is hier niet vereist.</li>
+              <li>Voor zakelijke afnemers geldt hetzelfde als voor consumenten: wij leveren onderdelen pas na ontvangst van de betaling.</li>
+              <li>Abonnementen (Particulier, Monteur Pro en Bedrijf) betaal je per maand vooruit via iDEAL of creditcard (Stripe), zie artikel 8.</li>
             </ul>
 
             <h2>Artikel 8 — Abonnementen</h2>
@@ -125,7 +126,7 @@ export default function VoorwaardenPage() {
               <li>Een nieuw abonnement begint met een gratis proefperiode van {PLANS.PARTICULIER.trialDays} dagen (Particulier), {PLANS.MONTEUR_PRO.trialDays} dagen (Monteur Pro) of {PLANS.BEDRIJF.trialDays} dagen (Bedrijf), één keer per account. Je kunt vóór de eerste betaling kosteloos opzeggen.</li>
               <li>De korting op onderdelen van je abonnement geldt vanaf je eerste betaling, niet tijdens de gratis proefperiode.</li>
               <li>&ldquo;Onbeperkt&rdquo; aantal AI-diagnoses betekent: ruim voldoende voor normaal gebruik. Om misbruik en onnodige kosten te voorkomen stopt de AI na {PAID_DAILY_CALLS} berichten per dag; de volgende dag kun je gewoon verder.</li>
-              <li>Opzeggen kan via je dashboard (&ldquo;Abonnement&rdquo;) of per e-mail naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>.</li>
+              <li>Opzeggen kan via je dashboard (&ldquo;Abonnement&rdquo;) of per e-mail naar <ContactEmail />.</li>
               <li>Bij opzegging blijft toegang behouden tot het einde van de betaalde periode. Geen pro-rata teruggave.</li>
               <li>WasFix kan prijzen aanpassen met 60 dagen aankondiging. Je hebt het recht het abonnement op te zeggen vóór de wijziging ingaat.</li>
             </ul>
@@ -159,7 +160,7 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 13 — Klachten en geschillen</h2>
             <ul>
-              <li>Klachten kun je indienen via <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. We reageren binnen 7 werkdagen, met een oplossing binnen 30 dagen.</li>
+              <li>Klachten kun je indienen via <ContactEmail />. We reageren binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen, met een oplossing binnen {COMPLAINT_RESOLUTION_DAYS} dagen.</li>
               <li>Kom je er met ons niet uit? Dan kun je het geschil voorleggen aan de bevoegde Nederlandse rechter. WasFix is niet aangesloten bij een erkende Geschillencommissie; een geschil kan alleen aan een geschilleninstantie worden voorgelegd als beide partijen daar in dat geval mee instemmen. Het Europese ODR-platform is per 20 juli 2025 gesloten (Verordening (EU) 2024/3228) en is dus geen route meer.</li>
               <li>Op alle overeenkomsten is Nederlands recht van toepassing.</li>
               <li>Geschillen tussen partijen worden voorgelegd aan de bevoegde rechter in het arrondissement Amsterdam, tenzij de wet anders dwingend voorschrijft.</li>

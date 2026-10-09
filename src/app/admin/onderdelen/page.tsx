@@ -24,6 +24,7 @@ export default async function AdminPartsPage() {
 
   const hasDb = isDatabaseConfigured();
   let parts: PartRow[] = [];
+  let dbUnreadable = false;
   try {
     if (hasDb) {
       const found = await prisma.part.findMany({ orderBy: { sku: "asc" } });
@@ -33,8 +34,14 @@ export default async function AdminPartsPage() {
       throw new Error("no database");
     }
   } catch {
-    const { parts: staticPartList } = await import("@/lib/static-db");
-    parts = [...staticPartList].sort((a, b) => a.sku.localeCompare(b.sku)) as PartRow[];
+    if (hasDb) {
+      // A configured database that cannot be read: show nothing rather than the demo catalogue's made-up stock
+      // next to edit controls, which would look like the real shelf.
+      dbUnreadable = true;
+    } else {
+      const { parts: staticPartList } = await import("@/lib/static-db");
+      parts = [...staticPartList].sort((a, b) => a.sku.localeCompare(b.sku)) as PartRow[];
+    }
   }
 
   // The demo seed fills every part with generated stock. If (nearly) all stock still equals
@@ -62,6 +69,15 @@ export default async function AdminPartsPage() {
         </div>
         {hasDb && <NewPartButton />}
       </div>
+
+      {dbUnreadable && (
+        <Card className="mb-4 border-red-500/50 bg-red-50 dark:bg-red-950/20">
+          <div className="p-4 text-sm">
+            <p className="font-semibold">De database is nu niet bereikbaar</p>
+            <p className="text-muted-foreground">De onderdelen en hun voorraad kunnen niet worden geladen. Ververs de pagina over een paar minuten; blijft het mis, kijk dan in de logs en op /api/v1/health.</p>
+          </div>
+        </Card>
+      )}
 
       {stockNotCounted && (
         <Card className="mb-4 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">

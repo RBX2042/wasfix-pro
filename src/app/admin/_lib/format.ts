@@ -1,4 +1,5 @@
 import { env } from "@/lib/env";
+import { centsSafe } from "@/lib/emails/money";
 
 /** Stripe dashboard link for a payment; test-mode keys get the /test path. Informational only. */
 export function stripeDashboardUrl(paymentIntentId: string | null | undefined): string | null {
@@ -42,7 +43,8 @@ export function parseShippingAddress(json: string): ShippingAddress {
 }
 
 export const EUR = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
-export const eur = (n: number) => EUR.format(n);
+// centsSafe: an empty VAT quarter printed "€ -0,00" (negated zero) on the economics page.
+export const eur = (n: number) => EUR.format(centsSafe(n));
 export const dateNl = (d: Date | null | undefined) =>
   d ? new Intl.DateTimeFormat("nl-NL", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "Europe/Amsterdam" }).format(d) : "-";
 export const dateTimeNl = (d: Date | null | undefined) =>

@@ -60,14 +60,32 @@ Er is niet, en daar helpt geen sleutel tegen:
 
 ### Stap 1. Bedrijfsgegevens (blokkeert alles wat geld kost)
 
-- **Nodig:** KvK-nummer, btw-nummer, zakelijke bankrekening (IBAN), vestigingsadres, e-mailadres voor klanten.
+- **Nodig:** KvK-nummer, btw-nummer, zakelijke bankrekening (IBAN), vestigingsadres en **een e-mailadres
+  waarop klanten je bereiken** (een brievenbus die bestaat en die je leest).
 - **Doen:** zet in de hostingomgeving `COMPANY_NAME`, `COMPANY_STREET`, `COMPANY_POSTAL_CODE`,
-  `COMPANY_CITY`, `COMPANY_KVK`, `COMPANY_VAT`, `COMPANY_IBAN`, `COMPANY_EMAIL` (en liefst `COMPANY_PHONE`).
+  `COMPANY_CITY`, `COMPANY_KVK`, `COMPANY_VAT`, `COMPANY_IBAN` en **`COMPANY_EMAIL` (verplicht, net als de
+  zes andere)**, en liefst `COMPANY_PHONE`.
 - **Gevolg zolang ze ontbreken:** checkout geeft **503 voor beide betaalwegen**, Stripe-bestellingen
   ook. (Een eerdere versie van dit bestand zei dat Stripe-bestellingen daar geen last van hadden. Dat was
-  fout.) Op de publieke pagina's staat "volgt na inschrijving" in plaats van een nummer.
+  fout.) Op de publieke pagina's staat "volgt na inschrijving" in plaats van een nummer of adres. Ook zonder
+  `COMPANY_EMAIL` blijft de winkel dicht: de site had daarvoor een ingebouwd adres (`support@wasfix.nl`) dat
+  op de contact-, privacy-, voorwaarden-, retour-, garantie-, klachten- en perspagina stond, op het
+  modelformulier voor herroeping en onder de factuur, terwijl niemand heeft gecontroleerd dat die brievenbus
+  bestaat. Dat adres is weg; elk adres dat een klant te zien krijgt (ook in foutmeldingen, de uitleg bij
+  accountverwijdering en de helpartikelen) komt nu uit `COMPANY_EMAIL`. (Eén bestand noemt het oude adres nog:
+  `src/lib/emails/templates.ts`, maar niets importeert dat bestand; het hoort bij de mailbundel en moet daar worden
+  opgeruimd voordat iemand het in gebruik neemt.) Er zijn dus geen aparte brievenbussen
+  `privacy@`, `klachten@`, `monteur@` of `garantie@` nodig.
+- **Na elke wijziging van een `COMPANY_*`-waarde moet je opnieuw deployen (opnieuw bouwen), niet alleen
+  herstarten.** De juridische pagina's (gemeten voor `/voorwaarden`; hetzelfde geldt voor de andere pagina's die niet per
+  verzoek worden opgebouwd) worden bij de build klaargemaakt met de waarden van dat moment. Een build zonder
+  bedrijfsgegevens die later met bedrijfsgegevens wordt gestart, maakt wel kloppende facturen, maar de pagina
+  `/voorwaarden` bleef "in oprichting" zeggen (gemeten in de generale repetitie). `npm run preflight -- --url
+  https://<domein>` leest daarom de live `/voorwaarden` en `/contact` en vergelijkt bedrijfsnaam, KvK-nummer en
+  contactadres met je `COMPANY_*`; wijkt het af, dan staat er een BLOCK met de opdracht opnieuw te bouwen.
 - **Controle:** een goed gevormd maar fictief nummer (zoals de testwaarden van CI) komt door de controle in
-  de webshop; `npm run preflight` weigert die voor productie.
+  de webshop; `npm run preflight` weigert die voor productie. De preflight meldt het bedrijfsblok pas als "ok"
+  als geen enkel punt daarna blokkeert.
 
 ### Stap 2. Domein en DNS
 
@@ -83,7 +101,11 @@ Er is niet, en daar helpt geen sleutel tegen:
   `next.config.ts` en alle client-code krijgen hem tijdens de build, terwijl sitemap, robots.txt en metadata hem ook tijdens
   het draaien lezen. Zet hem dus vóór de build én laat hem tijdens het draaien gezet staan (Vercel doet dat met de
   Production-scope), en deploy opnieuw na elke wijziging.
-- Maak de mailadressen aan die op de site genoemd worden (zie `/contact` en de juridische pagina's).
+- Maak het ene mailadres aan dat op de site genoemd wordt: `COMPANY_EMAIL` (zie `/contact` en de juridische
+  pagina's). Reactietijd: de pagina's /contact, /help, /klachten, /voorwaarden, /retourvoorwaarden en /garantie gebruiken `SUPPORT_RESPONSE_WORKDAYS` (nu 7 werkdagen) en
+  `COMPLAINT_RESOLUTION_DAYS` (nu 30 dagen) in `src/lib/plans.ts`. Pas dat getal aan naar wat je kunt waarmaken;
+  dan volgen die pagina's tegelijk. Niet gekoppeld: de bevestigingsmail van een retouraanvraag (`src/lib/email.ts`) noemt zelf nog
+  "binnen 24 uur", en de aanmeldmelding voor monteurs belooft "1 werkdag" (`src/app/api/monteur/signup/route.ts`).
 - Het adres `*.vercel.app` blijft bereikbaar. De app verwijst dat niet door (previews wonen daar);
   doe dat in de domeininstellingen van Vercel als je het wilt.
 
@@ -91,6 +113,15 @@ Er is niet, en daar helpt geen sleutel tegen:
 
 - **Nodig:** een eigen Supabase-project in een EU-regio (niet het gedeelde project uit eerdere notities), plan
   met dagelijkse back-ups. De aanbeveling is Pro; wat het gratis plan wel of niet bewaart is hier niet nagezocht.
+- **Time-out:** de app geeft een databasevraag na 8 seconden op (`src/lib/prisma.ts`): een vraag, het starten van een
+  transactie en het afronden (COMMIT) van een transactie krijgen elk hooguit 8 seconden, en een transactie als geheel
+  hooguit 25 seconden (checkout mag 30). Bij een bevroren database antwoordt checkout dan met 503 en krijg jij een melding,
+  in plaats van minutenlang niets. Dat is gemeten met een TCP-proxy die het verkeer bevriest, ook op het moment van de
+  COMMIT (`scripts/qa-platform.ts`, sectie 12). Het annuleert het werk op de server niet: bij een bevriezing precies op de
+  COMMIT kan de bestelling alsnog worden opgeslagen terwijl de klant een 503 kreeg. De klant probeert het dan opnieuw met
+  dezelfde `Idempotency-Key` (de checkout-pagina stuurt er bij elke poging een mee, de route zoekt die sleutel eerst op),
+  zodat er geen tweede bestelling ontstaat. De waarde `socket_timeout=10` wordt zelf aan `DATABASE_URL` toegevoegd (jij zet
+  er niets bij).
 - **Twee verbindingsstrings** (volgens Supabase's documentatie; de exacte tekst staat onder Project Settings,
   Database, Connection string):
   - `DATABASE_URL` is de **Transaction pooler** (poort 6543) met `?pgbouncer=true&connection_limit=1`. Zonder
@@ -240,6 +271,11 @@ terugval naar bankoverschrijving.
 
    Een gebeurtenis die ontbreekt wordt door Stripe niet verstuurd, en dan draait de bijbehorende code nooit.
    Zet `STRIPE_WEBHOOK_SECRET` op het ondertekeningsgeheim van **dit** endpoint (test en live verschillen).
+   **De webshop biedt iDEAL en kaart alleen aan als `STRIPE_SECRET_KEY` én `STRIPE_WEBHOOK_SECRET` allebei
+   staan.** Met alleen de geheime sleutel zou elke betaling bij Stripe slagen terwijl de webhook wordt
+   geweigerd en de bestelling tot de dagelijkse afstemming op PENDING blijft staan; dan blijft alleen betalen
+   per bankoverschrijving over (`src/lib/cart-gate.ts`, `stripeCheckoutAvailable()`). `npm run preflight` blokkeert
+   dezelfde configuratie.
 7. **Klantportaal** opslaan met opzeggen **aan het einde van de factuurperiode** (Instellingen, Billing,
    Klantportaal). De voorwaarden beloven toegang tot het einde van de betaalde periode.
 8. Zet de sleutels: `STRIPE_SECRET_KEY` (`sk_live_…`), optioneel `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY`.
@@ -256,7 +292,10 @@ interval, belastinggedrag), het webhook-endpoint (adres, events, API-versie), St
   Nergens belooft de site dat de diagnose klopt: het is een indicatie.
 - `UPSTASH_REDIS_REST_URL` en `UPSTASH_REDIS_REST_TOKEN` (gratis Redis in de EU). **Optioneel, maar zonder
   tellen de snelheidslimieten per serverinstantie en beginnen ze bij elke koude start opnieuw**, dus op een
-  serverless host is "10 bestellingen per uur per IP" in werkelijkheid 10 per instantie per uur. De maandquota
+  serverless host is "10 bestellingen per uur per IP" in werkelijkheid 10 per instantie per uur. (Voor
+  bestellingen per bankoverschrijving geldt daarnaast een maximum van **10 per adres per dag**, besluit D17; het
+  stond op 3 en wees huishoudens, kantoren en mobiele netwerken af die één IP-adres delen. De echte bescherming
+  zijn de limieten op het bedrag dat openstaat per koper en voor de hele winkel, `src/lib/cart-limits.ts`.) De maandquota
   in de database (gratis diagnoses, API-aanroepen) blijven exact. De app logt dit eenmalig per serverproces
   bij het eerste gebruik en `npm run preflight` meldt het als waarschuwing ("verminderde modus, toegestaan").
 - **Welk IP-adres telt?** Op Vercel gebruikt de app `x-vercel-forwarded-for` (door het platform gezet). Elders
@@ -330,6 +369,15 @@ is verstandig; reken er dan op dat die factuur blijft staan.
   boekhouder die reeks en de btw-aangifte over een kwartaal beoordelen (`/admin/economie` toont btw per kwartaal).
 - **Juridisch:** privacy, voorwaarden, retour- en garantiepagina's zijn opgesteld op basis van gangbare
   e-commerce-sjablonen, niet door een jurist. Laat ze controleren vóór echte bestellingen.
+- **Accountverwijdering (AVG art. 17)** loopt langs twee deuren en wist beide hetzelfde (`src/lib/erasure.ts`): de
+  knop in het dashboard en het verwijderen van het account in Clerk zelf. Wat blijft staan: facturen en
+  creditnota's (naam en adres op de factuur, 7 jaar), de bestelregels als administratie zonder e-mailadres,
+  telefoonnummer, bezorgadres en bestellink, en de facturen die een monteur zelf verstuurde. De knop weigert
+  zolang er een lopende bestelling is (betaald maar niet verzonden, wacht op overschrijving, onderweg, of
+  bezorgd binnen 30 dagen); Clerk kan niet weigeren, dus daar blijven alleen die lopende bestellingen staan en
+  krijg jij een melding; de dagelijkse opschoning (`/api/cron/retention`) wist ze zodra ze zijn afgerond.
+  Een gast die het e-mailadres van een bestaand account intikt, krijgt een gastbestelling die niet op dat
+  account komt en dus ook de verwijdering van dat account niet tegenhoudt.
 - **Bewaartermijnen:** serverlogs volgen de bewaartermijn van je hostingprovider; tellers van anonieme bezoekers
   worden na 30 dagen zonder gebruik verwijderd (`IP_COUNTER_DAYS` in `src/lib/retention.ts`).
 

@@ -14,7 +14,10 @@ import { notifyOwner } from "@/lib/notify";
 import { orderRef } from "@/lib/order-status";
 import { revalidateCatalog } from "@/lib/cache-tags";
 import { recordRefund } from "@/lib/invoicing";
+import { eurNl } from "@/lib/emails/money";
 import { idOf } from "./subscriptions";
+import { ownerWasTold } from "./fulfil";
+import { findStripeMarkers, putStripeMarker } from "./lease";
 
 type MatchedOrder = { id: string; status: string; totalEur: number };
 
@@ -47,7 +50,7 @@ async function orderForPaymentIntent(stripe: Stripe, paymentIntentId: string | n
   return { order, duplicate: false };
 }
 
-const eurText = (cents: number) => `€ ${(cents / 100).toFixed(2)}`;
+const eurText = (cents: number) => eurNl(cents / 100);
 
 export async function handleChargeRefunded(stripe: Stripe, charge: Stripe.Charge): Promise<void> {
   const paymentIntentId = idOf(charge.payment_intent as string | { id: string } | null);
@@ -102,10 +105,36 @@ export async function handleChargeRefunded(stripe: Stripe, charge: Stripe.Charge
     if (result.code === "db_error" || result.code === "db_unavailable") {
       throw new Error(`record_refund_failed:${result.code}`);
     }
-    if (result.code === "illegal_transition" && order.status === "CANCELLED") {
-      // Refunding an order that was cancelled without an invoice: there is no
-      // sale on the books to credit.
-      logger.info("Refund for a cancelled order without an invoice — nothing to credit", { order: order.id, refund: refund.id });
+    // `order.status` was read before this loop: an earlier refund of the same event may have cancelled the order since.
+    if (result.code === "illegal_transition" && (await prisma.order.findUnique({ where: { id: order.id }, select: { status: true } }))?.status === "CANCELLED") {
+      // Only an order that never had an invoice has nothing to credit: a PENDING
+      // order cancelled unpaid and refunded anyway. When it HAS an invoice, the
+      // books already hold a credit note for the whole sale and this refund is
+      // money that went out a second time (or for an amount no note matches):
+      // that must never be swallowed, it is the customer being paid twice.
+      const hasInvoice = (await prisma.invoice.count({ where: { orderId: order.id } })) > 0;
+      if (!hasInvoice) {
+        logger.info("Refund for a cancelled order without an invoice — nothing to credit", { order: order.id, refund: refund.id });
+        continue;
+      }
+      const marker = `refund-extra:${refund.id}`;
+      if ((await findStripeMarkers([marker])).has(marker)) continue; // charge.refunded lists every refund each time: tell once
+      logger.error("Refund on an order that is already fully credited", { order: order.id, refund: refund.id });
+      const sent = await notifyOwner({
+        event: "stripe.refund_duplicate",
+        level: "error",
+        title: `Dubbele terugbetaling bij Stripe: bestelling #${orderRef(order.id)}`,
+        lines: [
+          `Refund ${refund.id}: ${eurText(refund.amount)}`,
+          "De bestelling is al volledig gecrediteerd en geannuleerd; er is geen creditnota meer om deze terugbetaling aan te koppelen.",
+          "Controleer in Stripe of de klant twee keer is terugbetaald, en haal zo nodig het bedrag terug.",
+        ],
+        url: "/admin/bestellingen",
+      });
+      // A duplicate payout nobody hears about is money lost. When a channel exists but took nothing, fail the
+      // event (Stripe delivers it again) and do NOT write the marker: it would silence this refund for good.
+      if (!ownerWasTold(sent)) throw new Error("refund_extra_notification_failed");
+      await putStripeMarker(marker, "refund-extra");
       continue;
     }
     logger.error("Refund could not be booked", { order: order.id, refund: refund.id, code: result.code });

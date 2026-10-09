@@ -2,6 +2,16 @@
 
 import * as React from "react";
 import { Icon } from "@/components/redesign/SharedLayout";
+import { clientSiteUrl } from "@/lib/site-url";
+
+// The host printed on the sticker is the one the QR code points to (NEXT_PUBLIC_APP_URL), not a literal.
+const HOST = (() => {
+  try {
+    return new URL(clientSiteUrl() ?? "").host;
+  } catch {
+    return "";
+  }
+})();
 
 const BRANDS = ["Miele", "Bosch", "Siemens", "Samsung", "LG", "AEG", "Electrolux", "Zanussi", "Whirlpool", "Indesit", "Hotpoint", "Beko", "Haier", "Candy", "Panasonic"];
 
@@ -50,7 +60,7 @@ export function QrStickerClient() {
               </div>
               <div>
                 <div className="sticker-brand">WasFix<span>Pro</span></div>
-                <div className="sticker-subtitle">wasfix.nl</div>
+                <div className="sticker-subtitle">{HOST}</div>
               </div>
             </div>
             <div className="sticker-machine">
@@ -67,7 +77,7 @@ export function QrStickerClient() {
             <div className="sticker-instructions">
               <div className="sticker-instruction-title">Scan voor:</div>
               <div className="sticker-instruction-text">AI-diagnose · Onderdelen · Foutcodes · Reparatiegidsen</div>
-              <div className="sticker-url">wasfix.nl/qr/{gen.code}</div>
+              <div className="sticker-url">{HOST}/qr/{gen.code}</div>
             </div>
           </div>
         </div>

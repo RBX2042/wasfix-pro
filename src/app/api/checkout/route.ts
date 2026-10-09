@@ -19,7 +19,8 @@ import { cartTotals, cents } from "@/lib/cart-totals";
 import { CatalogUnavailableError, evaluateCart, loadLiveParts, publicLine, type CartEvaluation, type LivePart } from "@/lib/cart-pricing";
 import { discountedLineItems } from "@/lib/cart-stripe";
 import { expireAbandonedStripeOrders, releaseExpiredBankTransferOrders } from "@/lib/cart-expiry";
-import { CHECKOUT_UNAVAILABLE_MESSAGE, checkoutBlockedReason } from "@/lib/cart-gate";
+import { checkoutUnavailableMessage, checkoutBlockedReason, stripeCheckoutAvailable } from "@/lib/cart-gate";
+import { resolveUserId } from "@/lib/checkout-user";
 import {
   BANK_TRANSFER_TERM_DAYS,
   CAP_HITS_BEFORE_OWNER_NOTICE,
@@ -63,7 +64,7 @@ function runAfterResponse(fn: () => Promise<unknown>): void {
 const isPrismaError = (err: unknown) => typeof err === "object" && err !== null && /^PrismaClient/.test(err.constructor?.name ?? "");
 
 function unavailable(status = 503) {
-  return NextResponse.json({ error: CHECKOUT_UNAVAILABLE_MESSAGE, code: "unavailable", timestamp: new Date().toISOString() }, { status });
+  return NextResponse.json({ error: checkoutUnavailableMessage(), code: "unavailable", timestamp: new Date().toISOString() }, { status });
 }
 
 /** The 409 the customer sees when what they were shown is no longer true. Nothing has been created. */
@@ -278,7 +279,9 @@ export async function POST(req: NextRequest) {
     }
 
     // The payment method is the customer's choice (decision D5): if it is not available, say so; never switch.
-    const stripe = getStripe();
+    // Offered only with BOTH keys (stripeCheckoutAvailable): without the webhook secret a payment would
+    // succeed and the order would stay PENDING until the daily reconcile.
+    const stripe = stripeCheckoutAvailable() ? getStripe() : null;
     if (paymentMethod === "stripe" && !stripe) {
       return NextResponse.json({ error: "Betalen met iDEAL of kaart is op dit moment niet beschikbaar. Kies betalen per bankoverschrijving.", code: "payment_method_unavailable" }, { status: 400 });
     }
@@ -578,28 +581,6 @@ export async function POST(req: NextRequest) {
     const fresh = await loadLiveParts(items);
     return evaluateCart(items, fresh, expected);
   }
-}
-
-/**
- * Find or create the account row an order hangs on.
- *
- * Case-insensitive on purpose: the same person typing Mixed.Case@Example.NL, then
- * mixed.case@example.nl produced separate User rows, and a Clerk account (which
- * lower-cases) never matched the first. New rows are always created lower-case.
- */
-async function resolveUserId(signedInId: string | undefined, email: string, name: string): Promise<string> {
-  if (signedInId) return signedInId;
-  const existing = await prisma.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } }, select: { id: true } });
-  if (existing) return existing.id;
-  // Upsert, not find-then-create: two guest checkouts with the same e-mail arriving together both found
-  // nothing and both inserted. The update rewrites the e-mail with the same value on purpose: Prisma only
-  // compiles an upsert to a single INSERT ... ON CONFLICT when the update payload is non-empty.
-  const row = await prisma.user.upsert({
-    where: { email },
-    update: { email },
-    create: { email, name, role: "CONSUMER", plan: "FREE" },
-  });
-  return row.id;
 }
 
 type CapContext = {

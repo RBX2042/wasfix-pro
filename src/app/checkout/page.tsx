@@ -1,12 +1,12 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { isStripeConfigured, env } from "@/lib/env";
+import { env } from "@/lib/env";
 import { getCurrentUser, getPlanLimits } from "@/lib/auth";
 import { publicCompany } from "@/lib/company";
 import { isDemoMode } from "@/lib/demo-mode";
 import { logger } from "@/lib/logger";
 import { companyReadiness } from "@/lib/plans";
 import { warnAboutUnrealCompany } from "@/lib/invoicing";
-import { CHECKOUT_UNAVAILABLE_MESSAGE, checkoutBlockedReason } from "@/lib/cart-gate";
+import { checkoutUnavailableMessage, checkoutBlockedReason, stripeCheckoutAvailable } from "@/lib/cart-gate";
 import { Button } from "@/components/ui/button";
 import { Store } from "lucide-react";
 import Link from "next/link";
@@ -28,7 +28,7 @@ export default async function CheckoutPage() {
         <div className="container py-16 max-w-xl text-center">
           <Store className="mx-auto h-12 w-12 text-muted-foreground/40 mb-4" aria-hidden />
           <h1 className="font-heading text-2xl font-bold mb-2">Bestellen is op dit moment niet mogelijk</h1>
-          <p className="text-muted-foreground mb-6">{CHECKOUT_UNAVAILABLE_MESSAGE}</p>
+          <p className="text-muted-foreground mb-6">{checkoutUnavailableMessage()}</p>
           <Button asChild variant="outline"><Link href="/onderdelen">Bekijk de onderdelen</Link></Button>
         </div>
       </MarketingLayout>
@@ -50,7 +50,7 @@ export default async function CheckoutPage() {
   return (
     <MarketingLayout>
       <CheckoutClient
-        stripeAvailable={isStripeConfigured()}
+        stripeAvailable={stripeCheckoutAvailable()}
         partsDiscount={partsDiscount}
         company={{ name: company.name, iban: company.iban }}
         prefill={prefill}

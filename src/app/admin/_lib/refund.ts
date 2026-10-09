@@ -1,18 +1,19 @@
 import { prisma } from "@/lib/prisma";
 import { logger } from "@/lib/logger";
-import { recordRefund } from "@/lib/invoicing";
+import { checkRestock, recordRefund } from "@/lib/invoicing";
+import { eurNl } from "@/lib/emails/money";
 import { notifyOwner } from "@/lib/notify";
 import { orderRef } from "@/lib/order-status";
 import { refundStripePayment } from "@/lib/stripe";
 import { revalidateCatalog } from "@/lib/cache-tags";
 import { refreshPath as revalidatePath } from "./revalidate";
 
-export const eurText = (n: number) => `€ ${n.toFixed(2).replace(".", ",")}`;
+export const eurText = eurNl;
 
 const STALE_PAGE_ERROR = "Deze bestelling is intussen gewijzigd (er is al een andere terugbetaling geboekt). Er is niets teruggestort of geboekt. Ververs de pagina om de actuele stand te zien.";
 
 export type RefundOutcome =
-  | { ok: true; message: string; creditNoteNumber: string; replayed: boolean; refundedEur: number }
+  | { ok: true; message: string; creditNoteNumber: string; replayed: boolean; refundedEur: number; restockedUnits: number }
   | { ok: false; error: string };
 
 /** Read the "restock_<partId>" number inputs of a form against the lines of the order. */
@@ -60,7 +61,7 @@ export async function performRefund(input: {
 }): Promise<RefundOutcome> {
   const order = await prisma.order.findUnique({
     where: { id: input.orderId },
-    select: { paymentMethod: true, stripePaymentIntentId: true, refundedEur: true, status: true, totalEur: true, invoice: { select: { id: true, totalEur: true } } },
+    select: { id: true, paymentMethod: true, stripePaymentIntentId: true, refundedEur: true, status: true, totalEur: true, invoice: { select: { id: true, totalEur: true } }, items: { select: { partId: true, quantity: true } } },
   });
   if (!order) return { ok: false, error: "Bestelling niet gevonden." };
 
@@ -79,6 +80,13 @@ export async function performRefund(input: {
     const askedCents = Math.round(input.amountEur * 100);
     if (!Number.isFinite(input.amountEur) || askedCents <= 0) return { ok: false, error: "Het terug te betalen bedrag moet groter zijn dan nul." };
     if (askedCents > leftCents) return { ok: false, error: `Het bedrag is hoger dan wat nog terug te betalen is (${eurText(Math.max(leftCents, 0) / 100)}). Er is niets teruggestort.` };
+  }
+
+  // A restock the booking would refuse (an order that has not shipped, or more than is left after earlier
+  // refunds) must be refused HERE, before Stripe moves money. A replay is exempt: it is answered from the note.
+  if (!isReplay) {
+    const restockRefusal = await checkRestock(prisma, order, input.restock);
+    if (restockRefusal) return { ok: false, error: `${restockRefusal} Er is niets teruggestort.` };
   }
 
   const bookKey = bookKeyEarly;
@@ -141,8 +149,18 @@ export async function performRefund(input: {
   }
 
   const mail = res.emailSent === true ? " De klant is gemaild." : res.emailSent === false ? " De e-mail aan de klant kon NIET worden verstuurd; stuur het zelf na." : "";
+  const stock = res.restockedUnits > 0 ? ` ${res.restockedUnits} stuk${res.restockedUnits === 1 ? "" : "s"} terug op voorraad gezet.` : "";
   if (res.replayed) {
-    return { ok: true, message: `Deze terugbetaling was al geboekt (${res.creditNote.number}).`, creditNoteNumber: res.creditNote.number, replayed: true, refundedEur: res.refundedEur };
+    // Replayed because the same refund was booked first (the Stripe webhook is usually faster than this call).
+    // What the owner ticked on top of it is applied now, once, and said so.
+    return {
+      ok: true,
+      message: `Deze terugbetaling was al geboekt (${res.creditNote.number}).${stock}${input.restock.length > 0 && res.restockedUnits === 0 ? " De voorraad was daarbij al aangepast; er is niets extra teruggezet." : ""}`,
+      creditNoteNumber: res.creditNote.number,
+      replayed: true,
+      refundedEur: res.refundedEur,
+      restockedUnits: res.restockedUnits,
+    };
   }
   const how = stripeRefundId
     ? `${eurText(input.amountEur)} is via Stripe teruggestort.`
@@ -151,9 +169,10 @@ export async function performRefund(input: {
       : `Betaal ${eurText(input.amountEur)} per bank terug aan de klant; dit systeem verstuurt geen geld.`;
   return {
     ok: true,
-    message: `Creditnota ${res.creditNote.number} uitgegeven. ${how}${res.cancelled ? " De bestelling is volledig terugbetaald en geannuleerd." : ""}${mail}`,
+    message: `Creditnota ${res.creditNote.number} uitgegeven. ${how}${res.cancelled ? " De bestelling is volledig terugbetaald en geannuleerd." : ""}${stock}${mail}`,
     creditNoteNumber: res.creditNote.number,
     replayed: false,
     refundedEur: res.refundedEur,
+    restockedUnits: res.restockedUnits,
   };
 }

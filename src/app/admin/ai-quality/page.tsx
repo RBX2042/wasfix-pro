@@ -20,7 +20,9 @@ export const dynamic = "force-dynamic";
 export default async function AiQualityPage() {
   const user = await getCurrentUser().catch(() => null);
   if (!user) redirect("/inloggen?next=/admin/ai-quality");
-  if (user.role !== "ADMIN" && user.role !== "BUSINESS") redirect("/");
+  // ADMIN only, like every other admin page. The legacy BUSINESS role used to be let in here and saw
+  // feedback counts per brand that no other admin screen shows to it.
+  if (user.role !== "ADMIN") redirect("/");
 
   const since = new Date(Date.now() - 30 * 86_400_000);
   let data: {

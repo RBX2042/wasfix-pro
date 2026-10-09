@@ -692,8 +692,15 @@ async function main() {
     const u = await mkUser({ plan: "MONTEUR_PRO", status: "active", periodEnd: days(20), stripeSubId: `sub_qa_${RUN}`, stripeCustomerId: `cus_qa_${RUN}`, tag: "erase" });
     fake.state.customers[`cus_qa_${RUN}`] = { id: `cus_qa_${RUN}`, object: "customer", email: u.email, name: "QA" };
     fake.state.subscriptions[`sub_qa_${RUN}`] = fake.subscription({ id: `sub_qa_${RUN}`, customer: `cus_qa_${RUN}`, priceId: "price_x", status: "active", userId: u.id, plan: "MONTEUR_PRO" });
+    // R2-08: this door used to erase far less than the dashboard route. The monteur profile (KvK, IBAN, address), a CRM customer and
+    // the contact data of an order are part of the same fixture now (scripts/qa-privacy.ts proves both doors end up identical).
+    await prisma.monteurProfile.create({ data: { userId: u.id, companyName: "QA Techniek", kvkNumber: "12345679", iban: "NL02ABNA0123456789", street: "Geheimstraat 7" } });
+    await prisma.customer.create({ data: { ownerId: u.id, name: "QA klant", phone: "06 11112222", notes: "heeft een hond" } });
+    const hookOrder = await prisma.order.create({ data: { userId: u.id, email: u.email, status: "CANCELLED", paymentMethod: "STRIPE", subtotalEur: 10, shippingEur: 0, totalEur: 10, vatRate: 0.21, vatEur: 1.74, phone: "06 99887766", customerNote: "notitie", accessToken: (await import("../src/lib/invoicing")).newAccessToken(), shippingAddress: JSON.stringify({ name: "Piet", street: "Geheimstraat", houseNumber: "7", postalCode: "1011 AB", city: "Amsterdam" }) } });
     const res = await deleteEvent(u.clerkId!);
     const row = await prisma.user.findUniqueOrThrow({ where: { id: u.id } });
+    const hookAfter = await prisma.order.findUniqueOrThrow({ where: { id: hookOrder.id } });
+    check((await prisma.monteurProfile.count({ where: { userId: u.id } })) === 0 && (await prisma.customer.count({ where: { ownerId: u.id } })) === 0 && hookAfter.email === `deleted-${u.id}@anon.wasfix.nl` && hookAfter.phone === null && hookAfter.customerNote === null && hookAfter.accessToken === null && !hookAfter.shippingAddress.includes("Geheimstraat"), "Clerk user.deleted (R2-08): the monteur profile and CRM customers are erased, and the cancelled, never-invoiced order loses e-mail, address, phone, note and access link (before: all of it stayed)", `clerk delete left data: ${JSON.stringify(hookAfter)}`);
     const cancels = fake.requestsTo("DELETE", `/v1/subscriptions/sub_qa_${RUN}`);
     const scrubs = fake.requestsTo("POST", `/v1/customers/cus_qa_${RUN}`);
     check(res.status === 200 && cancels.length === 1 && cancels[0].idempotencyKey === `clerk-erase-${u.id}-sub_qa_${RUN}` && scrubs.length === 1 && String(scrubs[0].body.name) === "Verwijderd account", "Clerk user.deleted: the Stripe subscription is cancelled (idempotency key clerk-erase-…) and the customer is anonymised", `clerk delete: ${res.status}, cancels ${cancels.length}, scrubs ${scrubs.length}`);

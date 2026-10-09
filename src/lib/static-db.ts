@@ -522,6 +522,26 @@ export function redactGuide(guide: Guide, canReadPremium: boolean): RedactedGuid
  * here carries an explicit orderBy — without one Postgres is free to reshuffle
  * a listing between two renders of the same page.
  */
+/**
+ * The src/data fallback, WITHOUT its stock. Used only when a database IS configured and a query
+ * failed (an outage): src/data/parts.json carries demo stock on all 96 parts (WF-BELT-05: 124) while
+ * the production seed writes stock 0, so the fallback told shoppers "Op voorraad" for units nobody
+ * has (rehearsal R2-10). Every `stock` number in the fallback result is therefore 0: the page says
+ * the part is unavailable and the buy button is disabled, which is the safe side of "we do not
+ * know". Without any database (static demo, tests) the JSON stock is kept: that is a labelled demo.
+ * A page rendered during the outage can still be kept by ISR for its revalidate window (see
+ * catalogRead); with this change that window can only say "unavailable", never "in stock".
+ */
+function withoutDemoStock<T>(value: T): T {
+  if (Array.isArray(value)) return value.map(withoutDemoStock) as unknown as T;
+  if (value && typeof value === "object" && Object.getPrototypeOf(value) === Object.prototype) {
+    const out: Record<string, unknown> = {};
+    for (const [k, v] of Object.entries(value as Record<string, unknown>)) out[k] = k === "stock" && typeof v === "number" ? 0 : withoutDemoStock(v);
+    return out as T;
+  }
+  return value;
+}
+
 async function fromDb<T>(query: (db: PrismaClient) => Promise<T>, fallback: () => T | Promise<T>): Promise<T> {
   if (!isDatabaseConfigured()) return fallback();
   try {
@@ -530,8 +550,8 @@ async function fromDb<T>(query: (db: PrismaClient) => Promise<T>, fallback: () =
     const { prisma } = await import("@/lib/prisma");
     return await query(prisma);
   } catch (err) {
-    logger.error("[static-db] catalog query failed — falling back to src/data", err);
-    return fallback();
+    logger.error("[static-db] catalog query failed — falling back to src/data (stock reported as 0)", err);
+    return withoutDemoStock(await fallback());
   }
 }
 
@@ -566,8 +586,8 @@ async function catalogRead<T>(
       return query(prisma);
     });
   } catch (err) {
-    logger.error("[static-db] catalog query failed - serving src/data for this request only, nothing cached", err);
-    return fallback();
+    logger.error("[static-db] catalog query failed - serving src/data (stock reported as 0) for this request only, nothing cached", err);
+    return withoutDemoStock(await fallback());
   }
 }
 

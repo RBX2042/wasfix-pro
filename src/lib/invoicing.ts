@@ -30,19 +30,23 @@
  *     splitVatInclusive, money, amsterdamYear helpers
  *     invoicingBlockedReason(opts?)           -> {missing} | null
  *   Credit notes (never edit or delete an invoice; see the sign convention below)
- *     issueCreditNote(invoiceId, {amountEur?, reason, stripeRefundId?, idempotencyKey?}, tx?) -> IssuedCreditNote; throws OrderDomainError
+ *     issueCreditNote(invoiceId, {amountEur?, reason, stripeRefundId?, idempotencyKey?, restock?}, tx?) -> IssuedCreditNote; throws OrderDomainError
  *     setCreditNoteStripeRefund(creditNoteId, stripeRefundId)                -> boolean
  *     getCreditNotesForOrder(orderId)                                        -> IssuedCreditNote[]
  *   Lifecycle (results are {ok:true,...} | {ok:false, code, error}; they do not throw)
- *     cancelOrder(orderId, {reason, actor, stripeRefundId?, notifyCustomer?, customerReason?}) -> CancelOrderResult
+ *     cancelOrder(orderId, {reason, actor, onlyFrom?, stripeRefundId?, notifyCustomer?, customerReason?}) -> CancelOrderResult
  *     markOrderShipped(orderId, {carrier, trackingCode})                     -> ShipResult
  *     updateOrderTracking(orderId, {carrier, trackingCode, resendEmail?})    -> ShipResult
  *     markOrderDelivered(orderId)                                            -> DeliverResult
  *     recordRefund(orderId, {amountEur, stripeRefundId?, idempotencyKey?, expectedRefundedEur?, reason?, restock?, notifyCustomer?}) -> RecordRefundResult
  *     markOrderPaidByBankTransfer(orderId, {receivedAmountEur?}?)            -> MarkPaidResult; THROWS AmountMismatchError
+ *                                                                              (OPENSTAAND -> PAID only; a wire for a CANCELLED order is refused, see D14 below)
+ *     restockedByPart(orderId), restockedFromNotes(notes)                    -> Map<partId, units> put back on the shelf through refunds
+ *     checkRestock(db, order, restock)                                       -> Dutch refusal | null (shipped goods only, capped by ordered minus already restocked)
+ *     isQuietCancellation(outcome, actor)                                    the one rule for "an abandoned order is not news" (no owner notice)
  *   Notices (never throw; call after the commit, from the path that won the claim)
  *     notifyOrderPlaced(orderId)              owner: new order
- *     notifyOrderPaid(orderId, "stripe" | "bank_transfer")   customer mail + owner notice -> {emailSent}
+ *     notifyOrderPaid(orderId, "stripe" | "bank_transfer", {ownerNotice?}) customer mail + owner notice -> {emailSent}
  *   Margin (only QUOTE costs count; the rest is labelled "schatting")
  *     costBasis(part) -> QUOTE | ESTIMATE | UNKNOWN;  computeMargin(lines, vatRate?) -> {confirmed, estimated, unknownLines, label}
  *     computeOrderMargin({items, discountEur, vatRate?}) -> same; spreads the order discount over the lines first
@@ -53,6 +57,21 @@
  *     orderAccessOk({accessToken}, token)     constant-time; only ONE of three ways in
  *     orderUrlFor({id, accessToken})          absolute /bestelling/<id>?t=<token>
  *   Errors: OrderDomainError(code), AmountMismatchError, CompanyNotReadyError
+ *
+ * CANCEL GUARD (`onlyFrom`). A caller that decided to cancel from a LIST (the
+ * expiry sweep read "overdue and still OPENSTAAND", a Stripe event says "this
+ * session expired") passes the statuses it based that decision on. The guard is
+ * checked inside the transaction, and the claiming update's WHERE carries the
+ * status that was read, so an order that was marked paid in between is NOT
+ * cancelled: the call returns {ok:false, code:"conflict"}. Without the guard the
+ * sweep cancelled an order the owner had marked paid a moment earlier, credited
+ * it and owed the customer a refund for goods that were about to ship.
+ *
+ * LATE WIRES (decision D14, terms 7.1). A bank wire that arrives after the order
+ * was cancelled is NOT revived: an unpaid order is cancelled together with a
+ * credit note for its invoice, the units go back on the shelf and may be sold
+ * to someone else, so the payment is paid back or the customer orders again.
+ * markOrderPaidByBankTransfer refuses a CANCELLED order and says so.
  *
  * CREDIT NOTE SIGN CONVENTION: amounts on a credit note are positive
  * magnitudes (what is credited); the document prints them with a minus sign;
@@ -68,6 +87,7 @@ import { logger } from "./logger";
 import { canTransition, customerOrderUrl, holdsStock, orderRef, statusesThatCanGo, type OrderStatus } from "./order-status";
 import { notifyOwner } from "./notify";
 import { normaliseCarrier } from "./emails/tracking";
+import { eurNl } from "./emails/money";
 
 /** Round to whole cents, avoiding float drift like 12.340000000000002. */
 export function money(value: number): number {
@@ -97,7 +117,15 @@ export type InvoiceLine = {
   quantity: number;
   unitPriceEur: number;
   lineTotalEur: number;
+  /**
+   * Credit notes only, never printed: the units of this refund that went back on
+   * the shelf. It is the record that makes a restock cappable (ordered minus what
+   * earlier refunds already put back); there is no column for it.
+   */
+  restock?: RestockLine[];
 };
+
+export type RestockLine = { partId: string; quantity: number };
 
 export type InvoiceParty = {
   name: string;
@@ -325,7 +353,7 @@ export class AmountMismatchError extends OrderDomainError {
   constructor(expectedEur: number, receivedEur: number) {
     super(
       "invalid_amount",
-      `Ontvangen bedrag € ${receivedEur.toFixed(2)} komt niet overeen met het factuurbedrag € ${expectedEur.toFixed(2)}.`,
+      `Ontvangen bedrag ${eurNl(receivedEur)} komt niet overeen met het factuurbedrag ${eurNl(expectedEur)}.`,
     );
     this.name = "AmountMismatchError";
     this.expectedEur = expectedEur;
@@ -465,6 +493,8 @@ export type CreditNoteInput = {
   stripeRefundId?: string | null;
   /** Same for a refund that has no Stripe id (bank transfer): the same key returns the same note. Max 100 characters. */
   idempotencyKey?: string | null;
+  /** Units of this refund that go back on the shelf. Only recorded on the note (see InvoiceLine.restock); the caller moves the stock. */
+  restock?: RestockLine[] | null;
 };
 
 /**
@@ -629,7 +659,7 @@ export async function issueCreditNote(invoiceId: string, input: CreditNoteInput,
       if (amountCents > remainingCents) {
         throw new OrderDomainError(
           "exceeds_invoice",
-          `Het te crediteren bedrag (€ ${(amountCents / 100).toFixed(2)}) is hoger dan wat nog te crediteren is (€ ${(Math.max(remainingCents, 0) / 100).toFixed(2)}).`,
+          `Het te crediteren bedrag (${eurNl(amountCents / 100)}) is hoger dan wat nog te crediteren is (${eurNl(Math.max(remainingCents, 0) / 100)}).`,
         );
       }
     }
@@ -667,6 +697,9 @@ export async function issueCreditNote(invoiceId: string, input: CreditNoteInput,
             lineTotalEur: amount,
           },
         ];
+
+    // The restock record rides on the first printed line; nothing prints it.
+    if (input.restock && input.restock.length > 0 && lines.length > 0) lines[0] = { ...lines[0], restock: input.restock.map((r) => ({ partId: r.partId, quantity: r.quantity })) };
 
     const year = amsterdamYear(new Date());
     const number = formatCreditNoteNumber(year, await allocateCreditNoteSequence(t, year));
@@ -714,6 +747,30 @@ export async function getCreditNotesForOrder(orderId: string): Promise<IssuedCre
   }
 }
 
+/** The units a credit note put back on the shelf (see InvoiceLine.restock), summed per part. */
+function restockOfLinesJson(linesJson: string): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const line of safeJson<InvoiceLine[]>(linesJson) ?? []) {
+    for (const r of line.restock ?? []) out.set(r.partId, (out.get(r.partId) ?? 0) + r.quantity);
+  }
+  return out;
+}
+
+/** Units per part that refunds of this order already put back on the shelf. Cancelling is not counted: it restocks everything and ends the order. */
+export async function restockedByPart(orderId: string, db: Pick<typeof prisma, "creditNote"> = prisma): Promise<Map<string, number>> {
+  const notes = await db.creditNote.findMany({ where: { invoice: { orderId } }, select: { linesJson: true } });
+  const total = new Map<string, number>();
+  for (const n of notes) for (const [partId, q] of restockOfLinesJson(n.linesJson)) total.set(partId, (total.get(partId) ?? 0) + q);
+  return total;
+}
+
+/** Same, from the linesJson strings a page already loaded. Exported for the order desk. */
+export function restockedFromNotes(notes: Array<{ linesJson: string }>): Map<string, number> {
+  const total = new Map<string, number>();
+  for (const n of notes) for (const [partId, q] of restockOfLinesJson(n.linesJson)) total.set(partId, (total.get(partId) ?? 0) + q);
+  return total;
+}
+
 // ─── Order helpers ────────────────────────────────────────────────────
 
 type OrderForMail = {
@@ -753,6 +810,15 @@ export type CancelOrderOptions = {
   reason: string;
   actor: OrderActor;
   /**
+   * The statuses this cancellation was DECIDED on (see CANCEL GUARD in the header).
+   * When the order is in any other state, nothing is cancelled and the result is
+   * {ok:false, code:"conflict"}. An already CANCELLED order is still the usual
+   * replay. Omit it only when the caller has no earlier decision to protect
+   * (a refund that completes a PAID order passes through recordRefund, which
+   * holds the order lock).
+   */
+  onlyFrom?: readonly OrderStatus[];
+  /**
    * The Stripe refund that returned the money, when the order was paid by card
    * or iDEAL. Create the refund FIRST (idempotency key per order), then cancel
    * with its id: if the Stripe call fails the order simply is not cancelled.
@@ -788,6 +854,8 @@ type CancelOutcome = {
   wasPaid: boolean;
   /** A paid order that could not be invoiced (company identity incomplete): the refund is owed without a credit note. */
   paidWithoutInvoice: boolean;
+  /** The order had an invoice (or got one in this call). */
+  hadInvoice: boolean;
   order: OrderForMail & { totalEur: number; itemCount: number; paymentMethod: string };
 };
 
@@ -829,11 +897,20 @@ async function cancelInTx(
       refundDueEur: 0,
       wasPaid: false,
       paidWithoutInvoice: false,
+      hadInvoice: !!order.invoice,
       order: summary,
     };
   };
 
   if (order.status === "CANCELLED") return replay();
+  // The guard: the decision to cancel was taken on another status than the one
+  // the order has now (typically PAID, marked by the owner a moment ago).
+  if (opts.onlyFrom && !(opts.onlyFrom as readonly string[]).includes(order.status)) {
+    throw new OrderDomainError(
+      "conflict",
+      `Bestelling is intussen gewijzigd (staat nu op ${order.status}) en is daarom niet geannuleerd. Ververs de pagina en kijk opnieuw.`,
+    );
+  }
   if (!canTransition(order.status, "CANCELLED")) {
     throw new OrderDomainError(
       "not_cancellable",
@@ -844,6 +921,8 @@ async function cancelInTx(
   }
 
   const previous = order.status as OrderStatus;
+  // `previous` is the status that passed the guard above, so a PAID written
+  // between that read and this update makes the count 0, never a cancellation.
   const claimed = await t.order.updateMany({
     where: { id: orderId, status: previous },
     data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: opts.reason.slice(0, 300) },
@@ -908,25 +987,36 @@ async function cancelInTx(
     refundDueEur = money(Math.max(order.totalEur - order.refundedEur, 0));
     if (refundDueEur > 0) await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: refundDueEur } } });
   }
-  return { alreadyCancelled: false, restocked, creditNote, refundDueEur, wasPaid: previous === "PAID", paidWithoutInvoice, order: summary };
+  return { alreadyCancelled: false, restocked, creditNote, refundDueEur, wasPaid: previous === "PAID", paidWithoutInvoice, hadInvoice: invoiceId !== null, order: summary };
+}
+
+/**
+ * An abandoned checkout is not news. A card or iDEAL order whose payment session
+ * expired, or an unpaid order closed by the system, was never invoiced and never
+ * paid: nothing is owed and nothing was lost, and at normal abandonment rates a
+ * ping per order buries the alerts that matter. ONE place decides this, so the
+ * webhook path (Stripe session expired) and the sweeps agree.
+ */
+export function isQuietCancellation(outcome: { wasPaid: boolean; hadInvoice: boolean }, actor: OrderActor): boolean {
+  return !outcome.wasPaid && !outcome.hadInvoice && (actor === "stripe" || actor === "system");
 }
 
 async function afterCancel(outcome: CancelOutcome, opts: CancelOrderOptions): Promise<boolean | null> {
   if (outcome.alreadyCancelled) return null;
   const { order } = outcome;
-  const owner = ping({
+  const owner = isQuietCancellation(outcome, opts.actor) ? Promise.resolve() : ping({
     event: "order.cancelled",
     level: "info",
     title: `Bestelling #${orderRef(order.id)} geannuleerd`,
     lines: [
-      `Totaal € ${order.totalEur.toFixed(2)} · ${order.itemCount} artikel(en)`,
+      `Totaal ${eurNl(order.totalEur)} · ${order.itemCount} artikel(en)`,
       `Door: ${opts.actor}`,
       outcome.creditNote
         ? `Creditnota ${outcome.creditNote.number}`
         : outcome.paidWithoutInvoice
           ? "Geen factuur mogelijk (bedrijfsgegevens onvolledig), dus geen creditnota: betaal het bedrag handmatig terug"
           : "Geen factuur, dus geen creditnota",
-      ...(outcome.refundDueEur > 0 && !opts.stripeRefundId ? [`Nog terug te betalen: € ${outcome.refundDueEur.toFixed(2)}`] : []),
+      ...(outcome.refundDueEur > 0 && !opts.stripeRefundId ? [`Nog terug te betalen: ${eurNl(outcome.refundDueEur)}`] : []),
     ],
     url: "/admin/bestellingen",
   });
@@ -1116,7 +1206,13 @@ export type RecordRefundInput = {
    */
   expectedRefundedEur?: number;
   reason?: string;
-  /** Units that came back in good condition and go back on the shelf (returns). */
+  /**
+   * Units that came back in good condition and go back on the shelf (returns).
+   * Only for a SHIPPED or DELIVERED order, and capped CUMULATIVELY: what was
+   * ordered minus what earlier refunds already put back. An order that has not
+   * shipped has no returned goods (its units never left); cancelling it puts
+   * them all back, so a restock there would be counted twice and is refused.
+   */
   restock?: Array<{ partId: string; quantity: number }>;
   notifyCustomer?: boolean;
 };
@@ -1131,11 +1227,52 @@ export type RecordRefundResult =
       fullyRefunded: boolean;
       /** A full refund of an unshipped PAID order cancels it (units back on the shelf). */
       cancelled: boolean;
-      /** The same stripeRefundId was seen before: nothing changed. */
+      /** The same stripeRefundId or idempotency key was seen before: no second credit note. */
       replayed: boolean;
       emailSent: boolean | null;
+      /**
+       * Units this call put back on the shelf. On a replay it is non-zero when the
+       * refund had been booked first without a restock (the Stripe webhook beats the
+       * admin) and the admin ticked one: it is applied once, here, and recorded on
+       * the credit note so a third call does not apply it again.
+       */
+      restockedUnits: number;
     }
   | OrderOpFail;
+
+/**
+ * Check a restock request against the order: only goods that shipped can come
+ * back, and never more than ordered minus what earlier refunds already put back.
+ * Returns the Dutch refusal, or null. Exported so the admin can refuse BEFORE it
+ * moves money at Stripe; recordRefund runs it again under the order lock.
+ */
+export async function checkRestock(
+  db: Pick<typeof prisma, "creditNote">,
+  order: { id: string; status: string; items: Array<{ partId: string; quantity: number }> },
+  restock: ReadonlyArray<RestockLine> | undefined,
+): Promise<string | null> {
+  if (!restock || restock.length === 0) return null;
+  if (order.status !== "SHIPPED" && order.status !== "DELIVERED") {
+    return "Alleen onderdelen die zijn verzonden kunnen terugkomen. Bij een bestelling die nog niet is verzonden zijn ze nooit weggegaan: annuleer de bestelling, dan staat alles weer op voorraad.";
+  }
+  const already = await restockedByPart(order.id, db);
+  const wanted = new Map<string, number>();
+  for (const r of restock) {
+    if (!Number.isInteger(r.quantity) || r.quantity <= 0) return "Herbevoorraden kan alleen in hele aantallen groter dan nul.";
+    wanted.set(r.partId, (wanted.get(r.partId) ?? 0) + r.quantity);
+  }
+  for (const [partId, quantity] of wanted) {
+    const ordered = order.items.filter((i) => i.partId === partId).reduce((n, i) => n + i.quantity, 0);
+    if (ordered === 0) return "Herbevoorraden kan alleen onderdelen uit deze bestelling.";
+    const left = ordered - (already.get(partId) ?? 0);
+    if (quantity > left) {
+      return left <= 0
+        ? "Van dit onderdeel is al alles terug op voorraad gezet bij eerdere terugbetalingen."
+        : `Van dit onderdeel kunnen nog maximaal ${left} stuk(s) terug op voorraad (besteld ${ordered}, eerder al ${ordered - left} teruggezet).`;
+    }
+  }
+  return null;
+}
 
 /**
  * Book a refund (partial or full) on a paid order: a credit note for the
@@ -1182,8 +1319,36 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
           const existing = await t.creditNote.findUnique({ where: replayKey, include: { invoice: { select: { number: true, orderId: true } } } });
           if (existing) {
             if (existing.invoice.orderId !== orderId) throw new OrderDomainError("conflict", "Deze terugbetaling hoort bij een andere bestelling.");
+            // The Stripe webhook can book a refund BEFORE the admin's own booking of
+            // the same refund id arrives; the admin's call is then answered as a
+            // replay and the restock they ticked used to be dropped. Apply it once
+            // (the note records what it restocked, so a third call finds it done).
+            let restockedUnits = 0;
+            let noteRow = existing;
+            const wanted = (input.restock ?? []).filter((r) => r.quantity > 0);
+            const patch: { linesJson?: string; idempotencyKey?: string } = {};
+            if (wanted.length > 0 && restockOfLinesJson(existing.linesJson).size === 0) {
+              const refusal = await checkRestock(t, order, wanted);
+              if (refusal) throw new OrderDomainError("invalid_input", refusal);
+              for (const r of wanted) await t.part.update({ where: { id: r.partId }, data: { stock: { increment: r.quantity } } });
+              const lines = safeJson<InvoiceLine[]>(existing.linesJson) ?? [];
+              if (lines.length > 0) {
+                lines[0] = { ...lines[0], restock: wanted.map((r) => ({ partId: r.partId, quantity: r.quantity })) };
+                patch.linesJson = JSON.stringify(lines);
+                restockedUnits = wanted.reduce((n, r) => n + r.quantity, 0);
+              }
+            }
+            // A note the webhook booked has the Stripe refund id but not the admin form's key. Give it the key, so the
+            // same form submitted again (a double click, a retry) is recognised as this refund, not as a stale page.
+            if (input.idempotencyKey && !existing.idempotencyKey && !(await t.creditNote.findUnique({ where: { idempotencyKey: input.idempotencyKey }, select: { id: true } }))) {
+              patch.idempotencyKey = input.idempotencyKey;
+            }
+            // Metadata only: no printed field of the credit note changes.
+            if (patch.linesJson !== undefined || patch.idempotencyKey !== undefined) {
+              noteRow = await t.creditNote.update({ where: { id: existing.id }, data: patch, include: { invoice: { select: { number: true, orderId: true } } } });
+            }
             return {
-              creditNote: deserializeCreditNote(existing, existing.invoice.number, true),
+              creditNote: deserializeCreditNote(noteRow, existing.invoice.number, true),
               refundedEur: order.refundedEur,
               fullyRefunded: order.invoice ? centsOf(order.refundedEur) >= centsOf(order.invoice.totalEur) : false,
               cancelled: order.status === "CANCELLED",
@@ -1191,6 +1356,7 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
               mailBase,
               partial: false,
               totalEur: order.totalEur,
+              restockedUnits,
             };
           }
         }
@@ -1222,6 +1388,7 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
               mailBase,
               partial: false,
               totalEur: order.totalEur,
+              restockedUnits: 0,
             };
           }
         }
@@ -1245,32 +1412,41 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
         const remainingCents = centsOf(invoice.totalEur) - centsOf(prior._sum.totalEur ?? 0);
         const completes = centsOf(input.amountEur) === remainingCents;
 
-        // Restock validation first, so a bad request changes nothing.
-        for (const r of input.restock ?? []) {
-          const ordered = order.items.filter((i) => i.partId === r.partId).reduce((n, i) => n + i.quantity, 0);
-          if (!Number.isInteger(r.quantity) || r.quantity <= 0 || r.quantity > ordered) {
-            throw new OrderDomainError("invalid_input", "Herbevoorraden kan alleen onderdelen uit deze bestelling, en niet meer dan besteld.");
-          }
-        }
+        // Restock validation first, so a bad request changes nothing. Cumulative:
+        // ordered minus what earlier refunds already put back (two refunds each
+        // restocking the one unit of a one-unit order put +1 too many on the shelf).
+        const restockRefusal = await checkRestock(t, order, input.restock);
+        if (restockRefusal) throw new OrderDomainError("invalid_input", restockRefusal);
 
         if (completes && order.status === "PAID") {
           // Everything is being paid back before anything shipped: this IS a cancellation.
           const cancelOpts: CancelOrderOptions = { reason: input.reason ?? "Volledig terugbetaald", actor: "system", stripeRefundId: input.stripeRefundId ?? null, notifyCustomer: input.notifyCustomer };
           const c = await cancelInTx(t, orderId, cancelOpts, input.amountEur, { idempotencyKey: input.idempotencyKey });
           const note = c.creditNote!;
-          return { creditNote: note, refundedEur: order.refundedEur + note.totalEur, fullyRefunded: true, cancelled: true, replayed: false, mailBase, partial: false, totalEur: order.totalEur };
+          return { creditNote: note, refundedEur: order.refundedEur + note.totalEur, fullyRefunded: true, cancelled: true, replayed: false, mailBase, partial: false, totalEur: order.totalEur, restockedUnits: 0 };
         }
 
+        const restock = (input.restock ?? []).filter((r) => r.quantity > 0);
         const note = await issueCreditNote(
           invoiceId,
-          { amountEur: input.amountEur, reason: input.reason ?? "Terugbetaling", stripeRefundId: input.stripeRefundId ?? null, idempotencyKey: input.idempotencyKey ?? null },
+          { amountEur: input.amountEur, reason: input.reason ?? "Terugbetaling", stripeRefundId: input.stripeRefundId ?? null, idempotencyKey: input.idempotencyKey ?? null, restock },
           t,
         );
         const updated = await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: note.totalEur } }, select: { refundedEur: true } });
-        for (const r of input.restock ?? []) {
+        for (const r of restock) {
           await t.part.update({ where: { id: r.partId }, data: { stock: { increment: r.quantity } } });
         }
-        return { creditNote: note, refundedEur: money(updated.refundedEur), fullyRefunded: completes, cancelled: false, replayed: false, mailBase, partial: !completes, totalEur: order.totalEur };
+        return {
+          creditNote: note,
+          refundedEur: money(updated.refundedEur),
+          fullyRefunded: completes,
+          cancelled: false,
+          replayed: false,
+          mailBase,
+          partial: !completes,
+          totalEur: order.totalEur,
+          restockedUnits: restock.reduce((n, r) => n + r.quantity, 0),
+        };
       },
       { maxWait: 10_000, timeout: 20_000 },
     );
@@ -1282,7 +1458,7 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
         event: "order.refunded",
         level: "info",
         title: `Terugbetaling bij bestelling #${orderRef(orderId)}`,
-        lines: [`€ ${outcome.creditNote.totalEur.toFixed(2)} van € ${outcome.totalEur.toFixed(2)}`, `Creditnota ${outcome.creditNote.number}`, outcome.cancelled ? "De bestelling is daarmee geannuleerd" : outcome.fullyRefunded ? "Volledig terugbetaald" : "Gedeeltelijk"],
+        lines: [`${eurNl(outcome.creditNote.totalEur)} van ${eurNl(outcome.totalEur)}`, `Creditnota ${outcome.creditNote.number}`, outcome.cancelled ? "De bestelling is daarmee geannuleerd" : outcome.fullyRefunded ? "Volledig terugbetaald" : "Gedeeltelijk"],
         url: "/admin/bestellingen",
       });
       if (input.notifyCustomer !== false) {
@@ -1294,6 +1470,9 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
           amountEur: outcome.creditNote.totalEur,
           creditNoteNumber: outcome.creditNote.number,
           partial: outcome.partial,
+          // "Teruggestort" is only true once money moved: a Stripe refund exists.
+          // Otherwise the owner still has to wire it (decision D3 of the rehearsal).
+          via: input.stripeRefundId ? "stripe" : "bank",
         });
         emailSent = mail.ok;
       }
@@ -1307,6 +1486,7 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
       cancelled: outcome.cancelled,
       replayed: outcome.replayed,
       emailSent,
+      restockedUnits: outcome.restockedUnits,
     };
   } catch (err) {
     return failFrom(err, "Terugbetaling boeken");
@@ -1340,7 +1520,7 @@ export async function notifyOrderPlaced(orderId: string): Promise<void> {
     await ping({
       event: "order.placed",
       title: `Nieuwe bestelling #${orderRef(orderId)}`,
-      lines: [`€ ${n.order.totalEur.toFixed(2)} · ${n.itemCount} artikel(en)`, `Betaalwijze: ${PAYMENT_LABEL[n.order.paymentMethod] ?? n.order.paymentMethod}`, waiting ? "Wacht nog op betaling" : "Betaald"],
+      lines: [`${eurNl(n.order.totalEur)} · ${n.itemCount} artikel(en)`, `Betaalwijze: ${PAYMENT_LABEL[n.order.paymentMethod] ?? n.order.paymentMethod}`, waiting ? "Wacht nog op betaling" : "Betaald"],
       url: "/admin/bestellingen",
     });
   } catch (err) {
@@ -1354,15 +1534,21 @@ export async function notifyOrderPlaced(orderId: string): Promise<void> {
  * Call it once, from the code path that WON the status claim; it does not
  * guard against being called twice. Never throws.
  */
-export async function notifyOrderPaid(orderId: string, via: "stripe" | "bank_transfer"): Promise<{ emailSent: boolean | null }> {
+export async function notifyOrderPaid(
+  orderId: string,
+  via: "stripe" | "bank_transfer",
+  opts: { ownerNotice?: boolean } = {},
+): Promise<{ emailSent: boolean | null }> {
   try {
     const n = await loadOrderNotice(orderId);
     if (!n) return { emailSent: null };
     const { order, items } = n;
-    const owner = ping({
+    // `ownerNotice: false` is for a retry of a customer mail that failed: the owner
+    // already heard "Betaling ontvangen" the first time.
+    const owner = opts.ownerNotice === false ? Promise.resolve() : ping({
       event: "order.paid",
       title: `Betaling ontvangen #${orderRef(orderId)}`,
-      lines: [`€ ${order.totalEur.toFixed(2)} · ${n.itemCount} artikel(en)`, `Via ${via === "stripe" ? "iDEAL/kaart" : "overschrijving"}`, "Klaar om te verzenden"],
+      lines: [`${eurNl(order.totalEur)} · ${n.itemCount} artikel(en)`, `Via ${via === "stripe" ? "iDEAL/kaart" : "overschrijving"}`, "Klaar om te verzenden"],
       url: "/admin/bestellingen",
     });
     const email = await import("./email");
@@ -1402,19 +1588,15 @@ export type MarkPaidResult =
  * silently accepted as "paid". Omit it only when the amount has been checked
  * elsewhere.
  *
- * The status transition IS the claim. findUnique + `if PAID return` + an
- * unconditional update was not: the expiry sweep cancels the order and puts its
- * units back on the shelf, and this then flipped CANCELLED -> PAID afterwards
- * without re-taking them, a shipped order against stock that may already be sold.
+ * The status transition IS the claim: one conditional update OPENSTAAND -> PAID.
+ * Nothing else moves, because an OPENSTAAND order still holds its units from the
+ * moment the invoice went out.
  *
- * A wire landing after the sweep is routine (14 days term + 7 days grace, paid
- * on day 22), so it is confirmed rather than refused, but the units have to be
- * taken off the shelf again first, with the same conditional decrement checkout
- * uses. If one is gone the whole confirmation is rolled back and reported, so
- * the money is reconciled by hand instead of a part being promised twice. A
- * cancelled order whose invoice has been credited (creditnota) is NOT revived:
- * the invoice no longer stands, so the payment has to be paid back or the
- * customer must order again.
+ * A wire for an order that is already CANCELLED is refused (decision D14, terms
+ * 7.1). The cancellation put the units back on the shelf and credited the
+ * invoice with a credit note, so the order cannot become PAID again without
+ * selling the same goods twice: the payment is paid back, or the customer
+ * orders again. The refusal says exactly that.
  *
  * After a successful claim the customer gets the "betaling ontvangen" mail and
  * the owner is notified; `emailSent` reports whether Resend accepted the mail.
@@ -1437,78 +1619,30 @@ export async function markOrderPaidByBankTransfer(orderId: string, opts?: { rece
     if (!Number.isFinite(received) || centsOf(received) !== centsOf(total)) throw new AmountMismatchError(total, received);
   }
 
-  let paidNow = false;
   try {
-    const result = await prisma.$transaction(async (tx): Promise<MarkPaidResult> => {
-      const claimed = await tx.order.updateMany({
-        where: { id: orderId, status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER" },
-        data: { status: "PAID", paidAt: new Date() },
-      });
-      if (claimed.count > 0) {
-        // The order was still open, so its stock is still reserved from the
-        // moment the invoice went out. Nothing to move.
-        paidNow = true;
-        logger.info("[invoicing] bank-transfer order marked paid", { orderId });
-        return { ok: true };
-      }
-
-      const order = await tx.order.findUnique({
-        where: { id: orderId },
-        select: { status: true, paymentMethod: true, items: { select: { partId: true, quantity: true } } },
-      });
-      if (!order) return { ok: false, error: "Bestelling niet gevonden." };
-      if (order.paymentMethod !== "BANK_TRANSFER") {
-        return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
-      }
-      if (order.status === "PAID" || order.status === "SHIPPED" || order.status === "DELIVERED") return { ok: true, alreadyPaid: true };
-      if (order.status !== "CANCELLED") {
-        return { ok: false, error: `Bestelling staat op ${order.status} en kan niet op betaald worden gezet.` };
-      }
-      if ((await tx.creditNote.count({ where: { invoice: { orderId } } })) > 0) {
-        return {
-          ok: false,
-          error: "Deze bestelling is geannuleerd en de factuur is gecrediteerd (creditnota). De betaling is niet gekoppeld: betaal het bedrag terug of laat de klant opnieuw bestellen.",
-        };
-      }
-
-      const revived = await tx.order.updateMany({
-        where: { id: orderId, status: "CANCELLED" },
-        // The cancellation is undone, so its timestamp and reason go too: a
-        // report that treats cancelledAt as "was cancelled" must not count a paid order.
-        data: { status: "PAID", paidAt: new Date(), cancelledAt: null, cancelReason: null },
-      });
-      if (revived.count === 0) {
-        return { ok: false, error: "Bestelling is zojuist gewijzigd. Probeer het opnieuw." };
-      }
-      for (const item of order.items) {
-        const retaken = await tx.part.updateMany({
-          where: { id: item.partId, stock: { gte: item.quantity } },
-          data: { stock: { decrement: item.quantity } },
-        });
-        // Throwing rolls the revival above back with it — either the order is
-        // PAID with its stock, or it stays CANCELLED.
-        if (retaken.count === 0) throw new Error(`out_of_stock:${item.partId}`);
-      }
-      paidNow = true;
-      logger.warn("[invoicing] late payment on a cancelled bank-transfer order — reinstated and stock re-taken", { orderId });
-      return { ok: true };
+    const claimed = await prisma.order.updateMany({
+      where: { id: orderId, status: "OPENSTAAND", paymentMethod: "BANK_TRANSFER" },
+      data: { status: "PAID", paidAt: new Date() },
     });
-    if (result.ok && paidNow) {
+    if (claimed.count > 0) {
+      logger.info("[invoicing] bank-transfer order marked paid", { orderId });
       const { emailSent } = await notifyOrderPaid(orderId, "bank_transfer");
       return { ok: true, emailSent: emailSent ?? false };
     }
-    return result;
-  } catch (err) {
-    if (err instanceof Error && err.message.startsWith("out_of_stock:")) {
-      logger.error("[invoicing] late payment on a cancelled order, but its stock is sold — not reinstated", {
-        orderId,
-        partId: err.message.slice("out_of_stock:".length),
-      });
+
+    const order = await prisma.order.findUnique({ where: { id: orderId }, select: { status: true, paymentMethod: true } });
+    if (!order) return { ok: false, error: "Bestelling niet gevonden." };
+    if (order.paymentMethod !== "BANK_TRANSFER") return { ok: false, error: "Deze bestelling loopt niet via een factuur." };
+    if (order.status === "PAID" || order.status === "SHIPPED" || order.status === "DELIVERED") return { ok: true, alreadyPaid: true };
+    if (order.status === "CANCELLED") {
+      const credited = await prisma.creditNote.count({ where: { invoice: { orderId } } });
       return {
         ok: false,
-        error: "De voorraad van deze geannuleerde bestelling is inmiddels verkocht. Boek de betaling handmatig af (creditnota of terugbetaling).",
+        error: `Deze bestelling is geannuleerd${credited > 0 ? " en de factuur is gecrediteerd (creditnota)" : ""}, en de onderdelen zijn weer vrijgegeven. De betaling is niet gekoppeld: betaal het bedrag terug of laat de klant opnieuw bestellen.`,
       };
     }
+    return { ok: false, error: `Bestelling staat op ${order.status} en kan niet op betaald worden gezet.` };
+  } catch (err) {
     logger.error("[invoicing] could not mark order paid", err);
     return { ok: false, error: "Kon bestelling niet als betaald markeren." };
   }

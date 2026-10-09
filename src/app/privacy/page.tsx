@@ -1,3 +1,4 @@
+import { ContactEmail } from "@/lib/contact-email";
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { COMPANY, realOrNull, PENDING_REGISTRATION } from "@/lib/plans";
 import Link from "next/link";
@@ -18,7 +19,7 @@ export default function PrivacyPage() {
             Privacy<em>beleid</em>
           </h1>
           <p className="muted mono" style={{ fontSize: 12, marginBottom: 36, letterSpacing: "0.04em" }}>
-            Laatste update: 23 mei 2026 · Versie 2.1
+            Laatste update: 9 oktober 2026 · Versie 2.2
           </p>
 
           <div className="legal-content">
@@ -43,7 +44,7 @@ export default function PrivacyPage() {
               KvK: {realOrNull(COMPANY.kvk) ?? PENDING_REGISTRATION} · BTW:{" "}
               {realOrNull(COMPANY.vatNumber) ?? PENDING_REGISTRATION}
               <br />
-              Contact privacy: <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>
+              Contact privacy: <ContactEmail />
             </p>
 
             <h2>2. Welke gegevens verzamelen we</h2>
@@ -102,14 +103,15 @@ export default function PrivacyPage() {
             <ul>
               <li><strong>Accountgegevens:</strong> zolang het account actief is. Verwijder je je account, dan worden je gegevens direct gewist of geanonimiseerd, behalve wat wij wettelijk moeten bewaren (zie facturen hieronder)</li>
               <li><strong>Diagnoses:</strong> 12 maanden gekoppeld aan account, daarna geanonimiseerd</li>
-              <li><strong>Bestellingen en facturen:</strong> 7 jaar (fiscale bewaarplicht Belastingdienst)</li>
+              <li><strong>Facturen en creditfacturen:</strong> 7 jaar (fiscale bewaarplicht Belastingdienst), met je naam en adres zoals die op de factuur staan. De bestelling zelf (onderdelen, bedragen, datums) blijft als administratie staan; als je je account verwijdert, halen we daar je e-mailadres, telefoonnummer, bezorgadres en bestellink uit.</li>
               <li><strong>Server-logs:</strong> bij onze hostingpartij, volgens de bewaartermijn van die partij; wij bewaren ze niet zelf langer</li>
+              <li><strong>Nieuwsbrief:</strong> je e-mailadres wordt pas voor de nieuwsbrief gebruikt nadat je de bevestigingsmail hebt aangeklikt (dubbele aanmelding); zonder bevestiging sturen we niets naar dat adres en verwijderen we het na 14 dagen weer uit onze administratie (de link werkt 7 dagen)</li>
               <li><strong>Marketing-toestemming:</strong> tot aan opzegging via unsubscribe</li>
               <li><strong>Cookies:</strong> zoals beschreven in het <Link href="/cookies">cookiebeleid</Link></li>
             </ul>
 
             <h2>7. Jouw rechten</h2>
-            <p>Onder de AVG heb je de volgende rechten. Stuur een verzoek naar <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> — we reageren binnen 30 dagen.</p>
+            <p>Onder de AVG heb je de volgende rechten. Stuur een verzoek naar <ContactEmail /> — we reageren binnen 30 dagen.</p>
             <ul>
               <li><strong>Inzage</strong> (art. 15) — Welke gegevens hebben we van je?</li>
               <li><strong>Correctie</strong> (art. 16) — Klopt iets niet? We passen het aan.</li>
@@ -146,7 +148,7 @@ export default function PrivacyPage() {
             <p>Onze diensten zijn gericht op personen van 16 jaar of ouder. Voor minderjarigen onder de 16 is toestemming van een ouder/voogd vereist (AVG art. 8).</p>
 
             <h2>12. Klachten</h2>
-            <p>Heb je een klacht over onze gegevensverwerking? Neem eerst contact met ons op via <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a>. Kom je er met ons niet uit? Je hebt het recht een klacht in te dienen bij de Autoriteit Persoonsgegevens:</p>
+            <p>Heb je een klacht over onze gegevensverwerking? Neem eerst contact met ons op via <ContactEmail />. Kom je er met ons niet uit? Je hebt het recht een klacht in te dienen bij de Autoriteit Persoonsgegevens:</p>
             <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 16px" }}>
               <strong>Autoriteit Persoonsgegevens</strong><br />
               Postbus 93374, 2509 AJ Den Haag<br />

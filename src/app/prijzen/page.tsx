@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CheckCircle2, X, Sparkles } from "lucide-react";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const metadata = {
   title: "Prijzen — Gratis tot €29/mnd excl. btw · WasFix Pro abonnementen",
@@ -25,7 +26,7 @@ const PRICING_JSONLD = PLAN_ORDER.filter((id) => PLANS[id].priceCents > 0).map((
       price: (plan.priceCents / 100).toFixed(2),
       priceCurrency: "EUR",
       availability: "https://schema.org/InStock",
-      url: `https://wasfix.nl/upgrade?plan=${plan.id}`,
+      url: absoluteUrl(`/upgrade?plan=${plan.id}`),
     },
   };
 });

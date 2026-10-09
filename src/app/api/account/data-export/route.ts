@@ -6,8 +6,43 @@ import { isDemoMode } from "@/lib/demo-mode";
 import { apiError } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { logger } from "@/lib/logger";
+import { supportEmail, supportHint } from "@/lib/support-contact";
 
 export const dynamic = "force-dynamic";
+
+/**
+ * What the customer gets to see of an order: an explicit list, like /api/orders. Never `include: {items: true}`
+ * on the whole row: that handed out Order.costEur (what the goods cost the shop, rehearsal R2-09),
+ * the checkout idempotencyKey, the guest access token and the Stripe ids. Everything in here is
+ * either on the customer's own order page / invoice or something they typed themselves.
+ */
+const EXPORT_ORDER_SELECT = {
+  id: true,
+  status: true,
+  paymentMethod: true,
+  subtotalEur: true,
+  discountEur: true,
+  shippingEur: true,
+  totalEur: true,
+  vatRate: true,
+  vatEur: true,
+  vatNumber: true,
+  refundedEur: true,
+  email: true,
+  phone: true,
+  customerNote: true,
+  shippingAddress: true,
+  carrier: true,
+  trackingCode: true,
+  dueAt: true,
+  paidAt: true,
+  shippedAt: true,
+  deliveredAt: true,
+  cancelledAt: true,
+  cancelReason: true,
+  createdAt: true,
+  items: { select: { id: true, quantity: true, unitPrice: true, part: { select: { sku: true, name: true, brand: true } } } },
+} as const;
 
 // GDPR Art. 15/20 — Right of Access and Data Portability.
 // User can download a JSON of all their data.
@@ -53,10 +88,16 @@ export async function GET(req: NextRequest) {
     // Every model in schema.prisma that holds data about this person: through
     // their account id, or through the e-mail they used on the forms that need
     // no account. An export that misses one is not an art. 15/20 export.
-    const [orders, invoices, machines, reviews, apiKeys, rmaRequests, monteurApplications, newsletterSubscriptions, monteurProfile, customers, workOrders, monteurInvoices, monteurInvoiceSequences, referrals] = hasDb
+    const [orders, invoices, creditNotes, machines, reviews, apiKeys, rmaRequests, monteurApplications, newsletterSubscriptions, monteurProfile, customers, workOrders, monteurInvoices, monteurInvoiceSequences, referrals] = hasDb
       ? await Promise.all([
-          prisma.order.findMany({ where: { userId: user.id }, include: { items: true } }).catch(() => []),
+          prisma.order.findMany({ where: { userId: user.id }, select: EXPORT_ORDER_SELECT, orderBy: { createdAt: "asc" } }).catch(() => []),
           prisma.invoice.findMany({ where: { order: { userId: user.id } } }).catch(() => []),
+          // Credit notes carry the buyer's name and address too (decision D4), so they belong in the export.
+          // Explicit columns: not the caller-supplied idempotency key or the Stripe refund id, which are bookkeeping handles.
+          prisma.creditNote.findMany({
+            where: { invoice: { order: { userId: user.id } } },
+            select: { id: true, number: true, year: true, issuedAt: true, invoiceId: true, reason: true, subtotalEur: true, vatRate: true, vatEur: true, totalEur: true, sellerJson: true, buyerJson: true, linesJson: true },
+          }).catch(() => []),
           prisma.savedMachine.findMany({ where: { userId: user.id } }).catch(() => []),
           prisma.review.findMany({ where: { email: user.email } }).catch(() => []),
           prisma.apiKey.findMany({ where: { userId: user.id }, select: { id: true, name: true, prefix: true, createdAt: true, lastUsedAt: true, usageCount: true, revokedAt: true } }).catch(() => []),
@@ -72,7 +113,15 @@ export async function GET(req: NextRequest) {
             .findMany({ where: profile?.referralCode ? { OR: [{ referrerId: user.id }, { code: profile.referralCode }] } : { referrerId: user.id } })
             .catch(() => []),
         ])
-      : [[], [], [], [], [], [], [], [], null, [], [], [], [], []];
+      : [[], [], [], [], [], [], [], [], [], null, [], [], [], [], []];
+
+    // linesJson of a credit note may carry our own restock record (which units went back on the shelf) on its first
+    // line. That is stock bookkeeping, not part of the document the customer was given, so it stays out of the export.
+    const exportedCreditNotes = creditNotes.map((note) => {
+      const lines = (note as { linesJson?: unknown }).linesJson;
+      if (!Array.isArray(lines)) return note;
+      return { ...note, linesJson: lines.map((line) => (line && typeof line === "object" ? Object.fromEntries(Object.entries(line as Record<string, unknown>).filter(([key]) => key !== "restock")) : line)) };
+    });
 
     const data = {
       exportedAt: new Date().toISOString(),
@@ -80,6 +129,7 @@ export async function GET(req: NextRequest) {
       profile: profile ?? { id: user.id, email: user.email, name: user.name, role: user.role, plan: user.plan },
       orders,
       invoices,
+      creditNotes: exportedCreditNotes,
       diagnoses,
       diagnosisFeedback,
       savedMachines: machines,
@@ -95,7 +145,7 @@ export async function GET(req: NextRequest) {
       monteurInvoiceSequences,
       referrals,
       _notice:
-        "This export contains all personal data WasFix Pro holds about you under AVG Art. 15 (Right of Access) and Art. 20 (Right to Data Portability). API key secrets are omitted: they are stored hashed and cannot be recovered. For inquiries: privacy@wasfix.nl.",
+        "This export contains all personal data WasFix Pro holds about you under AVG Art. 15 (Right of Access) and Art. 20 (Right to Data Portability). API key secrets are omitted: they are stored hashed and cannot be recovered. For inquiries: " + (supportEmail() ?? "see the contact page on the website") + ".",
     };
 
     logger.info("[gdpr] data export generated", { userId: user.id });
@@ -109,6 +159,6 @@ export async function GET(req: NextRequest) {
     });
   } catch (err) {
     logger.error("[gdpr] data export failed", err);
-    return apiError("Export kon niet worden gegenereerd. Mail privacy@wasfix.nl.", 500);
+    return apiError(`Export kon niet worden gegenereerd. Probeer het later opnieuw of ${supportHint(supportEmail())}.`, 500);
   }
 }

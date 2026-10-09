@@ -1,4 +1,5 @@
-import { COMPANY } from "@/lib/plans";
+import { COMPLAINT_RESOLUTION_DAYS, SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
+import { ContactEmail } from "@/lib/contact-email";
 import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
 
@@ -10,18 +11,17 @@ export const metadata = {
 
 export default function KlachtenPage() {
   return (
-    <LegalPage title="Klachten" emphasis="procedure">
+    <LegalPage title="Klachten" emphasis="procedure" lastUpdate="9 oktober 2026" version="2.2">
       <p>
         Niet tevreden? Vervelend — laten we het oplossen. Wij streven naar 100% klanttevredenheid en nemen iedere klacht serieus. Onderstaande procedure beschrijft hoe je een klacht indient en welke stappen we doorlopen.
       </p>
 
       <h2>Stap 1 — Neem contact op met ons</h2>
       <p>
-        De snelste oplossing is meestal een direct gesprek. Stuur ons een bericht via één van deze kanalen:
+        De snelste oplossing is meestal een direct gesprek. Stuur ons een e-mail:
       </p>
       <ul>
-        <li><strong>E-mail:</strong> <a href={`mailto:${COMPANY.email}`}>{COMPANY.email}</a> (reactie binnen 24u op werkdagen)</li>
-        <li><strong>Formulier:</strong> <Link href="/contact?onderwerp=klacht">contact-pagina</Link></li>
+        <li><strong>E-mail:</strong> <ContactEmail /> (we reageren binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen)</li>
       </ul>
       <p>
         Vermeld in je bericht: bestelnummer, omschrijving van het probleem, gewenste oplossing. Voeg foto&apos;s of bewijsmateriaal toe indien relevant.
@@ -29,9 +29,8 @@ export default function KlachtenPage() {
 
       <h2>Stap 2 — Onze afhandeling</h2>
       <ol>
-        <li>We bevestigen ontvangst binnen <strong>2 werkdagen</strong>.</li>
-        <li>We onderzoeken de klacht en komen met een voorstel binnen <strong>14 dagen</strong>.</li>
-        <li>Bij complexe klachten kan dit uitlopen naar <strong>maximaal 30 dagen</strong> — in dat geval informeren we je tussentijds.</li>
+        <li>We reageren binnen <strong>{SUPPORT_RESPONSE_WORKDAYS} werkdagen</strong>.</li>
+        <li>We streven ernaar je klacht binnen <strong>{COMPLAINT_RESOLUTION_DAYS} dagen</strong> op te lossen. Duurt het langer, dan informeren we je tussentijds.</li>
         <li>Mogelijke oplossingen: vervanging, reparatie, restitutie, korting op volgende bestelling.</li>
       </ol>
 
@@ -59,7 +58,7 @@ export default function KlachtenPage() {
       </p>
 
       <div className="callout">
-        <strong>Onze belofte:</strong> elke klacht wordt persoonlijk behandeld door een mens (geen bot-replies), met als doel binnen 14 dagen een redelijke oplossing te vinden. Wij leren van elke klacht.
+        <strong>Onze belofte:</strong> elke klacht wordt persoonlijk behandeld door een mens (geen bot-replies), met als doel binnen {COMPLAINT_RESOLUTION_DAYS} dagen een redelijke oplossing te vinden. Wij leren van elke klacht.
       </div>
     </LegalPage>
   );

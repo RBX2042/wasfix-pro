@@ -6,6 +6,7 @@ import { logger } from "@/lib/logger";
 import { identityFromClerkPayload, normalizeEmail, syncSignedInUser, type ClerkWebhookUser } from "@/lib/auth";
 import { endStripeSubscription, getStripe, scrubStripeCustomer } from "@/lib/stripe";
 import { notifyOwner } from "@/lib/notify";
+import { anonymizedEmailFor, eraseUserData } from "@/lib/erasure";
 
 export const runtime = "nodejs";
 
@@ -13,7 +14,7 @@ type ClerkUserPayload = ClerkWebhookUser;
 
 /**
  * Clerk webhook receiver. Configure in Clerk dashboard → Webhooks → endpoint
- * https://wasfix.nl/api/webhooks/clerk with events user.created, user.updated,
+ * <NEXT_PUBLIC_APP_URL>/api/webhooks/clerk with events user.created, user.updated,
  * user.deleted. Set CLERK_WEBHOOK_SECRET (Svix signing secret, whsec_…).
  *
  * The Svix signature is always verified: an unsigned payload is a stranger
@@ -83,11 +84,11 @@ export async function POST(req: NextRequest) {
       }
 
       case "user.deleted": {
-        // GDPR: anonymise instead of hard-delete so order history (7y fiscal
-        // retention) stays intact.
+        // GDPR: erase what has no basis to stay and anonymise the rest, so the
+        // invoices (7y fiscal retention) stay intact.
         const existing = await prisma.user.findUnique({ where: { clerkId } });
         if (existing) {
-          const anonymisedEmail = `deleted-${existing.id}@anon.wasfix.nl`;
+          const anonymisedEmail = anonymizedEmailFor(existing.id);
 
           // Stripe FIRST, while the row still knows the ids: once they are nulled
           // nobody can cancel the subscription, and the card of a person who erased
@@ -129,24 +130,26 @@ export async function POST(req: NextRequest) {
             }
           }
 
-          await prisma.user.update({
-            where: { id: existing.id },
-            data: {
-              clerkId: null,
-              email: anonymisedEmail,
-              name: "Verwijderd account",
-              // The plan must not outlive the person. The Stripe ids stay only when
-              // the Stripe step failed, as the handle for finishing it by hand.
-              plan: "FREE",
-              stripeSubStatus: null,
-              stripeCurrentPeriodEnd: null,
-              stripeCancelAtPeriodEnd: false,
-              ...(stripeFailed ? {} : { stripeSubId: null, stripeCustomerId: null }),
-            },
-          });
-          await prisma.diagnosis.deleteMany({ where: { userId: existing.id } }).catch(() => null);
-          await prisma.savedMachine.deleteMany({ where: { userId: existing.id } }).catch(() => null);
-          await prisma.apiKey.deleteMany({ where: { userId: existing.id } }).catch(() => null);
+          // The same erasure as the dashboard button (src/lib/erasure.ts). This path used to
+          // anonymise the User row and delete three tables, and left the monteur profile (KvK, IBAN,
+          // address), the CRM customers, the e-mail / phone / address / working link of every order
+          // and the reviews, RMA and newsletter rows behind (rehearsal R2-08). It cannot REFUSE while an
+          // order is open, because the account is already gone at Clerk: open orders are left
+          // untouched, the owner is told, and finishPendingErasures() redacts them once they are done.
+          const outcome = await eraseUserData({ userId: existing.id, email: existing.email, openOrders: "keep", keepStripeIds: stripeFailed });
+          logger.info("[gdpr] account erased after Clerk user.deleted", { userId: existing.id, ...outcome });
+          if (outcome.ordersKeptOpen > 0 || outcome.ordersAwaitingInvoice > 0) {
+            await notifyOwner({
+              event: "clerk.erase_partial",
+              level: "warn",
+              title: "Verwijderde klant: bestellingen lopen nog",
+              lines: [
+                `Gebruiker ${existing.id} is in Clerk verwijderd. Open bestellingen: ${outcome.ordersKeptOpen}, betaald zonder factuur: ${outcome.ordersAwaitingInvoice}.`,
+                "Hun e-mailadres, telefoonnummer en bezorgadres blijven staan tot de bestellingen zijn afgerond; de dagelijkse opschoning (/api/cron/retention) wist ze daarna.",
+              ],
+              url: "/admin/bestellingen",
+            });
+          }
         }
         break;
       }

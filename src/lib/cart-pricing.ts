@@ -9,7 +9,7 @@
  */
 import { prisma } from "./prisma";
 import { env, isDatabaseConfigured } from "./env";
-import { dbPart, dbPartById } from "./static-db";
+import { dbPart, dbPartById, realImageUrl } from "./static-db";
 import { cents } from "./cart-totals";
 import { MAX_QTY_PER_LINE } from "./cart-limits";
 import type { ExpectedCart } from "./cart-schema";
@@ -173,7 +173,8 @@ export function publicLine(l: EvaluatedLine) {
     partId: l.part?.id ?? l.ref.partId ?? null,
     name: l.part?.name ?? null,
     brand: l.part?.brand ?? null,
-    imageUrl: l.part?.imageUrl ?? null,
+    // A placehold.co text tile is not a photo (the product page says "Foto volgt"): it never leaves the server as an image.
+    imageUrl: realImageUrl(l.part?.imageUrl),
     unitPriceEur: l.part?.priceEur ?? null,
     stock: l.part?.stock ?? 0,
     quantity: l.quantity,

@@ -19,6 +19,8 @@ export function ExitIntentModal() {
   const [downloadUrl, setDownloadUrl] = React.useState("/leadmagnets/foutcodes-cheatsheet.html");
   const [email, setEmail] = React.useState("");
   const [status, setStatus] = React.useState<"idle" | "submitting" | "done" | "error">("idle");
+  // What the server did with the newsletter half of the sign-up (see src/lib/newsletter.ts); null = unknown.
+  const [newsletterStatus, setNewsletterStatus] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     if (!FEATURE_FLAG || !allowed) return;
@@ -89,8 +91,9 @@ export function ExitIntentModal() {
         body: JSON.stringify({ email, magnetId: "foutcodes-cheatsheet", source: "exit-intent" }),
       });
       if (!res.ok) { setStatus("error"); return; }
-      const data = (await res.json().catch(() => null)) as { url?: string } | null;
+      const data = (await res.json().catch(() => null)) as { url?: string; newsletter?: string } | null;
       if (data?.url && data.url.startsWith("/")) setDownloadUrl(data.url);
+      setNewsletterStatus(data?.newsletter ?? null);
       setStatus("done");
       track(EVT.NEWSLETTER_SIGNUP, { source: "exit-intent" });
       localStorage.setItem(STORAGE_KEY, String(Date.now()));
@@ -199,7 +202,7 @@ export function ExitIntentModal() {
             )}
 
             <p style={{ color: "rgba(232,238,251,0.45)", fontSize: 11, marginTop: 14, lineHeight: 1.5 }}>
-              Met je aanmelding schrijf je je in voor onze nieuwsbrief; afmelden kan altijd via de contactpagina. We delen je e-mailadres niet met derden.
+              Je krijgt de cheatsheet meteen. Daarnaast sturen we je een e-mail om je aanmelding voor de nieuwsbrief te bevestigen; zonder jouw klik daarin sturen we je geen nieuwsbrief. Afmelden kan altijd via de contactpagina. We delen je e-mailadres niet met derden.
             </p>
           </>
         ) : (
@@ -207,7 +210,12 @@ export function ExitIntentModal() {
             <div style={{ fontSize: 40, marginBottom: 12 }}>✅</div>
             <h2 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>Bedankt, je cheatsheet staat klaar</h2>
             <p style={{ color: "rgba(232,238,251,0.75)", fontSize: 14, lineHeight: 1.55, marginBottom: 18 }}>
-              We sturen de cheatsheet niet per e-mail. Open hem hieronder; met Ctrl+P (of &lsquo;Deel&rsquo; op je telefoon) bewaar je hem als PDF.
+              We sturen de cheatsheet niet per e-mail. Open hem hieronder; met Ctrl+P (of &lsquo;Deel&rsquo; op je telefoon) bewaar je hem als PDF.{" "}
+              {newsletterStatus === "mail_sent"
+                ? "Voor de nieuwsbrief hebben we je een bevestigingsmail gestuurd; je bent pas aangemeld als je daarin op de link klikt."
+                : newsletterStatus === "already_subscribed"
+                  ? "Je was al aangemeld voor de nieuwsbrief."
+                  : "De bevestigingsmail voor de nieuwsbrief is niet verstuurd, dus je bent niet aangemeld voor de nieuwsbrief."}
             </p>
             <a
               href={downloadUrl}

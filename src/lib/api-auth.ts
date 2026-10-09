@@ -6,6 +6,7 @@ import { isDemoMode } from "./demo-mode";
 import { logger } from "./logger";
 import { rateLimit } from "./ratelimit";
 import { effectivePlan } from "./subscription";
+import { absoluteUrl } from "./site-url";
 
 // API key format: wf_<env>_<32 random chars>
 // Examples: wf_live_a1b2c3..., wf_test_x7y8z9...
@@ -188,7 +189,7 @@ export async function validateApiKey(key: string | null): Promise<ApiKeyInfo | n
   return verdict.ok ? verdict.info : null;
 }
 
-export const API_DOCS_URL = "https://wasfix.nl/api-docs";
+export const API_DOCS_URL = absoluteUrl("/api-docs");
 
 /**
  * The preamble every /api/v1 data endpoint shares: key present and valid, scope

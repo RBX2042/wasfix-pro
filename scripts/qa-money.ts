@@ -13,7 +13,7 @@ import { readdirSync, readFileSync, statSync, mkdtempSync, writeFileSync } from 
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { splitVatInclusive, money, issueInvoiceForOrder, getInvoiceForOrder, computeMargin, computeOrderMargin, costBasis, MARGIN_ESTIMATE_LABEL } from "../src/lib/invoicing";
-import { evaluateCompany, isValidIban, isValidKvk, isValidVatNumber, isPlaceholderValue, canonicalCompanyValue, companyTradeName, DEFAULT_COMPANY_NAME, type CompanyInput } from "../src/lib/company-validate";
+import { CONTACT_EMAIL_RE, evaluateCompany, isValidIban, isValidKvk, isValidVatNumber, isPlaceholderValue, canonicalCompanyValue, companyTradeName, DEFAULT_COMPANY_NAME, type CompanyInput } from "../src/lib/company-validate";
 import { consumeUsage, canReadPremiumGuide } from "../src/lib/entitlements";
 import { PLANS, PLAN_ORDER, BILLABLE_PLANS, getPlan, formatPlanPrice, VAT_RATE, COMPANY, companyReadiness, companyIdentityLine, realOrNull } from "../src/lib/plans";
 import { getPlanLimits } from "../src/lib/auth";
@@ -541,7 +541,7 @@ async function main() {
       // Independent of companyReadiness(): decide from the raw environment of this run with the plain validators.
       const e = process.env;
       const present = (v: string | undefined) => (v ?? "").trim().length > 0 && !isPlaceholderValue(v ?? "");
-      const independentReady = present(e.COMPANY_NAME) && present(e.COMPANY_STREET) && present(e.COMPANY_POSTAL_CODE) && present(e.COMPANY_CITY) && present(e.COMPANY_KVK) && isValidKvk(e.COMPANY_KVK ?? "") && present(e.COMPANY_VAT) && isValidVatNumber(e.COMPANY_VAT ?? "") && present(e.COMPANY_IBAN) && isValidIban(e.COMPANY_IBAN ?? "") && /^[1-9]\d{3}\s?[A-Za-z]{2}$/.test((e.COMPANY_POSTAL_CODE ?? "").trim());
+      const independentReady = present(e.COMPANY_NAME) && present(e.COMPANY_STREET) && present(e.COMPANY_POSTAL_CODE) && present(e.COMPANY_CITY) && present(e.COMPANY_KVK) && isValidKvk(e.COMPANY_KVK ?? "") && present(e.COMPANY_VAT) && isValidVatNumber(e.COMPANY_VAT ?? "") && present(e.COMPANY_IBAN) && isValidIban(e.COMPANY_IBAN ?? "") && /^[1-9]\d{3}\s?[A-Za-z]{2}$/.test((e.COMPANY_POSTAL_CODE ?? "").trim()) && CONTACT_EMAIL_RE.test((e.COMPANY_EMAIL ?? "").trim());
       check(COMPANY.isPlaceholder === !independentReady, `Company: COMPANY.isPlaceholder (${COMPANY.isPlaceholder}) matches an independent reading of the environment of this run (${independentReady ? "complete" : "incomplete"})`, `Company: isPlaceholder ${COMPANY.isPlaceholder} but the environment reads as ${independentReady ? "complete" : "incomplete"}`);
     }
     check(companyTradeName(DEFAULT_COMPANY_NAME) === "WasFix Pro" && companyTradeName("WasFix Pro B.V.") === "WasFix Pro B.V." && companyTradeName("(in oprichting)") === "(in oprichting)", "Company: companyTradeName strips a trailing '(in oprichting)' and nothing else", `companyTradeName: ${companyTradeName(DEFAULT_COMPANY_NAME)}`);
@@ -557,9 +557,11 @@ async function main() {
       "Company: readiness disagrees with canonical spelling",
     );
     {
-      const w = (email: string | undefined) => evaluateCompany({ ...FULL, email }).warnings.filter((x) => x.startsWith("COMPANY_EMAIL"));
-      check(w(undefined).length === 1 && w("   ").length === 1 && w("geen-adres").length === 1 && w("hallo@wasfix.nl").length === 0 && evaluateCompany(FULL).warnings.every((x) => !x.startsWith("COMPANY_EMAIL")), "Company: a missing or malformed COMPANY_EMAIL is a warning (never blocking, and only judged when the key is passed)", `Company email warnings: ${JSON.stringify([w(undefined), w("geen-adres"), w("hallo@wasfix.nl")])}`);
-      check(evaluateCompany({ ...FULL, email: undefined }).ready === true, "Company: a missing COMPANY_EMAIL does not make the company not ready", "Company: missing COMPANY_EMAIL blocks readiness");
+      // Decision D15 (bundle FB): the contact address is part of readiness. It used to be a warning only
+      // ("never blocking"); the shop printed the invented support@wasfix.nl when it was missing.
+      const pr = (email: string | undefined) => evaluateCompany({ ...FULL, email }).problems.filter((x) => x.field === "email");
+      check(pr(undefined).length === 1 && pr("   ").length === 1 && pr("geen-adres").length === 1 && pr("hallo@wasfix.nl").length === 0 && evaluateCompany(FULL).problems.every((x) => x.field !== "email"), "Company: a missing or malformed COMPANY_EMAIL is a readiness problem (decision D15), and only judged when the key is passed", `Company email problems: ${JSON.stringify([pr(undefined), pr("geen-adres"), pr("hallo@wasfix.nl")])}`);
+      check(evaluateCompany({ ...FULL, email: undefined }).ready === false && evaluateCompany({ ...FULL, email: undefined }).missing.join() === "email" && evaluateCompany({ ...FULL, email: "hallo@wasfix.nl" }).ready === true, "Company: a missing COMPANY_EMAIL makes the company not ready, naming 'email' (checkout stays closed)", "Company: missing COMPANY_EMAIL does not block readiness");
     }
     check(realOrNull("1234AB") === null && realOrNull("Hoofdstraat 1") === null && realOrNull("Teststraat 1") === "Teststraat 1" && realOrNull("") === null, "Company: realOrNull hides placeholders (any spacing) and shows real values", "Company: realOrNull wrong");
 
@@ -568,31 +570,36 @@ async function main() {
     const probeFile = path.join(probeDir, "probe.ts");
     writeFileSync(probeFile, `import { COMPANY, companyReadiness, companyIdentityLine } from ${JSON.stringify(path.resolve("src/lib/plans"))};\nconsole.log("RESULT " + JSON.stringify({ placeholder: COMPANY.isPlaceholder, missing: companyReadiness().missing, name: COMPANY.name, city: COMPANY.city, identity: companyIdentityLine(), tradeName: COMPANY.tradeName }));`);
     const envProbe = (extra: Record<string, string>) => {
-      const r = spawnSync("npx", ["tsx", probeFile], { encoding: "utf8", env: { ...process.env, COMPANY_NAME: "", COMPANY_STREET: "", COMPANY_POSTAL_CODE: "", COMPANY_CITY: "", COMPANY_KVK: "", COMPANY_VAT: "", COMPANY_IBAN: "", ...extra } });
+      const r = spawnSync("npx", ["tsx", probeFile], { encoding: "utf8", env: { ...process.env, COMPANY_EMAIL: "", COMPANY_NAME: "", COMPANY_STREET: "", COMPANY_POSTAL_CODE: "", COMPANY_CITY: "", COMPANY_KVK: "", COMPANY_VAT: "", COMPANY_IBAN: "", ...extra } });
       return JSON.parse((r.stdout.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as { placeholder?: boolean; missing?: string[]; name?: string; city?: string; identity?: string; tradeName?: string };
     };
     const e1 = envProbe({});
     const e2 = envProbe({ COMPANY_KVK: "90000001" });
     const e3 = envProbe({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001" });
-    const e4 = envProbe({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" });
+    const FULL_ENV = { COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" };
+    const e4 = envProbe({ ...FULL_ENV, COMPANY_EMAIL: "qa@example.test" });
+    const e5 = envProbe({ ...FULL_ENV, COMPANY_EMAIL: "" });
     check(e1.placeholder === true && e1.name === DEFAULT_COMPANY_NAME && e1.city === "", "Company env: nothing configured => placeholder, default name has no legal form, no invented city", `Company env empty: ${JSON.stringify(e1)}`);
     check(!/B\.V\./.test(e1.identity ?? "B.V.") && (e1.identity ?? "").split("in oprichting").length === 2 && e1.tradeName === "WasFix Pro", `Company env: with nothing configured the identity line says 'in oprichting' exactly once and never B.V. ("${e1.identity}")`, `Company env empty identity: ${e1.identity}`);
-    check(e2.placeholder === true && e2.missing?.length === 6, "Company env: ONLY COMPANY_KVK => still a placeholder (the old check returned false here)", `Company env kvk-only: ${JSON.stringify(e2)}`);
-    check(e3.placeholder === true && e3.missing?.join() === "vatNumber,iban", "Company env: everything but btw-nummer and IBAN => still a placeholder, naming both", `Company env partial: ${JSON.stringify(e3)}`);
-    check(e4.placeholder === false, "Company env: all seven configured => not a placeholder", `Company env full: ${JSON.stringify(e4)}`);
+    check(e2.placeholder === true && e2.missing?.length === 7, "Company env: ONLY COMPANY_KVK => still a placeholder, six fiscal fields and the e-mail missing (the old check returned false here)", `Company env kvk-only: ${JSON.stringify(e2)}`);
+    check(e3.placeholder === true && e3.missing?.join() === "vatNumber,iban,email", "Company env: everything but btw-nummer, IBAN and e-mail => still a placeholder, naming all three", `Company env partial: ${JSON.stringify(e3)}`);
+    check(e4.placeholder === false, "Company env: all seven fiscal fields and COMPANY_EMAIL configured => not a placeholder", `Company env full: ${JSON.stringify(e4)}`);
+    check(e5.placeholder === true && e5.missing?.join() === "email", "Company env: all seven fiscal fields but NO COMPANY_EMAIL => not ready, naming 'email' (decision D15)", `Company env without e-mail: ${JSON.stringify(e5)}`);
 
     // publicCompany(): the server hands client components a plain snapshot. It lives behind "server-only".
     const pubFile = path.join(probeDir, "pub.ts");
     writeFileSync(pubFile, `import { publicCompany } from ${JSON.stringify(path.resolve("src/lib/company"))};\nconsole.log("RESULT " + JSON.stringify(publicCompany()));`);
     const pub = (extra: Record<string, string>, flags: string[] = ["--conditions=react-server"]) =>
-      spawnSync("npx", ["tsx", ...flags, pubFile], { encoding: "utf8", env: { ...process.env, COMPANY_NAME: "", COMPANY_STREET: "", COMPANY_POSTAL_CODE: "", COMPANY_CITY: "", COMPANY_KVK: "", COMPANY_VAT: "", COMPANY_IBAN: "", ...extra } });
+      spawnSync("npx", ["tsx", ...flags, pubFile], { encoding: "utf8", env: { ...process.env, COMPANY_EMAIL: "", COMPANY_NAME: "", COMPANY_STREET: "", COMPANY_POSTAL_CODE: "", COMPANY_CITY: "", COMPANY_KVK: "", COMPANY_VAT: "", COMPANY_IBAN: "", ...extra } });
     const parse = (r: ReturnType<typeof pub>) => JSON.parse((r.stdout.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as Record<string, unknown>;
     const pEmpty = parse(pub({}));
     check(pEmpty.ready === false && pEmpty.kvk === null && pEmpty.iban === null && pEmpty.vatNumber === null && pEmpty.street === null && pEmpty.city === null && pEmpty.name === DEFAULT_COMPANY_NAME, "publicCompany(): with nothing configured every registration detail is null (never a placeholder) and ready is false", `publicCompany empty: ${JSON.stringify(pEmpty)}`);
     const pPartial = parse(pub({ COMPANY_KVK: "90000001", COMPANY_IBAN: "NL02ABNA0123456789" }));
     check(pPartial.ready === false && pPartial.iban === null && pPartial.kvk === "90000001", "publicCompany(): a partial configuration never exposes the IBAN", `publicCompany partial: ${JSON.stringify(pPartial)}`);
-    const pFull = parse(pub({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" }));
-    check(pFull.ready === true && pFull.iban === "NL02ABNA0123456789" && pFull.identityLine === "WasFix Test B.V. · Teststraat 1, 1011 AB Amsterdam · KvK 90000001", "publicCompany(): the full identity is passed through, with the identity line for footers", `publicCompany full: ${JSON.stringify(pFull)}`);
+    const pFull = parse(pub({ ...FULL_ENV, COMPANY_EMAIL: "qa@example.test" }));
+    const pNoMail = parse(pub(FULL_ENV));
+    check(pNoMail.ready === false && pNoMail.email === null && pNoMail.iban === null, "publicCompany(): without COMPANY_EMAIL the shop is not ready, the address is null (never an invented one) and the IBAN is not exposed", `publicCompany without e-mail: ${JSON.stringify(pNoMail)}`);
+    check(pFull.ready === true && pFull.email === "qa@example.test" && pFull.iban === "NL02ABNA0123456789" && pFull.identityLine === "WasFix Test B.V. · Teststraat 1, 1011 AB Amsterdam · KvK 90000001", "publicCompany(): the full identity is passed through, with the identity line for footers", `publicCompany full: ${JSON.stringify(pFull)}`);
     const clientImport = pub({}, []);
     check(clientImport.status !== 0 && /Client Component|server-only/i.test(clientImport.stderr), "company.ts is 'server-only': importing it without the react-server condition (as a client bundle would) fails loudly", `company.ts imported without react-server: status ${clientImport.status} ${clientImport.stderr.slice(0, 200)}`);
 

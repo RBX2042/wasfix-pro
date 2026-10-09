@@ -3,6 +3,7 @@ import { dbParts, dbErrorCodes, dbStats } from "@/lib/static-db";
 import { formatEur } from "@/lib/utils";
 import { SHIPPING } from "@/lib/plans";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
+import { absoluteUrl } from "@/lib/site-url";
 
 // Cached instead of force-dynamic: nothing on this page is per visitor (the cart
 // and the account menu are client-side), so every ad click used to cost a function
@@ -24,7 +25,7 @@ export const metadata = {
   openGraph: {
     title: "WasFix Pro — AI wasmachine diagnose",
     description: "Eerste AI-diagnose van je wasmachine, het waarschijnlijke onderdeel en stap-voor-stap reparatie.",
-    url: "https://wasfix.nl",
+    url: absoluteUrl("/"),
     siteName: "WasFix Pro",
     locale: "nl_NL",
     type: "website",
@@ -69,8 +70,8 @@ export default async function HomePage() {
       "@context": "https://schema.org",
       "@type": "Organization",
       name: "WasFix Pro",
-      url: "https://wasfix.nl",
-      logo: "https://wasfix.nl/icon",
+      url: absoluteUrl("/"),
+      logo: absoluteUrl("/icon"),
       description: "AI-gestuurde wasmachine diagnose en originele onderdelen, voor consumenten en monteurs.",
       address: { "@type": "PostalAddress", addressCountry: "NL" },
     },
@@ -78,10 +79,10 @@ export default async function HomePage() {
       "@context": "https://schema.org",
       "@type": "WebSite",
       name: "WasFix Pro",
-      url: "https://wasfix.nl",
+      url: absoluteUrl("/"),
       potentialAction: {
         "@type": "SearchAction",
-        target: "https://wasfix.nl/foutcodes?q={search_term_string}",
+        target: absoluteUrl("/foutcodes?q={search_term_string}"),
         "query-input": "required name=search_term_string",
       },
     },

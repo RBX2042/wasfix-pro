@@ -20,7 +20,12 @@ function signedOutForSure(): boolean {
   // With Clerk on, __client_uat is "0" (or absent) for a signed-out browser.
   // Skipping the request then avoids a 401 on every catalogue view. In demo
   // mode there is no such cookie and everybody is "signed in".
-  if (process.env.NEXT_PUBLIC_CLERK_ENABLED !== "true") return false;
+  // Without Clerk in a PRODUCTION build nobody can be signed in: demo auth only
+  // exists outside production (src/lib/demo-mode.ts), so the middleware answers
+  // every /api/user/* call with a 401 that the browser logs as a failed request on
+  // every page view (rehearsal D7). Both process.env reads below are literal on
+  // purpose: the bundler inlines exactly those expressions.
+  if (process.env.NEXT_PUBLIC_CLERK_ENABLED !== "true") return process.env.NODE_ENV === "production";
   try {
     const m = document.cookie.split("; ").find((c) => c.startsWith("__client_uat="));
     return !m || m.split("=")[1] === "0";

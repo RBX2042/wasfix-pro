@@ -14,8 +14,10 @@
  *                        IBAN compact upper case, postcode "1234 AB". Readiness
  *                        is judged on this value and COMPANY stores this value, so
  *                        what was validated is what an invoice prints.
- *   evaluateCompany(raw) -> CompanyReadiness: which of the seven mandatory
- *                        fields are missing, malformed or still a placeholder.
+ *   evaluateCompany(raw) -> CompanyReadiness: which of the seven fiscal fields
+ *                        (and, when the caller passes the `email` key, the contact
+ *                        e-mail, decision D15) are missing, malformed or still a
+ *                        placeholder.
  *   companyTradeName(n)  the name without a trailing "(in oprichting)".
  *
  * What this CANNOT do: tell a real registration from a well-formed test value.
@@ -28,13 +30,23 @@
 export type CompanyField = "name" | "street" | "postalCode" | "city" | "kvk" | "vatNumber" | "iban";
 
 /**
- * `email` is not one of the seven mandatory fields (it never blocks invoicing);
- * when the key is present it is checked and reported in `warnings` only.
+ * `email` is the customer-facing contact address (COMPANY_EMAIL). Decision D15: it is
+ * part of readiness, because every legal page, the invoice footer and the reply-to
+ * of customer mail print it and there is no built-in address to fall back to.
+ *
+ * It is judged only when the key is PRESENT in the input. companyInputFromEnv()
+ * (src/lib/plans.ts), which the running shop, the checkout gate and the preflight
+ * use, always passes the key, so for the real environment a missing address is a
+ * problem. Callers that evaluate the seven fiscal fields on their own (tests,
+ * a dry run of a registration form) can leave it out.
  */
 export type CompanyInput = Partial<Record<CompanyField | "email", string | null | undefined>>;
 
+/** The seven fiscal fields plus the contact address. */
+export type CompanyProblemField = CompanyField | "email";
+
 export type CompanyProblem = {
-  field: CompanyField;
+  field: CompanyProblemField;
   /** The environment variable that sets this field. */
   envVar: string;
   reason: "ontbreekt" | "ongeldig" | "voorbeeldwaarde";
@@ -43,10 +55,10 @@ export type CompanyProblem = {
 };
 
 export type CompanyReadiness = {
-  /** True only when ALL seven fields are real. */
+  /** True only when ALL seven fiscal fields (and, when judged, the contact e-mail) are real. */
   ready: boolean;
   /** Fields that are absent, malformed or a placeholder. Empty when ready. */
-  missing: CompanyField[];
+  missing: CompanyProblemField[];
   problems: CompanyProblem[];
   /** Well-formed values that are known test/example numbers. Not blocking. */
   warnings: string[];
@@ -61,6 +73,12 @@ export const COMPANY_ENV_VARS: Record<CompanyField, string> = {
   vatNumber: "COMPANY_VAT",
   iban: "COMPANY_IBAN",
 };
+
+/** The environment variable of the contact address (not one of the seven fiscal fields). */
+export const COMPANY_EMAIL_ENV_VAR = "COMPANY_EMAIL";
+
+/** Same pattern the preflight uses for owner-facing addresses: something@host.tld, no spaces or angle brackets. */
+export const CONTACT_EMAIL_RE = /^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/;
 
 /** Name shown while the company is not registered. Claims no legal form. */
 export const DEFAULT_COMPANY_NAME = "WasFix Pro (in oprichting)";
@@ -194,12 +212,18 @@ export function evaluateCompany(input: CompanyInput): CompanyReadiness {
     const test = KNOWN_TEST_VALUES[compact(raw)];
     if (test) warnings.push(test);
   }
-  // The contact address is not a fiscal field, but without it customer replies
-  // and owner mail have nowhere to go. Only judged when the caller passes the key.
+  // The contact address (decision D15). It is not a fiscal field, but every legal
+  // page, the invoice footer and the reply-to of customer mail print it, and the
+  // shop used to invent support@wasfix.nl when it was missing: a mailbox nothing
+  // proves exists. So a shop without it is not ready. Judged only when the caller
+  // passes the key (see CompanyInput).
   if ("email" in input) {
     const email = (input.email ?? "").trim();
-    if (!email) warnings.push("COMPANY_EMAIL ontbreekt: antwoorden van klanten en meldingen per e-mail hebben geen adres");
-    else if (!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]{2,}$/.test(email)) warnings.push("COMPANY_EMAIL is geen geldig e-mailadres");
+    if (!email) {
+      problems.push({ field: "email", envVar: COMPANY_EMAIL_ENV_VAR, reason: "ontbreekt", message: "COMPANY_EMAIL ontbreekt (e-mailadres waarop klanten je bereiken)" });
+    } else if (!CONTACT_EMAIL_RE.test(email)) {
+      problems.push({ field: "email", envVar: COMPANY_EMAIL_ENV_VAR, reason: "ongeldig", message: "COMPANY_EMAIL is geen geldig e-mailadres" });
+    }
   }
   return { ready: problems.length === 0, missing: problems.map((p) => p.field), problems, warnings };
 }

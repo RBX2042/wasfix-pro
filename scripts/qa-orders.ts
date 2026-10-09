@@ -71,7 +71,7 @@ async function main() {
     // ── 1. The transition table ─────────────────────────────────────────────
     const expectedAllowed = new Set([
       "PENDING>PAID", "PENDING>CANCELLED", "OPENSTAAND>PAID", "OPENSTAAND>CANCELLED",
-      "PAID>SHIPPED", "PAID>CANCELLED", "SHIPPED>DELIVERED", "CANCELLED>PAID",
+      "PAID>SHIPPED", "PAID>CANCELLED", "SHIPPED>DELIVERED",
     ]);
     const wrong: string[] = [];
     for (const from of st.ORDER_STATUSES) {
@@ -79,8 +79,9 @@ async function main() {
         if (st.canTransition(from, to) !== expectedAllowed.has(`${from}>${to}`)) wrong.push(`${from}>${to}`);
       }
     }
-    check(wrong.length === 0, `Table: all ${st.ORDER_STATUSES.length * st.ORDER_STATUSES.length} state pairs match the table (D3's edges plus the one documented addition CANCELLED>PAID, the late bank transfer)`, `Table: wrong pairs ${wrong.join(", ")}`);
+    check(wrong.length === 0, `Table: all ${st.ORDER_STATUSES.length * st.ORDER_STATUSES.length} state pairs match the table (exactly D3's edges; there is no way back from CANCELLED, decision D14)`, `Table: wrong pairs ${wrong.join(", ")}`);
     check(!st.canTransition("SHIPPED", "CANCELLED") && !st.canTransition("DELIVERED", "CANCELLED"), "Table: a shipped order can never be cancelled", "Table: SHIPPED -> CANCELLED is allowed");
+    check(st.ORDER_TRANSITIONS.CANCELLED.length === 0 && !st.statusesThatCanGo("PAID").includes("CANCELLED"), "Table: nothing leaves CANCELLED, so a late wire cannot revive an order (D14, terms 7.1)", "Table: CANCELLED has an outgoing edge");
     check(!st.canTransition("PAID", "PENDING") && !st.canTransition("PAID", "OPENSTAAND") && !st.canTransition("DELIVERED", "SHIPPED"), "Table: no way back to unpaid or from delivered", "Table: a backwards transition is allowed");
     check(!st.canTransition("FOO", "PAID") && !st.canTransition("PAID", "FOO"), "Table: unknown states are refused", "Table: unknown state accepted");
     check(st.ORDER_STATUSES.every((s) => st.ORDER_STATUS_LABEL[s].length > 0), "Labels: every state has a Dutch label", "Labels: a state has no label");
@@ -409,30 +410,123 @@ async function main() {
       check(!unknown.ok, "Bank transfer: unknown order with an amount is refused, not thrown", `Bank transfer unknown: ${JSON.stringify(unknown)}`);
     }
     {
-      // Late wire after expiry: revived only while the invoice still stands.
+      // Late wire after expiry (decision D14, terms 7.1): NEVER revived. The cancellation put the units back and
+      // credited the invoice; the customer is paid back or orders again.
       const late = await mkOrder({ status: "OPENSTAAND", qty: 2 });
       await inv.cancelOrder(late.order.id, { reason: "verlopen", actor: "system" });
-      // Simulate a cancelled order that was never credited (the pre-credit-note sweep): remove the note.
-      const credited = await mkOrder({ status: "OPENSTAAND", qty: 2 });
-      await inv.cancelOrder(credited.order.id, { reason: "verlopen", actor: "system" });
-      const blocked = await inv.markOrderPaidByBankTransfer(credited.order.id);
-      check(!blocked.ok && /creditnota/i.test(blocked.error) && (await statusOf(credited.order.id)) === "CANCELLED", "Late wire on an order whose invoice was credited is NOT revived (explains the creditnota)", `Late wire after credit note: ${JSON.stringify(blocked)}`);
+      const lateNotes = await notesOf(late.order.id);
+      check(lateNotes.length === 1, "Every cancelled bank-transfer order carries a credit note (its invoice exists from checkout), which is why a revival could never happen", `Cancelled bank-transfer order has ${lateNotes.length} credit notes`);
+      const stockAfterCancel = await late.stockNow();
+      const blocked = await inv.markOrderPaidByBankTransfer(late.order.id, { receivedAmountEur: late.total });
+      check(!blocked.ok && /creditnota/i.test(blocked.error) && /terug|opnieuw/i.test(blocked.error) && (await statusOf(late.order.id)) === "CANCELLED" && (await late.stockNow()) === stockAfterCancel, "Late wire on an order whose invoice was credited is NOT revived: refused, still CANCELLED, stock untouched, the message says refund or reorder", `Late wire after credit note: ${JSON.stringify(blocked)}`);
 
+      // A cancelled order without any credit note (state reproduced by hand): the same refusal, no stock re-taken.
       const legacy = await mkOrder({ status: "OPENSTAAND", qty: 2 });
-      // The old sweep cancelled without a credit note; reproduce that exact state.
       await prisma.order.update({ where: { id: legacy.order.id }, data: { status: "CANCELLED", cancelledAt: new Date(), cancelReason: "Bestelling verlopen" } });
       await prisma.part.update({ where: { id: legacy.part.id }, data: { stock: { increment: legacy.qty } } });
       const before = await legacy.stockNow();
-      const revived = await inv.markOrderPaidByBankTransfer(legacy.order.id, { receivedAmountEur: legacy.total });
-      check(revived.ok && (await statusOf(legacy.order.id)) === "PAID" && (await legacy.stockNow()) === before - legacy.qty, "Late wire on a cancelled order WITHOUT a credit note: revived and the units are taken again", `Late wire revival: ${JSON.stringify(revived)}`);
-      const revivedRow = await prisma.order.findUniqueOrThrow({ where: { id: legacy.order.id } });
-      check(revivedRow.cancelledAt === null && revivedRow.cancelReason === null && revivedRow.paidAt !== null, "Late wire revival: cancelledAt and cancelReason are cleared, so a paid order is not reported as cancelled", `Revived order keeps its cancellation: ${revivedRow.cancelledAt} ${revivedRow.cancelReason}`);
+      const refused = await inv.markOrderPaidByBankTransfer(legacy.order.id, { receivedAmountEur: legacy.total });
+      const legacyRow = await prisma.order.findUniqueOrThrow({ where: { id: legacy.order.id } });
+      check(!refused.ok && legacyRow.status === "CANCELLED" && legacyRow.cancelledAt !== null && legacyRow.paidAt === null && (await legacy.stockNow()) === before, "Late wire on a cancelled order WITHOUT a credit note is refused too (no revival branch exists): still CANCELLED, cancelledAt kept, stock untouched", `Late wire without credit note: ${JSON.stringify(refused)} ${legacyRow.status}`);
+      check(!refused.ok && /terug|opnieuw/i.test(refused.error), "Late wire refusal tells the owner to pay back or let the customer reorder", `Late wire message: ${JSON.stringify(refused)}`);
 
       const gone = await mkOrder({ status: "OPENSTAAND", qty: 2 });
       await prisma.order.update({ where: { id: gone.order.id }, data: { status: "CANCELLED" } });
       await prisma.part.update({ where: { id: gone.part.id }, data: { stock: 0 } });
       const noStock = await inv.markOrderPaidByBankTransfer(gone.order.id);
-      check(!noStock.ok && (await statusOf(gone.order.id)) === "CANCELLED" && (await gone.stockNow()) === 0, "Late wire when the stock is gone: refused, rolled back, still CANCELLED", `Late wire without stock: ${JSON.stringify(noStock)}`);
+      check(!noStock.ok && (await statusOf(gone.order.id)) === "CANCELLED" && (await gone.stockNow()) === 0, "Late wire when the stock is gone: refused, still CANCELLED", `Late wire without stock: ${JSON.stringify(noStock)}`);
+    }
+
+    // ── 7b. FA: the cancel guard, quiet cancellations, the restock record ──
+    {
+      // R2-01 as a real race: the owner's "paid" and a sweep's "cancel" on the same OPENSTAAND order, 20 times.
+      // Whatever order they run in, the books are consistent: PAID without a credit note, or CANCELLED with exactly
+      // one credit note and never paid. (Without onlyFrom the cancel could follow the payment and credit it.)
+      const outcomes = { paidWon: 0, cancelWon: 0, inconsistent: [] as string[] };
+      for (let i = 0; i < 20; i++) {
+        const o = await mkOrder({ status: "OPENSTAAND", qty: 1 });
+        const [c, p] = await Promise.all([
+          inv.cancelOrder(o.order.id, { reason: "race", actor: "system", notifyCustomer: false, onlyFrom: ["OPENSTAAND"] }),
+          inv.markOrderPaidByBankTransfer(o.order.id, { receivedAmountEur: o.total }),
+        ]);
+        const row = await prisma.order.findUniqueOrThrow({ where: { id: o.order.id } });
+        const notes = (await notesOf(o.order.id)).length;
+        if (row.status === "PAID" && notes === 0 && p.ok && !c.ok && c.code === "conflict" && row.cancelledAt === null) outcomes.paidWon++;
+        else if (row.status === "CANCELLED" && notes === 1 && c.ok && !p.ok && row.paidAt === null && row.refundedEur === 0) outcomes.cancelWon++;
+        else outcomes.inconsistent.push(`${row.status}/notes ${notes}/paidAt ${row.paidAt}/cancel ${JSON.stringify(c)}/pay ${JSON.stringify(p)}`);
+      }
+      check(outcomes.inconsistent.length === 0, `R2-01: 20 sampled simultaneous 'cancel (onlyFrom OPENSTAAND)' and 'mark paid' calls always end consistent (${outcomes.paidWon} paid first, ${outcomes.cancelWon} cancel first; never a paid order that was cancelled; this samples the interleavings, the forced ones follow)`, `R2-01 race: ${outcomes.inconsistent.slice(0, 2).join(" | ")}`);
+      // The same two interleavings, forced (the loop above only samples them and says nothing about which ones it hit).
+      {
+        // (a) the owner's payment lands between the sweep's list and its cancel: the stale cancel must be refused.
+        const a = await mkOrder({ status: "OPENSTAAND", qty: 2 });
+        const stockA = await a.stockNow();
+        const payFirst = await inv.markOrderPaidByBankTransfer(a.order.id, { receivedAmountEur: a.total });
+        const staleCancel = await inv.cancelOrder(a.order.id, { reason: "verouderde lijst", actor: "system", notifyCustomer: false, onlyFrom: ["OPENSTAAND"] });
+        const aRow = await prisma.order.findUniqueOrThrow({ where: { id: a.order.id } });
+        check(payFirst.ok && !staleCancel.ok && staleCancel.code === "conflict" && aRow.status === "PAID" && aRow.cancelledAt === null && aRow.refundedEur === 0 && (await notesOf(a.order.id)).length === 0 && (await a.stockNow()) === stockA,
+          "R2-01 (forced order a): payment first, then the sweep's stale cancel: typed conflict, order stays PAID, no credit note, no refund owed, stock untouched", `R2-01 forced a: ${JSON.stringify(staleCancel)} ${aRow.status} notes ${(await notesOf(a.order.id)).length}`);
+        // Negative control: the SAME call without onlyFrom does cancel and credit the paid order. Without this the check above could pass for the wrong reason.
+        const b = await mkOrder({ status: "OPENSTAAND", qty: 2 });
+        await inv.markOrderPaidByBankTransfer(b.order.id, { receivedAmountEur: b.total });
+        const blind = await inv.cancelOrder(b.order.id, { reason: "blind", actor: "system", notifyCustomer: false });
+        check(blind.ok && (await statusOf(b.order.id)) === "CANCELLED" && (await notesOf(b.order.id)).length === 1, "R2-01 (control): without onlyFrom the same cancel DOES cancel and credit a paid order, so the guard in (a) is what protects it", `R2-01 control: ${JSON.stringify(blind)}`);
+        // (b) the sweep wins: the late payment is refused and the order stays cancelled with its single credit note.
+        const c = await mkOrder({ status: "OPENSTAAND", qty: 2 });
+        const sweepFirst = await inv.cancelOrder(c.order.id, { reason: "verlopen", actor: "system", notifyCustomer: false, onlyFrom: ["OPENSTAAND"] });
+        const latePay = await inv.markOrderPaidByBankTransfer(c.order.id, { receivedAmountEur: c.total });
+        const cRow = await prisma.order.findUniqueOrThrow({ where: { id: c.order.id } });
+        check(sweepFirst.ok && !latePay.ok && cRow.status === "CANCELLED" && cRow.paidAt === null && (await notesOf(c.order.id)).length === 1, "R2-01 (forced order b): cancel first, then the payment: the payment is refused, still CANCELLED with exactly one credit note", `R2-01 forced b: ${JSON.stringify(latePay)} ${cRow.status}`);
+      }
+      const paid = await mkOrder({ status: "PAID", qty: 2 });
+      const stock0 = await paid.stockNow();
+      const notOnlyPaid = await inv.cancelOrder(paid.order.id, { reason: "veroudert besluit", actor: "system", onlyFrom: ["OPENSTAAND", "PENDING"] });
+      check(!notOnlyPaid.ok && notOnlyPaid.code === "conflict" && (await statusOf(paid.order.id)) === "PAID" && (await paid.stockNow()) === stock0 && (await notesOf(paid.order.id)).length === 0, "R2-01: a cancel whose onlyFrom does not list PAID leaves a PAID order alone (typed conflict, no credit note, stock untouched)", `R2-01 onlyFrom: ${JSON.stringify(notOnlyPaid)}`);
+
+      const noticesSince = async (m: number) => slackBodies.slice(m).map((x) => { try { return String(JSON.parse(x).text); } catch { return x; } });
+      // R2-14: an abandoned, never-invoiced, unpaid order cancelled by stripe or the system is not news.
+      const mark = slackBodies.length;
+      const abandoned = await mkOrder({ status: "PENDING", invoice: false });
+      const viaStripe = await inv.cancelOrder(abandoned.order.id, { reason: "Betaalsessie verlopen", actor: "stripe", notifyCustomer: false });
+      const abandoned2 = await mkOrder({ status: "PENDING", invoice: false });
+      const viaSystem = await inv.cancelOrder(abandoned2.order.id, { reason: "Betaling niet afgerond", actor: "system", notifyCustomer: false });
+      await new Promise((r) => setTimeout(r, 150));
+      check(viaStripe.ok && viaSystem.ok && (await noticesSince(mark)).length === 0, "R2-14 AFTER: abandoned PENDING orders cancelled by stripe/system send no owner notice", `R2-14: ${(await noticesSince(mark)).join(" | ")}`);
+      const adminCancel = await mkOrder({ status: "PENDING", invoice: false });
+      await inv.cancelOrder(adminCancel.order.id, { reason: "klant belde", actor: "admin", notifyCustomer: false });
+      const invoicedSystem = await mkOrder({ status: "OPENSTAAND" });
+      await inv.cancelOrder(invoicedSystem.order.id, { reason: "Niet betaald binnen de termijn", actor: "system", notifyCustomer: false });
+      const paidStripe = await mkOrder({ status: "PAID", method: "STRIPE" });
+      await inv.cancelOrder(paidStripe.order.id, { reason: "Betaling mislukt", actor: "stripe", notifyCustomer: false });
+      await new Promise((r) => setTimeout(r, 150));
+      check((await noticesSince(mark)).filter((t) => /geannuleerd/.test(t)).length === 3, "R2-14: an admin cancel, a system cancel of an INVOICED order and a cancel of a PAID order still reach the owner (3 notices)", `R2-14 others: ${(await noticesSince(mark)).length} notices`);
+      check(inv.isQuietCancellation({ wasPaid: false, hadInvoice: false }, "stripe") && inv.isQuietCancellation({ wasPaid: false, hadInvoice: false }, "system") && !inv.isQuietCancellation({ wasPaid: false, hadInvoice: false }, "admin") && !inv.isQuietCancellation({ wasPaid: false, hadInvoice: true }, "system") && !inv.isQuietCancellation({ wasPaid: true, hadInvoice: false }, "stripe"), "R2-14: isQuietCancellation is the one rule (unpaid + never invoiced + stripe/system)", "R2-14: isQuietCancellation wrong");
+
+      // R2-15: the restock record lives on the credit note and caps cumulatively; the guard for unshipped orders.
+      const sh = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 3 });
+      const base = await sh.stockNow();
+      const a1 = await inv.recordRefund(sh.order.id, { amountEur: 3, idempotencyKey: "qa-orders-rs-1", restock: [{ partId: sh.part.id, quantity: 2 }], notifyCustomer: false });
+      const a2 = await inv.recordRefund(sh.order.id, { amountEur: 3, idempotencyKey: "qa-orders-rs-2", restock: [{ partId: sh.part.id, quantity: 2 }], notifyCustomer: false });
+      const a3 = await inv.recordRefund(sh.order.id, { amountEur: 3, idempotencyKey: "qa-orders-rs-3", restock: [{ partId: sh.part.id, quantity: 1 }], notifyCustomer: false });
+      check(a1.ok && a1.restockedUnits === 2 && !a2.ok && a2.code === "invalid_input" && /maximaal 1/.test(a2.error) && a3.ok && (await sh.stockNow()) === base + 3 && (await inv.restockedByPart(sh.order.id)).get(sh.part.id) === 3,
+        "R2-15: ordered 3, restock 2 then 2 -> the second is refused (max 1 left, nothing booked), then 1 is accepted: stock +3 in total, never more than ordered", `R2-15 cap: ${JSON.stringify([a1.ok, a2, a3.ok])} stock ${await sh.stockNow()} vs ${base + 3}`);
+      check((await notesOf(sh.order.id)).length === 2, "R2-15: the refused refund booked no credit note", "R2-15: the refused restock left a credit note behind");
+      const unshipped = await mkOrder({ status: "PAID", method: "BANK_TRANSFER", qty: 2 });
+      const u0 = await unshipped.stockNow();
+      const bad = await inv.recordRefund(unshipped.order.id, { amountEur: 4, idempotencyKey: "qa-orders-rs-4", restock: [{ partId: unshipped.part.id, quantity: 1 }], notifyCustomer: false });
+      check(!bad.ok && bad.code === "invalid_input" && /annuleer/i.test(bad.error) && (await notesOf(unshipped.order.id)).length === 0 && (await unshipped.stockNow()) === u0, "R2-15: a restock on an unshipped PAID order is refused (cancel is the tool), nothing booked", `R2-15 unshipped: ${JSON.stringify(bad)}`);
+      const full = await inv.recordRefund(unshipped.order.id, { amountEur: unshipped.total, idempotencyKey: "qa-orders-rs-5", notifyCustomer: false });
+      check(full.ok && full.cancelled && (await unshipped.stockNow()) === u0 + 2, "R2-15: a full refund of an unshipped PAID order cancels it and puts exactly the ordered units back", `R2-15 full refund: ${JSON.stringify(full.ok)} stock ${await unshipped.stockNow()} vs ${u0 + 2}`);
+
+      // Webhook first, admin second, at the domain level: the replay applies the restock once and records it.
+      const wh = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 2 });
+      const w0 = await wh.stockNow();
+      const first = await inv.recordRefund(wh.order.id, { amountEur: 5, stripeRefundId: "re_qa_orders_wh", notifyCustomer: false });
+      const second = await inv.recordRefund(wh.order.id, { amountEur: 5, stripeRefundId: "re_qa_orders_wh", idempotencyKey: "qa-orders-wh-key", restock: [{ partId: wh.part.id, quantity: 1 }], notifyCustomer: false });
+      const third = await inv.recordRefund(wh.order.id, { amountEur: 5, stripeRefundId: "re_qa_orders_wh", idempotencyKey: "qa-orders-wh-key", restock: [{ partId: wh.part.id, quantity: 1 }], notifyCustomer: false });
+      const byKey = await inv.recordRefund(wh.order.id, { amountEur: 5, idempotencyKey: "qa-orders-wh-key", restock: [{ partId: wh.part.id, quantity: 1 }], notifyCustomer: false });
+      check(first.ok && second.ok && second.replayed && second.restockedUnits === 1 && third.ok && third.restockedUnits === 0 && byKey.ok && byKey.replayed && byKey.restockedUnits === 0 && (await wh.stockNow()) === w0 + 1 && (await notesOf(wh.order.id)).length === 1,
+        "R2-15: webhook books refund re_X first, the admin's booking of re_X is a replay that restocks once (+1), a repeat does not, and the same admin key now finds the note too", `R2-15 domain replay: ${JSON.stringify([first.ok, second.ok && [second.replayed, second.restockedUnits], third.ok && third.restockedUnits, byKey.ok && [byKey.replayed, byKey.restockedUnits]])} stock ${await wh.stockNow()} vs ${w0 + 1}`);
     }
 
     // ── 8. Guest token ──────────────────────────────────────────────────────
@@ -475,7 +569,8 @@ async function main() {
       const kvkOnly = probe({ COMPANY_KVK: "90000001" });
       const out1 = (kvkOnly.stdout.match(/(ISSUED|THROWN).*/) ?? [""])[0];
       check(out1.startsWith("THROWN CompanyNotReadyError") && (await prisma.invoice.count({ where: { orderId: o.order.id } })) === 0, `Production with only COMPANY_KVK: no invoice is issued (${out1})`, `Production kvk-only repro: ${out1} ${kvkOnly.stderr.slice(0, 200)}`);
-      const full = probe({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" });
+      // COMPANY_EMAIL belongs to the full identity since decision D15 (bundle FB): without it the company is not ready and no invoice is issued.
+      const full = probe({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789", COMPANY_EMAIL: "info@wasfix-test.nl" });
       const out2 = (full.stdout.match(/(ISSUED|THROWN).*/) ?? [""])[0];
       const issued = await prisma.invoice.findUnique({ where: { orderId: o.order.id } });
       const seller = issued ? JSON.parse(issued.sellerJson) : {};
@@ -489,7 +584,7 @@ async function main() {
       const joined = texts.join("\n---\n");
       check(texts.some((t) => /geannuleerd/i.test(t)) && texts.some((t) => /Betaling ontvangen/i.test(t)) && texts.some((t) => /Terugbetaling/i.test(t)), `Owner notices: cancel, payment and refund each reached the (local) Slack channel (${texts.length} messages)`, `Owner notices missing: ${texts.length} messages`);
       check(!/@qa-orders\.test/i.test(joined) && !/Piet|Jansen|Teststraat|1011/.test(joined), "Owner notices: no customer e-mail, name or address in any message", "Owner notices leak customer data");
-      check(/#[0-9A-Z]{8}/.test(joined) && /€ \d+\.\d{2}/.test(joined) && /\d+ artikel/.test(joined) && /\/admin\/bestellingen/.test(joined), "Owner notices: order number, total, item count and admin link are present", "Owner notices lack order number/total/items/link");
+      check(/#[0-9A-Z]{8}/.test(joined) && /€ \d+,\d{2}/.test(joined) && /\d+ artikel/.test(joined) && /\/admin\/bestellingen/.test(joined), "Owner notices: order number, total, item count and admin link are present", "Owner notices lack order number/total/items/link");
       // notifyOrderPlaced
       const o = await mkOrder({ status: "OPENSTAAND" });
       slackBodies.length = 0;
@@ -545,7 +640,7 @@ async function main() {
         "Cancel PAID in production with an incomplete company identity: no invoice is invented, the 40,00 refund is still owed and recorded",
         `Cancel PAID, company blocked: ${JSON.stringify(res)} refunded ${row.refundedEur} ${run.stderr.slice(0, 200)}`,
       );
-      check(texts.some((t) => /Nog terug te betalen: € 40\.00/.test(t) && /Geen factuur mogelijk/.test(t)), "Cancel PAID without a possible invoice: the owner is told what is still to be paid back", `Owner notice lacks the refund line: ${texts.join(" | ")}`);
+      check(texts.some((t) => /Nog terug te betalen: € 40,00/.test(t) && /Geen factuur mogelijk/.test(t)), "Cancel PAID without a possible invoice: the owner is told what is still to be paid back", `Owner notice lacks the refund line: ${texts.join(" | ")}`);
     }
 
     // 11b. Credit notes carry shipping and discount: the lines add up to the total.
@@ -707,7 +802,8 @@ async function main() {
           PROBE_ORDER_IDS: `${o1.order.id},${o2.order.id}`,
           NODE_ENV: "production",
           DEMO_MODE: "",
-          COMPANY_EMAIL: "",
+          // The contact address is part of company readiness (decision D15): without one nothing is invoiced.
+          COMPANY_EMAIL: "info@wasfix-test.nl",
           // Messy, as pasted: groups, lower case, stray spaces, a dotted KvK.
           COMPANY_NAME: "  WasFix   Test B.V.  ",
           COMPANY_STREET: " Teststraat 1 ",
@@ -727,10 +823,29 @@ async function main() {
       );
       const texts = (await slackTextsSince(mark)).filter((t) => /Bedrijfsgegevens zien er niet echt uit/.test(t));
       check(
-        texts.length === 1 && /COMPANY_KVK is een testnummer/.test(texts[0]) && /COMPANY_IBAN is een testrekening/.test(texts[0]) && /COMPANY_EMAIL ontbreekt/.test(texts[0]),
-        "Production with the sandbox test numbers: two invoices produce exactly ONE owner warning naming the test KvK/IBAN and the missing COMPANY_EMAIL",
+        texts.length === 1 && /COMPANY_KVK is een testnummer/.test(texts[0]) && /COMPANY_IBAN is een testrekening/.test(texts[0]),
+        "Production with the sandbox test numbers: two invoices produce exactly ONE owner warning naming the test KvK/IBAN (a missing COMPANY_EMAIL no longer only warns: it blocks, see below)",
         `Test-value warning: ${texts.length} message(s): ${texts.join(" | ").slice(0, 300)} ${run.stdout.slice(0, 200)}`,
       );
+    }
+
+    // 11g. D15: no contact address, no invoice (the old behaviour was a warning and an invoice anyway).
+    {
+      const o3 = await mkOrder({ status: "PAID", invoice: false });
+      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-noemail-")), "probe.ts");
+      writeFileSync(
+        probeFile,
+        `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
+         (async () => { const r = await issueInvoiceForOrder(process.env.PROBE_ORDER_IDS!); console.log("ISSUED " + (r && r.number)); })()
+           .catch((e) => console.log("THROWN " + e.name + " " + (e.missing ?? []).join(","))).finally(() => setTimeout(() => process.exit(0), 400));`,
+      );
+      const run = spawnSync("npx", ["tsx", probeFile], {
+        cwd: process.cwd(),
+        encoding: "utf8",
+        env: { ...process.env, PROBE_ORDER_IDS: o3.order.id, NODE_ENV: "production", DEMO_MODE: "", COMPANY_EMAIL: "", COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" },
+      });
+      const out = (run.stdout.match(/(ISSUED|THROWN).*/) ?? [""])[0];
+      check(/^THROWN CompanyNotReadyError.*email/.test(out) && (await prisma.invoice.count({ where: { orderId: o3.order.id } })) === 0, `Production with a complete identity but no COMPANY_EMAIL: no invoice (${out})`, `No-email repro: ${out} ${run.stderr.slice(0, 200)}`);
     }
   } finally {
     await cleanup().catch((e) => console.error("cleanup failed", e));

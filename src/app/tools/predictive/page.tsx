@@ -17,7 +17,7 @@ export default function PredictivePage() {
             Voorspellend <em>onderhoud</em>
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>
-            Vul je merk + leeftijd in. Wij berekenen een health-score per onderdeel-categorie op basis van bekende failure-rates en merk-betrouwbaarheid. Krijg een preventief bestel-pakket voor de 3 onderdelen met de laagste health.
+            Vul je merk + leeftijd in. Wij berekenen een health-score per onderdeel-categorie op basis van vuistregels over de gebruikelijke levensduur per onderdeel en een merkfactor. Dat zijn schattingen, geen metingen. Krijg een preventief bestel-pakket voor de 3 onderdelen met de laagste health.
           </p>
           <PredictiveClient />
         </div>

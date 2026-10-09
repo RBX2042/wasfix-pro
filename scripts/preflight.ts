@@ -182,11 +182,29 @@ export async function runPreflight(args: Args): Promise<Report> {
   {
     const g = "company";
     const readiness = companyReadiness();
-    if (readiness.ready) ok(g, "Bedrijfsgegevens (naam, adres, KvK, btw-nummer, IBAN) zijn compleet en geldig");
-    for (const p of readiness.problems) block(g, p.message, `Zet ${p.envVar} op de echte waarde uit je KvK-uittreksel / bankrekening en deploy opnieuw.`);
-    for (const w of readiness.warnings) (production ? block : warn)(g, w, /COMPANY_EMAIL/.test(w) ? "Zet COMPANY_EMAIL op het adres waarop klanten je bereiken (het is ook het standaardadres voor meldingen aan jou)." : "Dit is een bekend testnummer: zet de echte waarde uit je KvK-uittreksel of bankgegevens (COMPANY_* in de Production-omgeving).");
+    // "ok" is reported only when NOTHING below objects: this check used to print "compleet en geldig" and then
+    // block the very same fields as test numbers in the next lines (rehearsal D9).
+    let objections = 0;
+    for (const p of readiness.problems) {
+      objections++;
+      block(
+        g,
+        p.message,
+        p.field === "email"
+          ? "Zet COMPANY_EMAIL op het adres waarop klanten je bereiken (het staat op de contact-, privacy-, voorwaarden- en retourpagina's en is ook het standaardadres voor meldingen aan jou) en deploy opnieuw."
+          : `Zet ${p.envVar} op de echte waarde uit je KvK-uittreksel / bankrekening en deploy opnieuw.`,
+      );
+    }
+    for (const w of readiness.warnings) {
+      objections++;
+      (production ? block : warn)(g, w, "Dit is een bekend testnummer: zet de echte waarde uit je KvK-uittreksel of bankgegevens (COMPANY_* in de Production-omgeving).");
+    }
     const iban = get("COMPANY_IBAN");
-    if (iban && !isValidIban(iban) && !readiness.problems.some((p) => p.field === "iban")) block(g, "COMPANY_IBAN is geen geldige IBAN", "Controleer het rekeningnummer.");
+    if (iban && !isValidIban(iban) && !readiness.problems.some((p) => p.field === "iban")) {
+      objections++;
+      block(g, "COMPANY_IBAN is geen geldige IBAN", "Controleer het rekeningnummer.");
+    }
+    if (objections === 0) ok(g, "Bedrijfsgegevens (naam, adres, KvK, btw-nummer, IBAN) en het contactadres (COMPANY_EMAIL) zijn compleet, geldig en geen testnummers");
   }
 
   // ── auth (Clerk) ─────────────────────────────────────────────────────
@@ -238,7 +256,7 @@ export async function runPreflight(args: Args): Promise<Report> {
       else if (pub && pubMode !== mode) block(g, `De geheime Stripe-sleutel is ${mode}, de publiceerbare is ${pubMode ?? "onbekend"}.`, "Zet beide sleutels uit dezelfde modus.");
       else if (mode === "test") (production ? block : warn)(g, "STRIPE_SECRET_KEY is een testsleutel: er komt geen echt geld binnen.", production ? "Zet de live-sleutels in de Production-omgeving (testsleutels horen bij Preview/staging)." : "Prima voor staging.");
       else ok(g, "Stripe-sleutel is een livesleutel");
-      if (!get("STRIPE_WEBHOOK_SECRET")?.startsWith("whsec_")) block(g, "STRIPE_WEBHOOK_SECRET ontbreekt of begint niet met whsec_: elke webhook wordt geweigerd en betaalde bestellingen blijven op PENDING staan.", "Stripe Dashboard, Webhooks, het endpoint, Signing secret (test en live hebben elk een eigen).");
+      if (!get("STRIPE_WEBHOOK_SECRET")?.startsWith("whsec_")) block(g, "STRIPE_WEBHOOK_SECRET ontbreekt of begint niet met whsec_: elke webhook wordt geweigerd en betaalde bestellingen blijven op PENDING staan. De webshop biedt iDEAL en kaart daarom niet aan zolang dit ontbreekt (src/lib/cart-gate.ts: beide Stripe-sleutels zijn nodig), alleen betalen per bankoverschrijving.", "Stripe Dashboard, Webhooks, het endpoint, Signing secret (test en live hebben elk een eigen).");
       else ok(g, "STRIPE_WEBHOOK_SECRET is ingesteld");
       const prices = BILLABLE_PLANS.map((p) => ({ plan: p, env: p === "PARTICULIER" ? "STRIPE_PRICE_PARTICULIER" : p === "MONTEUR_PRO" ? "STRIPE_PRICE_MONTEUR" : "STRIPE_PRICE_BEDRIJF", id: get(p === "PARTICULIER" ? "STRIPE_PRICE_PARTICULIER" : p === "MONTEUR_PRO" ? "STRIPE_PRICE_MONTEUR" : "STRIPE_PRICE_BEDRIJF") }));
       for (const p of prices) {
@@ -589,14 +607,45 @@ async function probeDeployed(base: string, checks: Check[], ctx: { clerkHost: st
     if (bad.length) add("block", `/checkout bevat voorbeeldgegevens: ${bad.join(", ")}.`, "Zet de echte COMPANY_* waarden en deploy opnieuw.");
     else add("ok", "/checkout bevat geen voorbeeld-KvK, -btw-nummer of -IBAN");
   }
-  for (const p of ["/", "/contact", "/privacy", "/prijzen"]) {
+  // The legal pages are prerendered at BUILD time with the COMPANY_* values of that build (rehearsal R2-19:
+  // a build made without them and started later with them printed correct invoices but a /voorwaarden that still
+  // said "in oprichting"). So compare what the live pages say with the variables under test.
+  const { COMPANY_PLACEHOLDER_VALUES, canonicalCompanyValue } = await import("../src/lib/company-validate");
+  const { companyReadiness } = await import("../src/lib/plans");
+  const configured = companyReadiness().ready
+    ? { name: canonicalCompanyValue("name", get("COMPANY_NAME")), kvk: canonicalCompanyValue("kvk", get("COMPANY_KVK")), email: (get("COMPANY_EMAIL") ?? "").trim() }
+    : null;
+  const REDEPLOY = "De bedrijfsgegevens worden bij de build in de pagina's gebakken: deploy opnieuw (bouw opnieuw, niet alleen herstarten) na elke wijziging van COMPANY_*.";
+  for (const p of ["/", "/contact", "/privacy", "/prijzen", "/voorwaarden"]) {
     const r = await attempt(p, () => http(`${base}${p}`, { redirect: "follow" }));
     if (!r) continue;
     const html = await r.text();
-    const { COMPANY_PLACEHOLDER_VALUES } = await import("../src/lib/company-validate");
     const bad = placeholdersIn(html, COMPANY_PLACEHOLDER_VALUES);
-    if (bad.length) add("block", `${p} bevat voorbeeldgegevens: ${bad.join(", ")}.`, "Zet de echte COMPANY_* waarden en deploy opnieuw.");
+    if (bad.length) add("block", `${p} bevat voorbeeldgegevens: ${bad.join(", ")}.`, `Zet de echte COMPANY_* waarden en deploy opnieuw. ${REDEPLOY}`);
+    if (configured && (p === "/voorwaarden" || p === "/contact")) {
+      const text = visibleText(html);
+      const missing: string[] = [];
+      if (p === "/voorwaarden" && !text.includes(configured.name)) missing.push("de bedrijfsnaam");
+      if (!new RegExp(`(?<![0-9])${configured.kvk}(?![0-9])`).test(text)) missing.push("het KvK-nummer");
+      if (p === "/contact" && configured.email && !text.includes(configured.email)) missing.push("het contactadres");
+      if (missing.length) add("block", `De live ${p} toont ${missing.join(" en ")} uit COMPANY_* niet: de pagina is gebouwd met andere (of geen) bedrijfsgegevens dan nu zijn ingesteld.`, REDEPLOY);
+      else add("ok", `De live ${p} toont de ingestelde bedrijfsgegevens`);
+    }
   }
+}
+
+/** The text a visitor reads: scripts and styles dropped, tags stripped, the common entities decoded. */
+export function visibleText(html: string): string {
+  return html
+    .replace(/<(script|style)[\s\S]*?<\/\1>/gi, " ")
+    .replace(/<[^>]*>/g, "")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&(?:#39|#x27|apos);/g, "'")
+    .replace(/&quot;/g, '"')
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ");
 }
 
 export function render(report: Report): string {
@@ -611,11 +660,13 @@ export function render(report: Report): string {
     }
   }
   out.push("");
-  out.push(`RESULT: ${report.verdict} (${report.blockers} blocker(s), ${report.warnings} warning(s))`);
+  // The JSON keeps the English verdict values (READY / READY WITH WARNINGS / NOT READY) for scripts; the text report is Dutch like the rest of it.
+  const verdictNl: Record<Report["verdict"], string> = { READY: "KLAAR", "READY WITH WARNINGS": "KLAAR MET WAARSCHUWINGEN", "NOT READY": "NIET KLAAR" };
+  out.push(`UITSLAG: ${verdictNl[report.verdict]} (${report.blockers} blokkerend, ${report.warnings} waarschuwing(en))`);
   const skippedCount = report.checks.filter((c) => c.level === "skip").length;
-  if (skippedCount > 0) out.push(`NOTE: offline run, ${skippedCount} check(s) skipped. Run again with --live-checks (database, Stripe, Resend, Clerk) before relying on this verdict, and with --url <address> after the deploy.`);
+  if (skippedCount > 0) out.push(`LET OP: offline gedraaid, ${skippedCount} controle(s) overgeslagen. Draai opnieuw met --live-checks (database, Stripe, Resend, Clerk) voordat je op dit oordeel vertrouwt, en met --url <adres> na de deploy.`);
   const first = report.checks.find((c) => c.level === "block");
-  if (first) out.push(`\nNEXT STEP: [${first.group}] ${first.fix ?? first.message}\n(All ${report.blockers} blocker(s) are listed above with their fix; start from the top.)`);
+  if (first) out.push(`\nVOLGENDE STAP: [${first.group}] ${first.fix ?? first.message}\n(Alle ${report.blockers} blokkerende punten staan hierboven met hun oplossing; begin bovenaan.)`);
   return out.join("\n");
 }
 

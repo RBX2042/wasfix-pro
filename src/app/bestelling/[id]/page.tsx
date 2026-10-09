@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { CheckCircle2, FileText, Landmark, Loader2, Mail, Package, Truck, XCircle, ArrowRight } from "lucide-react";
+import { CheckCircle2, FileText, Landmark, Loader2, Mail, Package, Truck, Undo2, XCircle, ArrowRight } from "lucide-react";
 import { MarketingLayout } from "@/components/marketing-layout";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -67,11 +67,17 @@ export default async function OrderDetailPage({
   const awaitingCard = status === "PENDING" && order.paymentMethod === "STRIPE";
 
   const invoice = status === "CANCELLED" || awaitingTransfer || ["PAID", "SHIPPED", "DELIVERED"].includes(status) ? await getInvoiceForOrder(order.id) : null;
-  const creditNotes = status === "CANCELLED" && invoice ? await getCreditNotesForOrder(order.id) : [];
+  // Every credit note of the order, not only after a cancellation: a refund of a shipped order issues one too.
+  const creditNotes = invoice ? await getCreditNotesForOrder(order.id) : [];
 
   // Carry the token into the links on this page, so the invoice opens for the same guest.
   const tokenQs = via === "token" && token ? `?t=${encodeURIComponent(token)}` : "";
   const invoiceHref = `/bestelling/${order.id}/factuur${tokenQs}`;
+  const creditHref = (number: string) => `/bestelling/${order.id}/creditnota/${encodeURIComponent(number)}${tokenQs}`;
+  // The return form, prefilled with the order number. The viewer is allowed to see this order (token, owner or
+  // admin), so the order's own token goes along as the proof the form needs.
+  const canReturn = status === "SHIPPED" || status === "DELIVERED";
+  const returnHref = canReturn ? `/retour/start?order=${orderRef(order.id)}${order.accessToken ? `&t=${encodeURIComponent(order.accessToken)}` : ""}` : null;
 
   const iban = realOrNull(invoice?.seller.iban);
   const reference = invoice?.number ?? null;
@@ -197,6 +203,23 @@ export default async function OrderDetailPage({
           </CardContent>
         </Card>
 
+        {creditNotes.length > 0 && (
+          <Card className="mb-6">
+            <CardContent className="p-4 sm:p-6 text-sm">
+              <h2 className="font-heading text-lg font-semibold mb-2 flex items-center gap-2"><FileText className="h-4 w-4" aria-hidden /> Creditfactuur</h2>
+              <ul className="space-y-1.5">
+                {creditNotes.map((c) => (
+                  <li key={c.number}>
+                    <Link href={creditHref(c.number)} className="text-primary underline font-mono">{c.number}</Link>
+                    <span className="text-muted-foreground"> · {formatDate(c.issuedAt)} · -{formatEur(c.totalEur)} (incl. btw)</span>
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-muted-foreground mt-2">De factuur zelf blijft ongewijzigd; de creditfactuur corrigeert hem.</p>
+            </CardContent>
+          </Card>
+        )}
+
         <Card className="mb-6">
           <CardContent className="p-4 sm:p-6">
             <h2 className="font-heading text-lg font-semibold mb-4 flex items-center gap-2">
@@ -227,6 +250,11 @@ export default async function OrderDetailPage({
           {invoice && (
             <Button asChild variant="outline">
               <Link href={invoiceHref}><FileText className="h-4 w-4" /> Bekijk factuur</Link>
+            </Button>
+          )}
+          {returnHref && (
+            <Button asChild variant="outline">
+              <Link href={returnHref}><Undo2 className="h-4 w-4" /> Retour aanvragen</Link>
             </Button>
           )}
           <Button asChild>

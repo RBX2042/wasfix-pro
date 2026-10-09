@@ -99,6 +99,9 @@ jobs:
       COMPANY_KVK: "90000001"
       COMPANY_VAT: "NL900000010B01"
       COMPANY_IBAN: "NL02ABNA0123456789"
+      # Decision D15: the contact address is part of the identity the shop needs before it takes an order.
+      # The legal pages are prerendered at build time, so it must be set for the build as well.
+      COMPANY_EMAIL: "ci@wasfix-ci.test"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -153,6 +156,11 @@ jobs:
           # QA_REQUIRE_BROWSER=1: without Chromium the service-worker half would be SKIPPED silently; here a missing browser must fail.
           suite platform  env QA_REQUIRE_BROWSER=1 npx tsx scripts/qa-platform.ts  || status=1
           suite preflight npx tsx scripts/qa-preflight.ts                          || status=1
+          # fix round: the credit note as a document (data half; the HTTP half runs against the server below)
+          # and privacy (erasure through both doors, data export, guest orders, newsletter double opt-in).
+          # qa-privacy stubs "server-only" itself, so it runs without the react-server condition.
+          suite creditnote npx tsx --conditions=react-server scripts/qa-credit-note.ts || status=1
+          suite privacy    env VERCEL=1 npx tsx scripts/qa-privacy.ts              || status=1
           exit $status
 
       - name: Content-Security-Policy probe in Chromium
@@ -188,6 +196,9 @@ jobs:
           status=0
           npx tsx --conditions=react-server scripts/qa-checkout.ts   || status=1
           npx tsx --conditions=react-server scripts/qa-storefront.ts || status=1
+          # The credit-note page over HTTP: who may open it. Only the anonymous half; the admin half needs a
+          # DEMO_MODE server and is reported as SKIPPED here, not passed (QA_BASE_URL is the anonymous server, so unset it).
+          env -u QA_BASE_URL npx tsx --conditions=react-server scripts/qa-credit-note.ts || status=1
           exit $status
 
       - name: CSP on the real pages of the production server

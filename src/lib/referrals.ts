@@ -42,6 +42,7 @@ import { prisma } from "./prisma";
 import { isDatabaseConfigured } from "./env";
 import { logger } from "./logger";
 import { SHIPPING, VAT_RATE } from "./plans";
+import { isGuestHolderEmail } from "./checkout-user";
 
 export const REF_COOKIE = "wasfix-ref";
 // Defined in ./visitor so scripts can import it without server-only.
@@ -249,12 +250,15 @@ export async function recordConversion(
     if (!PAID_STATUSES.includes(order.status)) return noReward("order_not_paid");
 
     // The buyer's first PAID order: nothing paid before this one, by account or by e-mail address.
-    const buyerEmails = [normaliseEmail(order.email), normaliseEmail(order.user?.email)].filter(Boolean);
+    // A guest order that hangs on the shared placeholder row (decision D16) belongs to nobody in particular: its
+    // userId would match the paid orders of every other stranger, so for those only the e-mail address counts.
+    const onGuestHolder = isGuestHolderEmail(order.user?.email);
+    const buyerEmails = [normaliseEmail(order.email), onGuestHolder ? "" : normaliseEmail(order.user?.email)].filter(Boolean);
     const earlier = await prisma.order.count({
       where: {
         id: { not: order.id },
         status: { in: PAID_STATUSES },
-        OR: [{ userId: order.userId }, ...buyerEmails.map((email) => ({ email: { equals: email, mode: "insensitive" as const } }))],
+        OR: [...(onGuestHolder ? [] : [{ userId: order.userId }]), ...buyerEmails.map((email) => ({ email: { equals: email, mode: "insensitive" as const } }))],
         createdAt: { lte: order.createdAt },
       },
     });

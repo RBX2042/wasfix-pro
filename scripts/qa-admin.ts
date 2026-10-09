@@ -30,10 +30,18 @@ async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
   // ── Stand-ins, before anything that reads the environment is imported ───
   const slackBodies: string[] = [];
+  // Test switches: hold the answer to an owner notice about a cancellation (so the sweep is "busy" on
+  // one order while the test acts on another), and make the mail provider refuse.
+  const slackState = { cancelDelayMs: 0 };
+  const resendState = { fail: false };
   const slack = http.createServer((req, res) => {
     let body = "";
     req.on("data", (c) => (body += c));
-    req.on("end", () => { slackBodies.push(body); res.statusCode = 200; res.end("ok"); });
+    req.on("end", () => {
+      slackBodies.push(body);
+      const hold = slackState.cancelDelayMs > 0 && /geannuleerd/.test(body) ? slackState.cancelDelayMs : 0;
+      setTimeout(() => { res.statusCode = 200; res.end("ok"); }, hold);
+    });
   });
   await new Promise<void>((r) => slack.listen(0, "127.0.0.1", r));
   const mails: Captured[] = [];
@@ -41,6 +49,11 @@ async function main() {
     let body = "";
     req.on("data", (c) => (body += c));
     req.on("end", () => {
+      if (resendState.fail) {
+        res.writeHead(500, { "content-type": "application/json" });
+        res.end(JSON.stringify({ name: "application_error", message: "qa: the provider is down", statusCode: 500 }));
+        return;
+      }
       try {
         const m = JSON.parse(body);
         mails.push({ to: Array.isArray(m.to) ? m.to : [m.to], subject: String(m.subject), html: String(m.html ?? "") });
@@ -63,7 +76,7 @@ async function main() {
     COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789",
   });
 
-  const { PrismaClient, Prisma } = await import("@prisma/client");
+  const { PrismaClient } = await import("@prisma/client");
   const prisma = new PrismaClient();
   const inv = await import("../src/lib/invoicing");
   const st = await import("../src/lib/order-status");
@@ -96,7 +109,7 @@ async function main() {
     const orders = await prisma.order.findMany({ where: { email: { endsWith: `@${DOMAIN}` } }, select: { id: true } });
     const ids = orders.map((o) => o.id);
     await prisma.rmaRequest.deleteMany({ where: { email: { endsWith: `@${DOMAIN}` } } });
-    await prisma.usageCounter.deleteMany({ where: { OR: [{ scope: "payment-reminder", key: { in: ids.flatMap((i) => [`${i}:due`, `${i}:last`, `${i}:due:fail`, `${i}:last:fail`]) } }, { key: { startsWith: "ip:qa-admin" } }, { scope: "qa-admin" }] } });
+    await prisma.usageCounter.deleteMany({ where: { OR: [{ scope: "payment-reminder", key: { in: ids.flatMap((i) => [`${i}:due`, `${i}:last`, `${i}:due:fail`, `${i}:last:fail`]) } }, { key: { startsWith: "ip:qa-admin" } }, { scope: "qa-admin" }, { scope: "mail-resend", key: { in: ids.flatMap((i) => [`${i}:bank-instructions`, `${i}:order-paid`, `${i}:payment-received`]) } }] } });
     await prisma.creditNote.deleteMany({ where: { invoice: { orderId: { in: ids } } } });
     await prisma.creditNote.deleteMany({ where: { number: { startsWith: "CN-29" } } });
     await prisma.invoice.deleteMany({ where: { orderId: { in: ids } } });
@@ -221,7 +234,6 @@ async function main() {
       const b = await mkOrder({ status: "OPENSTAAND", qty: 1, price: 34.45, email: `pietersen@${DOMAIN}`, name: "K. Pietersen" });
       const c = await mkOrder({ status: "OPENSTAAND", qty: 1, price: 12.1, email: `devries@${DOMAIN}`, name: "M. de Vries" });
       const invA = await invoiceOf(a.order.id);
-      const invB = await invoiceOf(b.order.id);
       const line = `${invA.number} EUR 34,45`;
       const one = await q.listOrders({ q: line });
       check(one.mode === "search" && one.total === 1 && one.rows[0].id === a.order.id, `Bank line "${line}": ONE search finds exactly the order (two open invoices have the same amount 34,45)`, `Bank line search gave ${one.total} rows, mode ${one.mode}`);
@@ -545,7 +557,7 @@ async function main() {
       const authMod = await import("../src/app/api/cron/_lib/auth");
       const call = async (route: { GET: (r: Request) => Promise<Response> }, auth?: string) => {
         const res = await route.GET(new Request("http://localhost/api/cron/x", { headers: auth ? { authorization: auth } : {} }));
-        return { status: res.status, json: (await res.json()) as Record<string, any> }; // eslint-disable-line @typescript-eslint/no-explicit-any
+        return { status: res.status, json: (await res.json()) as Record<string, any> };  
       };
       const secret = process.env.CRON_SECRET!;
 
@@ -612,7 +624,7 @@ async function main() {
       const run3 = await call(ordersRoute, `Bearer ${secret}`);
       await settle();
       check(mails.filter((m) => /herinnering/i.test(m.subject)).length === 0 && run2.json.reminders.alreadySent >= 2, `Reminders are idempotent: two more runs sent 0 mails (alreadySent ${run2.json.reminders.alreadySent})`, `Reminders repeated: ${mails.map((m) => m.subject)}`);
-      const parallel = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -2, email: `par@${DOMAIN}` });
+      await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -2, email: `par@${DOMAIN}` });
       mails.length = 0;
       await Promise.all([call(ordersRoute, `Bearer ${secret}`), call(ordersRoute, `Bearer ${secret}`), call(ordersRoute, `Bearer ${secret}`)]);
       await settle();
@@ -814,8 +826,8 @@ async function main() {
     {
       // Margin: only QUOTE counts as confirmed.
       const m0 = await eco.shopMargin();
-      const quote = await mkOrder({ status: "PAID", qty: 2, price: 121, partExtra: { costEur: 60, costSource: "QUOTE" }, invoice: false });
-      const est = await mkOrder({ status: "SHIPPED", qty: 1, price: 121, partExtra: { costEur: 20, costSource: "ESTIMATE" }, invoice: false });
+      await mkOrder({ status: "PAID", qty: 2, price: 121, partExtra: { costEur: 60, costSource: "QUOTE" }, invoice: false });
+      await mkOrder({ status: "SHIPPED", qty: 1, price: 121, partExtra: { costEur: 20, costSource: "ESTIMATE" }, invoice: false });
       const unk = await mkOrder({ status: "DELIVERED", qty: 1, price: 121, invoice: false });
       void unk;
       const m1 = await eco.shopMargin();
@@ -980,7 +992,7 @@ async function main() {
       const base = process.env.QA_BASE_URL;
       if (base) {
         // Playwright is installed globally on this machine, not in the project: no types, so keep it loose.
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         const pw = (await import("/opt/node22/lib/node_modules/playwright/index.js" as string)).default as any;
         const browser = await pw.chromium.launch();
         try {
@@ -1027,6 +1039,421 @@ async function main() {
           const without = await idx("?order=abc12345");
           const robots = (h: string) => /<meta name="robots" content="[^"]*noindex/.test(h);
           check(robots(withTok) && !robots(without), "/retour/start?t=<token> sends noindex (D2); without a token the page stays indexable", `retour/start robots: with token ${robots(withTok)}, without ${robots(without)}`);
+          await ctx.close();
+        } finally {
+          await browser.close();
+        }
+      }
+    }
+
+    // ═══ FA. Order desk and domain correctness (bundle FA) ══════════════════
+    const mailsTo = (email: string) => mails.filter((m) => m.to.includes(email));
+    const orderRefOf = (id: string) => st.orderRef(id);
+    {
+      // R2-01: the expiry sweep must not cancel an order the owner has just marked paid.
+      const { releaseExpiredBankTransferOrders } = await import("../src/lib/cart-expiry");
+      const A = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -30, email: `race-a@${DOMAIN}` });
+      const B = await mkOrder({ status: "OPENSTAAND", qty: 2, dueInDays: -29, email: `race-b@${DOMAIN}`, price: 13.15 });
+      const C = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -28, email: `race-c@${DOMAIN}` });
+      const stockB = await B.stockNow();
+      mails.length = 0;
+      slackBodies.length = 0;
+      slackState.cancelDelayMs = 700; // the sweep is busy telling the owner about A for 0.7 s
+      const sweep = releaseExpiredBankTransferOrders({ limit: 10, partIds: [A.part.id, B.part.id, C.part.id] });
+      for (let i = 0; i < 100 && !slackBodies.some((b) => /geannuleerd/.test(b)); i++) await new Promise((r) => setTimeout(r, 20));
+      const paid = await inv.markOrderPaidByBankTransfer(B.order.id, { receivedAmountEur: B.total });
+      const result = await sweep;
+      slackState.cancelDelayMs = 0;
+      await settle();
+      const bRow = await row(B.order.id);
+      check(paid.ok && bRow.status === "PAID" && bRow.cancelledAt === null && bRow.refundedEur === 0 && (await inv.getCreditNotesForOrder(B.order.id)).length === 0 && (await B.stockNow()) === stockB,
+        "R2-01 AFTER: the owner marks B paid while the sweep is busy with A: B stays PAID (no cancellation, no credit note, no refund owed, stock untouched)", `R2-01: B ended ${bRow.status}, refunded ${bRow.refundedEur}, credit notes ${(await inv.getCreditNotesForOrder(B.order.id)).length}`);
+      check((await row(A.order.id)).status === "CANCELLED" && (await row(C.order.id)).status === "CANCELLED" && result.cancelled === 2 && result.conflicts === 1 && result.failed === 0,
+        `R2-01: the sweep still cancelled A and C and reports B as a conflict (${JSON.stringify(result)})`, `R2-01: sweep result ${JSON.stringify(result)}`);
+      check(!mailsTo(`race-b@${DOMAIN}`).some((m) => /geannuleerd/i.test(m.subject)) && slackTexts().filter((t) => /geannuleerd/.test(t)).length === 2 && !slackTexts().some((t) => /Nog terug te betalen/.test(t)),
+        "R2-01: B's customer got no cancellation mail and the owner got exactly two cancellation notices (A and C) and no 'Nog terug te betalen'", `R2-01: B was told ${mailsTo(`race-b@${DOMAIN}`).map((m) => m.subject)}; owner texts about B: ${slackTexts().filter((t) => t.includes(orderRefOf(B.order.id))).join(" | ")}`);
+
+      // BEFORE: the same stale decision without the guard cancels a PAID order (this is what the sweep used to do).
+      const D = await mkOrder({ status: "OPENSTAAND", qty: 2, dueInDays: -30, email: `race-d@${DOMAIN}`, price: 13.15 });
+      await inv.markOrderPaidByBankTransfer(D.order.id, { receivedAmountEur: D.total });
+      const unguarded = await inv.cancelOrder(D.order.id, { reason: "Niet betaald binnen de termijn", actor: "system" });
+      const dRow = await row(D.order.id);
+      check(unguarded.ok && dRow.status === "CANCELLED" && dRow.paidAt !== null && dRow.refundedEur > 0 && (await inv.getCreditNotesForOrder(D.order.id)).length === 1,
+        "R2-01 BEFORE (what the guard prevents): a cancel without onlyFrom on the order that was just marked paid ends CANCELLED with paidAt set, a credit note and a refund obligation", `R2-01 before: ${JSON.stringify(unguarded)} ${dRow.status}`);
+      const E = await mkOrder({ status: "OPENSTAAND", qty: 2, dueInDays: -30, email: `race-e@${DOMAIN}`, price: 13.15 });
+      await inv.markOrderPaidByBankTransfer(E.order.id, { receivedAmountEur: E.total });
+      const guarded = await inv.cancelOrder(E.order.id, { reason: "Niet betaald binnen de termijn", actor: "system", onlyFrom: ["OPENSTAAND"] });
+      check(!guarded.ok && guarded.code === "conflict" && (await row(E.order.id)).status === "PAID", "R2-01: cancelOrder with onlyFrom=[OPENSTAAND] on a PAID order returns a typed conflict and changes nothing", `R2-01 guard: ${JSON.stringify(guarded)}`);
+      const F = await mkOrder({ status: "OPENSTAAND", qty: 1, email: `race-f@${DOMAIN}` });
+      await inv.cancelOrder(F.order.id, { reason: "eerst", actor: "admin" });
+      const replay = await inv.cancelOrder(F.order.id, { reason: "tweede", actor: "system", onlyFrom: ["OPENSTAAND"] });
+      check(replay.ok && replay.alreadyCancelled, "R2-01: a guarded cancel of an order that is ALREADY cancelled is still the harmless replay, not a conflict", `R2-01 replay: ${JSON.stringify(replay)}`);
+
+      // The admin's cancel action carries the status the page showed.
+      const G = await mkOrder({ status: "OPENSTAAND", qty: 1, email: `race-g@${DOMAIN}` });
+      await inv.markOrderPaidByBankTransfer(G.order.id, { receivedAmountEur: G.total });
+      const stale = await ordAct.cancelOrderAction(null, fd({ orderId: G.order.id, reason: "pagina was oud", confirm: "on", expectedStatus: "OPENSTAAND" }));
+      check(!stale.ok && /intussen gewijzigd/.test(stale.error ?? "") && (await row(G.order.id)).status === "PAID" && (await inv.getCreditNotesForOrder(G.order.id)).length === 0,
+        `R2-01: the admin cancel form of a page that showed "Wacht op overschrijving" is refused once the order is PAID ("${stale.error?.slice(0, 80)}")`, `R2-01 admin: ${JSON.stringify(stale)}`);
+      const fresh = await ordAct.cancelOrderAction(null, fd({ orderId: G.order.id, reason: "pagina was vers", confirm: "on", expectedStatus: "PAID" }));
+      check(fresh.ok && (await row(G.order.id)).status === "CANCELLED", "R2-01: the same action with the status the page really showed (PAID) cancels", `R2-01 admin fresh: ${JSON.stringify(fresh)}`);
+    }
+
+    {
+      // R2-11: resend actions, the alert names the order, nothing changes but a mail.
+      const O = await mkOrder({ status: "OPENSTAAND", qty: 2, email: `resend-o@${DOMAIN}`, name: "Resend Klant" });
+      const before = await row(O.order.id);
+      const stockBefore = await O.stockNow();
+      mails.length = 0;
+      const r1 = await ordAct.resendOrderMailAction(null, fd({ orderId: O.order.id, kind: "bank-instructions" }));
+      await settle();
+      const sent = mailsTo(`resend-o@${DOMAIN}`);
+      const after = await row(O.order.id);
+      check(r1.ok && sent.length === 1 && sent[0].html.includes("NL02ABNA0123456789") && sent[0].html.includes((await invoiceOf(O.order.id)).number),
+        "R2-11: 'stuur betaalinstructies opnieuw' mails the IBAN and the invoice number again", `R2-11 resend: ${JSON.stringify(r1)} mails ${sent.length}`);
+      check(after.status === before.status && after.updatedAt.getTime() === before.updatedAt.getTime() && (await O.stockNow()) === stockBefore && (await prisma.invoice.count({ where: { orderId: O.order.id } })) === 1,
+        "R2-11: resending only sends: status, order row, stock and invoice are untouched", "R2-11: resend changed the order");
+      // The export the checkout is asked to call after its response (crossFileNeed): by id, no request context, never throws.
+      const { sendBankTransferInstructionsForOrder } = await import("../src/lib/email");
+      mails.length = 0;
+      const byId = await sendBankTransferInstructionsForOrder(O.order.id);
+      const gone = await sendBankTransferInstructionsForOrder("does-not-exist");
+      check(byId.ok && mailsTo(`resend-o@${DOMAIN}`).length === 1 && mailsTo(`resend-o@${DOMAIN}`)[0].html.includes("NL02ABNA0123456789") && !gone.ok,
+        "R2-11: sendBankTransferInstructionsForOrder(orderId) (what checkout must call after its response) sends the stored IBAN mail and returns {ok:false} for an unknown order instead of throwing", `R2-11 by id: ${JSON.stringify(byId)} ${JSON.stringify(gone)}`);
+      const r2 = await ordAct.resendOrderMailAction(null, fd({ orderId: O.order.id, kind: "bank-instructions" }));
+      check(!r2.ok && /zojuist|minuut/i.test(r2.error ?? "") && mailsTo(`resend-o@${DOMAIN}`).length === 1, "R2-11: a second click within a minute is refused (rate limit per order and mail) and sends nothing", `R2-11 limit: ${JSON.stringify(r2)}`);
+      const { resendOrderMail } = await import("../src/app/admin/_lib/mail-resend");
+      const r3 = await resendOrderMail(O.order.id, "bank-instructions", new Date(Date.now() + 61_000));
+      check(r3.ok && mailsTo(`resend-o@${DOMAIN}`).length === 2, "R2-11: after the minute the mail can be sent again", `R2-11 window: ${JSON.stringify(r3)}`);
+      const r4 = await ordAct.resendOrderMailAction(null, fd({ orderId: O.order.id, kind: "payment-received" }));
+      check(!r4.ok && /niet in de toestand/i.test(r4.error ?? "") && mailsTo(`resend-o@${DOMAIN}`).length === 2, "R2-11: 'betaling ontvangen' for an UNPAID order is refused (a wrong button cannot confirm a payment that did not happen)", `R2-11 wrong kind: ${JSON.stringify(r4)}`);
+      const bogus = await ordAct.resendOrderMailAction(null, fd({ orderId: O.order.id, kind: "welcome" }));
+      check(!bogus.ok, "R2-11: an unknown mail kind is refused", `R2-11 bogus kind: ${JSON.stringify(bogus)}`);
+
+      // A refused send names the order (not the customer) and does not lock the owner out.
+      const P = await mkOrder({ status: "PAID", method: "STRIPE", qty: 1, email: `resend-p@${DOMAIN}`, name: "Geheime Naam" });
+      slackBodies.length = 0;
+      resendState.fail = true;
+      const bad = await ordAct.resendOrderMailAction(null, fd({ orderId: P.order.id, kind: "order-paid" }));
+      resendState.fail = false;
+      await settle();
+      const alert = slackTexts().find((t) => /E-mail niet verstuurd/.test(t)) ?? "";
+      check(!bad.ok && alert.includes(`#${orderRefOf(P.order.id)}`) && !alert.includes(`resend-p@${DOMAIN}`) && !alert.includes("Geheime Naam"),
+        `R2-11: when Resend refuses, the owner alert names the order #${orderRefOf(P.order.id)} and contains no customer name or address`, `R2-11 alert: ${JSON.stringify(bad)} ${alert.slice(0, 300)}`);
+      const ok2 = await ordAct.resendOrderMailAction(null, fd({ orderId: P.order.id, kind: "order-paid" }));
+      check(ok2.ok && mailsTo(`resend-p@${DOMAIN}`).some((m) => /Betaling ontvangen/.test(m.subject)), "R2-11: after a FAILED send the window is given back: the retry goes through at once and sends the Stripe confirmation", `R2-11 retry: ${JSON.stringify(ok2)}`);
+    }
+
+    {
+      // The new actions are admin only: with no signed-in admin (production, no demo auth) they refuse or throw, and nothing is sent or issued.
+      const O = await mkOrder({ status: "OPENSTAAND", qty: 1, email: `guard-o@${DOMAIN}` });
+      const P = await mkOrder({ status: "PAID", method: "STRIPE", qty: 1, invoice: false, email: `guard-p@${DOMAIN}` });
+      const probe = path.join(tmpdir(), `qa-admin-guard-${Date.now()}.ts`);
+      writeFileSync(
+        probe,
+        `import { resendOrderMailAction, issueInvoiceAction, cancelOrderAction } from ${JSON.stringify(path.join(ROOT, "src/app/admin/bestellingen/actions"))};
+         const fd = (o: Record<string, string>) => { const f = new FormData(); for (const [k, v] of Object.entries(o)) f.set(k, v); return f; };
+         const run = async (name: string, fn: () => Promise<{ ok: boolean; error?: string }>) => { try { const r = await fn(); console.log("RESULT " + name + " " + JSON.stringify({ ok: r.ok, error: r.error })); } catch (e) { console.log("RESULT " + name + " " + JSON.stringify({ ok: false, error: "threw" })); } };
+         (async () => {
+           await run("resend", () => resendOrderMailAction(null, fd({ orderId: ${JSON.stringify(O.order.id)}, kind: "bank-instructions" })));
+           await run("invoice", () => issueInvoiceAction(null, fd({ orderId: ${JSON.stringify(P.order.id)} })));
+           await run("cancel", () => cancelOrderAction(null, fd({ orderId: ${JSON.stringify(O.order.id)}, reason: "ongeautoriseerd", confirm: "on" })));
+         })().finally(() => setTimeout(() => process.exit(0), 300));`,
+      );
+      mails.length = 0;
+      const child = spawnSync("npx", ["tsx", probe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, NODE_ENV: "production", DEMO_MODE: "", NEXT_PUBLIC_DEMO_MODE: "" } });
+      unlinkSync(probe);
+      const results = [...child.stdout.matchAll(/RESULT (\w+) (\{.*\})/g)].map((m) => [m[1], JSON.parse(m[2]) as { ok: boolean }] as const);
+      check(
+        results.length === 3 && results.every(([, r]) => r.ok === false) && mailsTo(`guard-o@${DOMAIN}`).length === 0 && (await row(O.order.id)).status === "OPENSTAAND" && (await prisma.invoice.count({ where: { orderId: P.order.id } })) === 0,
+        "The resend, issue-invoice and cancel actions refuse a caller who is not a signed-in admin: no mail, no invoice, no cancellation",
+        `Admin guard: ${JSON.stringify(results)} ${child.stderr.slice(0, 300)}`,
+      );
+    }
+
+    {
+      // R2-21: a paid order without an invoice gets a list, a button, and an invoice.
+      const N = await mkOrder({ status: "PAID", method: "STRIPE", qty: 1, invoice: false, email: `noinv@${DOMAIN}` });
+      const list = await q.listOrders({ view: "zonder-factuur" });
+      const c0 = await q.orderCounts();
+      check(list.rows.some((r) => r.id === N.order.id) && c0["zonder-factuur"] >= 1 && list.rows.every((r) => r.invoice === null && ["PAID", "SHIPPED", "DELIVERED"].includes(r.status)),
+        "R2-21: the 'Betaald zonder factuur' view lists the paid order that has no invoice (and only such orders)", `R2-21 view: ${list.rows.length} rows, count ${c0["zonder-factuur"]}`);
+      const unpaid = await mkOrder({ status: "OPENSTAAND", qty: 1, invoice: false, email: `noinv2@${DOMAIN}` });
+      const refusedInv = await ordAct.issueInvoiceAction(null, fd({ orderId: unpaid.order.id }));
+      check(!refusedInv.ok && (await prisma.invoice.count({ where: { orderId: unpaid.order.id } })) === 0, "R2-21: 'Factuur aanmaken' on an unpaid order is refused", `R2-21 unpaid: ${JSON.stringify(refusedInv)}`);
+      const made = await ordAct.issueInvoiceAction(null, fd({ orderId: N.order.id }));
+      const inv1 = await prisma.invoice.findUnique({ where: { orderId: N.order.id } });
+      check(made.ok && !!inv1 && /vandaag/.test(made.message ?? "") && !(await q.listOrders({ view: "zonder-factuur" })).rows.some((r) => r.id === N.order.id), `R2-21: 'Factuur aanmaken' issues the invoice (${inv1?.number}), says its date is today, and the order leaves the list`, `R2-21 issue: ${JSON.stringify(made)}`);
+      const again = await ordAct.issueInvoiceAction(null, fd({ orderId: N.order.id }));
+      check(again.ok && /al een factuur/.test(again.message ?? "") && (await prisma.invoice.count({ where: { orderId: N.order.id } })) === 1, "R2-21: pressing it again does not burn a second number", `R2-21 again: ${JSON.stringify(again)}`);
+    }
+
+    {
+      // D11: a fully refunded shipped order leaves Onderweg and gets its own view; partly refunded stays.
+      const full = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 1, email: `refunded@${DOMAIN}` });
+      const part = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 2, email: `partly@${DOMAIN}` });
+      const c0 = await q.orderCounts();
+      const r1 = await inv.recordRefund(full.order.id, { amountEur: full.total, idempotencyKey: `qa-admin-full-${full.order.id}`, notifyCustomer: false });
+      const r2 = await inv.recordRefund(part.order.id, { amountEur: 5, idempotencyKey: `qa-admin-part-${part.order.id}`, notifyCustomer: false });
+      const onderweg = await q.listOrders({ view: "onderweg" });
+      const terug = await q.listOrders({ view: "terugbetaald" });
+      const c1 = await q.orderCounts();
+      const fullRow = await row(full.order.id);
+      check(r1.ok && r2.ok && fullRow.status === "SHIPPED" && q.isFullyRefunded(fullRow) && !onderweg.rows.some((r) => r.id === full.order.id) && terug.rows.some((r) => r.id === full.order.id) && onderweg.rows.some((r) => r.id === part.order.id) && !terug.rows.some((r) => r.id === part.order.id),
+        "D11: a fully refunded SHIPPED order leaves 'Onderweg' and shows under 'Volledig terugbetaald'; a partly refunded one stays on its way", `D11: onderweg has full ${onderweg.rows.some((r) => r.id === full.order.id)}, terugbetaald has full ${terug.rows.some((r) => r.id === full.order.id)}`);
+      check(c1.onderweg === c0.onderweg - 1 && c1.terugbetaald === c0.terugbetaald + 1 && c1.onderweg + c1.terugbetaald + c1.afgerond === (await prisma.order.count({ where: { status: { in: ["SHIPPED", "DELIVERED"] } } })), "D11: the tab counts add up (shipped + delivered = onderweg + afgerond + terugbetaald)", `D11 counts: ${JSON.stringify(c0)} -> ${JSON.stringify(c1)}`);
+    }
+
+    {
+      // R2-21: the revenue chart reads Invoice minus CreditNote and agrees with the card.
+      const todayBar = async () => inv.money((await eco.revenuePerDay(1))[0].revenueEur);
+      const oldTodayGrouping = async () => {
+        // What the chart used to show: paid orders grouped by their order date, credit notes ignored.
+        const startUtc = new Date(Date.now() - 36 * 3600_000);
+        const rows = await prisma.order.findMany({ where: { status: { in: ["PAID", "SHIPPED", "DELIVERED"] }, createdAt: { gte: startUtc } }, select: { totalEur: true } });
+        return inv.money(rows.reduce((a, r) => a + r.totalEur, 0));
+      };
+      const bar0 = await todayBar();
+      const R1 = await mkOrder({ status: "PAID", method: "STRIPE", qty: 3, price: 20, email: `rev1@${DOMAIN}` });
+      const bar1 = await todayBar();
+      const old1 = await oldTodayGrouping();
+      await inv.recordRefund(R1.order.id, { amountEur: 12.34, idempotencyKey: `qa-admin-rev-${R1.order.id}`, notifyCustomer: false });
+      const bar2 = await todayBar();
+      const old2 = await oldTodayGrouping();
+      // Differential, on this test's own order, so it does not depend on what else is in the database: a new paid
+      // invoice raises today's bar by its total, and the refund LOWERS it by the credit note. The old grouping saw
+      // the first and never the second, which is the bug (it showed revenue the shop had paid back).
+      check(inv.money(bar1 - bar0) === R1.total && inv.money(bar2 - bar1) === -12.34 && inv.money(old2 - old1) === 0,
+        `R2-21 differential: the order raises today's bar by ${R1.total}, the 12,34 refund lowers it by 12,34 (bar ${bar0} -> ${bar1} -> ${bar2}); the old grouping by order date did not move on the refund (${old1} -> ${old2})`,
+        `R2-21 differential: bars ${bar0} -> ${bar1} -> ${bar2}, old grouping ${old1} -> ${old2}, order total ${R1.total}`);
+      const card = await eco.paidRevenue();
+      const chart = await eco.revenuePerDay(3650);
+      const sum = inv.money(chart.reduce((a, d) => a + d.revenueEur, 0));
+      // The card counts paid ORDERS, the chart the INVOICES: they differ by exactly the paid orders that have no invoice
+      // (the dashboard says so next to the chart), and by nothing else.
+      const noInv = await eco.paidWithoutInvoice();
+      // Documents dated in the future (the year-2999 numbering fixtures of an earlier section) are not on a chart that ends today.
+      const [future] = await prisma.$queryRaw<{ net: number }[]>`
+        SELECT (COALESCE((SELECT SUM(i."totalEur") FROM "Invoice" i JOIN "Order" o ON o."id" = i."orderId" WHERE o."status" IN ('PAID','SHIPPED','DELIVERED') AND i."issuedAt" > now()), 0)
+              - COALESCE((SELECT SUM(c."totalEur") FROM "CreditNote" c JOIN "Invoice" i ON i."id" = c."invoiceId" JOIN "Order" o ON o."id" = i."orderId" WHERE o."status" IN ('PAID','SHIPPED','DELIVERED') AND c."issuedAt" > now()), 0))::float8 AS net`;
+      check(inv.money(sum + noInv.grossEur + Number(future.net)) === card.grossEur, `R2-21 reconciliation: the chart (${sum}) plus the paid orders without an invoice (${noInv.grossEur}) and the future-dated documents of earlier fixtures adds up to the card 'Omzet incl. btw (betaald)' (${card.grossEur}) after a refund`, `R2-21: chart ${sum} + no-invoice ${noInv.grossEur} + future-dated ${future.net} vs card ${card.grossEur}`);
+      const today = (await eco.revenuePerDay(1))[0];
+      check(today.creditNotes >= 1 && today.invoices >= 1, "R2-21: today's chart bar counts invoices and credit notes issued today", `R2-21 today: ${JSON.stringify(today)}`);
+      // Amsterdam days: an invoice issued at 23:30 UTC belongs to the NEXT Amsterdam day (CET is UTC+1).
+      const R2 = await mkOrder({ status: "PAID", method: "STRIPE", qty: 1, price: 77, email: `rev2@${DOMAIN}` });
+      await prisma.invoice.update({ where: { orderId: R2.order.id }, data: { issuedAt: new Date("2026-03-10T23:30:00Z") } });
+      const days = await eco.revenuePerDay(5, new Date("2026-03-12T10:00:00Z"));
+      check(days.map((d) => d.day).join() === "2026-03-08,2026-03-09,2026-03-10,2026-03-11,2026-03-12" && days.find((d) => d.day === "2026-03-11")!.revenueEur >= 77 && days.find((d) => d.day === "2026-03-10")!.revenueEur === 0,
+        "R2-21: the chart days are Europe/Amsterdam days: an invoice issued at 23:30 UTC on 10 March lands on 11 March", `R2-21 days: ${JSON.stringify(days)}`);
+      // Across the clock change the day labels neither skip nor repeat.
+      const dst = eco.amsterdamDays(6, new Date("2026-03-30T12:00:00Z"));
+      check(dst.join() === "2026-03-25,2026-03-26,2026-03-27,2026-03-28,2026-03-29,2026-03-30", "R2-21: day labels across the March clock change (23-hour day on 29 March) are consecutive", `R2-21 DST labels: ${dst}`);
+    }
+
+    {
+      // D10: accounts and guests are counted apart.
+      const before = await eco.accountStats();
+      const acct = await prisma.user.create({ data: { email: `acct@${DOMAIN}`, name: "Echt Account", clerkId: `user_qa_admin_${Date.now()}` } });
+      const guest = await prisma.user.create({ data: { email: `guest@${DOMAIN}`, name: "Gast" } });
+      await prisma.order.create({ data: { userId: guest.id, email: guest.email, status: "PENDING", paymentMethod: "STRIPE", subtotalEur: 1, totalEur: 1, shippingAddress: "{}" } });
+      const after = await eco.accountStats();
+      check(after.accounts === before.accounts + 1 && after.guests === before.guests + 1, "D10: a Clerk account counts as a user, a guest (no Clerk id, has an order) counts as a guest and not as a user", `D10: ${JSON.stringify(before)} -> ${JSON.stringify(after)}`);
+      void acct;
+    }
+
+    {
+      // D3: the refund mail of a bank-transfer order does not claim money was sent; a Stripe refund may say so.
+      const bank = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 1, email: `rf-bank@${DOMAIN}` });
+      const card = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 1, pi: `pi_qa_fa_${Date.now()}`, email: `rf-card@${DOMAIN}` });
+      mails.length = 0;
+      const { performRefund } = await import("../src/app/admin/_lib/refund");
+      const rb = await performRefund({ orderId: bank.order.id, amountEur: 4.5, reason: "coulance", key: `qa-fa-bank-${bank.order.id}`, restock: [] });
+      const rc = await performRefund({ orderId: card.order.id, amountEur: 4.5, reason: "coulance", key: `qa-fa-card-${card.order.id}`, restock: [] });
+      await settle();
+      const mb = mailsTo(`rf-bank@${DOMAIN}`)[0];
+      const mc = mailsTo(`rf-card@${DOMAIN}`)[0];
+      check(rb.ok && !!mb && !/teruggestort/i.test(mb.html) && /creditfactuur/i.test(mb.html) && /Gaat het om een herroeping, dan staat het bedrag uiterlijk 14 dagen na je melding/.test(mb.html) && !/binnen 14 dagen/.test(mb.html), "D3: the refund mail of a BANK-TRANSFER order says a credit note is issued and promises 14 days ONLY for a withdrawal (voorwaarden art. 6), not for every refund; it does not say 'teruggestort'", `D3 bank mail: ${rb.ok} ${mb?.html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").slice(0, 400)}`);
+      check(rc.ok && !!mc && /teruggestort/i.test(mc.html), "D3: after a real Stripe refund the mail may say 'teruggestort'", `D3 card mail: ${rc.ok} ${mc?.html.replace(/<[^>]+>/g, " ").slice(0, 300)}`);
+      const noteBank = (await inv.getCreditNotesForOrder(bank.order.id))[0];
+      check(!!noteBank && mb.html.includes(`/bestelling/${bank.order.id}/creditnota/${noteBank.number}`) && mb.html.includes(`t=${bank.order.accessToken}`), "R2-13: the refund mail links to the credit note document, with the order's token", `R2-13 mail link: ${mb?.html.match(/href="[^"]*creditnota[^"]*"/)}`);
+      // The cancel mail of a paid order links it too.
+      const cp = await mkOrder({ status: "PAID", method: "BANK_TRANSFER", qty: 1, email: `cn-cancel@${DOMAIN}` });
+      mails.length = 0;
+      await inv.cancelOrder(cp.order.id, { reason: "klant belde", actor: "admin" });
+      await settle();
+      const cm = mailsTo(`cn-cancel@${DOMAIN}`).find((m) => /geannuleerd/i.test(m.subject));
+      check(!!cm && /\/creditnota\/CN-/.test(cm.html), "R2-13: the cancellation mail links to the credit note document", `R2-13 cancel mail: ${cm?.html.match(/href="[^"]*"/g)}`);
+    }
+
+    {
+      // D4: the reminder is worded from now versus the due date, not from the stage.
+      const { dueStanding } = await import("../src/app/admin/_lib/mails");
+      const noon = new Date("2026-10-09T10:00:00Z");
+      check(dueStanding(new Date("2026-10-09T05:00:00Z"), noon) === "today" && dueStanding(new Date("2026-10-07T12:00:00Z"), noon) === "past" && dueStanding(new Date("2026-10-12T12:00:00Z"), noon) === "future" && dueStanding(new Date("2026-10-08T22:30:00Z"), new Date("2026-10-09T10:00:00Z")) === "today",
+        "D4: dueStanding compares Amsterdam calendar days (23:30 UTC on the 8th is already the 9th in Amsterdam)", "D4: dueStanding wrong");
+      await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -2, email: `rem-late@${DOMAIN}` });
+      const same = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: 0, email: `rem-today@${DOMAIN}` });
+      await prisma.order.update({ where: { id: same.order.id }, data: { dueAt: new Date(Date.now() - 30 * 60_000) } });
+      mails.length = 0;
+      const { sendPaymentReminders } = await import("../src/app/api/cron/_lib/reminders");
+      await sendPaymentReminders({ limit: 200 });
+      await settle();
+      const ml = mailsTo(`rem-late@${DOMAIN}`)[0];
+      const ms = mailsTo(`rem-today@${DOMAIN}`)[0];
+      const textOf = (m?: { html: string }) => (m?.html ?? "").replace(/<[^>]+>/g, " ").replace(/\s+/g, " ");
+      check(!!ml && !/vandaag/i.test(ml.subject + textOf(ml)) && /verlopen op/.test(textOf(ml)), "D4 AFTER: the reminder of an invoice that fell due two days ago says 'verlopen op <datum>', never 'vandaag'", `D4 late: ${ml?.subject} ${textOf(ml).slice(0, 300)}`);
+      check(!!ms && /vandaag/.test(ms.subject) && /loopt vandaag af/.test(textOf(ms)), "D4: an invoice that fell due earlier TODAY still says 'vandaag'", `D4 today: ${ms?.subject}`);
+    }
+
+    {
+      // R2-15 / R2-16: the restock is capped cumulatively and refused where cancelling is the tool.
+      const { restockedByPart } = inv;
+      const S = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 1, email: `rs-ship@${DOMAIN}` });
+      const s0 = await S.stockNow();
+      const f1 = await ordAct.recordRefundAction(null, fd({ orderId: S.order.id, amount: "3,00", reason: "retour deel 1", idempotencyKey: `qa-fa-rs1-${S.order.id}`, expectedRefundedEur: "0", [`restock_${S.part.id}`]: "1" }));
+      const notes1 = (await inv.getCreditNotesForOrder(S.order.id)).length;
+      const f2 = await ordAct.recordRefundAction(null, fd({ orderId: S.order.id, amount: "2,00", reason: "retour deel 2", idempotencyKey: `qa-fa-rs2-${S.order.id}`, expectedRefundedEur: "3", [`restock_${S.part.id}`]: "1" }));
+      check(f1.ok && !f2.ok && /al alles terug|maximaal 0|terug op voorraad/i.test(f2.error ?? "") && (await S.stockNow()) === s0 + 1 && (await inv.getCreditNotesForOrder(S.order.id)).length === notes1,
+        `R2-15 AFTER: two refunds that each restock the single unit: the second is refused ("${f2.error?.slice(0, 70)}"), stock is +1 (not +2), no second credit note`, `R2-15 cumulative: ${JSON.stringify(f1)} ${JSON.stringify(f2)} stock ${await S.stockNow()} vs ${s0}`);
+      check((await restockedByPart(S.order.id)).get(S.part.id) === 1, "R2-15: restockedByPart reports the unit that already went back", "R2-15: restockedByPart wrong");
+      const f3 = await ordAct.recordRefundAction(null, fd({ orderId: S.order.id, amount: "2,00", reason: "coulance zonder retour", idempotencyKey: `qa-fa-rs3-${S.order.id}`, expectedRefundedEur: "3" }));
+      check(f3.ok, "R2-15: a refund WITHOUT restock is still allowed after the stock was used up", `R2-15 no restock: ${JSON.stringify(f3)}`);
+
+      const U = await mkOrder({ status: "PAID", method: "STRIPE", qty: 2, pi: `pi_qa_fa_u_${Date.now()}`, email: `rs-paid@${DOMAIN}` });
+      const u0 = await U.stockNow();
+      const refundsAtStripe = fake.state.refunds.length;
+      const g1 = await ordAct.recordRefundAction(null, fd({ orderId: U.order.id, amount: "5,00", reason: "coulance", idempotencyKey: `qa-fa-rs4-${U.order.id}`, expectedRefundedEur: "0", [`restock_${U.part.id}`]: "1" }));
+      check(!g1.ok && /annuleer/i.test(g1.error ?? "") && fake.state.refunds.length === refundsAtStripe && (await U.stockNow()) === u0 && (await inv.getCreditNotesForOrder(U.order.id)).length === 0,
+        `R2-15 AFTER: a restock on an unshipped PAID order is refused BEFORE Stripe is called ("${g1.error?.slice(0, 60)}"): no refund at Stripe, no credit note, stock untouched`, `R2-15 paid restock: ${JSON.stringify(g1)} refunds ${fake.state.refunds.length}/${refundsAtStripe}`);
+      const g2 = await ordAct.recordRefundAction(null, fd({ orderId: U.order.id, amount: "5,00", reason: "coulance", idempotencyKey: `qa-fa-rs5-${U.order.id}`, expectedRefundedEur: "0" }));
+      const g3 = await inv.cancelOrder(U.order.id, { reason: "alsnog stopgezet", actor: "admin" });
+      check(g2.ok && g3.ok && (await U.stockNow()) === u0 + 2, "R2-15: a partial refund without restock followed by cancel puts exactly the 2 ordered units back (not 3)", `R2-15 cancel after refund: ${JSON.stringify(g2)} ${JSON.stringify(g3)} stock ${await U.stockNow()} vs ${u0 + 2}`);
+
+      // The webhook books the refund BETWEEN Stripe creating it and the admin's own booking of the same refund id:
+      // the admin's booking is then a replay. The restock they ticked is applied once and reported.
+      const W = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 2, pi: `pi_qa_fa_w_${Date.now()}`, email: `rs-web@${DOMAIN}` });
+      const w0 = await W.stockNow();
+      const { performRefund } = await import("../src/app/admin/_lib/refund");
+      const key = `qa-fa-web-${W.order.id}`;
+      const racing = fake.client();
+      const origCreate = racing.refunds.create.bind(racing.refunds);
+      let hook: Awaited<ReturnType<typeof inv.recordRefund>> | null = null;
+      (racing.refunds as unknown as { create: (...a: unknown[]) => Promise<{ id: string; amount: number }> }).create = async (...a: unknown[]) => {
+        const refund = await (origCreate as unknown as (...x: unknown[]) => Promise<{ id: string; amount: number }>)(...a);
+        hook = await inv.recordRefund(W.order.id, { amountEur: refund.amount / 100, stripeRefundId: refund.id, reason: "Terugbetaling via Stripe", notifyCustomer: false }); // the webhook, first
+        return refund;
+      };
+      stripeLib._setStripeForTests(racing);
+      let adm: Awaited<ReturnType<typeof performRefund>>;
+      try {
+        adm = await performRefund({ orderId: W.order.id, amountEur: 6, reason: "retour", key, expectedRefundedEur: 0, restock: [{ partId: W.part.id, quantity: 2 }] });
+      } finally {
+        stripeLib._setStripeForTests(fake.client());
+      }
+      const stockAfter = await W.stockNow();
+      check(!!hook && (hook as { ok: boolean }).ok && adm.ok && adm.replayed && adm.restockedUnits === 2 && stockAfter === w0 + 2 && /2 stuks terug op voorraad/.test(adm.message),
+        `R2-15 AFTER: the webhook booked the refund first; the admin's booking is a replay AND applies the ticked restock once, and the message says so ("${adm.ok ? adm.message : ""}")`, `R2-15 webhook-first: hook ${JSON.stringify(hook && (hook as { ok: boolean }).ok)} admin ${JSON.stringify(adm.ok ? { replayed: adm.replayed, restockedUnits: adm.restockedUnits, message: adm.message } : adm)} stock ${stockAfter} vs ${w0 + 2}`);
+      const adm2 = await performRefund({ orderId: W.order.id, amountEur: 6, reason: "retour", key, expectedRefundedEur: 0, restock: [{ partId: W.part.id, quantity: 2 }] });
+      check(adm2.ok && adm2.replayed && adm2.restockedUnits === 0 && (await W.stockNow()) === w0 + 2 && (await inv.getCreditNotesForOrder(W.order.id)).length === 1, "R2-15: a third call (double click of the same form) is recognised by its key, restocks nothing more and adds no note", `R2-15 third call: ${JSON.stringify(adm2)} stock ${await W.stockNow()}`);
+    }
+
+    {
+      // D6: the order desk's own text in Dutch notation; the part form and CSV preview too.
+      const money = await import("../src/lib/emails/money");
+      check(money.decimalNl(-0) === "0,00" && money.decimalNl(9.5) === "9,50" && money.decimalNl(4.16) === "4,16" && money.eurNl(-0) === "€ 0,00" && money.eurNl(1234.5) === "€ 1.234,50" && money.eurNl(-0.001) === "€ 0,00",
+        "D6: the one money formatter prints comma decimals, groups thousands and never '-0,00'", `D6 formatter: ${[money.decimalNl(-0), money.decimalNl(9.5), money.eurNl(1234.5), money.eurNl(-0.001)]}`);
+      check([9.5, 4.16, 28.5, 0.05, 1234.5].every((v) => csv.parseMoney(money.decimalNl(v)) === v), "D6: the part form prefill ('9,50', '4,16', ...) is read back by the same parser the save uses, so showing comma decimals loses nothing", "D6: a prefilled amount does not survive the round trip through parseMoney");
+      const { eur: adminEur } = await import("../src/app/admin/_lib/format");
+      check(!/-/.test(adminEur(-0)) && !/-/.test(adminEur(-0.004)), "D6: the admin euro format of an empty VAT quarter (negated zero) is '€ 0,00', not '€ -0,00'", `D6 admin eur: ${adminEur(-0)} ${adminEur(-0.004)}`);
+      const sku = `${SKU_PREFIX}CSVD6`;
+      await prisma.part.create({ data: { sku, name: "QA csv d6", brand: "QA", category: "OTHER", priceEur: 7.2, stock: 4 } });
+      const plan = await ccsv.planPartsImport(`sku;price\r\n${sku};28,5\r\n`);
+      const line = plan.rows.find((r) => r.sku === sku)?.changes.find((c: string) => c.startsWith("prijs"));
+      check(line === "prijs: 7,20 → 28,50", `D6: the CSV preview shows money with two comma decimals ("${line}")`, `D6 preview: ${line}`);
+      const mismatch = await inv.markOrderPaidByBankTransfer("nope-d6").catch(() => null);
+      const o = await mkOrder({ status: "OPENSTAAND", qty: 1, price: 14.45, email: `d6@${DOMAIN}` });
+      let msg = "";
+      try { await inv.markOrderPaidByBankTransfer(o.order.id, { receivedAmountEur: 14.44 }); } catch (e) { msg = (e as Error).message; }
+      void mismatch;
+      check(/€ 14,44/.test(msg) && /€ 14,45/.test(msg) && !/\d\.\d{2}/.test(msg), `D6: the amount-mismatch message uses comma decimals ("${msg}")`, `D6 mismatch: ${msg}`);
+    }
+
+    {
+      // R2-21: /admin/ai-quality admits ADMIN only. Rendered, not read: the page component is called in a child
+      // process with demo auth OFF and a verified identity per role, and must redirect everyone but the ADMIN.
+      const roles = ["ADMIN", "BUSINESS", "CONSUMER"] as const;
+      for (const role of roles) await prisma.user.create({ data: { email: `aiq-${role.toLowerCase()}@${DOMAIN}`, name: `AIQ ${role}`, role } });
+      const probe = path.join(tmpdir(), `qa-admin-aiq-${Date.now()}.ts`);
+      writeFileSync(
+        probe,
+        `import { _setIdentityReaderForTests } from ${JSON.stringify(path.join(ROOT, "src/lib/auth"))};
+         import Page from ${JSON.stringify(path.join(ROOT, "src/app/admin/ai-quality/page"))};
+         import * as React from ${JSON.stringify(path.join(ROOT, "node_modules/react/index.js"))};
+         // tsx compiles the page's JSX with the classic runtime, which wants React in scope.
+         (globalThis as { React?: unknown }).React = React;
+         const who = process.argv[2];
+         _setIdentityReaderForTests(async () => (who === "NOBODY" ? null : { clerkId: "user_qa_aiq_" + who, email: "aiq-" + who.toLowerCase() + "@${DOMAIN}", emailVerified: true, name: who }));
+         (async () => {
+           try { await Page(); console.log("RESULT " + who + " rendered"); }
+           catch (e) { console.log("RESULT " + who + " " + (((e as { digest?: string }).digest ?? String(e)).replace(/\s+/g, " "))); }
+         })().finally(() => setTimeout(() => process.exit(0), 300));`,
+      );
+      const outcome: Record<string, string> = {};
+      for (const who of [...roles, "NOBODY"]) {
+        const child = spawnSync("npx", ["tsx", probe, who], { cwd: ROOT, encoding: "utf8", env: { ...process.env, NODE_ENV: "production", DEMO_MODE: "", NEXT_PUBLIC_DEMO_MODE: "" } });
+        outcome[who] = child.stdout.match(/RESULT \w+ (.*)/)?.[1]?.trim() ?? `no result: ${child.stderr.slice(0, 200)}`;
+      }
+      unlinkSync(probe);
+      check(outcome.ADMIN === "rendered" && /^NEXT_REDIRECT;[a-z]+;\/;/.test(outcome.BUSINESS) && /^NEXT_REDIRECT;[a-z]+;\/;/.test(outcome.CONSUMER) && /^NEXT_REDIRECT;[a-z]+;\/inloggen/.test(outcome.NOBODY),
+        "R2-21: /admin/ai-quality RENDERED for each role: ADMIN gets the page, BUSINESS and CONSUMER are redirected to /, nobody is sent to the sign-in page", `R2-21 ai-quality per role: ${JSON.stringify(outcome)}`);
+    }
+
+    {
+      // ActionForm in a real browser (QA_BASE_URL = `next dev` with DEMO_MODE=true on this database; QA_REQUIRE_BROWSER=1 makes a missing URL a failure).
+      // 1. Before hydration (here: JavaScript off) the form must not submit natively. The form has no `action` prop, so a native submit is a
+      //    GET to the same page with every field in the address bar. 2. After hydration a REFUSED booking keeps what was typed.
+      const base = process.env.QA_BASE_URL;
+      if (!base) {
+        if (process.env.QA_REQUIRE_BROWSER === "1") check(false, "", "ActionForm browser checks need QA_BASE_URL (QA_REQUIRE_BROWSER=1)");
+        else log.push("⏭️  SKIPPED ActionForm browser checks (set QA_BASE_URL to a demo-mode dev server on this database)");
+      } else {
+        const F = await mkOrder({ status: "OPENSTAAND", qty: 1, price: 21.5, email: `actionform@${DOMAIN}` });
+        const url = `${base}/admin/bestellingen?q=${encodeURIComponent(`actionform@${DOMAIN}`)}`;
+         
+        const pw = (await import("/opt/node22/lib/node_modules/playwright/index.js" as string)).default as any;
+        const browser = await pw.chromium.launch();
+        try {
+          const formSel = 'form:has(input[name="received"])';
+          // 1. JavaScript off = the page never hydrates.
+          const plain = await browser.newContext({ javaScriptEnabled: false });
+          const p1 = await plain.newPage();
+          await p1.goto(url, { waitUntil: "load" });
+          const field = p1.locator(`${formSel} input[name="received"]`);
+          await field.waitFor({ timeout: 30_000 });
+          const disabledBefore = await p1.locator(`${formSel} button[type="submit"]`).isDisabled();
+          await field.fill("1,00");
+          await field.press("Enter");
+          await p1.waitForTimeout(800);
+          check(disabledBefore && p1.url() === url && !/received=/.test(p1.url()),
+            "ActionForm (reviewer defect 3): before hydration the submit button is disabled and pressing Enter in the amount field does NOT submit the form natively (the address stays clean, no amount in the URL)", `ActionForm pre-hydration: disabled ${disabledBefore}, url ${p1.url()}`);
+          await plain.close();
+          // 2. Hydrated: a refused booking (wrong amount) keeps the typed amount and shows the reason.
+          const ctx = await browser.newContext();
+          const p2 = await ctx.newPage();
+          await p2.goto(url, { waitUntil: "networkidle" });
+          const btn = p2.locator(`${formSel} button[type="submit"]`);
+          await btn.waitFor({ timeout: 30_000 });
+          // A cold dev server hydrates slowly: give the page a full minute before calling the button stuck.
+          for (let i = 0; i < 240 && (await btn.isDisabled()); i++) await p2.waitForTimeout(250);
+          const enabledAfter = !(await btn.isDisabled());
+          const input2 = p2.locator(`${formSel} input[name="received"]`);
+          await input2.fill("1,00");
+          await btn.click({ timeout: 60_000 });
+          await p2.locator(`${formSel} [role="alert"]`).waitFor({ timeout: 30_000 });
+          const kept = await input2.inputValue();
+          const alertText = (await p2.locator(`${formSel} [role="alert"]`).innerText()).trim();
+          check(enabledAfter && kept === "1,00" && p2.url() === url && (await row(F.order.id)).status === "OPENSTAAND" && alertText.length > 0,
+            `ActionForm: after hydration the button is enabled; a refused 'Boek betaling' keeps the typed amount (${kept}), shows the reason ("${alertText.slice(0, 80)}") and books nothing`, `ActionForm hydrated: enabled ${enabledAfter}, kept ${kept}, url ${p2.url()}, status ${(await row(F.order.id)).status}, alert ${alertText}`);
           await ctx.close();
         } finally {
           await browser.close();

@@ -118,7 +118,13 @@ const checks: Check[] = [
     expect: 200,
     contains: "orderId",
   },
-  { path: "/api/newsletter", method: "POST", body: { email: "smoke@example.com" }, expect: 200 },
+  // One exact answer per configuration, so the smoke can fail when the endpoint is broken: with a mail provider (RESEND_API_KEY in the
+  // environment of THIS script, which CI and the server share) a confirmation mail goes out and the answer is 200 ("Bijna klaar", the
+  // address is NOT subscribed until the click); without one the route refuses with 503 and says the visitor is not subscribed (since
+  // bundle FB it no longer pretends). A fresh address per run: the route sends at most 3 confirmation mails per address per day.
+  process.env.RESEND_API_KEY
+    ? { path: "/api/newsletter", method: "POST", body: { email: `smoke-${Date.now()}@example.com` }, expect: 200, contains: "Bijna klaar" }
+    : { path: "/api/newsletter", method: "POST", body: { email: `smoke-${Date.now()}@example.com` }, expect: 503, contains: "nog niet aangemeld" },
   {
     path: "/api/reviews",
     method: "POST",

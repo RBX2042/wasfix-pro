@@ -2,6 +2,7 @@
 
 import * as React from "react";
 import { track, EVT } from "@/lib/analytics";
+import { clientSiteUrl } from "@/lib/site-url";
 
 // Widget shown in /dashboard — user's referral link + stats.
 // Reward: €5 credit per converted paying customer (24-month attribution window).
@@ -15,7 +16,7 @@ type Stats = {
 };
 
 export function ReferralWidget({ userCode }: { userCode: string }) {
-  const link = `https://wasfix.nl/?ref=${userCode}`;
+  const link = `${clientSiteUrl() ?? ""}/?ref=${userCode}`;
   const [stats, setStats] = React.useState<Stats | null>(null);
   const [copied, setCopied] = React.useState(false);
 

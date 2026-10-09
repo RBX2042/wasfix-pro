@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import postsData from "@/data/blog-posts.json";
 import { correctCopy } from "@/app/help/_corrections";
+import { absoluteUrl } from "@/lib/site-url";
 
 type Post = { slug: string; category: string; title: string; summary: string; readTime: number; publishedAt: string; heroEmoji: string; content: string };
 const posts = (postsData as Post[]).map((p) => ({ ...p, title: correctCopy(p.title), summary: correctCopy(p.summary), content: correctCopy(p.content) }));
@@ -151,7 +152,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
     publisher: {
       "@type": "Organization",
       name: "WasFix Pro",
-      logo: { "@type": "ImageObject", url: "https://wasfix.nl/icon" },
+      logo: { "@type": "ImageObject", url: absoluteUrl("/icon") },
     },
   };
 

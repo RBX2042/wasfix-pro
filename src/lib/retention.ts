@@ -32,6 +32,13 @@
  * herstel)" does not match the Clerk user.deleted handler, which anonymises at
  * once. Both are wording problems for the legal-copy owner.
  *
+ * Also: orders of an account that was erased through the Clerk webhook and were still
+ * open at that moment are redacted here once they are no longer open
+ * (finishPendingErasures in src/lib/erasure.ts).
+ *
+ * Also: newsletter sign-ups that were never confirmed are deleted once their link has expired
+ * (purgeUnconfirmedSubscribers in src/lib/newsletter.ts).
+ *
  * Also removed here, because it is behaviour-neutral: UsageCounter rows whose
  * window ended more than 7 days ago. consumeUsage() treats an expired window as
  * unused, so the row is dead weight (the table otherwise only grows).
@@ -40,6 +47,8 @@
  */
 import { prisma } from "./prisma";
 import { logger } from "./logger";
+import { finishPendingErasures } from "./erasure";
+import { purgeUnconfirmedSubscribers } from "./newsletter";
 
 export const IP_COUNTER_DAYS = 30;
 export const DIAGNOSIS_MONTHS = 12;
@@ -49,6 +58,10 @@ export type RetentionResult = {
   ipCountersDeleted: number;
   expiredCountersDeleted: number;
   diagnosesAnonymised: number;
+  /** Accounts erased through the Clerk webhook whose still-open orders were finished and redacted in this run. */
+  pendingErasures: { accounts: number; ordersRedacted: number; stillOpen: number };
+  /** Newsletter sign-ups whose confirmation link expired without a click (src/lib/newsletter.ts). */
+  unconfirmedSubscribersDeleted: number;
 };
 
 export async function runRetention(opts: { now?: Date; batch?: number } = {}): Promise<RetentionResult> {
@@ -93,7 +106,19 @@ export async function runRetention(opts: { now?: Date; batch?: number } = {}): P
     if (ids.length < batch) break;
   }
 
-  const result = { ipCountersDeleted: ip.count, expiredCountersDeleted: expired.count, diagnosesAnonymised };
+  // Orders the Clerk user.deleted webhook had to leave untouched because they were still open
+  // (src/lib/erasure.ts): redact them now that they may be finished. Idempotent.
+  const pendingErasures = await finishPendingErasures().catch((err) => {
+    logger.warn("[retention] pending erasures could not be finished", { err: err instanceof Error ? err.message : String(err) });
+    return { accounts: 0, ordersRedacted: 0, stillOpen: 0 };
+  });
+
+  const unconfirmedSubscribersDeleted = await purgeUnconfirmedSubscribers(now).catch((err) => {
+    logger.warn("[retention] unconfirmed newsletter sign-ups could not be purged", { err: err instanceof Error ? err.message : String(err) });
+    return 0;
+  });
+
+  const result = { ipCountersDeleted: ip.count, expiredCountersDeleted: expired.count, diagnosesAnonymised, pendingErasures, unconfirmedSubscribersDeleted };
   logger.info("[retention] done", result);
   return result;
 }

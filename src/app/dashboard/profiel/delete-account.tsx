@@ -39,7 +39,8 @@ export function DeleteAccountButton() {
       // De Clerk-identiteit is weg, dus de sessie is hierna niets meer waard.
       window.location.href = "/";
     } catch {
-      toast.error("Verwijdering mislukt — mail privacy@wasfix.nl");
+      // No address here: this is a client component and the contact address (COMPANY_EMAIL) lives on the server. /contact shows it.
+      toast.error("Verwijdering mislukt. Probeer het later opnieuw of neem contact met ons op via de contactpagina (/contact).");
     } finally {
       setLoading(false);
     }

@@ -3,6 +3,7 @@
  * Inline styles only: mail clients ignore <style> blocks and external CSS.
  */
 import { companyIdentityLine } from "../plans";
+import { centsSafe } from "./money";
 
 /**
  * Escape user text before it goes into an HTML e-mail body. Names, RMA notes
@@ -19,9 +20,9 @@ export function esc(value: string): string {
 }
 
 const EUR = new Intl.NumberFormat("nl-NL", { style: "currency", currency: "EUR" });
-/** "€ 30,45" */
+/** "€ 30,45". Negative zero and sub-cent noise print as 0, never "€ -0,00". */
 export function eur(value: number): string {
-  return EUR.format(value);
+  return EUR.format(centsSafe(value));
 }
 
 export function button(href: string, label: string): string {

@@ -17,6 +17,7 @@ import { PLANS, formatPlanPrice } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { absoluteUrl } from "@/lib/site-url";
 
 // Stays dynamic on purpose: what a visitor may read depends on their plan
 // (canReadPremiumGuide), so this page cannot be shared from a cache. The data reads
@@ -96,8 +97,8 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
     "@context": "https://schema.org",
     "@type": "BreadcrumbList",
     itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Gidsen", item: "https://wasfix.nl/gidsen" },
-      { "@type": "ListItem", position: 2, name: guide.title, item: `https://wasfix.nl/gidsen/${guide.slug}` },
+      { "@type": "ListItem", position: 1, name: "Gidsen", item: absoluteUrl("/gidsen") },
+      { "@type": "ListItem", position: 2, name: guide.title, item: absoluteUrl(`/gidsen/${guide.slug}`) },
     ],
   };
 

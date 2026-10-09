@@ -2,7 +2,7 @@ import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { PredictiveClient } from "./client";
 
 export const metadata = {
-  title: "Voorspellende onderhoud — Health-score wasmachine · WasFix Pro",
+  title: "Voorspellende onderhoud — Health-score wasmachine",
   description: "Krijg een health-score per onderdeel-categorie op basis van merk + leeftijd. Voorkom defecten met preventief bestel-pakket.",
   alternates: { canonical: "/tools/predictive" },
 };
@@ -17,7 +17,7 @@ export default function PredictivePage() {
             Voorspellend <em>onderhoud</em>
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>
-            Vul je merk + leeftijd in. Wij berekenen een health-score per onderdeel-categorie op basis van bekende failure-rates en merk-betrouwbaarheid. Krijg een preventief bestel-pakket voor de 3 onderdelen met de laagste health.
+            Vul je merk + leeftijd in. Wij berekenen een health-score per onderdeel-categorie op basis van vuistregels over de gebruikelijke levensduur per onderdeel en een merkfactor. Dat zijn schattingen, geen metingen. Krijg een preventief bestel-pakket voor de 3 onderdelen met de laagste health.
           </p>
           <PredictiveClient />
         </div>

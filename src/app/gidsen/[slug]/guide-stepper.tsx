@@ -48,44 +48,57 @@ export function GuideStepper({ steps }: { steps: Step[] }) {
               )}
             >
               <CardContent className="p-5">
-                <button
-                  onClick={() => setActiveIdx(i)}
-                  className="w-full flex items-start gap-4 text-left"
-                >
+                {/* Two sibling buttons, not a button inside a button: nested buttons are
+                    invalid HTML and made React throw a hydration error (#418) on every
+                    guide page. The toggle has a 44px hit area around its 32px circle. */}
+                <div className="flex items-start gap-2">
                   <button
-                    onClick={(e) => { e.stopPropagation(); toggle(s.stepNum); }}
-                    className={cn(
-                      "h-8 w-8 shrink-0 rounded-full flex items-center justify-center font-heading font-bold text-sm transition-colors mt-0.5",
-                      isComplete ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"
-                    )}
+                    type="button"
+                    onClick={() => toggle(s.stepNum)}
+                    aria-pressed={isComplete}
+                    aria-label={isComplete ? `Stap ${s.stepNum} weer openzetten` : `Stap ${s.stepNum} voltooid`}
+                    className="h-11 w-11 shrink-0 -ml-1.5 -mt-1.5 flex items-center justify-center"
                   >
-                    {isComplete ? <CheckCircle2 className="h-4 w-4" /> : s.stepNum}
+                    <span
+                      className={cn(
+                        "h-8 w-8 rounded-full flex items-center justify-center font-heading font-bold text-sm transition-colors",
+                        isComplete ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"
+                      )}
+                    >
+                      {isComplete ? <CheckCircle2 className="h-4 w-4" /> : s.stepNum}
+                    </span>
                   </button>
-                  <div className="flex-1">
-                    <h3 className={cn("font-heading font-semibold", isComplete && "line-through text-muted-foreground")}>
+                  <button
+                    type="button"
+                    onClick={() => setActiveIdx(i)}
+                    aria-expanded={isActive}
+                    className="min-w-0 flex-1 text-left"
+                  >
+                    <h3 className={cn("font-heading font-semibold [overflow-wrap:anywhere]", isComplete && "line-through text-muted-foreground")}>
                       Stap {s.stepNum}: {s.title}
                     </h3>
                     {(isActive || !isComplete) && (
-                      <p className="text-sm text-muted-foreground mt-2 leading-relaxed">{s.description}</p>
+                      <p className="text-sm text-muted-foreground mt-2 leading-relaxed [overflow-wrap:anywhere]">{s.description}</p>
                     )}
                     {s.warning && isActive && (
                       <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-3 flex gap-2 text-sm">
                         <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                        <span className="text-amber-900 dark:text-amber-200">{s.warning}</span>
+                        <span className="min-w-0 text-amber-900 dark:text-amber-200 [overflow-wrap:anywhere]">{s.warning}</span>
                       </div>
                     )}
-                  </div>
-                </button>
+                  </button>
+                </div>
               </CardContent>
             </Card>
           );
         })}
       </div>
 
-      <div className="flex items-center justify-between mt-6">
+      <div className="flex flex-wrap items-center justify-between gap-2 mt-6">
         <Button
           variant="outline"
           size="sm"
+          className="min-h-11"
           onClick={() => setActiveIdx(Math.max(0, activeIdx - 1))}
           disabled={activeIdx === 0}
         >
@@ -93,6 +106,7 @@ export function GuideStepper({ steps }: { steps: Step[] }) {
         </Button>
         <Button
           size="sm"
+          className="min-h-11"
           onClick={() => {
             const cur = steps[activeIdx];
             if (cur) setCompleted((p) => new Set([...p, cur.stepNum]));

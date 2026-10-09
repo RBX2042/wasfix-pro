@@ -5,6 +5,7 @@ import { apiError, apiSuccess } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
+import { supportEmail, supportHint } from "@/lib/support-contact";
 
 const Schema = z.object({
   companyName: z.string().min(2).max(120),
@@ -36,22 +37,32 @@ export async function POST(req: NextRequest) {
   logger.info("[monteur-signup] application received", { applicationId, kvkNumber: data.kvkNumber });
 
   if (isDatabaseConfigured()) {
-    await prisma.monteurApplication
-      .create({
+    // A failed write behind a warn dropped the application while the monteur
+    // read "we review your details within 1 working day" — a paying B2B lead
+    // nobody ever sees. A 503 they can retry beats a confirmation for nothing.
+    try {
+      await prisma.monteurApplication.create({
         data: {
           applicationId,
           companyName: data.companyName,
           kvkNumber: data.kvkNumber,
           vatNumber: data.vatNumber ?? null,
-          email: data.email,
+          // Lower-case: approval finds the applicant's account by this address.
+          email: data.email.trim().toLowerCase(),
           phone: data.phone ?? null,
           contactName: data.contactName,
           yearsExperience: data.yearsExperience ?? null,
           coverageAreas: data.coverageAreas?.join(",") ?? null,
           specializations: data.specializations?.join(",") ?? null,
         },
-      })
-      .catch((err) => logger.warn("[monteur-signup] persist failed", err));
+      });
+    } catch (err) {
+      logger.error("[monteur-signup] persist failed", err);
+      return apiError(
+        `Je aanmelding kon nu niet worden opgeslagen. Probeer het over een paar minuten opnieuw of ${supportHint(supportEmail())}.`,
+        503,
+      );
+    }
   }
 
   // Notify admin via Resend
@@ -64,6 +75,6 @@ export async function POST(req: NextRequest) {
 
   return apiSuccess({
     applicationId,
-    message: "Aanmelding ontvangen. We reviewen je gegevens binnen 1 werkdag en sturen je toegangsdetails per e-mail.",
+    message: "Aanmelding ontvangen. We beoordelen je gegevens binnen 1 werkdag en mailen je daarna hoe je je Monteur Pro-abonnement start. Goedkeuring geeft nog geen toegang: Monteur Pro is een betaald abonnement.",
   });
 }

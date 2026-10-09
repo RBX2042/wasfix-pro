@@ -1,6 +1,7 @@
 import { DashboardLayout } from "@/components/dashboard-layout";
-import { getCurrentUser, getPlanLimits } from "@/lib/auth";
+import { getCurrentUser, getPlanLimits, hasProAccess } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
+import { isDatabaseConfigured } from "@/lib/env";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -13,31 +14,58 @@ import { Package, ShoppingCart, AlertTriangle } from "lucide-react";
 export const dynamic = "force-dynamic";
 
 
-export const metadata = { title: "Bulk onderdelen — Monteur" };
+export const metadata = { title: "Onderdelen met monteurkorting — Monteur" };
 
 export default async function MonteurOnderdelenPage() {
   const user = await getCurrentUser();
-  if (!user) redirect("/inloggen");
+  if (!user) redirect("/inloggen?next=/monteur/onderdelen");
 
-  const limits = getPlanLimits(user.plan);
+  // Same check as the other monteur pages. Without it any signed-in customer
+  // could open this page, and a FREE one saw "Monteur Pro" and a discount that
+  // checkout would not give them.
+  if (!hasProAccess(user)) {
+    return (
+      <DashboardLayout role={user.role}>
+        <Card>
+          <CardContent className="p-12 text-center">
+            <Package className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
+            <h2 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h2>
+            <p className="text-muted-foreground mb-4">Deze pagina is beschikbaar voor Monteur Pro abonnees.</p>
+            <Button asChild><Link href="/upgrade?plan=MONTEUR_PRO">Bekijk Monteur Pro</Link></Button>
+          </CardContent>
+        </Card>
+      </DashboardLayout>
+    );
+  }
+
+  const limits = getPlanLimits(user);
   let parts: Awaited<ReturnType<typeof prisma.part.findMany>> = [];
+  let stockUnavailable = false;
   try {
     parts = await prisma.part.findMany({
       where: { stock: { gt: 0 } },
       orderBy: [{ stock: "desc" }, { priceEur: "asc" }],
     });
   } catch {
-    const { staticParts } = await import("@/lib/static-db");
-    parts = staticParts({ where: { minStock: 0 }, orderBy: "stock-then-price" }) as typeof parts;
+    if (isDatabaseConfigured()) {
+      // A configured database that cannot be read: say so. The demo catalogue's stock numbers are made up
+      // and must not be shown as what is on the shelf.
+      stockUnavailable = true;
+    } else {
+      const { staticParts } = await import("@/lib/static-db");
+      parts = staticParts({ where: { minStock: 0 }, orderBy: "stock-then-price" }) as typeof parts;
+    }
   }
 
   return (
     <DashboardLayout role={user.role}>
       <div className="mb-6">
         <Badge variant="accent" className="mb-2">Monteur Pro</Badge>
-        <h1 className="font-heading text-2xl font-bold">Bulk onderdelen bestellen</h1>
+        <h1 className="font-heading text-2xl font-bold">Onderdelen met monteurkorting</h1>
         <p className="text-muted-foreground text-sm">
-          {(limits.partsDiscount * 100).toFixed(0)}% monteurkorting wordt automatisch toegepast op alle bestellingen.
+          {limits.partsDiscount > 0
+            ? `${(limits.partsDiscount * 100).toFixed(0)}% monteurkorting wordt automatisch toegepast op alle bestellingen.`
+            : `De ${(limits.partsDiscountWhenPaying * 100).toFixed(0)}% monteurkorting gaat in zodra je eerste betaling is voldaan, niet tijdens de proefperiode.`}
         </p>
       </div>
 
@@ -51,6 +79,15 @@ export default async function MonteurOnderdelenPage() {
               <p className="font-semibold text-sm">Jouw monteurkorting is actief</p>
               <p className="text-xs text-muted-foreground">{(limits.partsDiscount * 100).toFixed(0)}% korting op alle onderdelen + gratis verzending vanaf €50</p>
             </div>
+          </CardContent>
+        </Card>
+      )}
+
+      {stockUnavailable && (
+        <Card className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+          <CardContent className="p-4 text-sm">
+            <p className="font-semibold">Voorraad nu niet beschikbaar</p>
+            <p className="text-muted-foreground">We kunnen de voorraad op dit moment niet laden. Probeer het over een paar minuten opnieuw.</p>
           </CardContent>
         </Card>
       )}

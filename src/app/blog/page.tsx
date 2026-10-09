@@ -3,7 +3,7 @@ import Link from "next/link";
 import postsData from "@/data/blog-posts.json";
 
 export const metadata = {
-  title: "Blog & kennisbank · WasFix Pro",
+  title: "Blog & kennisbank",
   description: "Wasmachine reparatie tips, EU Right to Repair updates, foutcodes-analyses, en duurzame onderhoudsguides.",
   alternates: { canonical: "/blog" },
 };
@@ -35,7 +35,7 @@ export default function BlogIndexPage() {
             ))}
           </div>
 
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", gap: 16 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(min(320px, 100%), 1fr))", gap: 16 }}>
             {sorted.map((p) => (
               <Link
                 key={p.slug}

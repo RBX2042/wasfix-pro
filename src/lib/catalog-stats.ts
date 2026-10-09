@@ -22,6 +22,13 @@ export type CatalogStats = {
    */
   verifiedErrorCodes: number;
   parts: number;
+  /**
+   * DEPRECATED for anything customer-facing. This counts the stock numbers in
+   * src/data/parts.json, which are seed values (2-201), not an inventory, and in
+   * production the database starts with stock 0 - so "N onderdelen op voorraad"
+   * built from this is a claim nobody checked. Say "N onderdelen in de catalogus"
+   * (`parts`) or use liveCatalogStats().partsInStock, which asks the database.
+   */
   partsInStock: number;
   guides: number;
 };
@@ -41,4 +48,23 @@ export function catalogStats(): CatalogStats {
 /** "331" — Dutch thousand separators for display. */
 export function formatCount(n: number): string {
   return new Intl.NumberFormat("nl-NL").format(n);
+}
+
+/**
+ * The same counts, but from the live catalogue (database when there is one,
+ * otherwise the JSON): parts, guides, error codes and machines as the shop would
+ * serve them, and partsInStock as the number of parts with stock above zero.
+ */
+export async function liveCatalogStats(): Promise<CatalogStats> {
+  const base = catalogStats();
+  const { dbStats, dbParts } = await import("./static-db");
+  const [live, stocked] = await Promise.all([dbStats(), dbParts({ where: { minStock: 0 } })]);
+  return {
+    ...base,
+    machines: live.machinesCount,
+    errorCodes: live.errorCodesCount,
+    parts: live.partsCount,
+    guides: live.guidesCount,
+    partsInStock: stocked.length,
+  };
 }

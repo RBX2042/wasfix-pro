@@ -1,5 +1,6 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticGuides } from "@/lib/static-db";
+import { firstParam } from "@/lib/safe-param";
+import { dbGuides } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -7,17 +8,20 @@ import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { Clock, BookOpen, Wrench, Search, Crown } from "lucide-react";
 
-export const dynamic = "force-dynamic";
+// Not force-dynamic: the guide list is a tagged cache read. The page renders per request
+// only because it reads searchParams.
+export const metadata = {
+  title: "Reparatiegidsen: wasmachine zelf repareren",
+  description: "Stap-voor-stap gidsen om je wasmachine zelf te repareren, met gereedschap, tijdsindicatie en veiligheidswaarschuwingen.",
+  alternates: { canonical: "/gidsen" },
+};
 
-
-export const metadata = { title: "Reparatiegidsen — wasmachines repareren" };
-
-export default async function GidsenPage({ searchParams }: { searchParams: Promise<{ q?: string; difficulty?: string }> }) {
+export default async function GidsenPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; difficulty?: string | string[] }> }) {
   const sp = await searchParams;
-  const q = sp.q?.trim();
-  const difficulty = sp.difficulty;
+  const q = firstParam(sp.q)?.trim().slice(0, 80) || undefined;
+  const difficulty = firstParam(sp.difficulty);
 
-  const guides = staticGuides({ where: { q, difficulty }, orderBy: "created-desc" });
+  const guides = await dbGuides({ where: { q, difficulty }, orderBy: "created-desc" });
 
   return (
     <MarketingLayout>
@@ -31,7 +35,7 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
           <form className="mt-6 max-w-xl" action="/gidsen">
             <div className="relative">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input name="q" defaultValue={q} placeholder="Zoek op probleem of onderdeel..." className="pl-10" />
+              <Input name="q" defaultValue={q} placeholder="Zoek op probleem of onderdeel..." aria-label="Zoek reparatiegidsen" className="pl-10 h-11" />
             </div>
           </form>
         </div>
@@ -39,18 +43,17 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
 
       <div className="container py-8">
         <div className="flex flex-wrap gap-2 mb-6">
-          <Link href="/gidsen">
-            <Button variant={!difficulty ? "default" : "outline"} size="sm">Alle</Button>
-          </Link>
-          <Link href="/gidsen?difficulty=EASY">
-            <Button variant={difficulty === "EASY" ? "default" : "outline"} size="sm">Makkelijk</Button>
-          </Link>
-          <Link href="/gidsen?difficulty=MEDIUM">
-            <Button variant={difficulty === "MEDIUM" ? "default" : "outline"} size="sm">Gemiddeld</Button>
-          </Link>
-          <Link href="/gidsen?difficulty=HARD">
-            <Button variant={difficulty === "HARD" ? "default" : "outline"} size="sm">Moeilijk</Button>
-          </Link>
+          {/* A link styled as a button (asChild), not a <button> inside an <a>: one tap target, 44px high. */}
+          {([
+            ["Alle", undefined, "/gidsen"],
+            ["Makkelijk", "EASY", "/gidsen?difficulty=EASY"],
+            ["Gemiddeld", "MEDIUM", "/gidsen?difficulty=MEDIUM"],
+            ["Moeilijk", "HARD", "/gidsen?difficulty=HARD"],
+          ] as const).map(([label, value, to]) => (
+            <Button key={label} asChild variant={difficulty === value ? "default" : "outline"} size="sm" className="min-h-11">
+              <Link href={to}>{label}</Link>
+            </Button>
+          ))}
         </div>
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">

@@ -6,7 +6,7 @@ import { useCart, cartCount } from "@/components/cart-provider";
 import { CartDrawer } from "@/components/cart-drawer";
 import { AuthButtons } from "@/components/auth-buttons";
 import "@/app/wasfix-design.css";
-import { COMPANY, realOrNull } from "@/lib/plans";
+import { FOOTER_CODES, FOOTER_PARTS, FOOTER_BRAND_REPAIR, FOOTER_COMPARE, FOOTER_TOOLS } from "./footer-links";
 
 // Re-usable Icon (same set as WasFixHome)
 export type IconName =
@@ -60,7 +60,7 @@ export function WasFixNav() {
   return (
     <nav className="nav">
       <div className="container nav-inner">
-        <Link href="/" className="brand">
+        <Link href="/" className="brand" aria-label="WasFix Pro, naar de startpagina" style={{ minHeight: 44 }}>
           <div className="brand-mark">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
               <circle cx="12" cy="12" r="7" />
@@ -106,7 +106,11 @@ export function WasFixNav() {
 }
 
 export function WasFixFooter() {
-  const kvk = realOrNull(COMPANY.kvk);
+  // No company identity here. This is a client component and COMPANY is built from
+  // server-only environment variables: in the browser it fell back to the stand-ins, so
+  // the hydrated footer disagreed with the server HTML (React error #418) and could
+  // print "in oprichting" or a placeholder KvK. The identity is on /contact, the legal
+  // pages and the (server-rendered) light footer.
 
   return (
     <footer className="footer">
@@ -136,7 +140,8 @@ export function WasFixFooter() {
               <Link href="/onderdelen">Onderdelen</Link>
               <Link href="/gidsen">Reparatiegidsen</Link>
               <Link href="/foutcodes">Foutcodes database</Link>
-              <Link href="/tools/repareren-of-vervangen">Repareren of vervangen?</Link>
+              <Link href="/merken">Merken en modellen</Link>
+              {FOOTER_TOOLS.map((t) => <Link key={t.href} href={t.href}>{t.label}</Link>)}
             </div>
           </div>
           <div>
@@ -145,6 +150,10 @@ export function WasFixFooter() {
               <Link href="/prijzen">Prijzen</Link>
               <Link href="/over">Over ons</Link>
               <Link href="/contact">Contact</Link>
+              <Link href="/api-docs">API-documentatie</Link>
+              <Link href="/right-to-repair">Right to repair</Link>
+              <Link href="/pers">Pers</Link>
+              <Link href="/blog">Blog</Link>
             </div>
           </div>
           <div>
@@ -174,13 +183,7 @@ export function WasFixFooter() {
         <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
           <div className="foot-h" style={{ marginBottom: 12 }}>Top foutcodes</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {[
-              { brand: "Bosch", codes: ["E18", "E17", "F21", "F23", "F43", "F63"] },
-              { brand: "Miele", codes: ["F11", "F19", "F36", "F53", "F101"] },
-              { brand: "Samsung", codes: ["OE", "dC", "HE", "5E", "4E"] },
-              { brand: "LG", codes: ["UE", "DE", "HE", "OE", "LE"] },
-              { brand: "AEG", codes: ["E20", "E40", "E61", "EHO"] },
-            ].map(({ brand, codes }) =>
+            {FOOTER_CODES.map(({ brand, codes }) =>
               codes.map((code) => (
                 <Link
                   key={`${brand}-${code}`}
@@ -197,20 +200,9 @@ export function WasFixFooter() {
 
         {/* Top onderdelen */}
         <div style={{ marginTop: 18 }}>
-          <div className="foot-h" style={{ marginBottom: 12 }}>Populaire onderdelen</div>
+          <div className="foot-h" style={{ marginBottom: 12 }}>Onderdelen uit de winkel</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
-            {[
-              { sku: "WF-PUMP-04", label: "Samsung afvoerpomp" },
-              { sku: "WF-FILTER-09", label: "Pluizenfilter" },
-              { sku: "WF-HEAT-03", label: "Verwarmingselement 1800W" },
-              { sku: "WF-BEAR-03", label: "Trommellager 6205" },
-              { sku: "WF-BELT-06", label: "V-snaar 1196 J5" },
-              { sku: "WF-LOCK-09", label: "Deurslot Bosch ZV-446" },
-              { sku: "WF-NTC-15", label: "NTC sensor Bosch" },
-              { sku: "WF-DOOR-04", label: "Deurpakking Bosch S6" },
-              { sku: "WF-DAMP-16", label: "Schokdempers Bosch" },
-              { sku: "WF-VALVE-08", label: "Magneetventiel" },
-            ].map((p) => (
+            {FOOTER_PARTS.map((p) => (
               <Link
                 key={p.sku}
                 href={`/onderdelen/${p.sku}`}
@@ -223,9 +215,24 @@ export function WasFixFooter() {
           </div>
         </div>
 
-        <div className="foot-bottom" style={{ marginTop: 32 }}>
-          <div>© {new Date().getFullYear()} {COMPANY.name}{kvk ? ` · KvK ${kvk}` : " · in oprichting"} · Made with care in The Netherlands.</div>
-          <div className="mono" style={{ fontSize: 11.5 }}>Gemini 2.0 · Geist</div>
+        <div style={{ marginTop: 18 }}>
+          <div className="foot-h" style={{ marginBottom: 12 }}>Reparatie per merk</div>
+          <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
+            {FOOTER_BRAND_REPAIR.map((b) => (
+              <Link key={b.slug} href={`/${b.slug}-wasmachine-reparatie`} className="pill" style={{ fontSize: 11.5, padding: "4px 10px", textDecoration: "none" }}>
+                {b.label}
+              </Link>
+            ))}
+            {FOOTER_COMPARE.map((c) => (
+              <Link key={c.slug} href={`/vs/${c.slug}`} className="pill" style={{ fontSize: 11.5, padding: "4px 10px", textDecoration: "none" }}>
+                {c.label}
+              </Link>
+            ))}
+          </div>
+        </div>
+
+        <div className="foot-bottom" style={{ marginTop: 32, flexWrap: "wrap", gap: 8 }}>
+          <div>© {new Date().getFullYear()} WasFix Pro · Made with care in The Netherlands. <Link href="/contact" style={{ textDecoration: "underline" }}>Bedrijfsgegevens</Link></div>
         </div>
       </div>
     </footer>

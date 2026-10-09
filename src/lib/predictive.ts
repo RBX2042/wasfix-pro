@@ -2,7 +2,8 @@
 // age, a brand-reliability multiplier and typical service life per component.
 // Pure deterministic arithmetic, no ML and no dataset behind it: the constants
 // below are engineering rules of thumb, not measurements. Anything shown to
-// the user must say so.
+// the user must say so, and no tip may state a figure ("90%", "+3 years") that
+// nobody measured.
 //
 // Output: per-category health % + estimated time-to-failure + recommended SKUs.
 
@@ -29,19 +30,19 @@ const BRAND_RELIABILITY: Record<string, number> = {
 // Mean Time To Failure per part-category (in months at baseline reliability)
 const MTTF: Array<{ category: string; label: string; baseMtbfMonths: number; tip: string; recommendedSkus: string[] }> = [
   { category: "FILTER", label: "Pluizenfilter", baseMtbfMonths: 60,
-    tip: "Maandelijks leegmaken voorkomt 90% van afvoerproblemen.",
+    tip: "Regelmatig leegmaken houdt de afvoer vrij: een verstopt pluizenfilter is een veelvoorkomende oorzaak van afvoerproblemen.",
     recommendedSkus: ["WF-FILTER-09", "WF-FILTER-10"] },
   { category: "PUMP", label: "Afvoerpomp", baseMtbfMonths: 96,
-    tip: "Vervang preventief rond jaar 8 — eerste failure-mode na pluizenfilter.",
+    tip: "Rammelt of blijft de pomp hangen? Vervang hem dan voor hij helemaal uitvalt.",
     recommendedSkus: ["WF-PUMP-01", "WF-PUMP-02", "WF-PUMP-04"] },
   { category: "DOOR", label: "Deurpakking", baseMtbfMonths: 72,
-    tip: "Wekelijks afvegen na laatste was — verlengt levensduur met 2-3 jaar.",
+    tip: "Veeg de pakking na de laatste was af en laat de deur op een kier staan: dat voorkomt schimmel en vocht in de rubber.",
     recommendedSkus: ["WF-DOOR-03", "WF-DOOR-04"] },
   { category: "LOCK", label: "Deurslot", baseMtbfMonths: 84,
     tip: "Lichte slijtage normaal — vervang bij eerste foutcode (dE/F16).",
     recommendedSkus: ["WF-LOCK-08", "WF-LOCK-09"] },
   { category: "HEATER", label: "Verwarmingselement", baseMtbfMonths: 96,
-    tip: "Ontkalken om de 6 maanden — bespaart 3+ jaar levensduur.",
+    tip: "Ontkalken (volg de handleiding van je machine voor het interval) vertraagt kalkaanslag op het element.",
     recommendedSkus: ["WF-HEAT-02", "WF-HEAT-03"] },
   { category: "NTC", label: "Temperatuursensor (NTC)", baseMtbfMonths: 84,
     tip: "Lange levensduur maar onvoorspelbaar — vervang bij eerste fluctuatie.",
@@ -53,7 +54,7 @@ const MTTF: Array<{ category: string; label: string; baseMtbfMonths: number; tip
     tip: "Alleen bij riem-aangedreven (geen Direct Drive). Inspect jaarlijks.",
     recommendedSkus: ["WF-BELT-06", "WF-BELT-07"] },
   { category: "MOTOR", label: "Motor / koolborstels", baseMtbfMonths: 132,
-    tip: "Koolborstels vervangen rond jaar 9-10 verlengt motor 5+ jaar.",
+    tip: "Koolborstels zijn slijtdelen: vervang ze wanneer ze op zijn in plaats van de hele motor.",
     recommendedSkus: ["WF-MOTOR-17", "WF-MOTOR-13"] },
   { category: "BEARING", label: "Trommellagers", baseMtbfMonths: 144,
     tip: "Eind van levensduur — bij metaalachtig geluid is reparatie soms duurder dan vervanging.",

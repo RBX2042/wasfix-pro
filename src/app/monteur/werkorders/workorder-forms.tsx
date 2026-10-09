@@ -49,7 +49,7 @@ function WorkOrderFields({ order, customers, close }: { order?: WorkOrderRow; cu
         <Field label="Gepland op" name="scheduledAt" type="date" defaultValue={order?.scheduledAt?.slice(0, 10)} />
       </div>
       <div className="grid grid-cols-2 gap-3 items-end">
-        <Field label="Prijs (€)" name="priceEur" type="number" defaultValue={order?.priceEur != null ? String(order.priceEur) : ""} placeholder="89.50" />
+        <Field label="Prijs (€)" name="priceEur" type="number" defaultValue={order?.priceEur != null ? String(order.priceEur) : ""} placeholder="89,50" />
         <label className="flex items-center gap-2 text-sm pb-2">
           <input type="checkbox" name="urgent" defaultChecked={order?.urgent} className="h-4 w-4" />
           <span>Urgent</span>

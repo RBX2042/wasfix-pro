@@ -4,7 +4,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "WasFix Pro — AI wasmachine diagnose",
     short_name: "WasFix Pro",
-    description: "AI-diagnose, onderdelen, gidsen. Wasmachine kapot? Wij weten wat er echt mis is.",
+    description: "AI-diagnose, onderdelen, gidsen. Wasmachine kapot? Wij helpen je de oorzaak te vinden.",
     start_url: "/",
     display: "standalone",
     orientation: "portrait",

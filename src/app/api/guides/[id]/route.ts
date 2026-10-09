@@ -1,14 +1,21 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { staticGuide, guides as allGuides } from "@/lib/static-db";
+import { dbGuide, dbGuideById, redactGuide } from "@/lib/static-db";
+import { viewerCanReadPremiumGuides } from "@/lib/guide-access";
+
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params;
     // Try slug first (most common), then id
-    const guide = staticGuide(id) ?? staticGuide(allGuides.find((g) => g.id === id)?.slug ?? "");
-    if (!guide) return apiError("Gids niet gevonden", 404);
-    return apiSuccess({ guide });
+    const found = (await dbGuide(id)) ?? (await dbGuideById(id));
+    if (!found) return apiError("Gids niet gevonden", 404);
+    const canReadPremium = await viewerCanReadPremiumGuides();
+    const { parts, ...rest } = found;
+    // Same rule as the /gidsen page: premium guides show their first steps to
+    // everybody and the rest only to plans that include them.
+    return apiSuccess({ guide: { ...redactGuide(rest, canReadPremium), parts } });
   } catch {
     return apiError("Fout bij ophalen gids", 500);
   }

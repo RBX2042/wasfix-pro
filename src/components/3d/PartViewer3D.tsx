@@ -1,6 +1,6 @@
 "use client";
 import { Canvas, useFrame } from "@react-three/fiber";
-import { OrbitControls, Box, Cylinder, Torus, Environment, ContactShadows } from "@react-three/drei";
+import { OrbitControls, Box, Cylinder, Torus, ContactShadows } from "@react-three/drei";
 import { useRef, Suspense } from "react";
 import * as THREE from "three";
 
@@ -166,7 +166,13 @@ export default function PartViewer3D({ category = "OTHER" }: { category?: string
         <Suspense fallback={null}>
           <PartShape category={category} />
           <ContactShadows position={[0, -1, 0]} opacity={0.4} scale={4} blur={2} />
-          <Environment preset="studio" />
+          {/* No <Environment/>: drei fetches its HDRI from raw.githack.com,
+              which our own CSP connect-src blocks. The fetch threw, <Suspense>
+              does not catch errors, and with no boundary around the canvas the
+              throw reached app/error.tsx — so every one of the 96 product
+              pages replaced itself with "Er ging iets mis" right after
+              hydration. The scene already has ambient + two directional
+              lights and reads fine without it. */}
         </Suspense>
         <OrbitControls enablePan={false} enableZoom={false} autoRotate autoRotateSpeed={1.5} />
       </Canvas>

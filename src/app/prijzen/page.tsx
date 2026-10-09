@@ -5,10 +5,11 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { CheckCircle2, X, Sparkles } from "lucide-react";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const metadata = {
-  title: "Prijzen — Gratis tot €29/mnd · WasFix Pro abonnementen",
-  description: "Gratis, Particulier €4,99/mnd of Monteur Pro €29/mnd. Onbeperkte AI-diagnoses, kortingen op onderdelen, API. 14 dagen gratis proefperiode.",
+  title: "Prijzen — Gratis tot €29/mnd excl. btw · WasFix Pro abonnementen",
+  description: "Gratis, Particulier €4,99/mnd incl. btw of Monteur Pro €29/mnd excl. btw. Onbeperkte AI-diagnoses (redelijk gebruik), kortingen op onderdelen, API. 14 dagen gratis proefperiode.",
   alternates: { canonical: "/prijzen" },
 };
 
@@ -25,12 +26,12 @@ const PRICING_JSONLD = PLAN_ORDER.filter((id) => PLANS[id].priceCents > 0).map((
       price: (plan.priceCents / 100).toFixed(2),
       priceCurrency: "EUR",
       availability: "https://schema.org/InStock",
-      url: `https://wasfix.nl/upgrade?plan=${plan.id}`,
+      url: absoluteUrl(`/upgrade?plan=${plan.id}`),
     },
   };
 });
 
-const FREE_MISSING = ["Premium reparatiegidsen", "Korting op onderdelen", "Prioriteit support"];
+const FREE_MISSING = ["Premium reparatiegidsen", "Korting op onderdelen"];
 
 const TIERS = PLAN_ORDER.map((id) => {
   const plan = PLANS[id];
@@ -110,9 +111,9 @@ export default function PrijzenPage() {
           <h2 className="font-heading text-2xl font-bold text-center mb-8">Veelgestelde vragen</h2>
           <div className="space-y-4">
             <Faq q="Kan ik op elk moment opzeggen?" a="Ja, opzeggen kan maandelijks zonder vragen. Je behoudt toegang tot het einde van je betaalperiode." />
-            <Faq q="Hoe werkt de korting op onderdelen?" a="Particulier krijgt 5% korting, Monteur Pro 10%, Bedrijf 15%. De korting wordt automatisch toegepast in je winkelmand." />
-            <Faq q="Welke betaalmethoden zijn er?" a="iDEAL, creditcard (Visa, Mastercard, Amex), Bancontact. Voor zakelijke klanten ook factuur." />
-            <Faq q="Is er een setup fee?" a="Nee. Elk plan is direct online af te sluiten en maandelijks opzegbaar, zonder setup fee. Voor meer dan 20 gebruikers of maatwerk maken we een offerte." />
+            <Faq q="Hoe werkt de korting op onderdelen?" a="Particulier krijgt 5% korting, Monteur Pro 10%, Bedrijf 15%. De korting wordt automatisch toegepast in je winkelmand, zodra je eerste betaling is voldaan. Tijdens de gratis proefperiode geldt de korting nog niet; de overige voordelen van je plan wel." />
+            <Faq q="Welke betaalmethoden zijn er?" a="Voor onderdelen: iDEAL en creditcard, of een overschrijving op rekening. Het abonnement betaal je via Stripe. Een factuur met btw-specificatie ontvang je bij elke bestelling." />
+            <Faq q="Is er een setup fee?" a="Nee. Elk plan is direct online af te sluiten en maandelijks opzegbaar, zonder setup fee. Een plan hoort bij één account; teams met meerdere gebruikers en maatwerk bieden we nog niet aan." />
           </div>
         </div>
       </div>

@@ -1,67 +1,70 @@
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { getCurrentUser } from "@/lib/auth";
-import { redirect } from "next/navigation";
-import { ReferralWidget } from "@/components/ReferralWidget";
-import { referralCodeFor } from "@/lib/referrals";
+import { notFound, redirect } from "next/navigation";
+import Link from "next/link";
+import { env } from "@/lib/env";
+import { ATTRIBUTION_DAYS, MAX_REWARD_PER_YEAR_EUR, REFERRAL_ENABLED, REWARD_EUR, REWARD_SHARE_OF_MARGIN, referralCodeFor, referralStats } from "@/lib/referrals";
+import { ReferralPanel } from "./referral-panel";
 
-export const metadata = { title: "Refereer vrienden — verdien €5 · WasFix Pro" };
+export const metadata = { title: "Vrienden verwijzen · WasFix Pro", robots: { index: false } };
 export const dynamic = "force-dynamic";
 
+/**
+ * Behind NEXT_PUBLIC_FEATURE_REFERRAL (default off): there is no automatic
+ * payout, so the programme is not offered unless the owner turns it on knowing
+ * that credit is settled by hand. Every figure below is read from the same
+ * constants src/lib/referrals.ts enforces, so this text cannot promise more
+ * than the code books.
+ */
 export default async function ReferralsPage() {
+  if (!REFERRAL_ENABLED) notFound();
+
   const user = await getCurrentUser().catch(() => null);
   if (!user) redirect("/inloggen?next=/dashboard/referrals");
 
-  const referralCode = await referralCodeFor(user.id);
+  const code = await referralCodeFor(user.id);
+  const stats = await referralStats(code, env.APP_URL);
+  const euro = (n: number) => `€${n.toLocaleString("nl-NL")}`;
 
   return (
     <DashboardLayout role={user.role}>
       <div className="space-y-6">
         <div>
-          <h1 className="font-heading text-2xl font-bold">Refereer vrienden</h1>
-          <p className="text-muted-foreground text-sm">Verdien €5 voor elke vriend die betalend lid wordt.</p>
+          <h1 className="font-heading text-2xl font-bold">Vrienden verwijzen</h1>
+          <p className="text-muted-foreground text-sm">
+            Deel je link. Betaalt een vriend zijn eerste bestelling, dan schrijven we je tegoed bij (maximaal {euro(REWARD_EUR)}).
+          </p>
         </div>
 
-        <ReferralWidget userCode={referralCode} />
+        <ReferralPanel
+          link={stats.link}
+          code={code}
+          stats={{ clicks: stats.clicks, signups: stats.signups, conversions: stats.conversions, earningsEur: stats.earningsEur }}
+        />
 
-        {/* How it works */}
         <div className="border rounded-lg p-6">
           <h2 className="font-heading text-lg font-semibold mb-4">Hoe het werkt</h2>
           <ol className="space-y-3 text-sm text-muted-foreground leading-relaxed list-decimal pl-5">
-            <li><strong className="text-foreground">Deel je link.</strong> Met WhatsApp/email/LinkedIn of gewoon kopiëren-en-plakken.</li>
-            <li><strong className="text-foreground">Vriend signt up.</strong> De link onthoudt 30 dagen wie hem heeft uitgenodigd via een cookie.</li>
-            <li><strong className="text-foreground">Vriend betaalt eerste maand.</strong> Dat moment activeert de credit voor jou.</li>
-            <li><strong className="text-foreground">Je krijgt €5 op je account.</strong> Verzilverbaar tegen onderdelen of abonnement-maanden.</li>
+            <li><strong className="text-foreground">Deel je link.</strong> Via WhatsApp, e-mail of kopiëren en plakken.</li>
+            <li><strong className="text-foreground">Je vriend bezoekt de site.</strong> Alleen als hij cookies voor verwijzingen accepteert, onthouden we {ATTRIBUTION_DAYS} dagen dat hij via jou kwam.</li>
+            <li><strong className="text-foreground">Zijn eerste bestelling wordt betaald.</strong> Pas dan telt het. Een aangemaakte of nog niet betaalde bestelling, een factuur of een proefabonnement geeft niets.</li>
+            <li><strong className="text-foreground">Wij schrijven je tegoed bij.</strong> Het staat hierboven bij &ldquo;Tegoed&rdquo;. Daarna kun je het laten verrekenen, zie onder.</li>
           </ol>
         </div>
 
-        {/* Terms */}
         <div className="border rounded-lg p-6 bg-muted/30">
-          <h2 className="font-heading text-base font-semibold mb-3">Voorwaarden</h2>
+          <h2 className="font-heading text-base font-semibold mb-3">Voorwaarden en verrekening</h2>
           <ul className="space-y-2 text-sm text-muted-foreground leading-relaxed list-disc pl-5">
-            <li>Credit activeert pas wanneer de uitgenodigde persoon zijn eerste <strong>volledige</strong> betaalde maand voltooit (geen restitutie).</li>
-            <li>Geen contante uitbetaling — credit is alleen verzilverbaar binnen WasFix Pro.</li>
-            <li>Max €500 per kalenderjaar.</li>
-            <li>24-maanden attributie-window: de cookie is geldig 30 dagen vanaf eerste klik. Een vriend die later upgrade telt nog 24 maanden mee voor jouw credit.</li>
-            <li>Geen zelf-refereren of fake-accounts — geautomatiseerde detectie. Sancties: verlies van alle credits + ban.</li>
-            <li>Programma kan met 30 dagen aankondiging eindigen.</li>
+            <li>
+              <strong className="text-foreground">Verrekening gebeurt handmatig.</strong> Er is nog geen tegoed dat vanzelf op je account of bij het afrekenen verschijnt: &ldquo;Tegoed&rdquo; hierboven is een teller. Wil je het inwisselen, neem dan{" "}
+              <Link href="/contact" className="underline">contact op</Link>; wij verrekenen het dan handmatig met een volgende bestelling of een abonnementsfactuur. Geen contante uitbetaling.
+            </li>
+            <li>Per vriend maximaal {euro(REWARD_EUR)}, en nooit meer dan {Math.round(REWARD_SHARE_OF_MARGIN * 100)}% van wat WasFix aan zijn bestelling overhoudt (marge op de onderdelen, na korting, zonder btw en zonder verzendkosten). Is die marge niet vast te stellen of te klein, dan is het tegoed {euro(0)}.</li>
+            <li>Alleen de eerste betaalde bestelling van een nieuwe klant telt, één keer per persoon.</li>
+            <li>Maximaal {euro(MAX_REWARD_PER_YEAR_EUR)} tegoed per kalenderjaar.</li>
+            <li>Geen tegoed voor jezelf: een bestelling met je eigen account of e-mailadres telt niet, en een klik op je eigen link terwijl je bent ingelogd evenmin.</li>
+            <li>Het programma kan worden aangepast of stopgezet; tegoed dat al is bijgeschreven blijft staan.</li>
           </ul>
-        </div>
-
-        {/* FAQ */}
-        <div className="border rounded-lg p-6">
-          <h2 className="font-heading text-lg font-semibold mb-4">Veelgestelde vragen</h2>
-          <div className="space-y-3">
-            {[
-              { q: "Wanneer zie ik mijn eerste credit?", a: "Direct na de eerste betaalde maand van je vriend — meestal 30-35 dagen na hun signup. Je krijgt een e-mailnotificatie." },
-              { q: "Hoe gebruik ik mijn credit?", a: "Automatisch — credit wordt afgetrokken bij je volgende order of abonnementsfactuur. Zie 'Credits' in je dashboard." },
-              { q: "Kan ik mijn link aanpassen?", a: "Voor Particulier/Monteur Pro is dit een vaste code. Bedrijf/Enterprise klanten kunnen een vanity-URL aanvragen via support." },
-            ].map((f, i) => (
-              <details key={i} className="border rounded-md p-4 text-sm">
-                <summary className="font-medium cursor-pointer">{f.q}</summary>
-                <p className="text-muted-foreground mt-2 leading-relaxed">{f.a}</p>
-              </details>
-            ))}
-          </div>
         </div>
       </div>
     </DashboardLayout>

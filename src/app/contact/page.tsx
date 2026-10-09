@@ -1,11 +1,28 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { COMPANY, realOrNull, PENDING_REGISTRATION } from "@/lib/plans";
+import { COMPANY, realOrNull, PENDING_REGISTRATION, SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
+import { contactEmail, contactEmailText } from "@/lib/contact-email";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
 
-export const metadata = { title: "Contact" };
+export const metadata = {
+  title: "Contact",
+  description: "Contact met WasFix Pro: mail voor vragen over een bestelling, onderdeel of diagnose, en de bedrijfsgegevens zodra de inschrijving rond is.",
+  alternates: { canonical: "/contact" },
+};
 
-export default function ContactPage() {
+// ?onderwerp=monteur-demo is linked from the homepage monteur block ("Vraag een demo aan").
+const SUBJECTS: Record<string, string> = {
+  "monteur-demo": "Demo aanvragen voor mijn bedrijf (Monteur Pro)",
+};
+
+export default async function ContactPage({ searchParams }: { searchParams: Promise<{ onderwerp?: string }> }) {
+  const sp = await searchParams;
+  // Own-property check on purpose: ?onderwerp=constructor (or __proto__, toString) found an inherited function on the plain
+  // object and handed it to a client component, which made the page answer 500 on every such request.
+  const subject = sp.onderwerp && Object.hasOwn(SUBJECTS, sp.onderwerp) ? SUBJECTS[sp.onderwerp] : undefined;
+  // COMPANY_EMAIL only (decision D15): without it the card says "volgt na inschrijving" instead of a made-up address.
+  const email = contactEmail();
+  const mailto = email ? `mailto:${email}${subject ? `?subject=${encodeURIComponent(subject)}` : ""}` : null;
   // Never print a placeholder as if it were a real registration detail.
   const phone = realOrNull(COMPANY.phone);
   const street = realOrNull(COMPANY.street);
@@ -17,7 +34,7 @@ export default function ContactPage() {
         <div className="container py-12">
           <h1 className="font-heading text-3xl md:text-4xl font-bold">Contact</h1>
           <p className="text-muted-foreground mt-2 max-w-2xl">
-            We helpen je graag verder. Reageert meestal binnen 1 werkdag.
+            We helpen je graag verder. We reageren binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen.
           </p>
         </div>
       </section>
@@ -30,7 +47,12 @@ export default function ContactPage() {
                 <Mail className="h-5 w-5" />
               </div>
               <h3 className="font-heading font-semibold mb-1">E-mail</h3>
-              <a href="mailto:support@wasfix.nl" className="text-primary hover:underline text-sm">support@wasfix.nl</a>
+              {mailto ? (
+                <a href={mailto} className="text-primary hover:underline text-sm inline-flex items-center min-h-11 break-all">{email}</a>
+              ) : (
+                <p className="text-sm text-muted-foreground">{contactEmailText()}</p>
+              )}
+              {subject && <p className="text-xs text-muted-foreground">Onderwerp: {subject}</p>}
             </CardContent>
           </Card>
 
@@ -47,7 +69,7 @@ export default function ContactPage() {
                 </>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Nog geen telefoonlijn. Mail ons — we reageren op werkdagen.
+                  Nog geen telefoonlijn. Mail ons.
                 </p>
               )}
             </CardContent>
@@ -63,7 +85,7 @@ export default function ContactPage() {
                 <p className="text-sm">{street}<br />{postalCode} {COMPANY.city}<br />{COMPANY.country}</p>
               ) : (
                 <p className="text-sm text-muted-foreground">
-                  Bezoekadres {PENDING_REGISTRATION}. Post kan naar {COMPANY.email}.
+                  Bezoekadres {PENDING_REGISTRATION}. Mail ons voor een postadres: {contactEmailText()}.
                 </p>
               )}
             </CardContent>
@@ -74,8 +96,10 @@ export default function ContactPage() {
               <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">
                 <Clock className="h-5 w-5" />
               </div>
-              <h3 className="font-heading font-semibold mb-1">Openingstijden</h3>
-              <p className="text-sm">Ma-vr 9:00 - 17:00<br />Za 10:00 - 14:00<br />Zo gesloten</p>
+              <h3 className="font-heading font-semibold mb-1">Reactietijd</h3>
+              <p className="text-sm text-muted-foreground">
+                We beantwoorden mail binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen. Over een bestelling? Vermeld je bestelnummer.
+              </p>
             </CardContent>
           </Card>
         </div>

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { errorCodes, machines, parts, guides } from "@/lib/static-db";
+import { dbErrorCodes, dbParts, dbGuides } from "@/lib/static-db";
 import helpArticles from "@/data/help-articles.json";
 import blogPosts from "@/data/blog-posts.json";
 import brands from "@/data/brands.json";
@@ -42,13 +42,14 @@ export async function GET(req: NextRequest) {
   if (q.length < 2) return NextResponse.json({ q, hits: [], total: 0 });
   const limit = Math.min(parseInt(req.nextUrl.searchParams.get("limit") ?? "20", 10), 50);
 
-  const machineById = new Map(machines.map((m) => [m.id, m]));
+  // Same catalog the pages serve: a part created in /admin has to be findable
+  // and a withdrawn one must not surface a link that 404s.
+  const [errorCodes, parts, guides] = await Promise.all([dbErrorCodes({}), dbParts(), dbGuides()]);
   const hits: Hit[] = [];
 
   // Foutcodes — searchable by brand + code + title + description
   for (const ec of errorCodes) {
-    const m = machineById.get(ec.machineId);
-    const brand = m?.brand ?? "";
+    const brand = ec.machine.brand;
     const haystack = `${brand} ${ec.code} ${ec.title} ${ec.description}`;
     const s = score(haystack, q);
     if (s > 0) {

@@ -30,7 +30,7 @@ export function SiteHeader() {
     <>
       <header className="sticky top-0 z-40 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="container flex h-16 items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 font-heading font-bold text-xl">
+          <Link href="/" className="flex items-center gap-2 font-heading font-bold text-xl min-h-11">
             <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
               <Sparkles className="h-4 w-4" />
             </span>
@@ -42,7 +42,7 @@ export function SiteHeader() {
               <Link
                 key={it.href}
                 href={it.href}
-                className="px-3 py-2 text-sm font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
+                className="px-3 py-2 min-h-11 inline-flex items-center text-sm font-medium text-muted-foreground hover:text-foreground rounded-md hover:bg-muted transition-colors"
               >
                 {it.label}
               </Link>
@@ -50,7 +50,7 @@ export function SiteHeader() {
           </nav>
 
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon" onClick={() => setOpen(true)} className="relative">
+            <Button variant="ghost" size="icon" onClick={() => setOpen(true)} className="relative h-11 w-11" aria-label={count > 0 ? `Winkelmand openen, ${count} ${count === 1 ? "artikel" : "artikelen"}` : "Winkelmand openen"}>
               <ShoppingCart className="h-5 w-5" />
               {count > 0 && (
                 <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-accent-foreground">
@@ -64,7 +64,7 @@ export function SiteHeader() {
             <Button asChild size="sm" className="hidden sm:inline-flex">
               <Link href="/diagnose">Start diagnose</Link>
             </Button>
-            <Button variant="ghost" size="icon" className="lg:hidden" onClick={() => setMobileOpen(!mobileOpen)}>
+            <Button variant="ghost" size="icon" className="lg:hidden h-11 w-11" onClick={() => setMobileOpen(!mobileOpen)} aria-label={mobileOpen ? "Menu sluiten" : "Menu openen"} aria-expanded={mobileOpen}>
               {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
           </div>

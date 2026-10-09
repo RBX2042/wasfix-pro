@@ -125,14 +125,26 @@ export default async function WorkOrderInvoicePage({ params }: { params: Promise
 
           <div className="mt-6 flex justify-end">
             <dl className="w-full max-w-xs text-sm space-y-1">
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Bedrag excl. btw</dt>
-                <dd className="tabular-nums">{formatEur(inv.totalEur - inv.vatEur)}</dd>
-              </div>
-              <div className="flex justify-between">
-                <dt className="text-muted-foreground">Btw {Math.round(inv.vatRate * 100)}%</dt>
-                <dd className="tabular-nums">{formatEur(inv.vatEur)}</dd>
-              </div>
+              {/* Only when btw is actually charged. A monteur on the
+                  kleineondernemersregeling has vatRate 0, and printing
+                  "Bedrag excl. btw \u20ac 50,00 / Btw 0% \u20ac 0,00 / Totaal
+                  \u20ac 50,00" next to the exemption statement in the footer
+                  reads as an invoice charging btw at a zero rate. It is an
+                  exempt supply: one amount, and the reason for the exemption,
+                  which src/lib/monteur-invoicing.ts requires in the footer
+                  before it will issue at 0%. */}
+              {inv.vatRate > 0 && (
+                <>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Bedrag excl. btw</dt>
+                    <dd className="tabular-nums">{formatEur(inv.totalEur - inv.vatEur)}</dd>
+                  </div>
+                  <div className="flex justify-between">
+                    <dt className="text-muted-foreground">Btw {Math.round(inv.vatRate * 100)}%</dt>
+                    <dd className="tabular-nums">{formatEur(inv.vatEur)}</dd>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between border-t pt-2 font-bold text-base">
                 <dt>Totaal</dt>
                 <dd className="tabular-nums">{formatEur(inv.totalEur)}</dd>

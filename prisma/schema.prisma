@@ -16,6 +16,20 @@ model User {
   plan             String           @default("FREE")
   stripeCustomerId String?
   stripeSubId      String?
+  /// Stripe's own subscription status (trialing, active, past_due, canceled,
+  /// unpaid, ...), mirrored by the webhook. User.plan alone cannot tell a
+  /// paying customer from one whose card has failed for a month.
+  stripeSubStatus  String?
+  /// End of the period the customer has paid for. Access is honoured until
+  /// then even after a cancellation.
+  stripeCurrentPeriodEnd DateTime?
+  /// True when the customer cancelled and the plan simply runs out at
+  /// stripeCurrentPeriodEnd. Lets the dashboard say "loopt af op ..." instead of
+  /// presenting a cancelled subscription as if it renewed.
+  stripeCancelAtPeriodEnd Boolean @default(false)
+  /// Set the first time this account starts a trial. A second trial on the
+  /// same account (cancel and resubscribe) is refused when this is set.
+  trialUsedAt      DateTime?
   diagnosesUsed    Int              @default(0)
   diagnosesResetAt DateTime         @default(now())
   createdAt        DateTime         @default(now())
@@ -125,6 +139,11 @@ model Part {
   priceEur    Float
   /// Wholesale/purchase price excluding VAT. Null = unknown, margin unreported.
   costEur     Float?
+  /// Where costEur comes from: ESTIMATE (derived or guessed; scripts/add-part-costs.mjs
+  /// derives it from the selling price) or QUOTE (a real supplier quote or
+  /// invoice). Every margin figure counts QUOTE only and labels the rest
+  /// "schatting".
+  costSource  String           @default("ESTIMATE")
   stock       Int              @default(0)
   imageUrl    String?
   isOriginal  Boolean          @default(true)
@@ -136,7 +155,6 @@ model Part {
 
   @@index([brand])
   @@index([category])
-  @@index([stock])
 }
 
 model PartMachine {
@@ -214,6 +232,39 @@ model Order {
   shippingAddress String
   email           String
   invoice         Invoice?
+  /// STRIPE (card/iDEAL/Bancontact) or BANK_TRANSFER ("op rekening" — no
+  /// Stripe keys required; the customer pays by wire against the invoice).
+  paymentMethod   String      @default("STRIPE")
+  /// Set for BANK_TRANSFER orders: when payment is due.
+  dueAt           DateTime?
+  /// When payment was actually confirmed (Stripe webhook, or an admin
+  /// marking a bank-transfer order paid once the wire arrives).
+  paidAt          DateTime?
+  /// Set by markOrderShipped (src/lib/invoicing.ts).
+  shippedAt       DateTime?
+  deliveredAt     DateTime?
+  cancelledAt     DateTime?
+  cancelReason    String?
+  /// POSTNL | DHL | DPD | UPS | GLS | OTHER (free text is tolerated).
+  carrier         String?
+  trackingCode    String?
+  phone           String?
+  customerNote    String?
+  /// Money returned or owed back to the customer, in euro incl. VAT: the sum of
+  /// the credit notes issued against this order while it was paid.
+  refundedEur     Float       @default(0)
+  /// Capability token for guest access: /bestelling/<id>?t=<token>. Random,
+  /// never logged. Null only on rows that predate the column; the migration
+  /// backfills every existing row.
+  accessToken     String?     @unique
+  /// Client-supplied key that makes a repeated checkout POST return the order
+  /// it already created instead of a second one.
+  idempotencyKey  String?     @unique
+  /// The Stripe PaymentIntent behind the Checkout session (pi_...).
+  /// stripePaymentId holds the session id (cs_...), which an API refund
+  /// cannot use.
+  stripePaymentIntentId String?
+  rmaRequests     RmaRequest[]
   createdAt       DateTime    @default(now())
   updatedAt       DateTime    @updatedAt
 
@@ -221,15 +272,35 @@ model Order {
   @@index([status])
   @@index([createdAt])
   @@index([stripePaymentId])
+  @@index([stripePaymentIntentId])
+  @@index([paymentMethod, status])
+  @@index([email])
+  /// The admin worklist: filter by status, newest first.
+  @@index([status, createdAt])
 }
 
+/// Webhook idempotency as a LEASE, not a one-way flag. A row is created when a
+/// delivery claims the event (claimedAt) and marked completedAt only after every
+/// side effect succeeded. A function that dies after claiming leaves
+/// completedAt NULL, so a later delivery can take the event over once the lease
+/// (claimedAt older than a few minutes) has expired instead of answering
+/// "already processed" for work that never finished.
 model StripeEvent {
-  id            String   @id @default(cuid())
-  stripeEventId String   @unique
+  id            String    @id @default(cuid())
+  stripeEventId String    @unique
   type          String
-  processedAt   DateTime @default(now())
+  /// Kept from the original table: when the row was first written.
+  processedAt   DateTime  @default(now())
+  /// When the current holder took the lease. Refreshed on every takeover.
+  claimedAt     DateTime  @default(now())
+  /// NULL = not finished. Set once, after the handler succeeded.
+  completedAt   DateTime?
+  /// Number of times a handler has been started for this event.
+  attempts      Int       @default(0)
+  lastError     String?
 
   @@index([type])
+  @@index([completedAt, claimedAt])
 }
 
 model OrderItem {
@@ -240,6 +311,12 @@ model OrderItem {
   part      Part   @relation(fields: [partId], references: [id])
   quantity  Int
   unitPrice Float
+
+  /// Postgres does not index foreign keys automatically, and this table had no
+  /// index at all beyond its primary key. Both columns are read on every order
+  /// page, every invoice, every webhook and the delete-part guard.
+  @@index([orderId])
+  @@index([partId])
 }
 
 // ─── B2B API keys ────────────────────────────────────────────────
@@ -286,17 +363,32 @@ model Review {
 model RmaRequest {
   id        String   @id @default(cuid())
   rmaNumber String   @unique
+  /// What the customer typed in the return form, verbatim. Free text: the form
+  /// accepts any 2-60 characters and customers type the short reference shown
+  /// on /bestelling, so this is NOT a foreign key (a foreign key here made
+  /// /api/retour fail with P2003 on every such reference).
   orderId   String
+  /// The order this return belongs to, once someone (or the backfill in the
+  /// migration) has matched the text above to a real order. Null until then.
+  linkedOrderId String?
+  order     Order?   @relation(fields: [linkedOrderId], references: [id], onDelete: SetNull)
   name      String
   email     String
   reason    String
   notes     String
   status    String   @default("RECEIVED") // RECEIVED | APPROVED | REJECTED | REFUNDED
+  /// When the request was settled (refunded or rejected).
+  resolvedAt DateTime?
+  /// Amount refunded for this return, incl. VAT.
+  refundEur Float?
+  adminNote String?
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([email])
   @@index([status])
+  @@index([orderId])
+  @@index([linkedOrderId])
 }
 
 // ─── Monteur Pro applications ────────────────────────────────────
@@ -395,7 +487,12 @@ model MonteurInvoice {
   ownerId     String
   owner       User      @relation("MonteurInvoiceOwner", fields: [ownerId], references: [id], onDelete: Cascade)
   workOrderId String    @unique
-  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Cascade)
+  /// Restrict, not Cascade: deleting a work order used to delete the invoice
+  /// issued from it while leaving MonteurInvoiceSequence advanced — a
+  /// permanent hole in a series the Belastingdienst requires to be gapless,
+  /// and a sent invoice vanishing from the books. deleteWorkOrder() refuses
+  /// when an invoice exists.
+  workOrder   WorkOrder @relation(fields: [workOrderId], references: [id], onDelete: Restrict)
   number      String
   year        Int
   issuedAt    DateTime  @default(now())
@@ -461,6 +558,10 @@ model Referral {
   @@unique([code, visitorId])
   @@index([code])
   @@index([referrerId])
+  /// recordSignup/recordConversion filter on visitorId alone, which cannot use
+  /// the (code, visitorId) unique index — it was a sequential scan on every
+  /// checkout.
+  @@index([visitorId])
 }
 
 // ─── Invoices ────────────────────────────────────────────────────
@@ -483,6 +584,7 @@ model Invoice {
   sellerJson  String
   buyerJson   String
   linesJson   String
+  creditNotes CreditNote[]
 
   @@index([year])
   @@index([issuedAt])
@@ -490,6 +592,52 @@ model Invoice {
 
 // Allocates gapless invoice numbers per year under a transaction.
 model InvoiceSequence {
+  year Int @id
+  last Int @default(0)
+}
+
+// ─── Credit notes (creditfacturen) ───────────────────────────────
+// An issued invoice is never edited or deleted. A cancellation or refund of an
+// invoiced order is booked as a credit note from its own gapless series
+// (CN-YYYY-NNNNN, Europe/Amsterdam year), written in the same transaction as
+// the state change.
+//
+// SIGN CONVENTION: every amount here is a POSITIVE magnitude (the amount that
+// is credited). The printed document shows it with a minus sign. In the ledger
+// a credit note counts negative:
+//   revenue incl. VAT = sum(Invoice.totalEur) - sum(CreditNote.totalEur)
+//   VAT payable       = sum(Invoice.vatEur)   - sum(CreditNote.vatEur)
+// subtotalEur is the credited amount EXCLUDING VAT (totalEur - vatEur), unlike
+// Invoice.subtotalEur which is the gross goods value before discount.
+model CreditNote {
+  id             String   @id @default(cuid())
+  /// "CN-2026-00001"
+  number         String   @unique
+  year           Int
+  issuedAt       DateTime @default(now())
+  invoiceId      String
+  invoice        Invoice  @relation(fields: [invoiceId], references: [id], onDelete: Restrict)
+  reason         String
+  subtotalEur    Float
+  vatRate        Float
+  vatEur         Float
+  totalEur       Float
+  sellerJson     String
+  buyerJson      String
+  linesJson      String
+  /// Stripe refund (re_...) that paid this credit out, when there is one.
+  /// Unique, so replaying a refund webhook cannot create a second credit note.
+  stripeRefundId String?  @unique
+  /// Caller-supplied key that makes a refund without a Stripe id (bank
+  /// transfer) idempotent: the same key returns the same note. Unique.
+  idempotencyKey String?  @unique
+
+  @@index([invoiceId])
+  @@index([year])
+}
+
+// Gapless credit-note numbers per year, allocated like InvoiceSequence.
+model CreditNoteSequence {
   year Int @id
   last Int @default(0)
 }

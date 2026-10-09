@@ -12,6 +12,7 @@ export const metadata = {
   openGraph: {
     title: "Repareren of vervangen? — WasFix Pro Calculator",
     description: "Eerlijk advies in 2 minuten — gebaseerd op leeftijd, kosten en CO₂ impact.",
+    images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
   },
   alternates: { canonical: "/tools/repareren-of-vervangen" },
 };

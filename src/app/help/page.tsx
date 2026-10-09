@@ -1,14 +1,17 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import articlesData from "@/data/help-articles.json";
+import { correctHelpText } from "./_corrections";
+import { SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
 
 export const metadata = {
-  title: "Helpcentrum · WasFix Pro",
+  title: "Helpcentrum",
   description: "Antwoorden op de meest gestelde vragen. AI diagnose, onderdelen, bestellingen, abonnement, garantie, privacy.",
+  alternates: { canonical: "/help" },
 };
 
 type Article = { slug: string; category: string; title: string; summary: string; content: string };
-const articles = articlesData as Article[];
+const articles = (articlesData as Article[]).map((a) => ({ ...a, title: correctHelpText(a.title), summary: correctHelpText(a.summary) }));
 
 export default function HelpPage() {
   // Group by category
@@ -51,7 +54,7 @@ export default function HelpPage() {
                     <h2 style={{ fontSize: 20, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>{category}</h2>
                     <span className="muted mono" style={{ fontSize: 11, marginLeft: 4 }}>{items.length} artikel{items.length === 1 ? "" : "en"}</span>
                   </div>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(280px, 1fr))", gap: 12 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(min(280px, 100%), 1fr))", gap: 12 }}>
                     {items.map((a) => (
                       <Link
                         key={a.slug}
@@ -72,7 +75,7 @@ export default function HelpPage() {
           <div style={{ marginTop: 56, padding: 32, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16, textAlign: "center" }}>
             <h2 style={{ fontSize: 22, fontWeight: 500, marginBottom: 10 }}>Niet gevonden wat je zocht?</h2>
             <p className="muted" style={{ marginBottom: 18, maxWidth: 480, margin: "0 auto 18px" }}>
-              Stuur ons een bericht — we reageren binnen 24u op werkdagen.
+              Stuur ons een bericht — we reageren binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen.
             </p>
             <Link className="btn btn-primary" href="/contact">
               Contact support <Icon name="send" size={13} />

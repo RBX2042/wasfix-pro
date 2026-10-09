@@ -28,7 +28,7 @@ export default function RevenueChart({ data }: Props) {
             }}
             formatter={(value, name) => {
               const num = typeof value === "number" ? value : parseFloat(String(value));
-              return name === "revenue" ? [`€${num.toFixed(2)}`, "Omzet"] : [String(value), "Bestellingen"];
+              return name === "revenue" ? [`€${num.toFixed(2)}`, "Omzet"] : [String(value), "Facturen"];
             }}
           />
           <Area type="monotone" dataKey="revenue" stroke="#1a6b6b" strokeWidth={2} fillOpacity={1} fill="url(#revGradient)" />

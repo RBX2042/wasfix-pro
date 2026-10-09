@@ -5,7 +5,7 @@ import Link from "next/link";
 
 // 3-tier AVG-compliant consent:
 //  - functional: always on (necessary cookies for cart, session)
-//  - analytics: opt-in for Vercel Analytics / Plausible (cookieless but track event-level)
+//  - analytics: opt-in for Vercel Analytics / Speed Insights / optional PostHog + GA4
 //  - marketing: opt-in for retargeting / future ads
 //
 // Storage: a single cookie `wasfix-consent` (JSON, 365 day, SameSite=Lax).
@@ -38,10 +38,33 @@ function writeConsent(c: Consent) {
   window.dispatchEvent(new CustomEvent("wasfix-consent-update", { detail: c }));
 }
 
+// Layout: a compact bar along the bottom edge. The first version was a 16px-inset
+// card with 20px padding and a 15px headline: 259px tall (32% of a 375x812 phone,
+// 66% expanded) and, appearing 600ms after load, the largest paint on the page - so
+// for every first-time visitor the cookie text WAS the LCP element (3.4s against
+// 0.9s once the consent cookie existed). Now: two short lines at 12.5px, buttons
+// 44px tall (the tap-target minimum), and the detailed choices open as a scrollable
+// sheet only when asked for.
+const BTN: React.CSSProperties = {
+  flex: "1 1 0",
+  minWidth: 0,
+  minHeight: 44,
+  borderRadius: 8,
+  padding: "0 10px",
+  cursor: "pointer",
+  fontFamily: "inherit",
+  fontSize: 13.5,
+  fontWeight: 500,
+  whiteSpace: "nowrap",
+};
+
 export function CookieConsent() {
   const [visible, setVisible] = React.useState(false);
   const [expanded, setExpanded] = React.useState(false);
-  const [analytics, setAnalytics] = React.useState(true);
+  // Not pre-ticked: consent has to be an active act (CJEU Planet49, Autoriteit
+  // Persoonsgegevens). The panel used to open with Analytics already ticked, so
+  // "Mijn keuze opslaan" without touching anything recorded analytics: true.
+  const [analytics, setAnalytics] = React.useState(false);
   const [marketing, setMarketing] = React.useState(false);
 
   React.useEffect(() => {
@@ -75,133 +98,91 @@ export function CookieConsent() {
       aria-describedby="consent-desc"
       style={{
         position: "fixed",
-        bottom: 16,
-        left: 16,
-        right: 16,
+        bottom: 0,
+        left: 0,
+        right: 0,
         zIndex: 9999,
-        maxWidth: 720,
-        margin: "0 auto",
-        background: "rgba(11, 14, 28, 0.96)",
-        backdropFilter: "saturate(140%) blur(14px)",
-        WebkitBackdropFilter: "saturate(140%) blur(14px)",
-        border: "1px solid rgba(255,255,255,0.12)",
-        borderRadius: 14,
-        padding: "20px 22px",
+        maxHeight: "70vh",
+        overflowY: "auto",
+        background: "rgba(11, 14, 28, 0.98)",
+        borderTop: "1px solid rgba(255,255,255,0.14)",
+        padding: "10px 14px calc(10px + env(safe-area-inset-bottom))",
         color: "#e8eefb",
-        boxShadow: "0 24px 60px -20px rgba(0,0,0,0.7)",
+        boxShadow: "0 -8px 30px -12px rgba(0,0,0,0.6)",
         fontFamily: "var(--font-geist), system-ui, -apple-system, sans-serif",
-        fontSize: 14,
-        lineHeight: 1.55,
+        fontSize: 12.5,
+        lineHeight: 1.45,
       }}
     >
-      <div id="consent-title" style={{ fontWeight: 600, fontSize: 15, marginBottom: 6 }}>
-        🍪 Cookies & privacy
-      </div>
-      <div id="consent-desc" style={{ color: "rgba(232,238,251,0.75)", marginBottom: 14 }}>
-        We gebruiken essentiële cookies om de site te laten werken. Analytics helpt ons de site te verbeteren. Je kunt op elk moment je keuze wijzigen via{" "}
-        <Link href="/cookies" style={{ color: "#7eb3ff", textDecoration: "underline" }}>cookie-instellingen</Link>.
-      </div>
+      <div style={{ maxWidth: 760, margin: "0 auto" }}>
+        <p id="consent-desc" style={{ margin: "0 0 8px", color: "rgba(232,238,251,0.8)", fontSize: 12.5 }}>
+          <span id="consent-title" style={{ fontWeight: 600, color: "#fff" }}>Cookies. </span>
+          Functionele cookies zijn nodig; analytics alleen met jouw toestemming.{" "}
+          <Link href="/cookies" style={{ color: "#7eb3ff", textDecoration: "underline" }}>Meer info</Link>
+        </p>
 
-      {expanded && (
-        <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "12px 14px", marginBottom: 14 }}>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0", opacity: 0.7 }}>
-            <input type="checkbox" checked disabled style={{ marginTop: 3 }} />
-            <span>
-              <b>Functioneel</b> (altijd aan) — Inloggen, winkelmand, voorkeuren.
-            </span>
-          </label>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={analytics}
-              onChange={(e) => setAnalytics(e.target.checked)}
-              style={{ marginTop: 3 }}
-            />
-            <span>
-              <b>Analytics</b> — Geanonimiseerd page-view-data. Helpt ons fouten en knelpunten zien.
-            </span>
-          </label>
-          <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "6px 0", cursor: "pointer" }}>
-            <input
-              type="checkbox"
-              checked={marketing}
-              onChange={(e) => setMarketing(e.target.checked)}
-              style={{ marginTop: 3 }}
-            />
-            <span>
-              <b>Marketing</b> — Cookies voor retargeting. Standaard uit, alleen aan als je ze nodig hebt voor advertentievoorkeuren.
-            </span>
-          </label>
-        </div>
-      )}
-
-      <div style={{ display: "flex", flexWrap: "wrap", gap: 8, alignItems: "center" }}>
-        <button
-          onClick={acceptAll}
-          style={{
-            background: "linear-gradient(180deg, #5d97ff, #3b7aff)",
-            color: "#fff",
-            border: 0,
-            borderRadius: 8,
-            padding: "9px 16px",
-            fontWeight: 500,
-            cursor: "pointer",
-            fontFamily: "inherit",
-            fontSize: 13.5,
-            boxShadow: "0 0 0 1px rgba(79,140,255,0.4), 0 6px 16px -6px rgba(79,140,255,0.6)",
-          }}
-        >
-          Alles accepteren
-        </button>
-        <button
-          onClick={rejectAll}
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            color: "#e8eefb",
-            border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 8,
-            padding: "9px 14px",
-            cursor: "pointer",
-            fontFamily: "inherit",
-            fontSize: 13.5,
-          }}
-        >
-          Alleen functioneel
-        </button>
-        {expanded ? (
-          <button
-            onClick={saveChoices}
-            style={{
-              background: "transparent",
-              color: "#7eb3ff",
-              border: "1px solid rgba(126,179,255,0.3)",
-              borderRadius: 8,
-              padding: "9px 14px",
-              cursor: "pointer",
-              fontFamily: "inherit",
-              fontSize: 13.5,
-            }}
-          >
-            Mijn keuze opslaan
-          </button>
-        ) : (
-          <button
-            onClick={() => setExpanded(true)}
-            style={{
-              background: "transparent",
-              color: "rgba(232,238,251,0.75)",
-              border: 0,
-              cursor: "pointer",
-              fontFamily: "inherit",
-              fontSize: 13,
-              textDecoration: "underline",
-              padding: "9px 0",
-              marginLeft: "auto",
-            }}
-          >
-            Aanpassen
-          </button>
+        {expanded && (
+          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "6px 12px", marginBottom: 10 }}>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", opacity: 0.7 }}>
+              <input type="checkbox" checked disabled style={{ marginTop: 2, width: 18, height: 18 }} />
+              <span>
+                <b>Functioneel</b> (altijd aan) — inloggen, winkelmand, voorkeuren.
+              </span>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={analytics}
+                onChange={(e) => setAnalytics(e.target.checked)}
+                style={{ marginTop: 2, width: 18, height: 18 }}
+              />
+              <span>
+                <b>Analytics</b> — meet welke pagina&apos;s en stappen bezoekers gebruiken (zonder e-mail of naam), zodat we fouten en knelpunten zien.
+              </span>
+            </label>
+            <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", cursor: "pointer" }}>
+              <input
+                type="checkbox"
+                checked={marketing}
+                onChange={(e) => setMarketing(e.target.checked)}
+                style={{ marginTop: 2, width: 18, height: 18 }}
+              />
+              <span>
+                <b>Marketing</b> — verwijzingscookies voor ons doorverwijsprogramma. Standaard uit.
+              </span>
+            </label>
+          </div>
         )}
+
+        <div style={{ display: "flex", gap: 8 }}>
+          <button
+            onClick={acceptAll}
+            style={{ ...BTN, background: "linear-gradient(180deg, #5d97ff, #3b7aff)", color: "#fff", border: "1px solid rgba(79,140,255,0.6)" }}
+          >
+            Alles accepteren
+          </button>
+          <button
+            onClick={rejectAll}
+            style={{ ...BTN, background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }}
+          >
+            Alleen functioneel
+          </button>
+          {expanded ? (
+            <button
+              onClick={saveChoices}
+              style={{ ...BTN, background: "transparent", color: "#9cc4ff", border: "1px solid rgba(126,179,255,0.5)" }}
+            >
+              Mijn keuze opslaan
+            </button>
+          ) : (
+            <button
+              onClick={() => setExpanded(true)}
+              style={{ ...BTN, flex: "0 0 auto", background: "transparent", color: "rgba(232,238,251,0.85)", border: "1px solid transparent", textDecoration: "underline" }}
+            >
+              Aanpassen
+            </button>
+          )}
+        </div>
       </div>
     </div>
   );

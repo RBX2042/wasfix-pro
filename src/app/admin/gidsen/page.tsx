@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { isDatabaseConfigured } from "@/lib/env";
+import { AdminShell } from "../_lib/page-shell";
+import { AdminNav } from "../_lib/admin-nav";
 import { DeleteButton, EditGuideButton, NewGuideButton, deleteGuide, type GuideRow } from "../_lib/catalog-forms";
 
 export const dynamic = "force-dynamic";
@@ -29,7 +31,9 @@ export default async function AdminGuidesPage() {
 
   return (
     <DashboardLayout role={user.role}>
-      <div className="flex items-center justify-between mb-6 gap-4">
+      <AdminShell>
+      <AdminNav current="/admin/gidsen" />
+      <div className="flex flex-wrap items-center justify-between mb-6 gap-4">
         <div>
           <h1 className="font-heading text-2xl font-bold">Reparatiegidsen beheren</h1>
           <p className="text-muted-foreground text-sm">{guides.length} gidsen</p>
@@ -47,6 +51,7 @@ export default async function AdminGuidesPage() {
       )}
 
       <Card>
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead className="bg-muted text-left">
             <tr>
@@ -78,7 +83,9 @@ export default async function AdminGuidesPage() {
             ))}
           </tbody>
         </table>
+        </div>
       </Card>
+      </AdminShell>
     </DashboardLayout>
   );
 }

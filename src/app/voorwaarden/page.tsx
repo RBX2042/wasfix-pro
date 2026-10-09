@@ -1,11 +1,14 @@
+import { ContactEmail } from "@/lib/contact-email";
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { formatEur } from "@/lib/utils";
-import { SHIPPING, COMPANY, realOrNull } from "@/lib/plans";
+import { SHIPPING, COMPANY, PLANS, realOrNull, SUPPORT_RESPONSE_WORKDAYS, COMPLAINT_RESOLUTION_DAYS } from "@/lib/plans";
+import { PAID_DAILY_CALLS } from "@/lib/diagnose-core";
 import Link from "next/link";
 
 export const metadata = {
-  title: "Algemene voorwaarden · WasFix Pro",
-  description: "Algemene voorwaarden van WasFix Pro B.V. voor diensten, onderdelen-verkoop en abonnementen.",
+  title: "Algemene voorwaarden",
+  description: "Algemene voorwaarden van WasFix Pro voor diensten, onderdelen-verkoop en abonnementen.",
+  alternates: { canonical: "/voorwaarden" },
 };
 
 export default function VoorwaardenPage() {
@@ -24,12 +27,12 @@ export default function VoorwaardenPage() {
             Algemene <em>voorwaarden</em>
           </h1>
           <p className="muted mono" style={{ fontSize: 12, marginBottom: 36, letterSpacing: "0.04em" }}>
-            Laatste update: 23 mei 2026 · Versie 2.1
+            Laatste update: 9 oktober 2026 · Versie 2.3
           </p>
 
           <div className="legal-content">
             <p style={{ fontSize: 16, lineHeight: 1.7, color: "var(--text-2)" }}>
-              Deze algemene voorwaarden zijn van toepassing op alle aanbiedingen, overeenkomsten en leveringen van WasFix Pro B.V. (&ldquo;WasFix&rdquo;, &ldquo;wij&rdquo;, &ldquo;ons&rdquo;) aan jou als gebruiker, consument of zakelijke afnemer. Door gebruik te maken van onze diensten of een bestelling te plaatsen, accepteer je deze voorwaarden.
+              Deze algemene voorwaarden zijn van toepassing op alle aanbiedingen, overeenkomsten en leveringen van {COMPANY.name} (&ldquo;WasFix&rdquo;, &ldquo;wij&rdquo;, &ldquo;ons&rdquo;) aan jou als gebruiker, consument of zakelijke afnemer. Door gebruik te maken van onze diensten of een bestelling te plaatsen, accepteer je deze voorwaarden.
             </p>
 
             <h2>Artikel 1 — Definities</h2>
@@ -59,9 +62,9 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 4 — Levering</h2>
             <ul>
-              <li>Bestellingen worden op werkdagen verzonden. De bezorgtijd hangt af van de vervoerder; je ontvangt een track &amp; trace zodra je pakket is aangemeld.</li>
+              <li>Bestellingen worden op werkdagen verzonden. De bezorgtijd hangt af van de vervoerder. Zodra wij je bestelling als verzonden markeren, ontvang je een e-mail met een track &amp; trace-code.</li>
               <li>Levertijd is een indicatie, geen fatale termijn. Bij vertraging informeren we je per e-mail.</li>
-              <li>Verzendkosten: gratis vanaf {formatEur(SHIPPING.freeFromEur)} in NL/BE, anders {formatEur(SHIPPING.rateEur)}.</li>
+              <li>Wij leveren op dit moment uitsluitend in Nederland. Verzendkosten: gratis vanaf {formatEur(SHIPPING.freeFromEur)}, anders {formatEur(SHIPPING.rateEur)}.</li>
               <li>Levering geschiedt op het door jou opgegeven adres. Onjuiste adresinformatie komt voor jouw rekening.</li>
               <li>Het risico van beschadiging of verlies gaat over op het moment van bezorging (consumenten) of overdracht aan de vervoerder (zakelijke afnemers, art. 7:11 BW).</li>
             </ul>
@@ -72,18 +75,21 @@ export default function VoorwaardenPage() {
             </p>
             <h3>5.1 Hoe oefen je het herroepingsrecht uit?</h3>
             <ul>
-              <li>Stuur een mail naar <a href="mailto:retour@wasfix.nl">retour@wasfix.nl</a> of vul het <Link href="/retour/start">retour-formulier</Link> in.</li>
-              <li>Stuur het product binnen 14 dagen na herroeping retour, in originele verpakking, ongebruikt en compleet.</li>
-              <li>Wij betalen binnen 14 dagen na ontvangst het volledige bedrag terug, inclusief oorspronkelijke verzendkosten (laagste tarief).</li>
+              <li>Stuur een mail naar <ContactEmail /> of vul het <Link href="/retour/start">retour-formulier</Link> in.</li>
+              <li>Stuur het product binnen 14 dagen na je melding retour.</li>
+              <li>Je mag het onderdeel uitpakken, bekijken en beoordelen zoals je in een winkel zou doen (art. 6:230s lid 2 BW). Een geopende verpakking, een verbroken zegel of een kort gepast onderdeel kost je je herroepingsrecht dus niet. Ga je verder dan nodig is om aard en werking vast te stellen en is het onderdeel daardoor minder waard, dan verrekenen we alleen die waardevermindering.</li>
+              <li>Wij betalen binnen 14 dagen na ontvangst van je herroepingsmelding het volledige bedrag terug, inclusief de oorspronkelijke verzendkosten (laagste tarief) — art. 6:230r lid 1 BW. Wij mogen daarmee wachten tot wij het product terug hebben of tot jij hebt aangetoond dat je het hebt verzonden (lid 3).</li>
               <li>De kosten voor retourzending zijn voor jouw rekening, tenzij het product defect of verkeerd geleverd is.</li>
             </ul>
             <h3>5.2 Uitsluitingen</h3>
             <p>Geen herroepingsrecht voor:</p>
             <ul>
               <li>Producten die op maat zijn gemaakt of voor jou speciaal besteld bij de fabrikant</li>
-              <li>Producten die hygiënisch ongeschikt zijn voor retour (bv. afgesloten verpakking geopend)</li>
               <li>Digitale diensten waarvoor je expliciet toestemming hebt gegeven om vóór afloop van de bedenktermijn te starten</li>
             </ul>
+            <p>
+              De hygiëne-uitzondering van art. 6:230p sub f BW geldt alleen voor verzegelde producten die om gezondheids- of hygiënische redenen niet teruggestuurd kunnen worden. Onderdelen als pompen, deurrubbers en filters vallen daar niet onder, dus daarop beroepen wij ons niet.
+            </p>
 
             <h2>Artikel 6 — Garantie</h2>
             <ul>
@@ -91,22 +97,36 @@ export default function VoorwaardenPage() {
               <li>Aanvullend bieden we voor originele onderdelen <strong>24 maanden fabrieksgarantie</strong> op materiaal- en fabricagefouten.</li>
               <li>Universele/compatibele onderdelen: 12 maanden WasFix-garantie.</li>
               <li>Garantie vervalt bij verkeerd gebruik, ondeskundige installatie, of overmacht (water, brand, bliksem).</li>
-              <li>Onder de EU Right-to-Repair zijn wij verplicht onderdelen voor minimaal 10 jaar beschikbaar te houden.</li>
+              <li>Fabrikanten van wasmachines moeten reserve-onderdelen tot 10 jaar na het laatste op de markt gebrachte exemplaar leverbaar houden (Verordening (EU) 2019/2023, bijlage II). Die verplichting rust op de fabrikant, niet op WasFix — zie <Link href="/right-to-repair">right to repair</Link>.</li>
             </ul>
 
             <h2>Artikel 7 — Betaling</h2>
+            <h3>7.1 Betaalmogelijkheden</h3>
             <ul>
-              <li>Betaling vooraf via iDEAL, Bancontact, creditcard, Apple/Google Pay (via Stripe).</li>
-              <li>Zakelijke afnemers (MONTEUR_PRO, BEDRIJF): factuur 14 dagen netto na bevestigingsmail.</li>
-              <li>Bij niet-tijdige betaling: wettelijke handelsrente + €40 incassokosten conform WIK.</li>
+              <li>Betaling vooraf via iDEAL of creditcard (via Stripe).</li>
+              <li><strong>Bankoverschrijving (vooruitbetaling):</strong> in de checkout kun je ook kiezen voor betaling per bankoverschrijving — dit staat open voor iedere klant, dus ook voor consumenten. Kies je dit, dan ontvang je meteen een factuur en maak je het bedrag binnen <strong>14 dagen</strong> na factuurdatum over. <strong>Wij verzenden pas nadat de betaling op onze rekening is bijgeschreven;</strong> er wordt dus nooit geleverd op krediet. Lukt een betaling via iDEAL of creditcard niet, dan blijf je in de checkout met een melding; wij schakelen je nooit zelf over naar een andere betaalmethode en maken dan ook geen bestelling of factuur aan.</li>
+              <li>De bestelde onderdelen worden bij een bestelling op rekening direct voor je gereserveerd. Is de factuur 7 dagen na de vervaldatum nog niet betaald, dan mogen wij de bestelling annuleren; de gereserveerde onderdelen komen dan weer beschikbaar voor andere klanten. Een factuur wijzigen of verwijderen wij nooit: bij annulering of terugbetaling van een gefactureerde bestelling sturen wij je een creditfactuur. Betaal je daarna alsnog, dan storten wij het bedrag terug of plaatsen we in overleg een nieuwe bestelling.</li>
               <li>Eigendom van producten gaat pas over op de Klant na volledige betaling.</li>
+            </ul>
+            <h3>7.2 Betaling blijft uit</h3>
+            <p>
+              Omdat wij pas verzenden na ontvangst van de betaling, ontstaat er bij een bestelling geen vordering op jou. Betaal je niet binnen de termijn, dan sturen wij rond de vervaldatum en kort voor de annulering een kosteloze betalingsherinnering. Is de factuur 7 dagen na de vervaldatum nog niet betaald, dan mogen wij de bestelling annuleren (zie 7.1). Wij brengen daarbij geen incassokosten, rente of andere kosten in rekening.
+            </p>
+            <h3>7.3 Zakelijke afnemers en abonnementen</h3>
+            <ul>
+              <li>Voor zakelijke afnemers geldt hetzelfde als voor consumenten: wij leveren onderdelen pas na ontvangst van de betaling.</li>
+              <li>Abonnementen (Particulier, Monteur Pro en Bedrijf) betaal je per maand vooruit via iDEAL of creditcard (Stripe), zie artikel 8.</li>
             </ul>
 
             <h2>Artikel 8 — Abonnementen</h2>
+            {/* The days and the monthly/excl.-btw facts come from PLANS, so this text cannot drift from what Stripe is told. */}
             <ul>
-              <li>Abonnementen lopen maandelijks (Particulier, Monteur Pro) of jaarlijks (Bedrijf) en zijn altijd opzegbaar per de eerstvolgende factuurdatum.</li>
-              <li>Eerste 14 dagen gratis bij Monteur Pro — opzegbaar vóór de eerste factuurdatum zonder kosten.</li>
-              <li>Opzeggen kan via je dashboard (&ldquo;Abonnement&rdquo;) of per e-mail naar <a href="mailto:support@wasfix.nl">support@wasfix.nl</a>.</li>
+              <li>Abonnementen (Particulier, Monteur Pro en Bedrijf) lopen maandelijks en lopen door totdat je opzegt. Opzeggen kan op elk moment; het abonnement eindigt aan het einde van de periode waarvoor je hebt betaald.</li>
+              <li>Particulier is inclusief btw. Monteur Pro en Bedrijf zijn zakelijke abonnementen en worden berekend exclusief btw; de btw komt er bij het afrekenen bij.</li>
+              <li>Een nieuw abonnement begint met een gratis proefperiode van {PLANS.PARTICULIER.trialDays} dagen (Particulier), {PLANS.MONTEUR_PRO.trialDays} dagen (Monteur Pro) of {PLANS.BEDRIJF.trialDays} dagen (Bedrijf), één keer per account. Je kunt vóór de eerste betaling kosteloos opzeggen.</li>
+              <li>De korting op onderdelen van je abonnement geldt vanaf je eerste betaling, niet tijdens de gratis proefperiode.</li>
+              <li>&ldquo;Onbeperkt&rdquo; aantal AI-diagnoses betekent: ruim voldoende voor normaal gebruik. Om misbruik en onnodige kosten te voorkomen stopt de AI na {PAID_DAILY_CALLS} berichten per dag; de volgende dag kun je gewoon verder.</li>
+              <li>Opzeggen kan via je dashboard (&ldquo;Abonnement&rdquo;) of per e-mail naar <ContactEmail />.</li>
               <li>Bij opzegging blijft toegang behouden tot het einde van de betaalde periode. Geen pro-rata teruggave.</li>
               <li>WasFix kan prijzen aanpassen met 60 dagen aankondiging. Je hebt het recht het abonnement op te zeggen vóór de wijziging ingaat.</li>
             </ul>
@@ -130,7 +150,7 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 11 — Intellectueel eigendom</h2>
             <p>
-              Alle teksten, afbeeldingen, video&apos;s, gidsen, AI-output en software op deze site zijn eigendom van WasFix Pro B.V. of haar licentiegevers. Kopiëren, verspreiden of commercieel gebruiken is niet toegestaan zonder schriftelijke toestemming. Voor citaten en linkjes naar pagina&apos;s geldt de gebruikelijke fair-use uitzondering.
+              Alle teksten, afbeeldingen, video&apos;s, gidsen, AI-output en software op deze site zijn eigendom van {COMPANY.name} of haar licentiegevers. Kopiëren, verspreiden of commercieel gebruiken is niet toegestaan zonder schriftelijke toestemming. Voor citaten en linkjes naar pagina&apos;s geldt de gebruikelijke fair-use uitzondering.
             </p>
 
             <h2>Artikel 12 — Privacy</h2>
@@ -140,8 +160,8 @@ export default function VoorwaardenPage() {
 
             <h2>Artikel 13 — Klachten en geschillen</h2>
             <ul>
-              <li>Klachten kun je indienen via <a href="mailto:klachten@wasfix.nl">klachten@wasfix.nl</a>. We reageren binnen 7 werkdagen, met een oplossing binnen 30 dagen.</li>
-              <li>Kom je er met ons niet uit? Je kunt een geschil voorleggen via het Europese ODR-platform: <a href="https://ec.europa.eu/consumers/odr" target="_blank" rel="noopener noreferrer">ec.europa.eu/consumers/odr</a>.</li>
+              <li>Klachten kun je indienen via <ContactEmail />. We reageren binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen, met een oplossing binnen {COMPLAINT_RESOLUTION_DAYS} dagen.</li>
+              <li>Kom je er met ons niet uit? Dan kun je het geschil voorleggen aan de bevoegde Nederlandse rechter. WasFix is niet aangesloten bij een erkende Geschillencommissie; een geschil kan alleen aan een geschilleninstantie worden voorgelegd als beide partijen daar in dat geval mee instemmen. Het Europese ODR-platform is per 20 juli 2025 gesloten (Verordening (EU) 2024/3228) en is dus geen route meer.</li>
               <li>Op alle overeenkomsten is Nederlands recht van toepassing.</li>
               <li>Geschillen tussen partijen worden voorgelegd aan de bevoegde rechter in het arrondissement Amsterdam, tenzij de wet anders dwingend voorschrijft.</li>
             </ul>

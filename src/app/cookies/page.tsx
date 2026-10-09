@@ -39,13 +39,14 @@ export default function CookiesPage() {
 
       <h2>1. Wat is een cookie?</h2>
       <p>
-        Een cookie is een klein tekstbestandje dat op je apparaat wordt opgeslagen wanneer je een website bezoekt. Cookies worden gebruikt om voorkeuren te onthouden (taal, winkelmand), je sessie actief te houden tijdens browsen, of statistieken te verzamelen over het gebruik van de site.
+        Een cookie is een klein tekstbestandje dat op je apparaat wordt opgeslagen wanneer je een website bezoekt. Cookies worden gebruikt om voorkeuren te onthouden (taal, je cookiekeuze), je sessie actief te houden tijdens browsen, of statistieken te verzamelen over het gebruik van de site.
       </p>
 
       <h2>2. Welke cookies gebruiken wij?</h2>
 
       <h3>2.1 Functionele cookies (altijd actief — geen toestemming vereist)</h3>
       <p>Deze zijn essentieel voor het werken van de site:</p>
+      <div style={{ overflowX: "auto" }}>
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
@@ -55,29 +56,55 @@ export default function CookiesPage() {
           </tr>
         </thead>
         <tbody>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-cart</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Winkelmand-inhoud onthouden</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>30 dagen</td></tr>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-consent</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Cookie-voorkeur opslaan</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>365 dagen</td></tr>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>__clerk_*</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Auth-sessie (Clerk)</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Sessie / 30 dagen</td></tr>
-          <tr><td style={{ padding: "8px 10px" }}><code>theme</code></td><td style={{ padding: "8px 10px" }}>Licht/donker voorkeur</td><td style={{ padding: "8px 10px" }}>365 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-consent</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Jouw keuze in de cookie-banner onthouden</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>365 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-locale</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>De taalversie waarin je de site bekijkt (alleen zodra de meertalige site aanstaat)</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>365 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-locale-suggested</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Onthouden dat we je al hebben gevraagd of je de site liever in een andere taal leest</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>30 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px" }}><code>__clerk_*</code></td><td style={{ padding: "8px 10px" }}>Auth-sessie (Clerk)</td><td style={{ padding: "8px 10px" }}>Sessie / 30 dagen</td></tr>
         </tbody>
       </table>
+      </div>
+      <p>
+        <strong>Geen cookies:</strong> je winkelmand (<code>wasfix-cart</code>) en je licht/donker-voorkeur (<code>theme</code>) bewaren we in de <em>localStorage</em> van je browser. Die gegevens gaan nooit met een verzoek mee naar ons of naar derden en blijven staan tot je ze via je browser wist.
+      </p>
+      <p>
+        Ook zonder toestemming slaan we twee kleine dingen lokaal in je browser op: <code>wasfix-visits</code> (localStorage, telt hoe vaak je de site opent, alleen om op het juiste moment aan te bieden de site als app te installeren) en <code>wasfix-exit-shown</code> (of je de aanbieding van de gratis cheatsheet al hebt gezien of gesloten). Ook die gaan nooit naar ons of naar derden. Pas met toestemming voor analytics bewaren we daarnaast in <em>sessionStorage</em> <code>wasfix-evt-*</code>-vlaggen, zodat een gebeurtenis (zoals het eerste bezoek) in één sessie maar één keer wordt geteld.
+      </p>
 
-      <h3>2.2 Analytics-cookies (opt-in)</h3>
-      <p>Alleen geplaatst na expliciete toestemming. Geanonimiseerd — geen profielen, geen ad-targeting:</p>
+      <h3>2.2 Analytics (opt-in)</h3>
+      <p>Alleen actief na expliciete toestemming. Geen profielen, geen ad-targeting. Wat we meten: welke soort pagina je opent (bijvoorbeeld foutcode, onderdeel of checkout), of je een onderdeel in je winkelmand legt, of je naar de checkout gaat en of je een bestelling afrondt. Geen e-mailadres, naam, adres of bestelnummer:</p>
       <ul>
-        <li><strong>Vercel Analytics</strong> — page-views, Web Vitals (laadtijd, interactiesnelheid). Cookieloos via fingerprint-hashing. Geen persoonlijke data.</li>
-        <li><strong>Vercel Speed Insights</strong> — Core Web Vitals meting. Cookieloos.</li>
+        <li><strong>Vercel Analytics</strong> — page-views en Web Vitals. Plaatst geen cookie, maar berekent een bezoeker-hash uit kenmerken van je apparaat en je verzoek. Ook dat is het uitlezen van gegevens op je apparaat, dus het script laadt pas nadat je analytics hebt aangezet.</li>
+        <li><strong>Vercel Speed Insights</strong> — Core Web Vitals. Eveneens cookieloos, en om dezelfde reden pas na toestemming.</li>
+        <li><strong>Google Analytics 4</strong> — alleen als dit voor deze omgeving is ingeschakeld én je analytics hebt toegestaan. Meet dezelfde gebeurtenissen als hieronder, zonder advertentiekoppeling (Google Signals staat uit). Plaatst <code>_ga*</code>-cookies.</li>
+        <li><strong>PostHog</strong> (EU-servers) — product-analytics: welke pagina&apos;s en functies worden gebruikt. Zet een <code>ph_*_posthog</code>-cookie met een willekeurig id (365 dagen). Session recording staat uit. Draait alleen als PostHog voor deze omgeving is ingeschakeld én je analytics hebt toegestaan.</li>
       </ul>
 
       <h3>2.3 Marketing-cookies (opt-in, standaard uit)</h3>
       <p>
-        Momenteel gebruiken we <strong>geen</strong> marketing-cookies. Mochten we in de toekomst retargeting of ad-tracking willen inzetten, dan vragen we daar opnieuw expliciet toestemming voor.
+        Wij doen geen retargeting en werken niet met advertentienetwerken. De enige marketing-cookies zijn die van ons doorverwijs-programma; ze worden pas geplaatst als je in de banner marketing hebt aangezet:
       </p>
+      <div style={{ overflowX: "auto" }}>
+      <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
+        <thead>
+          <tr style={{ background: "var(--surf-2)" }}>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Naam</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Doel</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Bewaartermijn</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-ref</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>De doorverwijs-code van de link waarmee je binnenkwam, zodat degene die jou doorverwees krediet krijgt</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>30 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px" }}><code>wasfix-vid</code></td><td style={{ padding: "8px 10px" }}>Anoniem bezoeker-id bij die doorverwijs-klik, zodat één klik niet dubbel telt. httpOnly: alleen onze server leest deze, JavaScript niet</td><td style={{ padding: "8px 10px" }}>30 dagen</td></tr>
+        </tbody>
+      </table>
+      </div>
 
       <h2>3. Cookies van derden</h2>
       <ul>
-        <li><strong>Stripe</strong> (alleen op checkout-pagina) — voor fraude-preventie (Stripe Radar). Vereist voor het verwerken van betalingen.</li>
-        <li><strong>Clerk</strong> (alleen op auth-pagina&apos;s) — session-management.</li>
+        <li><strong>Stripe</strong> (alleen op de checkout-pagina) — betaalverwerking en fraude-preventie (Stripe Radar). Noodzakelijk om een betaling te kunnen doen.</li>
+        <li><strong>Clerk</strong> (alleen op auth-pagina&apos;s) — session-management, zie <code>__clerk_*</code> hierboven.</li>
+        <li><strong>PostHog</strong> — zie 2.2: alleen na toestemming voor analytics.</li>
+        <li><strong>Crisp</strong> (live chat) — laadt alleen als de chat voor deze omgeving is ingeschakeld én je toestemming hebt gegeven voor analytics of marketing. Crisp bewaart dan een sessie-identificatie zodat je je gesprek terugvindt.</li>
       </ul>
 
       <h2>4. Hoe beheer je je voorkeuren?</h2>

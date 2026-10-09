@@ -1,15 +1,21 @@
 import { MarketingLayout } from "@/components/marketing-layout";
-import { staticMachines } from "@/lib/static-db";
+import { dbMachines } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
+import { FOOTER_BRAND_REPAIR } from "@/components/redesign/footer-links";
 
-export const dynamic = "force-dynamic";
+// Cached (tagged catalogue reads) instead of force-dynamic; nothing here is per visitor.
+export const revalidate = 60;
 
-
-export const metadata = { title: "Merken — alle wasmachine merken" };
+export const metadata = {
+  title: "Wasmachine merken en modellen",
+  description:
+    "Alle merken en modellen in de WasFix-catalogus: kies je merk voor de foutcodes, reparatiegidsen en onderdelen die bij jouw wasmachine horen.",
+  alternates: { canonical: "/merken" },
+};
 
 export default async function MerkenPage() {
-  const machines = staticMachines();
+  const machines = await dbMachines();
 
   // Group by brand
   const brandMap = new Map<string, typeof machines>();
@@ -45,6 +51,16 @@ export default async function MerkenPage() {
                   <p className="text-xs text-muted-foreground mt-1">{models.length} {models.length === 1 ? "model" : "modellen"}</p>
                 </CardContent>
               </Card>
+            </Link>
+          ))}
+        </div>
+
+        {/* The 15 brand-repair pages were in the sitemap but linked from nowhere. */}
+        <h2 className="font-heading text-xl font-semibold mt-12 mb-3">Reparatie per merk</h2>
+        <div className="flex flex-wrap gap-x-4">
+          {FOOTER_BRAND_REPAIR.map((b) => (
+            <Link key={b.slug} href={`/${b.slug}-wasmachine-reparatie`} className="inline-flex items-center min-h-11 text-primary hover:underline">
+              {b.label} reparatie
             </Link>
           ))}
         </div>

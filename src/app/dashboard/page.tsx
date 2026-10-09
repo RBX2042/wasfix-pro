@@ -1,6 +1,11 @@
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { prisma } from "@/lib/prisma";
-import { getCurrentUser } from "@/lib/auth";
+import { getCurrentUser, getPlanLimits, planDisplayName } from "@/lib/auth";
+import { ORDER_STATUS_LABEL, isOrderStatus } from "@/lib/order-status";
+import { PlanActivation, type PlanSnapshot } from "@/app/upgrade/plan-activation";
+import { SubscriptionBanner } from "./subscription-banner";
+import { supportEmail } from "@/lib/support-contact";
+import { bannerFor } from "./banner-data";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -14,19 +19,36 @@ export const dynamic = "force-dynamic";
 
 export const metadata = { title: "Dashboard" };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({ searchParams }: { searchParams?: Promise<{ upgraded?: string }> }) {
   const user = await getCurrentUser();
   if (!user) redirect("/inloggen");
+  const justPaid = (await searchParams)?.upgraded !== undefined;
+  const planName = planDisplayName(user.plan);
+  const banner = bannerFor(user);
+  const limits = getPlanLimits(user);
+  const activation: PlanSnapshot = {
+    plan: user.plan,
+    planName,
+    subscriptionStatus: user.subscriptionStatus ?? null,
+    currentPeriodEnd: user.currentPeriodEnd ? user.currentPeriodEnd.toISOString() : null,
+    cancelAtPeriodEnd: user.cancelAtPeriodEnd ?? false,
+    partsDiscountWhenPaying: limits.partsDiscountWhenPaying,
+  };
 
   let diagnoses: Awaited<ReturnType<typeof prisma.diagnosis.findMany>> = [];
   let orders: Awaited<ReturnType<typeof prisma.order.findMany>> = [];
   let savedMachines: Array<{ id: string; machine: { brand: string; model: string } }> = [];
   let totalSpent: { _sum: { totalEur: number | null } } = { _sum: { totalEur: 0 } };
+  // The stat cards count everything; the lists below only show the latest five.
+  let diagnosisCount = 0;
+  let orderCount = 0;
   try {
-    [diagnoses, orders, savedMachines] = await Promise.all([
+    [diagnoses, orders, savedMachines, diagnosisCount, orderCount] = await Promise.all([
       prisma.diagnosis.findMany({ where: { userId: user.id }, take: 5, orderBy: { createdAt: "desc" } }),
       prisma.order.findMany({ where: { userId: user.id }, take: 5, orderBy: { createdAt: "desc" } }),
       prisma.savedMachine.findMany({ where: { userId: user.id }, include: { machine: true } }),
+      prisma.diagnosis.count({ where: { userId: user.id } }),
+      prisma.order.count({ where: { userId: user.id } }),
     ]);
 
     totalSpent = await prisma.order.aggregate({
@@ -40,11 +62,14 @@ export default async function DashboardPage() {
   return (
     <DashboardLayout role={user.role}>
       <div className="space-y-6">
+        {justPaid && <PlanActivation initial={activation} supportEmail={supportEmail()} />}
+        {banner && <SubscriptionBanner notice={banner} supportEmail={supportEmail()} />}
+
         <div>
-          <h1 className="font-heading text-2xl md:text-3xl font-bold">Welkom terug, {user.name?.split(" ")[0]}!</h1>
+          <h1 className="font-heading text-2xl md:text-3xl font-bold">Welkom terug{user.name ? `, ${user.name.split(" ")[0]}` : ""}!</h1>
           <div className="text-muted-foreground flex items-center gap-2 mt-1">
-            <span>Plan:</span> <Badge variant="accent">{user.plan}</Badge>
-            {user.plan === "FREE" && (
+            <span>Plan:</span> <Badge variant="accent">{planName}</Badge>
+            {user.plan === "FREE" && !justPaid && (
               <Link href="/prijzen" className="text-primary text-sm hover:underline">
                 Upgrade voor onbeperkt →
               </Link>
@@ -54,8 +79,8 @@ export default async function DashboardPage() {
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={<MessageCircle className="h-4 w-4" />} label="Diagnoses" value={diagnoses.length.toString()} />
-          <StatCard icon={<Package className="h-4 w-4" />} label="Bestellingen" value={orders.length.toString()} />
+          <StatCard icon={<MessageCircle className="h-4 w-4" />} label="Diagnoses" value={diagnosisCount.toString()} />
+          <StatCard icon={<Package className="h-4 w-4" />} label="Bestellingen" value={orderCount.toString()} />
           <StatCard icon={<Wrench className="h-4 w-4" />} label="Wasmachines" value={savedMachines.length.toString()} />
           <StatCard icon={<TrendingUp className="h-4 w-4" />} label="Totaal besteed" value={formatEur(totalSpent._sum.totalEur ?? 0)} />
         </div>
@@ -75,7 +100,7 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
 
-          {user.plan === "FREE" && (
+          {user.plan === "FREE" && !justPaid && (
             <Card className="border-accent/30 bg-accent/5">
               <CardContent className="p-6">
                 <Crown className="h-8 w-8 mb-3 text-accent" />
@@ -146,7 +171,7 @@ export default async function DashboardPage() {
                         <p className="text-sm font-medium">#{o.id.slice(0, 8).toUpperCase()}</p>
                         <p className="text-xs text-muted-foreground">{formatDate(o.createdAt)}</p>
                       </div>
-                      <Badge variant={o.status === "PAID" || o.status === "DELIVERED" ? "success" : "secondary"}>{o.status}</Badge>
+                      <Badge variant={o.status === "PAID" || o.status === "DELIVERED" ? "success" : "secondary"}>{isOrderStatus(o.status) ? ORDER_STATUS_LABEL[o.status] : o.status}</Badge>
                       <span className="font-bold whitespace-nowrap">{formatEur(o.totalEur)}</span>
                     </div>
                   </Link>

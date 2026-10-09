@@ -10,7 +10,9 @@
 
 function read(name: string): string | undefined {
   const value = process.env[name];
-  return value && value.trim().length > 0 ? value : undefined;
+  // Trimmed: a value pasted into a hosting dashboard often carries a trailing
+  // newline or space, which would end up in a URL, an address or a key.
+  return value && value.trim().length > 0 ? value.trim() : undefined;
 }
 
 // Absent means OFF, matching src/middleware.ts. Defaulting this to ON while
@@ -52,10 +54,30 @@ export const env = {
   UPSTASH_REDIS_REST_URL: read("UPSTASH_REDIS_REST_URL"),
   UPSTASH_REDIS_REST_TOKEN: read("UPSTASH_REDIS_REST_TOKEN"),
 
-  INTERNAL_API_KEY: read("INTERNAL_API_KEY"),
+  // ── Owner operations ──────────────────────────────────────────────
+  // Comma-separated e-mail addresses that may become ADMIN. DECLARED HERE ONLY:
+  // this bundle does not read it. The rule the sign-in code must apply (decision
+  // D7) is that only an address Clerk reports as VERIFIED may be promoted or
+  // claim an existing row. Until that code exists, nothing consumes the variable.
+  ADMIN_EMAILS: read("ADMIN_EMAILS"),
+  // Owner notifications (src/lib/notify.ts). Any subset may be set. Messages
+  // carry order number, total, item count and an admin link, never customer
+  // details, because these channels are shared.
+  SLACK_WEBHOOK_URL: read("SLACK_WEBHOOK_URL"),
+  DISCORD_WEBHOOK_URL: read("DISCORD_WEBHOOK_URL"),
+  // Where the owner e-mail goes; falls back to COMPANY_EMAIL.
+  ORDER_NOTIFY_EMAIL: read("ORDER_NOTIFY_EMAIL"),
+  // Bearer secret for scheduled routes (/api/cron/*).
+  CRON_SECRET: read("CRON_SECRET"),
+  // Direct (non-pooled) Postgres connection for migrations. Deliberately not
+  // referenced by prisma/schema.prisma: with `directUrl = env("DIRECT_URL")`
+  // `prisma validate` fails whenever DIRECT_URL is unset (checked), so every
+  // environment without it would break.
+  DIRECT_URL: read("DIRECT_URL"),
 
   // Company / fiscal identity printed on invoices and legal pages.
-  // Placeholders live in src/lib/plans.ts until these are configured.
+  // Fallbacks for development live in src/lib/plans.ts; companyReadiness()
+  // (same file) decides from these raw values whether the company may invoice.
   COMPANY_NAME: read("COMPANY_NAME"),
   COMPANY_STREET: read("COMPANY_STREET"),
   COMPANY_POSTAL_CODE: read("COMPANY_POSTAL_CODE"),

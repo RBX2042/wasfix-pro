@@ -9,6 +9,7 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { MonteurProfileForm, type ProfileValues } from "./profile-form";
 import { profileGaps } from "@/lib/monteur-invoicing";
+import { approvedApplicationFor } from "@/lib/monteur-approval";
 
 export const dynamic = "force-dynamic";
 export const metadata = { title: "Bedrijfsgegevens — Monteur" };
@@ -32,11 +33,23 @@ export default async function MonteurSettingsPage() {
   }
 
   let values: ProfileValues = {};
+  let prefilled = false;
   if (isDatabaseConfigured()) {
     const profile = await prisma.monteurProfile.findUnique({ where: { userId: user.id } }).catch(() => null);
-    if (profile) values = profile;
+    if (profile) {
+      values = profile;
+    } else {
+      // Nothing saved yet: offer the details from the approved application as a starting point,
+      // to the verified owner of that address only. Nothing is stored until they save the form.
+      const application = await approvedApplicationFor(prisma, user).catch(() => null);
+      if (application) {
+        prefilled = true;
+        values = { companyName: application.companyName, contactName: application.contactName, kvkNumber: application.kvkNumber, vatNumber: application.vatNumber, phone: application.phone, email: application.email };
+      }
+    }
   }
-  const missing = profileGaps(values as { companyName?: string | null });
+  // A prefill is not a saved profile: until the form is saved the account is not complete.
+  const missing = profileGaps(prefilled ? null : (values as { companyName?: string | null }));
 
   return (
     <DashboardLayout role={user.role}>
@@ -48,6 +61,14 @@ export default async function MonteurSettingsPage() {
           jij bent de verkoper.
         </p>
       </div>
+
+      {prefilled && (
+        <Card className="mb-6 border-sky-500/40 bg-sky-50 dark:bg-sky-950/30">
+          <CardContent className="p-4 text-sm">
+            We hebben alvast ingevuld wat je in je aanmelding hebt opgegeven. Controleer de gegevens, vul adres en bank aan en sla op: pas dan worden ze gebruikt op je facturen.
+          </CardContent>
+        </Card>
+      )}
 
       {!isDatabaseConfigured() ? (
         <Card className="mb-6 border-amber-500/40">

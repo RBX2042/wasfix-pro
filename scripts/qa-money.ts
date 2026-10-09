@@ -8,9 +8,14 @@
  * Usage: DATABASE_URL=... npx tsx scripts/qa-money.ts
  */
 import { PrismaClient } from "@prisma/client";
-import { splitVatInclusive, money, issueInvoiceForOrder, getInvoiceForOrder } from "../src/lib/invoicing";
+import { spawnSync } from "node:child_process";
+import { readdirSync, readFileSync, statSync, mkdtempSync, writeFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
+import { splitVatInclusive, money, issueInvoiceForOrder, getInvoiceForOrder, computeMargin, computeOrderMargin, costBasis, MARGIN_ESTIMATE_LABEL } from "../src/lib/invoicing";
+import { CONTACT_EMAIL_RE, evaluateCompany, isValidIban, isValidKvk, isValidVatNumber, isPlaceholderValue, canonicalCompanyValue, companyTradeName, DEFAULT_COMPANY_NAME, type CompanyInput } from "../src/lib/company-validate";
 import { consumeUsage, canReadPremiumGuide } from "../src/lib/entitlements";
-import { PLANS, PLAN_ORDER, BILLABLE_PLANS, getPlan, formatPlanPrice, VAT_RATE } from "../src/lib/plans";
+import { PLANS, PLAN_ORDER, BILLABLE_PLANS, getPlan, formatPlanPrice, VAT_RATE, COMPANY, companyReadiness, companyIdentityLine, realOrNull } from "../src/lib/plans";
 import { getPlanLimits } from "../src/lib/auth";
 import { issueWorkOrderInvoice, getWorkOrderInvoice, profileGaps } from "../src/lib/monteur-invoicing";
 import { catalogStats } from "../src/lib/catalog-stats";
@@ -203,14 +208,27 @@ async function main() {
 
     // ── Monteur invoicing ───────────────────────────────────────
     check(
-      profileGaps(null).length === 3,
+      profileGaps(null).length > 0,
       "Monteur: an empty profile is rejected as incomplete",
       "Monteur: an empty profile was treated as invoice-ready",
     );
     check(
-      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).length === 0,
+      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", vatNumber: "NL123456789B01", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).length === 0,
       "Monteur: a complete profile passes the invoice precondition",
       "Monteur: a complete profile was still rejected",
+    );
+    // Art. 35a Wet OB: charging btw without a btw-identificatienummer on the
+    // invoice makes it non-deductible for the customer. This fixture used to
+    // omit vatNumber and still pass, which is what let that invoice be issued.
+    check(
+      profileGaps({ companyName: "Test BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht" }).includes("btw-nummer"),
+      "Monteur: charging 21% btw without a btw-nummer is refused",
+      "Monteur: a 21% invoice could be issued without a btw-nummer",
+    );
+    check(
+      profileGaps({ companyName: "KOR BV", kvkNumber: "12345678", street: "Straat 1", postalCode: "1234 AB", city: "Utrecht", vatRate: 0, invoiceFooter: "Vrijgesteld van omzetbelasting o.g.v. artikel 25 Wet OB" }).length === 0,
+      "Monteur: a kleineondernemer with an exemption statement may invoice at 0%",
+      "Monteur: a valid 0% profile was rejected",
     );
 
     const monteur = await prisma.user.upsert({
@@ -290,7 +308,7 @@ async function main() {
     await prisma.monteurProfile.upsert({
       where: { userId: other.id },
       update: {},
-      create: { userId: other.id, companyName: "Andere Service", kvkNumber: "11223344", street: "Laan 2", postalCode: "1000 AA", city: "Amsterdam" },
+      create: { userId: other.id, companyName: "Andere Service", kvkNumber: "11223344", vatNumber: "NL112233440B01", street: "Laan 2", postalCode: "1000 AA", city: "Amsterdam" },
     });
     const otherInvoice = await issueWorkOrderInvoice(other.id, wo2.id);
     check(
@@ -411,6 +429,228 @@ async function main() {
       `Margin: all ${totalParts} parts have a purchase price`,
       `Margin: ${totalParts - withCost} of ${totalParts} parts have no purchase price`,
     );
+
+    // ── Cost provenance: an estimate is not a margin ────────────────────────
+    const badSource = await prisma.part.count({ where: { NOT: { costSource: { in: ["ESTIMATE", "QUOTE"] } } } });
+    check(badSource === 0, "Cost source: every part is ESTIMATE or QUOTE", `Cost source: ${badSource} parts carry another value`);
+    const quoteNoCost = await prisma.part.count({ where: { costSource: "QUOTE", costEur: null } });
+    check(quoteNoCost === 0, "Cost source: no part claims a QUOTE without a cost", `Cost source: ${quoteNoCost} QUOTE parts have no cost`);
+    const [estimateParts, quoteParts] = await Promise.all([
+      prisma.part.count({ where: { costSource: "ESTIMATE" } }),
+      prisma.part.count({ where: { costSource: "QUOTE" } }),
+    ]);
+    check(estimateParts + quoteParts === totalParts, `Cost source: ${estimateParts} estimate + ${quoteParts} quote = ${totalParts} parts (the costs in scripts/add-part-costs.mjs are estimates)`, "Cost source: counts do not add up");
+
+    const sample = await prisma.part.findMany({ where: { costEur: { not: null } }, take: 5 });
+    const asLines = sample.map((p) => ({ unitPriceEur: p.priceEur, quantity: 1, costEur: p.costEur, costSource: p.costSource }));
+    const dbReport = computeMargin(asLines);
+    // The database figure is compared with what the data says, whatever it holds: the
+    // confirmed lines are exactly the QUOTE ones, and an all-estimate set yields no confirmed figure.
+    const sampleQuotes = sample.filter((p) => p.costSource === "QUOTE").length;
+    check(
+      dbReport.confirmed.lines === sampleQuotes && dbReport.estimated.lines === sample.length - sampleQuotes,
+      `Margin: of ${sample.length} sampled parts ${sampleQuotes} are confirmed (QUOTE) and ${sample.length - sampleQuotes} are 'schatting'`,
+      `Margin: confirmed ${dbReport.confirmed.lines} / estimated ${dbReport.estimated.lines} do not match the sample (${sampleQuotes} QUOTE of ${sample.length})`,
+    );
+    const allEstimates = computeMargin(asLines.map((l) => ({ ...l, costSource: "ESTIMATE" })));
+    check(
+      sample.length > 0 && allEstimates.confirmed.lines === 0 && allEstimates.confirmed.marginPct === null && allEstimates.confirmed.revenueExVatEur === 0 && allEstimates.estimated.lines === sample.length,
+      "Margin: with every cost an ESTIMATE nothing is reported as a confirmed margin; it is all 'schatting'",
+      `Margin: estimates leaked into the confirmed figure: ${JSON.stringify(allEstimates.confirmed)}`,
+    );
+    const mixed = computeMargin([
+      { unitPriceEur: 121, quantity: 2, costEur: 60, costSource: "QUOTE" }, // revenue 200 ex VAT, cost 120
+      { unitPriceEur: 121, quantity: 1, costEur: 10, costSource: "ESTIMATE" },
+      { unitPriceEur: 121, quantity: 1, costEur: null, costSource: "ESTIMATE" },
+      { unitPriceEur: 121, quantity: 1 },
+    ]);
+    check(
+      mixed.confirmed.lines === 1 && mixed.confirmed.revenueExVatEur === 200 && mixed.confirmed.costEur === 120 && mixed.confirmed.marginEur === 80 && mixed.confirmed.marginPct === 40,
+      "Margin: the confirmed figure counts QUOTE lines only (200 revenue, 120 cost, 40%)",
+      `Margin confirmed wrong: ${JSON.stringify(mixed.confirmed)}`,
+    );
+    check(mixed.estimated.lines === 1 && mixed.estimated.marginPct === 90 && mixed.unknownLines === 2 && mixed.label === MARGIN_ESTIMATE_LABEL && MARGIN_ESTIMATE_LABEL === "schatting", "Margin: ESTIMATE lines are kept apart and labelled 'schatting'; lines without a cost count nowhere", `Margin estimate wrong: ${JSON.stringify(mixed)}`);
+    check(costBasis({ costEur: 5, costSource: "QUOTE" }) === "QUOTE" && costBasis({ costEur: 5, costSource: "ESTIMATE" }) === "ESTIMATE" && costBasis({ costEur: 5 }) === "ESTIMATE" && costBasis({ costEur: null, costSource: "QUOTE" }) === "UNKNOWN", "Margin: costBasis treats anything but an explicit QUOTE as an estimate, and no cost as unknown", "Margin: costBasis wrong");
+    check(computeMargin([]).confirmed.marginPct === null, "Margin: no data gives null, not 0%", "Margin: empty input gives a percentage");
+
+    // OrderItem.unitPrice is the LIST price; the plan discount lives only on Order.discountEur.
+    // Bedrijf order: 2 x 100,00 (QUOTE cost 40) + 1 x 50,00 (ESTIMATE cost 20), 15% = 37,50 off.
+    const bedrijfItems = [
+      { unitPriceEur: 100, quantity: 2, costEur: 40, costSource: "QUOTE" },
+      { unitPriceEur: 50, quantity: 1, costEur: 20, costSource: "ESTIMATE" },
+    ];
+    const naive = computeMargin(bedrijfItems);
+    const orderMargin = computeOrderMargin({ items: bedrijfItems, discountEur: 37.5 });
+    check(naive.confirmed.revenueExVatEur === 165.29 && orderMargin.confirmed.revenueExVatEur === 140.5 && orderMargin.confirmed.marginEur === 60.5 && orderMargin.estimated.revenueExVatEur === 35.12, "Order margin: the plan discount is spread over the lines before VAT is removed (confirmed revenue 140,50 / margin 60,50, not the full-price 165,29)", `Order margin wrong: naive ${JSON.stringify(naive.confirmed)} order ${JSON.stringify(orderMargin)}`);
+    check(computeOrderMargin({ items: bedrijfItems, discountEur: 0 }).confirmed.revenueExVatEur === naive.confirmed.revenueExVatEur, "Order margin: without a discount it equals computeMargin", "Order margin differs from computeMargin without a discount");
+    {
+      // Whatever the split, the revenue incl. VAT of all lines equals gross minus discount (within a cent per line).
+      let seed = 99;
+      const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff);
+      const bad: string[] = [];
+      for (let i = 0; i < 500; i++) {
+        const items = Array.from({ length: 1 + Math.floor(rnd() * 4) }, () => ({ unitPriceEur: money(1 + rnd() * 80), quantity: 1 + Math.floor(rnd() * 3), costEur: 0, costSource: "QUOTE" }));
+        const gross = items.reduce((n, l) => n + Math.round(l.unitPriceEur * 100) * l.quantity, 0);
+        const discount = Math.floor(rnd() * gross * 0.5) / 100;
+        const rep = computeOrderMargin({ items, discountEur: discount });
+        const inclVat = rep.confirmed.revenueExVatEur * 1.21;
+        if (Math.abs(inclVat - (gross / 100 - discount)) > 0.01 * (items.length + 1)) bad.push(`${gross / 100}-${discount}=>${inclVat.toFixed(2)}`);
+      }
+      check(bad.length === 0, "Order margin: over 500 random orders the allocated revenue equals goods minus discount (largest remainder, no cent lost)", `Order margin allocation drifts: ${bad.slice(0, 3).join("; ")}`);
+    }
+    check(computeOrderMargin({ items: [{ unitPriceEur: 10, quantity: 1, costEur: 5, costSource: "QUOTE" }], discountEur: 999 }).confirmed.revenueExVatEur === 0, "Order margin: a discount larger than the goods is capped at the goods", "Order margin: oversized discount produced negative revenue");
+
+    // ── Company identity: nothing partial may invoice ───────────────────────
+    const FULL: CompanyInput = {
+      name: "WasFix Test B.V.", street: "Teststraat 1", postalCode: "1011 AB", city: "Amsterdam",
+      kvk: "90000001", vatNumber: "NL900000010B01", iban: "NL02ABNA0123456789",
+    };
+    const full = evaluateCompany(FULL);
+    check(full.ready && full.missing.length === 0, "Company: a complete, well-formed identity is ready", `Company: complete identity not ready: ${JSON.stringify(full)}`);
+    check(full.warnings.length === 3, "Company: the three well-known test numbers are reported as warnings (not blocking)", `Company: warnings ${JSON.stringify(full.warnings)}`);
+    check(companyReadiness(FULL).ready, "Company: companyReadiness(input) evaluates the given input", "Company: companyReadiness ignores its input");
+    const wrongOnRemoval: string[] = [];
+    for (const field of Object.keys(FULL) as Array<keyof CompanyInput>) {
+      for (const empty of [undefined, "", "   "]) {
+        const r = evaluateCompany({ ...FULL, [field]: empty });
+        if (r.ready || r.missing.join() !== field) wrongOnRemoval.push(`${field}=${JSON.stringify(empty)} gave ${JSON.stringify(r.missing)} ready=${r.ready}`);
+      }
+    }
+    check(wrongOnRemoval.length === 0, "Company: removing any ONE of the 7 fields (undefined, empty or blank) makes it not ready and names exactly that field", `Company: ${wrongOnRemoval.join("; ")}`);
+    // The A1-02 / A3-09 / A5-04 repro: only the KvK is configured.
+    const kvkOnly = evaluateCompany({ kvk: "90000001" });
+    check(!kvkOnly.ready && kvkOnly.missing.length === 6 && !kvkOnly.missing.includes("kvk"), "Company: ONLY COMPANY_KVK set => not ready, 6 fields missing (the old check passed)", `Company: kvk-only gave ${JSON.stringify(kvkOnly)}`);
+    check(!evaluateCompany({ ...FULL, iban: undefined, vatNumber: undefined }).ready, "Company: kvk + name + address but no IBAN/btw => not ready (A2-12)", "Company: missing IBAN and btw still ready");
+    // IBAN
+    check(!evaluateCompany({ ...FULL, iban: "NL02ABNA0123456780" }).ready && evaluateCompany({ ...FULL, iban: "NL02ABNA0123456780" }).missing.join() === "iban", "Company: an IBAN with a wrong check digit is refused (mod-97)", "Company: bad IBAN checksum accepted");
+    check(evaluateCompany({ ...FULL, iban: "NL00ABCD0123456789" }).problems[0]?.reason === "voorbeeldwaarde", "Company: the placeholder IBAN NL00ABCD0123456789 is refused as an example value", "Company: placeholder IBAN accepted");
+    check(isValidIban("nl02 abna 0123 4567 89") && isValidIban("DE89 3704 0044 0532 0130 00") && isValidIban("NL91ABNA0417164300"), "Company: valid IBANs pass with spaces and lower case, other countries too", "Company: valid IBAN refused");
+    check(!isValidIban("NL02ABNA012345678") && !isValidIban("NL02ABNA01234567890") && !isValidIban("") && !isValidIban("12345") && !isValidIban("NL02 ABNA 0123 4567 8X"), "Company: IBANs of the wrong length or shape are refused", "Company: malformed IBAN accepted");
+    // KvK
+    check(isValidKvk("90000001") && isValidKvk("1234 5678".replace(" ", "")) && !isValidKvk("1234567") && !isValidKvk("123456789") && !isValidKvk("ABCDEFGH") && !isValidKvk(""), "Company: KvK must be exactly 8 digits", "Company: KvK validation wrong");
+    check(evaluateCompany({ ...FULL, kvk: "12345678" }).problems[0]?.reason === "voorbeeldwaarde", "Company: the placeholder KvK 12345678 is refused", "Company: placeholder KvK accepted");
+    // VAT
+    check(isValidVatNumber("NL900000010B01") && isValidVatNumber("nl900000010b01") && isValidVatNumber("NL9000.00010 B01") && !isValidVatNumber("NL90000001B01") && !isValidVatNumber("NL900000010B1") && !isValidVatNumber("BE0123456789") && !isValidVatNumber("NL900000010C01") && !isValidVatNumber(""), "Company: btw-nummer must be NL + 9 digits + B + 2 digits", "Company: VAT validation wrong");
+    check(evaluateCompany({ ...FULL, vatNumber: "NL123456789B01" }).problems[0]?.reason === "voorbeeldwaarde", "Company: the placeholder btw-nummer NL123456789B01 is refused", "Company: placeholder btw accepted");
+    // Address and name
+    check(evaluateCompany({ ...FULL, street: "Hoofdstraat 1" }).missing.join() === "street" && evaluateCompany({ ...FULL, postalCode: "1234 AB" }).missing.join() === "postalCode" && evaluateCompany({ ...FULL, postalCode: "1234ab" }).missing.join() === "postalCode", "Company: the placeholder street and postcode are refused, however they are spaced or cased", "Company: placeholder address accepted");
+    check(evaluateCompany({ ...FULL, street: "Teststraat" }).missing.join() === "street" && evaluateCompany({ ...FULL, postalCode: "0123 AB" }).missing.join() === "postalCode" && evaluateCompany({ ...FULL, postalCode: "1011" }).missing.join() === "postalCode", "Company: a street without a house number and malformed postcodes are refused", "Company: malformed address accepted");
+    check(evaluateCompany({ ...FULL, name: DEFAULT_COMPANY_NAME }).missing.join() === "name" && evaluateCompany({ ...FULL, name: "wasfix pro (in oprichting)" }).missing.join() === "name", "Company: the default 'in oprichting' name is not a real company name", "Company: default name accepted as real");
+    check(!/B\.?V\.?|N\.?V\.?|V\.?O\.?F/i.test(DEFAULT_COMPANY_NAME), `Company: the default name claims no legal form ("${DEFAULT_COMPANY_NAME}")`, `Company: default name claims a legal form: ${DEFAULT_COMPANY_NAME}`);
+    {
+      // Independent of companyReadiness(): decide from the raw environment of this run with the plain validators.
+      const e = process.env;
+      const present = (v: string | undefined) => (v ?? "").trim().length > 0 && !isPlaceholderValue(v ?? "");
+      const independentReady = present(e.COMPANY_NAME) && present(e.COMPANY_STREET) && present(e.COMPANY_POSTAL_CODE) && present(e.COMPANY_CITY) && present(e.COMPANY_KVK) && isValidKvk(e.COMPANY_KVK ?? "") && present(e.COMPANY_VAT) && isValidVatNumber(e.COMPANY_VAT ?? "") && present(e.COMPANY_IBAN) && isValidIban(e.COMPANY_IBAN ?? "") && /^[1-9]\d{3}\s?[A-Za-z]{2}$/.test((e.COMPANY_POSTAL_CODE ?? "").trim()) && CONTACT_EMAIL_RE.test((e.COMPANY_EMAIL ?? "").trim());
+      check(COMPANY.isPlaceholder === !independentReady, `Company: COMPANY.isPlaceholder (${COMPANY.isPlaceholder}) matches an independent reading of the environment of this run (${independentReady ? "complete" : "incomplete"})`, `Company: isPlaceholder ${COMPANY.isPlaceholder} but the environment reads as ${independentReady ? "complete" : "incomplete"}`);
+    }
+    check(companyTradeName(DEFAULT_COMPANY_NAME) === "WasFix Pro" && companyTradeName("WasFix Pro B.V.") === "WasFix Pro B.V." && companyTradeName("(in oprichting)") === "(in oprichting)", "Company: companyTradeName strips a trailing '(in oprichting)' and nothing else", `companyTradeName: ${companyTradeName(DEFAULT_COMPANY_NAME)}`);
+    check(
+      canonicalCompanyValue("kvk", " 9000 0001\n") === "90000001" && canonicalCompanyValue("vatNumber", "nl9000.00010 b01") === "NL900000010B01" && canonicalCompanyValue("iban", "nl02 abna 0123 4567 89\n") === "NL02ABNA0123456789" && canonicalCompanyValue("postalCode", "1011ab") === "1011 AB" && canonicalCompanyValue("name", "  WasFix \n  Test  ") === "WasFix Test" && canonicalCompanyValue("city", null) === "",
+      "Company: canonicalCompanyValue gives one spelling per field (KvK digits, btw and IBAN compact upper case, postcode '1011 AB', whitespace collapsed)",
+      "Company: canonicalCompanyValue wrong",
+    );
+    check(
+      evaluateCompany({ ...FULL, kvk: "9000 0001", vatNumber: "nl900000010b01", iban: "nl02 abna 0123 4567 89", postalCode: "1011ab", name: "WasFix Test B.V.\n" }).ready === true &&
+        evaluateCompany({ ...FULL, kvk: "9000 000" }).missing.join() === "kvk",
+      "Company: readiness judges the canonical value (a messy but valid spelling is ready, a short KvK is not)",
+      "Company: readiness disagrees with canonical spelling",
+    );
+    {
+      // Decision D15 (bundle FB): the contact address is part of readiness. It used to be a warning only
+      // ("never blocking"); the shop printed the invented support@wasfix.nl when it was missing.
+      const pr = (email: string | undefined) => evaluateCompany({ ...FULL, email }).problems.filter((x) => x.field === "email");
+      check(pr(undefined).length === 1 && pr("   ").length === 1 && pr("geen-adres").length === 1 && pr("hallo@wasfix.nl").length === 0 && evaluateCompany(FULL).problems.every((x) => x.field !== "email"), "Company: a missing or malformed COMPANY_EMAIL is a readiness problem (decision D15), and only judged when the key is passed", `Company email problems: ${JSON.stringify([pr(undefined), pr("geen-adres"), pr("hallo@wasfix.nl")])}`);
+      check(evaluateCompany({ ...FULL, email: undefined }).ready === false && evaluateCompany({ ...FULL, email: undefined }).missing.join() === "email" && evaluateCompany({ ...FULL, email: "hallo@wasfix.nl" }).ready === true, "Company: a missing COMPANY_EMAIL makes the company not ready, naming 'email' (checkout stays closed)", "Company: missing COMPANY_EMAIL does not block readiness");
+    }
+    check(realOrNull("1234AB") === null && realOrNull("Hoofdstraat 1") === null && realOrNull("Teststraat 1") === "Teststraat 1" && realOrNull("") === null, "Company: realOrNull hides placeholders (any spacing) and shows real values", "Company: realOrNull wrong");
+
+    // The same decision through the real environment path (COMPANY.isPlaceholder in a fresh process).
+    const probeDir = mkdtempSync(path.join(tmpdir(), "qa-money-company-"));
+    const probeFile = path.join(probeDir, "probe.ts");
+    writeFileSync(probeFile, `import { COMPANY, companyReadiness, companyIdentityLine } from ${JSON.stringify(path.resolve("src/lib/plans"))};\nconsole.log("RESULT " + JSON.stringify({ placeholder: COMPANY.isPlaceholder, missing: companyReadiness().missing, name: COMPANY.name, city: COMPANY.city, identity: companyIdentityLine(), tradeName: COMPANY.tradeName }));`);
+    const envProbe = (extra: Record<string, string>) => {
+      const r = spawnSync("npx", ["tsx", probeFile], { encoding: "utf8", env: { ...process.env, COMPANY_EMAIL: "", COMPANY_NAME: "", COMPANY_STREET: "", COMPANY_POSTAL_CODE: "", COMPANY_CITY: "", COMPANY_KVK: "", COMPANY_VAT: "", COMPANY_IBAN: "", ...extra } });
+      return JSON.parse((r.stdout.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as { placeholder?: boolean; missing?: string[]; name?: string; city?: string; identity?: string; tradeName?: string };
+    };
+    const e1 = envProbe({});
+    const e2 = envProbe({ COMPANY_KVK: "90000001" });
+    const e3 = envProbe({ COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001" });
+    const FULL_ENV = { COMPANY_NAME: "WasFix Test B.V.", COMPANY_STREET: "Teststraat 1", COMPANY_POSTAL_CODE: "1011 AB", COMPANY_CITY: "Amsterdam", COMPANY_KVK: "90000001", COMPANY_VAT: "NL900000010B01", COMPANY_IBAN: "NL02ABNA0123456789" };
+    const e4 = envProbe({ ...FULL_ENV, COMPANY_EMAIL: "qa@example.test" });
+    const e5 = envProbe({ ...FULL_ENV, COMPANY_EMAIL: "" });
+    check(e1.placeholder === true && e1.name === DEFAULT_COMPANY_NAME && e1.city === "", "Company env: nothing configured => placeholder, default name has no legal form, no invented city", `Company env empty: ${JSON.stringify(e1)}`);
+    check(!/B\.V\./.test(e1.identity ?? "B.V.") && (e1.identity ?? "").split("in oprichting").length === 2 && e1.tradeName === "WasFix Pro", `Company env: with nothing configured the identity line says 'in oprichting' exactly once and never B.V. ("${e1.identity}")`, `Company env empty identity: ${e1.identity}`);
+    check(e2.placeholder === true && e2.missing?.length === 7, "Company env: ONLY COMPANY_KVK => still a placeholder, six fiscal fields and the e-mail missing (the old check returned false here)", `Company env kvk-only: ${JSON.stringify(e2)}`);
+    check(e3.placeholder === true && e3.missing?.join() === "vatNumber,iban,email", "Company env: everything but btw-nummer, IBAN and e-mail => still a placeholder, naming all three", `Company env partial: ${JSON.stringify(e3)}`);
+    check(e4.placeholder === false, "Company env: all seven fiscal fields and COMPANY_EMAIL configured => not a placeholder", `Company env full: ${JSON.stringify(e4)}`);
+    check(e5.placeholder === true && e5.missing?.join() === "email", "Company env: all seven fiscal fields but NO COMPANY_EMAIL => not ready, naming 'email' (decision D15)", `Company env without e-mail: ${JSON.stringify(e5)}`);
+
+    // publicCompany(): the server hands client components a plain snapshot. It lives behind "server-only".
+    const pubFile = path.join(probeDir, "pub.ts");
+    writeFileSync(pubFile, `import { publicCompany } from ${JSON.stringify(path.resolve("src/lib/company"))};\nconsole.log("RESULT " + JSON.stringify(publicCompany()));`);
+    const pub = (extra: Record<string, string>, flags: string[] = ["--conditions=react-server"]) =>
+      spawnSync("npx", ["tsx", ...flags, pubFile], { encoding: "utf8", env: { ...process.env, COMPANY_EMAIL: "", COMPANY_NAME: "", COMPANY_STREET: "", COMPANY_POSTAL_CODE: "", COMPANY_CITY: "", COMPANY_KVK: "", COMPANY_VAT: "", COMPANY_IBAN: "", ...extra } });
+    const parse = (r: ReturnType<typeof pub>) => JSON.parse((r.stdout.split("\n").find((l) => l.startsWith("RESULT ")) ?? "RESULT {}").slice(7)) as Record<string, unknown>;
+    const pEmpty = parse(pub({}));
+    check(pEmpty.ready === false && pEmpty.kvk === null && pEmpty.iban === null && pEmpty.vatNumber === null && pEmpty.street === null && pEmpty.city === null && pEmpty.name === DEFAULT_COMPANY_NAME, "publicCompany(): with nothing configured every registration detail is null (never a placeholder) and ready is false", `publicCompany empty: ${JSON.stringify(pEmpty)}`);
+    const pPartial = parse(pub({ COMPANY_KVK: "90000001", COMPANY_IBAN: "NL02ABNA0123456789" }));
+    check(pPartial.ready === false && pPartial.iban === null && pPartial.kvk === "90000001", "publicCompany(): a partial configuration never exposes the IBAN", `publicCompany partial: ${JSON.stringify(pPartial)}`);
+    const pFull = parse(pub({ ...FULL_ENV, COMPANY_EMAIL: "qa@example.test" }));
+    const pNoMail = parse(pub(FULL_ENV));
+    check(pNoMail.ready === false && pNoMail.email === null && pNoMail.iban === null, "publicCompany(): without COMPANY_EMAIL the shop is not ready, the address is null (never an invented one) and the IBAN is not exposed", `publicCompany without e-mail: ${JSON.stringify(pNoMail)}`);
+    check(pFull.ready === true && pFull.email === "qa@example.test" && pFull.iban === "NL02ABNA0123456789" && pFull.identityLine === "WasFix Test B.V. · Teststraat 1, 1011 AB Amsterdam · KvK 90000001", "publicCompany(): the full identity is passed through, with the identity line for footers", `publicCompany full: ${JSON.stringify(pFull)}`);
+    const clientImport = pub({}, []);
+    check(clientImport.status !== 0 && /Client Component|server-only/i.test(clientImport.stderr), "company.ts is 'server-only': importing it without the react-server condition (as a client bundle would) fails loudly", `company.ts imported without react-server: status ${clientImport.status} ${clientImport.stderr.slice(0, 200)}`);
+
+    // No client bundle may read COMPANY: the server env does not exist there (hydration error #418, A5-14).
+    // A directive is only a directive as the first statement, so skip leading comments of ANY length
+    // (the first version looked at the first 400 characters and a long licence header hid an offender).
+    const startsWithUseClient = (src: string): boolean => {
+      let i = 0;
+      for (;;) {
+        while (i < src.length && /\s/.test(src[i])) i++;
+        if (src.startsWith("//", i)) {
+          const nl = src.indexOf("\n", i);
+          if (nl < 0) return false;
+          i = nl + 1;
+        } else if (src.startsWith("/*", i)) {
+          const end = src.indexOf("*/", i + 2);
+          if (end < 0) return false;
+          i = end + 2;
+        } else break;
+      }
+      return /^(["'])use client\1/.test(src.slice(i));
+    };
+    check(
+      startsWithUseClient(`/* ${"x".repeat(3000)} */\n// more\n"use client";\nimport x from "y";`) && startsWithUseClient(`'use client'\n`) && !startsWithUseClient(`import a from "b";\n"use client";`) && !startsWithUseClient(`// "use client"\nexport const a = 1;`),
+      "Client-bundle guard: finds the 'use client' directive behind a 3000-character header comment, and ignores one that is only mentioned in a comment or not first",
+      "Client-bundle guard: directive detection is wrong",
+    );
+    const offenders: string[] = [];
+    const walk = (dir: string) => {
+      for (const name of readdirSync(dir)) {
+        const full = path.join(dir, name);
+        if (statSync(full).isDirectory()) walk(full);
+        else if (/\.(tsx?|jsx?)$/.test(name)) {
+          const src = readFileSync(full, "utf8");
+          if (!startsWithUseClient(src)) continue;
+          const importsCompany = /import\s*\{[^}]*\b(COMPANY|companyIdentityLine|companyReadiness|realOrNull|PENDING_REGISTRATION)\b[^}]*\}\s*from\s*["'][^"']*\/(plans|company)["']/.test(src) || /from\s*["'][^"']*\/lib\/company["']/.test(src);
+          if (importsCompany) offenders.push(path.relative(process.cwd(), full));
+        }
+      }
+    };
+    walk(path.resolve("src"));
+    check(offenders.length === 0, "Client bundles: no 'use client' file imports COMPANY or the company helpers", `Client bundles read server-only company data in: ${offenders.join(", ")} (pass publicCompany() from a server component as props)`);
+
+    // ── Slow, self-contained proofs run as their own scripts ───────────────
+    if (process.env.QA_SKIP_SLOW !== "1") {
+      for (const [script, label] of [["scripts/qa-migration.ts", "Migration proof"], ["scripts/qa-seed.ts", "Seed proof"]] as const) {
+        const r = spawnSync("npx", ["tsx", script], { encoding: "utf8", env: process.env });
+        const summary = (r.stdout.match(/(\d+)\/(\d+) [a-z ]*checks passed/) ?? [])[0] ?? "no summary";
+        check(r.status === 0, `${label} (${script}): ${summary}`, `${label} FAILED (${script}): ${r.stdout.split("\n").filter((l) => l.startsWith("❌")).join(" | ") || r.stderr.slice(0, 300)}`);
+      }
+    }
   } finally {
     console.log(log.join("\n"));
     await prisma.$disconnect();

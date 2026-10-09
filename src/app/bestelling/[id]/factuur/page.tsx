@@ -1,34 +1,42 @@
+import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { getCurrentUser } from "@/lib/auth";
-import { prisma } from "@/lib/prisma";
-import { isDatabaseConfigured } from "@/lib/env";
-import { getInvoiceForOrder, issueInvoiceForOrder, type IssuedInvoice } from "@/lib/invoicing";
+import { getCreditNotesForOrder, getInvoiceForOrder, issueInvoiceForOrder, type IssuedInvoice } from "@/lib/invoicing";
+import { isOrderStatus, orderRef } from "@/lib/order-status";
 import { formatEur, formatDate } from "@/lib/utils";
+import { loadOrderForViewer, tokenFromParam } from "../../_lib/access";
 import { PrintButton } from "./print-button";
 
 export const dynamic = "force-dynamic";
-export const metadata = { title: "Factuur", robots: { index: false, follow: false } };
+// Same rules as the order page: the address carries the guest's credential.
+export const metadata: Metadata = { title: "Factuur", robots: { index: false, follow: false, nocache: true }, referrer: "no-referrer" };
 
 /**
- * Printable invoice with the btw-specification NL law requires. Only the
- * customer who placed the order (or an admin) can open it.
+ * Printable invoice with the btw-specification NL law requires. Opens with the
+ * order's token (guest), for the signed-in customer who placed it, or for an
+ * admin: see ../../_lib/access.ts. Everyone else gets the 404.
  */
-export default async function InvoicePage({ params }: { params: Promise<{ id: string }> }) {
+export default async function InvoicePage({
+  params,
+  searchParams,
+}: {
+  params: Promise<{ id: string }>;
+  searchParams: Promise<{ t?: string | string[] }>;
+}) {
   const { id } = await params;
-  if (!isDatabaseConfigured()) notFound();
+  const token = tokenFromParam((await searchParams).t);
 
-  const order = await prisma.order.findUnique({ where: { id } }).catch(() => null);
-  if (!order) notFound();
+  const access = await loadOrderForViewer(id, token);
+  if (!access) notFound();
+  const { order, via } = access;
+  const tokenQs = via === "token" && token ? `?t=${encodeURIComponent(token)}` : "";
 
-  const user = await getCurrentUser().catch(() => null);
-  const isOwner = user && (order.userId === user.id || user.role === "ADMIN");
-  if (!isOwner) notFound();
-
-  // Orders paid before invoicing existed still get a number on first view.
+  // Orders paid before invoicing existed still get a number on first view. In
+  // production that is refused while the company identity is incomplete; the
+  // page then says the invoice is being prepared instead of failing.
   let invoice: IssuedInvoice | null = await getInvoiceForOrder(order.id);
   if (!invoice && ["PAID", "SHIPPED", "DELIVERED"].includes(order.status)) {
-    invoice = await issueInvoiceForOrder(order.id);
+    invoice = await issueInvoiceForOrder(order.id).catch(() => null);
   }
   if (!invoice) {
     return (
@@ -37,7 +45,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
         <p className="text-muted-foreground mt-2 text-sm">
           Deze bestelling is nog niet betaald. Zodra de betaling binnen is maken we automatisch een factuur aan.
         </p>
-        <Link href={`/bestelling/${order.id}`} className="text-primary hover:underline text-sm mt-4 inline-block">
+        <Link href={`/bestelling/${order.id}${tokenQs}`} className="text-primary hover:underline text-sm mt-4 inline-block">
           Terug naar de bestelling
         </Link>
       </div>
@@ -45,12 +53,23 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
   }
 
   const { seller, buyer, lines } = invoice;
+  const creditNotes = await getCreditNotesForOrder(order.id);
+  const status = isOrderStatus(order.status) ? order.status : "PENDING";
+  const isPaid = status === "PAID" || status === "SHIPPED" || status === "DELIVERED";
+  const isBankTransfer = order.paymentMethod === "BANK_TRANSFER";
+  // What the document says about payment, from the order row: a bookkeeper must be able to
+  // tell from the paper alone whether, how and by when this invoice is paid.
+  const stamp = status === "CANCELLED"
+    ? { text: "Geannuleerd", tone: "text-red-700 border-red-700" }
+    : isPaid
+      ? { text: "Betaald", tone: "text-emerald-700 border-emerald-700" }
+      : { text: "Openstaand", tone: "text-amber-700 border-amber-700" };
 
   return (
     <div className="bg-muted/30 min-h-screen py-8 print:bg-white print:py-0">
       <div className="mx-auto max-w-3xl px-4 print:px-0 print:max-w-none">
         <div className="flex items-center justify-between mb-4 print:hidden">
-          <Link href={`/bestelling/${order.id}`} className="text-sm text-muted-foreground hover:text-foreground">
+          <Link href={`/bestelling/${order.id}${tokenQs}`} className="text-sm text-muted-foreground hover:text-foreground">
             ← Terug naar de bestelling
           </Link>
           <PrintButton />
@@ -69,9 +88,19 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
                   <dt className="text-muted-foreground w-28">Factuurdatum</dt>
                   <dd>{formatDate(invoice.issuedAt)}</dd>
                 </div>
+                {isBankTransfer && order.dueAt && (
+                  <div className="flex gap-2">
+                    <dt className="text-muted-foreground w-28">Vervaldatum</dt>
+                    <dd>{formatDate(order.dueAt)}</dd>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <dt className="text-muted-foreground w-28">Status</dt>
+                  <dd><span className={`inline-block rounded border px-2 py-0.5 text-xs font-semibold uppercase tracking-wide ${stamp.tone}`}>{stamp.text}</span></dd>
+                </div>
                 <div className="flex gap-2">
                   <dt className="text-muted-foreground w-28">Bestelnummer</dt>
-                  <dd className="font-mono">{order.id.slice(0, 8).toUpperCase()}</dd>
+                  <dd className="font-mono">{orderRef(order.id)}</dd>
                 </div>
               </dl>
             </div>
@@ -81,7 +110,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               <p>{seller.postalCode} {seller.city}</p>
               <p className="text-muted-foreground mt-2">KvK {seller.kvk}</p>
               <p className="text-muted-foreground">Btw {seller.vatNumber}</p>
-              <p className="text-muted-foreground">{seller.iban}</p>
+              {seller.iban && <p className="text-muted-foreground">IBAN {seller.iban}</p>}
             </address>
           </header>
 
@@ -97,13 +126,16 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             </address>
           </section>
 
-          <table className="w-full text-sm mt-6">
+          {/* overflow-x-auto: at 320px the four columns are wider than the page; the table scrolls
+              inside its own box instead of pushing the whole page sideways. */}
+          <div className="mt-6 overflow-x-auto">
+          <table className="w-full text-sm">
             <thead>
               <tr className="border-b text-left">
                 <th className="py-2 font-medium">Omschrijving</th>
-                <th className="py-2 font-medium w-20 text-right">Aantal</th>
-                <th className="py-2 font-medium w-28 text-right">Stukprijs</th>
-                <th className="py-2 font-medium w-28 text-right">Totaal</th>
+                <th className="py-2 font-medium w-16 text-right">Aantal</th>
+                <th className="py-2 font-medium w-24 text-right">Stukprijs</th>
+                <th className="py-2 font-medium w-24 text-right">Totaal</th>
               </tr>
             </thead>
             <tbody>
@@ -120,6 +152,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               ))}
             </tbody>
           </table>
+          </div>
 
           <div className="mt-6 flex justify-end">
             <dl className="w-full max-w-xs text-sm space-y-1">
@@ -152,12 +185,45 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
             </dl>
           </div>
 
+          <section className="mt-6 border-t pt-4 text-sm" aria-label="Betaling">
+            {isPaid ? (
+              <p>
+                Betaald{order.paidAt ? ` op ${formatDate(order.paidAt)}` : ""} via {isBankTransfer ? "bankoverschrijving" : "iDEAL of kaart"}.
+              </p>
+            ) : status === "CANCELLED" ? (
+              <p>Deze bestelling is geannuleerd{creditNotes.length ? "; zie de creditfactuur hieronder" : ""}. Je hoeft deze factuur niet te betalen.</p>
+            ) : (
+              <>
+                <p className="font-medium">Betaal {formatEur(invoice.totalEur)}{order.dueAt ? ` uiterlijk ${formatDate(order.dueAt)}` : ""} per bankoverschrijving:</p>
+                <dl className="mt-2 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1">
+                  <dt className="text-muted-foreground">IBAN</dt>
+                  <dd className="font-mono break-all">{seller.iban}</dd>
+                  <dt className="text-muted-foreground">Ten name van</dt>
+                  <dd>{seller.name}</dd>
+                  <dt className="text-muted-foreground">Betalingskenmerk</dt>
+                  <dd className="font-mono font-semibold">{invoice.number}</dd>
+                </dl>
+              </>
+            )}
+            {creditNotes.length > 0 && (
+              <ul className="mt-3 space-y-1">
+                {creditNotes.map((c) => (
+                  <li key={c.number}>
+                    Creditfactuur{" "}
+                    <Link href={`/bestelling/${order.id}/creditnota/${encodeURIComponent(c.number)}${tokenQs}`} className="font-mono text-primary underline print:no-underline">{c.number}</Link>{" "}
+                    van {formatDate(c.issuedAt)}: <span className="tabular-nums">-{formatEur(c.totalEur)}</span> (incl. btw)
+                  </li>
+                ))}
+              </ul>
+            )}
+          </section>
+
           <footer className="mt-8 pt-6 border-t text-xs text-muted-foreground space-y-1">
             <p>
               Alle bedragen in euro. De prijzen op de website zijn inclusief {Math.round(invoice.vatRate * 100)}% btw;
               bovenstaande specificatie splitst het btw-bedrag conform de Wet op de omzetbelasting.
             </p>
-            <p>Bewaar deze factuur — hij geldt ook als garantiebewijs. Vragen? {seller.email}</p>
+            <p>Bewaar deze factuur — hij geldt ook als garantiebewijs.{seller.email ? ` Vragen? ${seller.email}` : ""}</p>
           </footer>
         </article>
       </div>

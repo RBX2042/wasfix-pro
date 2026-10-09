@@ -2,7 +2,7 @@ import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { QrStickerClient } from "./client";
 
 export const metadata = {
-  title: "QR sticker generator — voor je wasmachine · WasFix Pro",
+  title: "QR sticker generator — voor je wasmachine",
   description: "Genereer een QR-sticker voor op je wasmachine. Scan om snel naar diagnose, onderdelen en gidsen voor jouw specifieke machine.",
   alternates: { canonical: "/tools/qr-sticker" },
 };

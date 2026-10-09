@@ -3,30 +3,33 @@ import { verifyWebhook } from "@clerk/nextjs/webhooks";
 import { prisma } from "@/lib/prisma";
 import { env, isDatabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
+import { identityFromClerkPayload, normalizeEmail, syncSignedInUser, type ClerkWebhookUser } from "@/lib/auth";
+import { endStripeSubscription, getStripe, scrubStripeCustomer } from "@/lib/stripe";
+import { notifyOwner } from "@/lib/notify";
+import { anonymizedEmailFor, eraseUserData } from "@/lib/erasure";
 
 export const runtime = "nodejs";
 
-type ClerkUserPayload = {
-  id?: string;
-  email_addresses?: Array<{ id: string; email_address: string }>;
-  primary_email_address_id?: string | null;
-  first_name?: string | null;
-  last_name?: string | null;
-};
+type ClerkUserPayload = ClerkWebhookUser;
 
 /**
  * Clerk webhook receiver. Configure in Clerk dashboard → Webhooks → endpoint
- * https://wasfix.nl/api/webhooks/clerk with events user.created, user.updated,
+ * <NEXT_PUBLIC_APP_URL>/api/webhooks/clerk with events user.created, user.updated,
  * user.deleted. Set CLERK_WEBHOOK_SECRET (Svix signing secret, whsec_…).
  *
- * The Svix signature is verified whenever a secret is configured; without it
- * (local demo) the payload is accepted only in non-production.
+ * The Svix signature is always verified: an unsigned payload is a stranger
+ * telling us to delete a user, and user.deleted wipes diagnoses, saved machines
+ * and API keys. Accepting one because NODE_ENV happened not to be "production"
+ * handed that to anyone who could reach a preview or staging deploy.
+ * CLERK_WEBHOOK_ALLOW_UNSIGNED=true opts a local machine out; it is refused on
+ * a production build so setting it on a deployed environment changes nothing.
  */
 export async function POST(req: NextRequest) {
   let type = "";
   let data: ClerkUserPayload = {};
 
   const secret = env.CLERK_WEBHOOK_SECRET;
+  const allowUnsigned = process.env.CLERK_WEBHOOK_ALLOW_UNSIGNED === "true" && !env.IS_PRODUCTION;
   if (secret) {
     try {
       const evt = await verifyWebhook(req, { signingSecret: secret });
@@ -36,13 +39,14 @@ export async function POST(req: NextRequest) {
       logger.warn("Clerk webhook signature invalid", err);
       return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
     }
-  } else if (env.IS_PRODUCTION) {
-    logger.error("Clerk webhook received but CLERK_WEBHOOK_SECRET is not set");
-    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
-  } else {
+  } else if (allowUnsigned) {
+    logger.warn("Clerk webhook accepted UNSIGNED — CLERK_WEBHOOK_ALLOW_UNSIGNED is set");
     const body = await req.json().catch(() => null);
     type = body?.type ?? "";
     data = body?.data ?? {};
+  } else {
+    logger.error("Clerk webhook received but CLERK_WEBHOOK_SECRET is not set");
+    return NextResponse.json({ error: "Webhook not configured" }, { status: 503 });
   }
 
   const clerkId = data.id;
@@ -55,45 +59,97 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ received: true, persisted: false });
   }
 
-  const primary = data.email_addresses?.find((e) => e.id === data.primary_email_address_id) ?? data.email_addresses?.[0];
-  const email = primary?.email_address;
-  const name = `${data.first_name ?? ""} ${data.last_name ?? ""}`.trim() || null;
+  const identity = identityFromClerkPayload(data);
+  const email = identity?.email ?? undefined;
+  const name = identity?.name ?? null;
 
   try {
     switch (type) {
       case "user.created":
       case "user.updated": {
         if (!email) break;
-        const byClerk = await prisma.user.findUnique({ where: { clerkId } });
-        if (byClerk) {
-          await prisma.user.update({ where: { id: byClerk.id }, data: { email, name } });
-        } else {
-          const byEmail = await prisma.user.findUnique({ where: { email } });
-          if (byEmail) {
-            await prisma.user.update({ where: { id: byEmail.id }, data: { clerkId, name: name ?? byEmail.name } });
-          } else {
-            await prisma.user.create({ data: { clerkId, email, name, role: "CONSUMER", plan: "FREE" } });
-            if (type === "user.created") {
-              const { sendWelcomeEmail } = await import("@/lib/email");
-              await sendWelcomeEmail(email, name ?? email).catch((e) => logger.warn("Welcome email failed", e));
-            }
-          }
+        // The same rules as a sign-in (src/lib/auth.ts syncSignedInUser): an address
+        // Clerk has not verified neither claims an existing row nor is stored, and a
+        // verified address listed in ADMIN_EMAILS is promoted. Duplicated rules here
+        // are how a webhook ends up claiming what a sign-in refuses to.
+        const before = await prisma.user.findUnique({ where: { clerkId }, select: { id: true } });
+        // identityFromClerkPayload applies the sign-in's definition of verified (primary address only).
+        const row = await syncSignedInUser(identity!);
+        if (type === "user.created" && !before && identity!.emailVerified) {
+          const { sendWelcomeEmail } = await import("@/lib/email");
+          await sendWelcomeEmail(normalizeEmail(email), name ?? email).catch((e) => logger.warn("Welcome email failed", e));
         }
+        logger.info("[clerk] user synced", { userId: row.id, event: type });
         break;
       }
 
       case "user.deleted": {
-        // GDPR: anonymise instead of hard-delete so order history (7y fiscal
-        // retention) stays intact.
+        // GDPR: erase what has no basis to stay and anonymise the rest, so the
+        // invoices (7y fiscal retention) stay intact.
         const existing = await prisma.user.findUnique({ where: { clerkId } });
         if (existing) {
-          await prisma.user.update({
-            where: { id: existing.id },
-            data: { clerkId: null, email: `deleted-${existing.id.slice(0, 8)}@anon.wasfix.nl`, name: "Verwijderd account" },
-          });
-          await prisma.diagnosis.deleteMany({ where: { userId: existing.id } }).catch(() => null);
-          await prisma.savedMachine.deleteMany({ where: { userId: existing.id } }).catch(() => null);
-          await prisma.apiKey.deleteMany({ where: { userId: existing.id } }).catch(() => null);
+          const anonymisedEmail = anonymizedEmailFor(existing.id);
+
+          // Stripe FIRST, while the row still knows the ids: once they are nulled
+          // nobody can cancel the subscription, and the card of a person who erased
+          // their account would keep being charged.
+          let stripeFailed = false;
+          if (existing.stripeSubId || existing.stripeCustomerId) {
+            const stripe = getStripe();
+            if (!stripe) {
+              stripeFailed = true;
+              logger.error("[clerk] user.deleted: account has Stripe data but Stripe is not configured", { userId: existing.id });
+            } else {
+              if (existing.stripeSubId) {
+                try {
+                  await endStripeSubscription(stripe, existing.stripeSubId, `clerk-erase-${existing.id}-${existing.stripeSubId}`);
+                } catch (err) {
+                  stripeFailed = true;
+                  logger.error("[clerk] user.deleted: Stripe subscription could not be cancelled", { userId: existing.id, err: err instanceof Error ? err.message : String(err) });
+                }
+              }
+              if (existing.stripeCustomerId) {
+                try {
+                  await scrubStripeCustomer(stripe, existing.stripeCustomerId, anonymisedEmail);
+                } catch (err) {
+                  stripeFailed = true;
+                  logger.error("[clerk] user.deleted: Stripe customer could not be anonymised", { userId: existing.id, err: err instanceof Error ? err.message : String(err) });
+                }
+              }
+            }
+            if (stripeFailed) {
+              await notifyOwner({
+                event: "clerk.erase_stripe_failed",
+                level: "error",
+                title: "Verwijderde klant: Stripe handmatig afronden",
+                lines: [
+                  `Gebruiker ${existing.id} is in Clerk verwijderd, maar het abonnement of de klantgegevens bij Stripe konden niet worden opgezegd of geanonimiseerd.`,
+                  "Zeg het abonnement op en anonimiseer de klant in het Stripe-dashboard. De koppeling (abonnement- en klant-id) blijft op het account staan zodat je weet welke.",
+                ],
+              });
+            }
+          }
+
+          // The same erasure as the dashboard button (src/lib/erasure.ts). This path used to
+          // anonymise the User row and delete three tables, and left the monteur profile (KvK, IBAN,
+          // address), the CRM customers, the e-mail / phone / address / working link of every order
+          // and the reviews, RMA and newsletter rows behind (rehearsal R2-08). It cannot REFUSE while an
+          // order is open, because the account is already gone at Clerk: open orders are left
+          // untouched, the owner is told, and finishPendingErasures() redacts them once they are done.
+          const outcome = await eraseUserData({ userId: existing.id, email: existing.email, openOrders: "keep", keepStripeIds: stripeFailed });
+          logger.info("[gdpr] account erased after Clerk user.deleted", { userId: existing.id, ...outcome });
+          if (outcome.ordersKeptOpen > 0 || outcome.ordersAwaitingInvoice > 0) {
+            await notifyOwner({
+              event: "clerk.erase_partial",
+              level: "warn",
+              title: "Verwijderde klant: bestellingen lopen nog",
+              lines: [
+                `Gebruiker ${existing.id} is in Clerk verwijderd. Open bestellingen: ${outcome.ordersKeptOpen}, betaald zonder factuur: ${outcome.ordersAwaitingInvoice}.`,
+                "Hun e-mailadres, telefoonnummer en bezorgadres blijven staan tot de bestellingen zijn afgerond; de dagelijkse opschoning (/api/cron/retention) wist ze daarna.",
+              ],
+              url: "/admin/bestellingen",
+            });
+          }
         }
         break;
       }

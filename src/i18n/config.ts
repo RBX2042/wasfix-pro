@@ -1,3 +1,4 @@
+import { siteUrl } from "@/lib/site-url";
 // i18n configuration — central source of truth for supported locales.
 //
 // Status: scaffold. UI strings for NL/EN/DE/FR live in `/messages/*.json`.
@@ -61,7 +62,7 @@ export function localizedPath(path: string, locale: Locale): string {
 // Compute hreflang map for any path — used in metadata to set
 // alternates.languages for SEO.
 export function hreflangMap(path: string): Record<string, string> {
-  const base = "https://wasfix.nl";
+  const base = siteUrl() ?? "";
   return {
     nl: `${base}${localizedPath(path, "nl")}`,
     en: `${base}${localizedPath(path, "en")}`,

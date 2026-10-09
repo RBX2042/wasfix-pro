@@ -3,6 +3,7 @@ import { z } from "zod";
 import QRCode from "qrcode";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { apiError } from "@/lib/api-response";
+import { absoluteUrl } from "@/lib/site-url";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -32,7 +33,7 @@ export async function GET(req: NextRequest) {
   if (!parsed.success) return apiError("Ongeldige QR-parameters", 400);
 
   const code = parsed.data.code ?? generateCode(parsed.data.brand, parsed.data.model ?? "");
-  const scanUrl = `https://wasfix.nl/qr/${code}`;
+  const scanUrl = absoluteUrl(`/qr/${code}`);
 
   try {
     const buffer = await QRCode.toBuffer(scanUrl, {

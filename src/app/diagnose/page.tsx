@@ -5,7 +5,7 @@ import { Suspense } from "react";
 
 export const metadata = {
   title: "AI wasmachine diagnose · WasFix Pro",
-  description: "Beschrijf je probleem of plak een foutcode. Onze AI geeft binnen 60 seconden de diagnose + juiste onderdeel.",
+  description: "Beschrijf je probleem of typ een foutcode. Je krijgt een eerste indicatie van de waarschijnlijke oorzaak en de onderdelen die je mogelijk nodig hebt. Een indicatie, geen garantie.",
 };
 
 export const dynamic = "force-dynamic";

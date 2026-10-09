@@ -2,7 +2,6 @@ import { DashboardLayout } from "@/components/dashboard-layout";
 import { prisma } from "@/lib/prisma";
 import { getCurrentUser, hasProAccess } from "@/lib/auth";
 import { isDatabaseConfigured } from "@/lib/env";
-import { parts as staticPartList } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -10,6 +9,10 @@ import { redirect } from "next/navigation";
 import Link from "next/link";
 import { formatEur } from "@/lib/utils";
 import { Wrench, TrendingUp, Users, Calendar, ArrowRight, Code } from "lucide-react";
+import { siteUrl } from "@/lib/site-url";
+
+// The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
+const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
 export const dynamic = "force-dynamic";
 
@@ -38,9 +41,10 @@ export default async function MonteurDashboardPage() {
     );
   }
 
-  // Live numbers when a DB is connected; static catalog otherwise.
+  // Live numbers when a DB is connected. Without one (or when it cannot be read) the stock tile says so
+  // instead of showing the demo catalogue's made-up quantities as if they were counted.
   const hasDb = isDatabaseConfigured();
-  let stockTotal = staticPartList.reduce((sum, p) => sum + p.stock, 0);
+  let stockTotal: number | null = null;
   let totalDiagnoses = 0;
   let recentOrders: Array<{ id: string; totalEur: number; items: Array<{ id: string }> }> = [];
   let customerCount = 0;
@@ -64,7 +68,16 @@ export default async function MonteurDashboardPage() {
     try {
       const [partsTotal, orders, diagCount, custTotal, custRecent, woActive, woWeek, woList] = await Promise.all([
         prisma.part.aggregate({ _sum: { stock: true } }),
-        prisma.order.findMany({ take: 8, orderBy: { createdAt: "desc" }, include: { items: true } }),
+        // Scoped to this monteur: the panel is titled "Recente onderdelen
+        // orders" and means THEIR parts purchases. Without the where clause
+        // every Monteur Pro user saw the whole platform's most recent orders,
+        // including other customers' e-mail, totals and line items.
+        prisma.order.findMany({
+          where: { userId: user.id },
+          take: 8,
+          orderBy: { createdAt: "desc" },
+          include: { items: true },
+        }),
         prisma.diagnosis.count(),
         prisma.customer.count({ where: { ownerId: user.id } }),
         prisma.customer.count({ where: { ownerId: user.id, createdAt: { gte: monthAgo } } }),
@@ -79,7 +92,7 @@ export default async function MonteurDashboardPage() {
           include: { customer: { select: { name: true } } },
         }),
       ]);
-      stockTotal = partsTotal._sum.stock ?? stockTotal;
+      stockTotal = partsTotal._sum.stock ?? 0;
       recentOrders = orders;
       totalDiagnoses = diagCount;
       customerCount = custTotal;
@@ -88,10 +101,9 @@ export default async function MonteurDashboardPage() {
       workOrdersThisWeek = woWeek;
       openWorkOrders = woList;
     } catch {
-      // DB unreachable — keep static numbers
+      // DB unreachable: the numbers stay at their empty values and the stock tile shows a dash
     }
   }
-  const partsTotal = { _sum: { stock: stockTotal } };
 
   return (
     <DashboardLayout role={user.role}>
@@ -123,7 +135,7 @@ export default async function MonteurDashboardPage() {
         <Card>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 text-muted-foreground text-sm mb-1"><Wrench className="h-4 w-4" /> Voorraad</div>
-            <p className="font-heading text-2xl font-bold">{partsTotal._sum.stock ?? 0}</p>
+            <p className="font-heading text-2xl font-bold">{stockTotal ?? "—"}</p>
             <p className="text-xs text-muted-foreground">items</p>
           </CardContent>
         </Card>
@@ -194,17 +206,19 @@ export default async function MonteurDashboardPage() {
         <CardContent className="p-6">
           <div className="flex items-start gap-4">
             <div className="h-12 w-12 rounded-md bg-primary/10 flex items-center justify-center text-primary"><Code className="h-6 w-6" /></div>
-            <div className="flex-1">
+            <div className="min-w-0 flex-1">
               <h3 className="font-heading font-bold text-lg mb-1">API toegang</h3>
               <p className="text-sm text-muted-foreground mb-3">
-                Integreer WasFix Pro AI diagnose in je eigen systeem. 1000 calls/maand inbegrepen.
+                Integreer de WasFix Pro-diagnose in je eigen systeem. Bij je abonnement zit een maandtegoed aan calls; de actuele aantallen en limieten staan in de documentatie.
               </p>
-              <code className="block bg-muted text-xs p-3 rounded-md mb-3 overflow-x-auto">
-                curl -X POST https://api.wasfix.nl/v1/diagnose \<br/>
-                &nbsp;&nbsp;-H {`"Authorization: Bearer YOUR_API_KEY"`} \<br/>
-                &nbsp;&nbsp;-d {`'{"brand":"Bosch","model":"WAU28","symptom":"Foutcode E18"}'`}
+              {/* The same example as /api-docs: the real host, path and field names (brand, errorCode, symptoms). */}
+              <code className="block bg-muted text-xs p-3 rounded-md mb-3 overflow-x-auto whitespace-pre">
+{`curl -X POST ${SITE}/api/v1/diagnose \\
+  -H "Authorization: Bearer wf_live_YOUR_KEY" \\
+  -H "Content-Type: application/json" \\
+  -d '{"brand":"Bosch","errorCode":"E18","symptoms":"Water blijft staan"}'`}
               </code>
-              <Button variant="outline">API documentatie <ArrowRight className="h-3 w-3" /></Button>
+              <Button asChild variant="outline"><Link href="/api-docs">API documentatie <ArrowRight className="h-3 w-3" /></Link></Button>
             </div>
           </div>
         </CardContent>

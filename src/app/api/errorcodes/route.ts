@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { staticErrorCodes } from "@/lib/static-db";
+import { dbErrorCodes } from "@/lib/static-db";
 
 export const revalidate = 3600; // 1 hour — error codes rarely change
 
@@ -14,7 +14,7 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(searchParams.get("page") ?? "1", 10) || 1);
     const limit = Math.min(MAX_LIMIT, Math.max(1, parseInt(searchParams.get("limit") ?? "100", 10) || 100));
 
-    const all = staticErrorCodes({ where: { brand, q } });
+    const all = await dbErrorCodes({ where: { brand, q } });
     const total = all.length;
     const errorCodes = all.slice((page - 1) * limit, (page - 1) * limit + limit);
 

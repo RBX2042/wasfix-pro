@@ -15,11 +15,13 @@ export async function GET() {
   try {
     const orders = await prisma.order.findMany({
       where: { userId: user.id },
-      include: { items: { include: { part: true } } },
+      // Public fields of the part only: `part: true` also returned costEur and supplier to the customer.
+      include: { items: { include: { part: { select: { id: true, sku: true, name: true, brand: true, imageUrl: true } } } } },
       orderBy: { createdAt: "desc" },
       take: 50,
     });
-    return apiSuccess({ orders });
+    // Order.costEur is what the goods cost the shop: never part of a customer's view of their order.
+    return apiSuccess({ orders: orders.map(({ costEur: _cost, ...order }) => order) });
   } catch (err) {
     logger.error("Orders lookup failed", err);
     return apiError("Bestellingen konden niet worden geladen", 503);

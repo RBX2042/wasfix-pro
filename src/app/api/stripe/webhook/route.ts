@@ -1,12 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
+import type Stripe from "stripe";
 import { logger } from "@/lib/logger";
-import { prisma } from "@/lib/prisma";
 import { getStripe } from "@/lib/stripe";
 import { env } from "@/lib/env";
-import type Stripe from "stripe";
-import { recordConversion } from "@/lib/referrals";
+import { notifyError } from "@/lib/notify";
+import { isHandledStripeEvent, type HandledStripeEvent } from "@/lib/stripe-events";
+import { claimStripeEvent, completeStripeEvent, releaseStripeEvent } from "../_lib/lease";
+import { processStripeEvent } from "../_lib/dispatch";
 
 export const runtime = "nodejs";
+// A paid order is fulfilled inside this request (stock, invoice, mail, owner
+// notice). The Stripe client allows ~16 s per call, so give the platform room
+// to let a slow handler finish instead of killing it halfway, which is what the
+// event lease in ../_lib/lease.ts exists to recover from.
+export const maxDuration = 30;
+
+/** After this many failed attempts at one event the owner is told, once a minute at most. */
+const ALERT_AFTER_ATTEMPTS = 3;
 
 export async function POST(req: NextRequest) {
   const stripe = getStripe();
@@ -17,9 +27,15 @@ export async function POST(req: NextRequest) {
 
   const sig = req.headers.get("stripe-signature");
   const secret = env.STRIPE_WEBHOOK_SECRET;
-
-  if (!sig || !secret) {
-    logger.warn("Missing stripe-signature or webhook secret");
+  if (!secret) {
+    // Not the sender's fault: without the secret no event can be verified, every
+    // paid order stays PENDING, and nobody would know. Say so loudly.
+    logger.error("STRIPE_WEBHOOK_SECRET is not set — every Stripe webhook is being refused");
+    await notifyError(new Error("STRIPE_WEBHOOK_SECRET ontbreekt: betalingen worden niet verwerkt"), { where: "stripe webhook" });
+    return new NextResponse("Webhook secret not configured", { status: 503 });
+  }
+  if (!sig) {
+    logger.warn("Stripe webhook without a signature header");
     return new NextResponse("Missing signature", { status: 400 });
   }
 
@@ -33,111 +49,51 @@ export async function POST(req: NextRequest) {
     return new NextResponse("Invalid signature", { status: 400 });
   }
 
-  // Idempotency check
+  const type = event.type;
+  if (!isHandledStripeEvent(type)) {
+    // Acknowledged so Stripe stops retrying, logged so a type that should be
+    // handled does not disappear unnoticed. The type list is in src/lib/stripe-events.ts.
+    logger.info("Stripe event type is not handled — acknowledged", { type: event.type, id: event.id });
+    return NextResponse.json({ received: true, ignored: true });
+  }
+  // `type` is narrowed by the guard above; carry that over to the event.
+  const handled = event as Stripe.Event & { type: HandledStripeEvent };
+
+  let claim;
   try {
-    const existing = await prisma.stripeEvent.findUnique({
-      where: { stripeEventId: event.id },
-    });
-    if (existing) {
-      return NextResponse.json({ received: true, alreadyProcessed: true });
-    }
+    claim = await claimStripeEvent(event.id, event.type);
   } catch (err) {
-    logger.warn("StripeEvent lookup failed (continuing)", err);
+    logger.error("Could not claim Stripe event — refusing to process without replay protection", err);
+    return new NextResponse("Handler error", { status: 500 });
+  }
+  if (claim.state === "duplicate") return NextResponse.json({ received: true, alreadyProcessed: true });
+  if (claim.state === "busy") {
+    // Another delivery is working on it. Not a success: if that worker dies,
+    // Stripe's next retry takes the event over once its lease has run out.
+    return NextResponse.json({ received: false, inProgress: true }, { status: 409 });
   }
 
   try {
-    switch (event.type) {
-      case "checkout.session.completed": {
-        const session = event.data.object as Stripe.Checkout.Session;
-        const userId = session.metadata?.userId;
-        const plan = session.metadata?.plan;
-        const orderId = session.metadata?.orderId;
-
-        if (orderId) {
-          await prisma.$transaction(async (tx) => {
-            const order = await tx.order.findUnique({
-              where: { id: orderId },
-              include: { items: true },
-            });
-            if (!order || order.status !== "PENDING") return;
-            await tx.order.update({
-              where: { id: orderId },
-              data: { status: "PAID", stripePaymentId: session.id },
-            });
-            for (const item of order.items) {
-              await tx.part.update({
-                where: { id: item.partId },
-                data: { stock: { decrement: item.quantity } },
-              });
-            }
-          });
-          // Idempotent: a replayed webhook returns the existing invoice
-          // rather than burning a second sequential number. A failure here
-          // must propagate so Stripe retries — silently continuing left a paid
-          // order with no invoice and nothing to notice it.
-          const { issueInvoiceForOrder } = await import("@/lib/invoicing");
-          const issued = await issueInvoiceForOrder(orderId);
-          if (!issued) throw new Error(`invoice_not_issued:${orderId}`);
-        }
-
-        // Referral credit: the visitor id was stashed at checkout time.
-        const refVisitorId = session.metadata?.refVisitorId;
-        if (refVisitorId) await recordConversion(refVisitorId);
-
-        if (userId && plan) {
-          await prisma.user.update({
-            where: { id: userId },
-            data: {
-              plan,
-              stripeSubId: typeof session.subscription === "string" ? session.subscription : undefined,
-            },
-          });
-        }
-        break;
-      }
-
-      case "customer.subscription.created":
-      case "customer.subscription.updated":
-      case "customer.subscription.deleted": {
-        const sub = event.data.object as Stripe.Subscription;
-        const customerId = typeof sub.customer === "string" ? sub.customer : sub.customer?.id;
-        const user =
-          (await prisma.user.findFirst({ where: { stripeSubId: sub.id } })) ??
-          (sub.metadata?.userId ? await prisma.user.findUnique({ where: { id: sub.metadata.userId } }) : null) ??
-          (customerId ? await prisma.user.findFirst({ where: { stripeCustomerId: customerId } }) : null);
-        if (!user) break;
-
-        const ended = event.type === "customer.subscription.deleted" || ["canceled", "unpaid", "incomplete_expired"].includes(sub.status);
-        if (ended) {
-          await prisma.user.update({ where: { id: user.id }, data: { plan: "FREE", stripeSubId: null } });
-        } else if (["active", "trialing", "past_due"].includes(sub.status)) {
-          const plan = sub.metadata?.plan;
-          await prisma.user.update({
-            where: { id: user.id },
-            data: { stripeSubId: sub.id, ...(plan ? { plan } : {}) },
-          });
-        }
-        break;
-      }
-
-      case "invoice.payment_failed": {
-        const invoice = event.data.object as Stripe.Invoice;
-        logger.warn("Stripe invoice payment failed", { customer: invoice.customer, invoice: invoice.id });
-        break;
-      }
-
-      case "payment_intent.succeeded":
-        // Handled via checkout.session.completed
-        break;
-    }
-
-    await prisma.stripeEvent.create({
-      data: { stripeEventId: event.id, type: event.type },
-    });
+    await processStripeEvent(stripe, handled);
   } catch (err) {
-    logger.error("Webhook handler error", err);
+    logger.error("Webhook handler error", { type: event.type, id: event.id, attempt: claim.attempts, err });
+    // Give the lease back (not delete the row): Stripe's retry takes the event
+    // over immediately, and the attempt count and last error stay on record.
+    await releaseStripeEvent(event.id, claim.claimedAt, err).catch((relErr) =>
+      logger.error("Could not release the Stripe event lease — the retry waits for it to expire", relErr),
+    );
+    if (claim.attempts >= ALERT_AFTER_ATTEMPTS) {
+      await notifyError(err, { where: "stripe webhook", event: event.type, attempts: claim.attempts });
+    }
     return new NextResponse("Handler error", { status: 500 });
   }
 
+  try {
+    await completeStripeEvent(event.id);
+  } catch (err) {
+    // Every handler is idempotent, so a lease that expires and is taken over
+    // re-runs harmlessly. Not worth failing the delivery for.
+    logger.error("Could not mark the Stripe event completed — it may be processed again after the lease", err);
+  }
   return NextResponse.json({ received: true });
 }

@@ -1,11 +1,15 @@
 import { NextRequest } from "next/server";
 import { apiSuccess, apiError } from "@/lib/api-response";
-import { staticPartFull } from "@/lib/static-db";
+import { dbPartFull } from "@/lib/static-db";
+
+export const revalidate = 60;
 
 export async function GET(_req: NextRequest, { params }: { params: Promise<{ sku: string }> }) {
   try {
     const { sku } = await params;
-    const part = staticPartFull(sku);
+    // Public projection: no costEur, no supplier. Guides embedded here carry only the
+    // free preview of premium guides (see redactGuide in static-db).
+    const part = await dbPartFull(sku);
     if (!part) return apiError("Onderdeel niet gevonden", 404);
     return apiSuccess({ part });
   } catch {

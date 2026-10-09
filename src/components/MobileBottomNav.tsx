@@ -26,7 +26,7 @@ export function MobileBottomNav() {
 
   return (
     <nav
-      aria-label="Mobile navigation"
+      aria-label="Mobiele navigatie"
       className="mobile-bottom-nav"
       style={{
         position: "fixed",
@@ -34,10 +34,13 @@ export function MobileBottomNav() {
         left: 0,
         right: 0,
         zIndex: 50,
-        background: "rgba(11, 14, 28, 0.92)",
+        // Colours come from --mbn-* below, not from literals: this bar sits under
+        // every page, and the hardcoded #0b0e1c left a black strip under every
+        // light page.
+        background: "var(--mbn-bg)",
         backdropFilter: "saturate(140%) blur(16px)",
         WebkitBackdropFilter: "saturate(140%) blur(16px)",
-        borderTop: "1px solid rgba(255,255,255,0.08)",
+        borderTop: "1px solid var(--mbn-border)",
         padding: "8px 8px max(8px, env(safe-area-inset-bottom))",
         display: "none",
       }}
@@ -55,9 +58,9 @@ export function MobileBottomNav() {
                 alignItems: "center",
                 gap: 4,
                 padding: "8px 12px",
-                color: active ? "#5d97ff" : "rgba(232,238,251,0.6)",
+                color: active ? "var(--mbn-active)" : "var(--mbn-fg)",
                 textDecoration: "none",
-                fontSize: 10,
+                fontSize: 11,
                 fontWeight: 500,
                 letterSpacing: "0.02em",
                 minWidth: 56,
@@ -73,17 +76,17 @@ export function MobileBottomNav() {
         })}
         <button
           onClick={() => setOpen(true)}
-          aria-label="Cart"
+          aria-label="Winkelmand openen"
           style={{
             display: "flex",
             flexDirection: "column",
             alignItems: "center",
             gap: 4,
             padding: "8px 12px",
-            color: count > 0 ? "#5d97ff" : "rgba(232,238,251,0.6)",
+            color: count > 0 ? "var(--mbn-active)" : "var(--mbn-fg)",
             background: "transparent",
             border: 0,
-            fontSize: 10,
+            fontSize: 11,
             fontWeight: 500,
             letterSpacing: "0.02em",
             minWidth: 56,
@@ -97,14 +100,14 @@ export function MobileBottomNav() {
             <circle cx="9" cy="20" r="1.5" />
             <circle cx="18" cy="20" r="1.5" />
           </svg>
-          <span>Cart</span>
+          <span>Mand</span>
           {count > 0 && (
             <span style={{
               position: "absolute",
               top: 4, right: 8,
-              background: "#5d97ff",
-              color: "#fff",
-              fontSize: 9,
+              background: "var(--mbn-active)",
+              color: "var(--mbn-badge-fg)",
+              fontSize: 10,
               fontWeight: 600,
               minWidth: 16, height: 16,
               borderRadius: 8,
@@ -116,6 +119,23 @@ export function MobileBottomNav() {
       </div>
 
       <style>{`
+        .mobile-bottom-nav {
+          --mbn-bg: hsl(var(--background) / 0.92);
+          --mbn-border: hsl(var(--border));
+          --mbn-fg: hsl(var(--muted-foreground));
+          --mbn-active: hsl(var(--primary));
+          --mbn-badge-fg: hsl(var(--primary-foreground));
+        }
+        /* The redesign pages carry their own always-dark palette in .wasfix-design,
+           independent of the app theme, so the bar has to follow that instead of the
+           light tokens. Browsers without :has() drop this rule and keep the tokens. */
+        body:has(.wasfix-design) .mobile-bottom-nav {
+          --mbn-bg: rgba(10, 15, 28, 0.92);
+          --mbn-border: rgba(255, 255, 255, 0.08);
+          --mbn-fg: #b6c0d8;
+          --mbn-active: #5d97ff;
+          --mbn-badge-fg: #fff;
+        }
         @media (max-width: 767px) { .mobile-bottom-nav { display: block !important; } body { padding-bottom: 76px; } }
       `}</style>
     </nav>

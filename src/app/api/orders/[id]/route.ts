@@ -17,7 +17,8 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   try {
     const order = await prisma.order.findUnique({
       where: { id },
-      include: { items: { include: { part: true } } },
+      // Public fields of the part only: `part: true` also returned costEur and supplier to the customer.
+      include: { items: { include: { part: { select: { id: true, sku: true, name: true, brand: true, imageUrl: true } } } } },
     });
 
     if (!order) return apiError("Bestelling niet gevonden", 404);
@@ -26,7 +27,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
       return apiError("Geen toegang", 403);
     }
 
-    return apiSuccess({ order });
+    // Order.costEur is what the goods cost the shop: never part of a customer's view of their order.
+    const { costEur: _cost, ...visible } = order;
+    return apiSuccess({ order: visible });
   } catch (err) {
     logger.error("Order lookup failed", err);
     return apiError("Bestelling kon niet worden geladen", 503);

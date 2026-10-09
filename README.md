@@ -1,52 +1,71 @@
 # WasFix Pro
 
-AI-gestuurde wasmachine diagnose + onderdelen platform. Live: https://wasfix.nl
+AI-gestuurde wasmachine diagnose + onderdelen platform. Beoogd adres: https://wasfix.nl (nog niet live; het draaiboek staat in [BLOCKED.md](BLOCKED.md)).
 
 ## Stack
 - Next.js 15 (App Router) + TypeScript (strict)
 - Tailwind CSS + custom shadcn/ui componenten + dark design system (`wasfix-design.css`)
 - Prisma + PostgreSQL (Supabase in productie, lokaal Postgres of Docker)
 - Google Gemini 2.0 Flash met keyword-fallback als er geen key is
-- Clerk (auth) — uitschakelbaar via `DEMO_MODE=true`
-- Stripe (iDEAL / Bancontact / kaart, abonnementen + eenmalige orders)
+- Clerk (auth); lokaal werkt alles zonder Clerk in demo-modus (alleen buiten productie)
+- Stripe (iDEAL / kaart, abonnementen + eenmalige orders; alleen Nederland, zie `DECISIONS.md`)
 - Resend (transactionele e-mails)
 - Upstash Redis (rate limiting, optioneel) · Zustand (cart state)
 
 ## Quick start (zonder externe services)
+
+Vereist Node 22.
 
 ```bash
 npm install
 npm run dev
 ```
 
-Open http://localhost:3000. In demo mode (default) werkt de complete flow — diagnose, catalogus, checkout, dashboard, admin — op de statische catalogus in `src/data/*.json` (331 foutcodes, 96 onderdelen, 26 gidsen, 18 machines). Zonder `DATABASE_URL` wordt niets opgeslagen; met `DATABASE_URL` wordt alles persistent.
+Open http://localhost:3000. Zonder `DATABASE_URL` en zonder Clerk-sleutels draait alles op de statische
+catalogus in `src/data/*.json`, en is elke bezoeker de demo-beheerder, zodat je dashboard en `/admin` kunt zien.
+Er wordt niets opgeslagen. (Nagegaan: deze twee commando's starten de site en `/`, `/onderdelen`,
+`/foutcodes/Bosch-E18` en `/admin` antwoorden 200.) De getallen over de omvang van de catalogus berekent de
+site zelf met `catalogStats()`; vertrouw op de pagina, niet op een getal in een document.
 
 ## Quick start (met database)
 
 ```bash
-# Postgres via Docker (of gebruik een Supabase connection string)
+# Postgres via Docker (of een Supabase-verbindingsstring)
 docker run -d --name wasfix-pg -e POSTGRES_PASSWORD=wasfix -e POSTGRES_DB=wasfix -p 5432:5432 postgres:16
 export DATABASE_URL=postgresql://postgres:wasfix@localhost:5432/wasfix
 
-npm run db:setup    # prisma db push + seed uit src/data/*.json (idempotent, IDs blijven gelijk)
-npm run db:smoke    # 25 CRUD/relatie-checks
+npm run db:setup    # migraties toepassen + catalogus seeden (herhaalbaar)
+npm run db:smoke    # CRUD- en relatiecontroles
 npm run dev
 ```
 
-De seed maakt 4 demo-accounts: `jdahoe@hotmail.nl` (ADMIN/BEDRIJF, auto-login in demo mode), `demo@wasfixpro.nl` (ADMIN), `monteur@wasfixpro.nl` (TECHNICIAN/MONTEUR_PRO), `klant@wasfixpro.nl` (CONSUMER/FREE).
+Op een lokale database maakt de seed vier demo-accounts: `jdahoe@hotmail.nl` (ADMIN, in demo-modus is elke
+bezoeker dit account), `demo@wasfixpro.nl` (ADMIN), `monteur@wasfixpro.nl` en `klant@wasfixpro.nl`. **Op een
+database die niet op deze machine staat (of met `NODE_ENV=production`) maakt de seed geen enkel account**
+en zet ze de voorraad van elk onderdeel op 0; zie [BLOCKED.md](BLOCKED.md) voor het eerste beheerdersaccount.
+
+Omgevingsvariabelen: kopieer `.env.example` naar `.env.local`; elke variabele staat daar met uitleg.
 
 ## Scripts
 
 | Script | Doel |
 |---|---|
-| `npm run dev` / `build` / `start` | Next.js |
-| `npm run typecheck` / `lint` | CI checks |
-| `npm run db:setup` | Schema pushen + catalogus seeden |
-| `npm run db:seed` | Alleen seeden (upsert, veilig bij content-updates) |
-| `npm run db:smoke` | Database QA (`scripts/qa-db.ts`) |
-| `npm run money:smoke` | Btw, facturen, quota en marge (`scripts/qa-money.ts`) |
-| `npm run smoke` | HTTP smoke test tegen `BASE_URL` (default localhost:3000) |
+| `npm run dev` / `build` / `start` | Next.js (`build` draait eerst `prisma generate`) |
+| `npm run typecheck` / `lint` | CI-controles |
+| `npm run db:setup` | migraties toepassen + seeden |
+| `npm run db:migrate:deploy` / `db:migrate:status` | migraties toepassen / tonen, via `DIRECT_URL` als die is gezet (`scripts/migrate.ts`) |
+| `npm run db:seed` | alleen seeden (productiemodus op een externe database: geen gebruikers, voorraad 0) |
+| `npm run db:migrate` | nieuwe migratie maken tijdens ontwikkeling (`prisma migrate dev`) |
+| `npm run db:smoke` · `money:smoke` | database- en geldcontroles (`scripts/qa-db.ts`, `scripts/qa-money.ts`) |
+| `npm run smoke` | HTTP-controle tegen `BASE_URL` (standaard localhost:3000) |
+| `npm run preflight` | controle vóór en na de livegang, zie [BLOCKED.md](BLOCKED.md) stap 10 |
+| `npm run qa:csp` · `qa:platform` · `qa:preflight` | controles van de Content-Security-Policy, het platform en het preflight-script |
+| `npx tsx scripts/make-admin.ts <e-mail>` | een e-mailadres beheerder maken (gebruikt `DIRECT_URL`, anders `DATABASE_URL`) |
 | `npm run db:studio` | Prisma Studio |
+
+De overige `scripts/qa-*.ts` (orders, notify, checkout, stripe, plans, admin, diagnose, storefront) draait CI;
+de aanroep per script staat in `.github/workflows/ci.yml`. Scripts die modules met `server-only` laden
+draaien met `npx tsx --conditions=react-server`; `qa-admin` en `qa-plans` draaien juist zonder die vlag.
 
 ## Verdienmodel
 
@@ -60,9 +79,11 @@ entitlement-checks lezen daaruit, zodat ze niet uit elkaar kunnen lopen.
   direct af te sluiten, met 14 dagen proefperiode.
 - **Onderdelen**: catalogusprijzen zijn inclusief 21% btw. Elke betaalde
   bestelling krijgt een doorlopend genummerde factuur met btw-specificatie op
-  `/bestelling/[id]/factuur`.
-- **Marge**: elk onderdeel heeft een inkoopprijs; `/admin` toont netto omzet,
-  af te dragen btw, inkoopwaarde en brutomarge.
+  `/bestelling/[id]/factuur`. Een annulering of terugbetaling van een gefactureerde bestelling geeft een
+  creditnota uit een eigen reeks (CN-JJJJ-NNNNN); een factuur wordt nooit gewijzigd of verwijderd.
+- **Marge**: elk onderdeel heeft een inkoopprijs met een bron (`costSource`: `ESTIMATE` of `QUOTE`). Elk
+  margecijfer in `/admin/economie` telt alleen offerteprijzen en noemt de rest "schatting". De inkoopprijzen die
+  bij de catalogus horen zijn schattingen; zie [MONETIZATION.md](MONETIZATION.md) voor wat dat betekent.
 
 **Monteurs factureren hun eigen klanten.** Vul de bedrijfsgegevens in op
 `/monteur/instellingen` en elke werkorder met een bedrag wordt een factuur met
@@ -78,31 +99,37 @@ gebeuren.
 
 ## Modes
 
-> **Demo-modus werkt niet meer in productie.** `getCurrentUser()` gaf in
-> demo-modus iedereen het superadmin-account. Met `NODE_ENV=production` stond
-> daarmee `/admin` open voor elke bezoeker. Demo-modus is nu alleen actief
-> buiten productie; op een productie-deployment zonder Clerk is niemand
-> ingelogd en zijn dashboard, monteur en admin afgeschermd.
+> **Demo-modus bestaat alleen buiten productie.** `getCurrentUser()` gaf in demo-modus iedereen het
+> superadmin-account; met `NODE_ENV=production` stond `/admin` daarmee open voor elke bezoeker. Nu is demo-modus
+> in productie altijd uit, ook als `DEMO_MODE=true` is gezet; zonder Clerk is daar niemand ingelogd en zijn
+> dashboard, monteur en admin afgeschermd.
 
-| | `DEMO_MODE=true` (alleen buiten productie) | `DEMO_MODE=false` + Clerk keys |
+| | Lokaal, zonder Clerk (demo) | Productie |
 |---|---|---|
-| Auth | Lokaal: iedereen is de demo-admin | Echte login via Clerk (`/inloggen`, `/registreren`), middleware beschermt dashboard/admin/monteur/API |
-| Betalen | Order wordt direct "PAID" | Stripe Checkout + webhook |
-| AI | Keyword-fallback tenzij `GEMINI_API_KEY` | idem |
-| E-mail | No-op tenzij `RESEND_API_KEY` | idem |
-| Data | Statisch, of persistent met `DATABASE_URL` | idem |
+| Auth | Iedereen is de demo-beheerder | Clerk (`/inloggen`, `/registreren`); middleware beschermt dashboard, admin, monteur en API |
+| Beheerder | n.v.t. | `ADMIN_EMAILS` (alleen een door Clerk bevestigd adres) of `scripts/make-admin.ts` |
+| Betalen | Zonder Stripe-sleutels: bankoverschrijving | iDEAL en kaart via Stripe (alleen met `STRIPE_SECRET_KEY` én `STRIPE_WEBHOOK_SECRET`), of bankoverschrijving |
+| AI | Trefwoorden-terugval tenzij `GEMINI_API_KEY` (de terugval zegt dat) | idem |
+| E-mail | Geen verzending tenzij `RESEND_API_KEY` | idem |
+| Data | Statische catalogus, of persistent met `DATABASE_URL` | De database is verplicht |
 
-Elke integratie activeert zichzelf zodra zijn env var bestaat; zie `.env.example` en `BLOCKED.md` voor de volledige lijst en wat er nog van de eigenaar nodig is.
+Elke koppeling gaat aan zodra zijn variabele bestaat; `.env.example` noemt ze allemaal.
 
-## Production setup
+## Naar productie
 
-1. **Database**: dedicated Supabase project → `DATABASE_URL` (session pooler URI) → `npm run db:setup` eenmalig.
-2. **Auth**: Clerk keys + `CLERK_WEBHOOK_SECRET` (endpoint `/api/webhooks/clerk`) + `DEMO_MODE=false`.
-3. **AI**: `GEMINI_API_KEY`.
-4. **Payments**: Stripe keys, 3 price IDs, webhook `/api/stripe/webhook`.
-5. **Email**: `RESEND_API_KEY` (+ `RESEND_AUDIENCE_ID`).
-6. **Optioneel**: Upstash (rate limit), Sentry, PostHog, GSC, KvK.
-7. **Deploy**: Vercel (`npm run build` draait `prisma generate`).
+Het volledige, geordende draaiboek met tijdschattingen staat in **[BLOCKED.md](BLOCKED.md)**. In het kort:
+
+1. Bedrijf inschrijven en de `COMPANY_*`-gegevens verzamelen, inclusief `COMPANY_EMAIL` (de lange pool: weken). Zonder een van de acht blijft de winkel dicht, en na elke wijziging moet je opnieuw bouwen en deployen: de juridische pagina's worden bij de build klaargemaakt.
+2. Domein, `NEXT_PUBLIC_APP_URL` (verplicht; zet hem vóór de build en laat hem gezet staan, zie BLOCKED.md stap 2).
+3. Supabase: `DATABASE_URL` (transaction pooler, `?pgbouncer=true&connection_limit=1`) en `DIRECT_URL`
+   (poort 5432, alleen voor migraties). `npm run db:migrate:deploy`, daarna `npm run db:seed`.
+4. Vercel: de variabelen per omgeving; **Preview krijgt een eigen database en Stripe-testsleutels, nooit die
+   van productie.** `CRON_SECRET` is nodig, anders draait geen enkele geplande taak.
+5. Meldingskanaal (Slack, Discord of e-mail), Clerk, Resend, Stripe, Gemini, Upstash.
+6. `npm run preflight -- --env-file … --live-checks`, herstel tot **READY**, dan deployen en met `--url` nogmaals.
+
+Geplande taken staan in `vercel.json` (vier routes, elk één keer per dag, de veilige keuze voor elk
+abonnement; strakker zetten kan, zie BLOCKED.md). De regio is `fra1`; pas die aan als je database elders staat.
 
 ## Architectuur
 
@@ -113,7 +140,8 @@ src/
 │   ├── (public pages)       # Landing, diagnose, foutcodes, onderdelen, gidsen, merken, blog, tools, legal
 │   ├── dashboard/           # Klant dashboard (diagnoses, bestellingen, wasmachines, profiel, API keys, referrals)
 │   ├── monteur/             # B2B landing + Monteur Pro dashboard
-│   └── admin/               # Admin (catalogus, gebruikers, analytics, AI-kwaliteit, aanvragen & reviews)
+│   └── admin/               # Admin (catalogus-CRUD, analytics, AI-kwaliteit, aanvragen & reviews;
+│                             #        /admin/gebruikers is alleen-lezen — rol en plan zijn daar niet te wijzigen)
 ├── components/              # UI, redesign (dark), auth-buttons/providers, cart, …
 ├── data/                    # Statische catalogus (bron van waarheid voor seed én fallback)
 └── lib/
@@ -121,9 +149,12 @@ src/
     ├── auth.ts              # getCurrentUser() (demo of Clerk), plan-limieten
     ├── prisma.ts / static-db.ts
     ├── api-auth.ts          # B2B API keys (SHA-256 hash in DB, demo key)
-    ├── ratelimit.ts         # Upstash of in-memory
+    ├── ratelimit.ts         # Upstash of in-memory (per instantie zonder Upstash)
+    ├── csp.ts · site-url.ts # Content-Security-Policy uit de omgeving; NEXT_PUBLIC_APP_URL
+    ├── notify.ts · monitoring.ts  # meldingen aan de eigenaar; foutmeldingen met afkoeling
     ├── gemini.ts / stripe.ts / email.ts
-    └── middleware.ts        # SEO rewrites + clerkMiddleware (alleen als geconfigureerd)
+    ├── (src/middleware.ts)  # SEO rewrites + clerkMiddleware (alleen als geconfigureerd) — staat op src/, niet in lib/
+    └── (src/instrumentation.ts) # fouten uit requests en logger.error -> meldingen aan de eigenaar
 ```
 
 ## Data model
@@ -136,8 +167,9 @@ Inbox: `Review` (moderatie), `RmaRequest`, `MonteurApplication`, `NewsletterSubs
 
 ### Reviews en ratings
 
-Reviews komen uit twee bronnen: de curated set in `src/data/reviews.json` en door een
-moderator goedgekeurde rijen in de `Review`-tabel. Sterbeoordelingen op de pagina én in
+Er is precies één bron: door een moderator goedgekeurde rijen in de `Review`-tabel
+(`src/lib/reviews.ts`). We leveren geen seed-reviews mee — een review op deze site is
+door iemand geschreven die het product gebruikt heeft. Sterbeoordelingen op de pagina én in
 schema.org `AggregateRating` worden **altijd** uit die echte reviews berekend; is er geen
 review, dan publiceren we geen rating. Verzin hier nooit cijfers: dat is in strijd met het
 schema.org-beleid van Google en met de EU Omnibus-richtlijn over consumentenreviews.
@@ -155,4 +187,10 @@ schema.org-beleid van Google en met de EU Omnibus-richtlijn over consumentenrevi
 
 ## CI
 
-`.github/workflows/ci.yml`: lint + typecheck → build, en een Postgres-job die `db:setup`, `db:smoke`, `build` en de HTTP smoke test draait.
+`.github/workflows/ci.yml`: lint + typecheck (met een informatieve `npm audit`) -> build, en een Postgres-job die
+migreert en seedt, `db:smoke` en `money:smoke` draait, de QA-suites die geen server nodig hebben elk op een eigen
+database (gekopieerd van een verse template, omdat ze testrijen achterlaten en `qa-admin` een schone catalogus
+verwacht), de CSP-controle in Chromium, een productiebuild met de HTTP-smoke, de checkout- en storefront-suites
+tegen die server en de CSP op de echte pagina's. Buiten CI gelaten: de browsersuites die een demo-dev-server
+nodig hebben (`qa-checkout-ui`, `qa-plans-ui`, `qa-storefront-browser`) en `qa-seed`/`qa-migration`, die
+scratch-databases maken. Dit workflow is hier niet op GitHub gedraaid; de stappen zijn lokaal nagelopen.

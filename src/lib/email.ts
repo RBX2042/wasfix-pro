@@ -99,6 +99,8 @@ export type SendMailOptions = {
   replyTo?: string;
   /** The short order number ("#" + this) when the mail belongs to an order. Goes into the failure alert, instead of the customer. */
   orderRef?: string;
+  /** Extra message headers, passed to Resend as given: the RFC 8058 List-Unsubscribe pair on the newsletter mails (src/lib/newsletter.ts). */
+  headers?: Record<string, string>;
 };
 
 export async function sendMail(opts: SendMailOptions): Promise<MailResult> {
@@ -123,6 +125,7 @@ export async function sendMail(opts: SendMailOptions): Promise<MailResult> {
       html: opts.html,
       text: opts.text,
       replyTo: opts.replyTo ?? env.COMPANY_EMAIL,
+      ...(opts.headers ? { headers: opts.headers } : {}),
     });
     if (!result.ok) {
       // sendRaw already logged the cause. The owner needs to hear about it too:

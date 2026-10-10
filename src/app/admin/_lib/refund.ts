@@ -82,8 +82,9 @@ export async function performRefund(input: {
     if (askedCents > leftCents) return { ok: false, error: `Het bedrag is hoger dan wat nog terug te betalen is (${eurText(Math.max(leftCents, 0) / 100)}). Er is niets teruggestort.` };
   }
 
-  // A restock the booking would refuse (an order that has not shipped, or more than is left after earlier
-  // refunds) must be refused HERE, before Stripe moves money. A replay is exempt: it is answered from the note.
+  // A restock the booking would refuse (an order that has not shipped, or more than is left on
+  // OrderItem.restockedQty after earlier refunds) must be refused HERE, before Stripe moves money. A replay is
+  // exempt: it is answered from the note. The booking claims the units again, atomically, inside its transaction.
   if (!isReplay) {
     const restockRefusal = await checkRestock(prisma, order, input.restock);
     if (restockRefusal) return { ok: false, error: `${restockRefusal} Er is niets teruggestort.` };

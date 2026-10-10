@@ -51,6 +51,7 @@ import { issueInvoiceForOrder } from "./invoicing";
 import { orderRef } from "./order-status";
 import { supportEmail, supportHint } from "./support-contact";
 import { GUEST_HOLDER_EMAIL } from "./checkout-user";
+import { forgetNewsletterContactAfterResponse } from "./newsletter";
 
 /** What replaces free text we cannot keep but whose row must survive. */
 export const REDACTED = "Verwijderd op verzoek (AVG art. 17)";
@@ -210,7 +211,7 @@ export async function eraseUserData(opts: EraseOptions): Promise<ErasureOutcome>
   const { userId, email } = opts;
   const anonEmail = anonymizedEmailFor(userId);
 
-  return prisma.$transaction(
+  const outcome = await prisma.$transaction(
     async (tx) => {
       // Checked again inside the transaction: an order paid in the seconds since the caller looked
       // would otherwise lose the address it still has to be shipped to.
@@ -261,6 +262,7 @@ export async function eraseUserData(opts: EraseOptions): Promise<ErasureOutcome>
       await tx.apiKey.deleteMany({ where: { userId } });
       await tx.monteurProfile.deleteMany({ where: { userId } });
       await tx.monteurApplication.deleteMany({ where: { email } });
+      // The Resend audience contact is flagged unsubscribed after the commit (forgetNewsletterContactAfterResponse below).
       await tx.newsletterSubscriber.deleteMany({ where: { email } });
       await tx.referral.deleteMany({
         where: account?.referralCode ? { OR: [{ referrerId: userId }, { code: account.referralCode }] } : { referrerId: userId },
@@ -304,6 +306,11 @@ export async function eraseUserData(opts: EraseOptions): Promise<ErasureOutcome>
     },
     { timeout: opts.timeoutMs ?? 20_000 },
   );
+
+  // The newsletter row is gone (committed above); the Resend audience must stop mailing this address too. Best effort,
+  // after the response, never a reason for the erasure to fail or wait: the audience is a copy, our table was the truth.
+  forgetNewsletterContactAfterResponse(email);
+  return outcome;
 }
 
 /**

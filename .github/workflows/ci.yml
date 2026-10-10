@@ -156,6 +156,7 @@ jobs:
           # QA_REQUIRE_BROWSER=1: without Chromium the service-worker half would be SKIPPED silently; here a missing browser must fail.
           suite platform  env QA_REQUIRE_BROWSER=1 npx tsx scripts/qa-platform.ts  || status=1
           suite preflight npx tsx scripts/qa-preflight.ts                          || status=1
+          echo "::group::deploy"; npx tsx scripts/qa-deploy.ts || status=1; echo "::endgroup::"  # bundle D: the deploy pipeline (scripts/deploy, deploy.yml) with a fake vercel; no database, so not through suite()
           # fix round: the credit note as a document (data half; the HTTP half runs against the server below)
           # and privacy (erasure through both doors, data export, guest orders, newsletter double opt-in).
           # qa-privacy stubs "server-only" itself, so it runs without the react-server condition.

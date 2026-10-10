@@ -105,8 +105,8 @@ export default function PrivacyPage() {
               <li><strong>Diagnoses:</strong> 12 maanden gekoppeld aan account, daarna geanonimiseerd</li>
               <li><strong>Facturen en creditfacturen:</strong> 7 jaar (fiscale bewaarplicht Belastingdienst), met je naam en adres zoals die op de factuur staan. De bestelling zelf (onderdelen, bedragen, datums) blijft als administratie staan; als je je account verwijdert, halen we daar je e-mailadres, telefoonnummer, bezorgadres en bestellink uit.</li>
               <li><strong>Server-logs:</strong> bij onze hostingpartij, volgens de bewaartermijn van die partij; wij bewaren ze niet zelf langer</li>
-              <li><strong>Nieuwsbrief:</strong> je e-mailadres wordt pas voor de nieuwsbrief gebruikt nadat je de bevestigingsmail hebt aangeklikt (dubbele aanmelding); zonder bevestiging sturen we niets naar dat adres en verwijderen we het na 14 dagen weer uit onze administratie (de link werkt 7 dagen)</li>
-              <li><strong>Marketing-toestemming:</strong> tot aan opzegging via unsubscribe</li>
+              <li><strong>Nieuwsbrief:</strong> je e-mailadres wordt pas voor de nieuwsbrief gebruikt nadat je de bevestigingsmail hebt aangeklikt (dubbele aanmelding); zonder bevestiging sturen we niets naar dat adres en verwijderen we het na 14 dagen weer uit onze administratie (de link werkt 7 dagen). Afmelden kan altijd en gratis via de afmeldlink die in elke nieuwsbrief en in de bevestigingsmail staat; de afmelding gaat direct in en kost geen inlog. Je adres blijft daarna als &lsquo;afgemeld&rsquo; in onze administratie staan, zodat we het niet opnieuw aanschrijven; wil je het helemaal verwijderd hebben, mail ons dan (artikel 17 AVG)</li>
+              <li><strong>Marketing-toestemming:</strong> tot je je afmeldt via de link in een nieuwsbrief (recht van bezwaar tegen direct marketing, art. 21 lid 3 AVG; de afmelding gaat direct in)</li>
               <li><strong>Cookies:</strong> zoals beschreven in het <Link href="/cookies">cookiebeleid</Link></li>
             </ul>
 

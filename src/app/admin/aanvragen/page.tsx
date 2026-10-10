@@ -62,9 +62,16 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
     <DashboardLayout role={user.role}>
       <h1 className="font-heading text-2xl font-bold mb-1">Aanvragen &amp; moderatie</h1>
       <p className="text-muted-foreground text-sm mb-6">
-        {hasDb
-          ? `${subscribers} bevestigde nieuwsbriefabonnees · AI-feedback 👍 ${up} / 👎 ${down}`
-          : "Geen database geconfigureerd — aanvragen worden alleen per e-mail afgeleverd."}
+        {hasDb ? (
+          <>
+            {subscribers} bevestigde nieuwsbriefabonnees (
+            {/* A route handler that answers a CSV download (admin only, see src/app/api/newsletter/afmeldlinks/route.ts): a plain link, not a client-side navigation. */}
+            <a className="underline" href="/api/newsletter/afmeldlinks" title="CSV met per abonnee de ondertekende afmeldlink, om vóór elke broadcast als contact-eigenschap in Resend te laden (BLOCKED.md stap 7)">afmeldlinks als CSV</a>
+            ) · AI-feedback 👍 {up} / 👎 {down}
+          </>
+        ) : (
+          "Geen database geconfigureerd — aanvragen worden alleen per e-mail afgeleverd."
+        )}
       </p>
 
       {notice && (

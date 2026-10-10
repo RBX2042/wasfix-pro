@@ -24,7 +24,8 @@
     "preflight": "tsx --conditions=react-server scripts/preflight.ts",
     "qa:csp": "tsx scripts/qa-csp.ts",
     "qa:platform": "tsx scripts/qa-platform.ts",
-    "qa:preflight": "tsx scripts/qa-preflight.ts"
+    "qa:preflight": "tsx scripts/qa-preflight.ts",
+    "qa:deploy": "tsx scripts/qa-deploy.ts"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",

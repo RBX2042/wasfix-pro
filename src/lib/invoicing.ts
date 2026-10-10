@@ -30,7 +30,7 @@
  *     splitVatInclusive, money, amsterdamYear helpers
  *     invoicingBlockedReason(opts?)           -> {missing} | null
  *   Credit notes (never edit or delete an invoice; see the sign convention below)
- *     issueCreditNote(invoiceId, {amountEur?, reason, stripeRefundId?, idempotencyKey?, restock?}, tx?) -> IssuedCreditNote; throws OrderDomainError
+ *     issueCreditNote(invoiceId, {amountEur?, reason, stripeRefundId?, idempotencyKey?}, tx?) -> IssuedCreditNote; throws OrderDomainError
  *     setCreditNoteStripeRefund(creditNoteId, stripeRefundId)                -> boolean
  *     getCreditNotesForOrder(orderId)                                        -> IssuedCreditNote[]
  *   Lifecycle (results are {ok:true,...} | {ok:false, code, error}; they do not throw)
@@ -41,8 +41,10 @@
  *     recordRefund(orderId, {amountEur, stripeRefundId?, idempotencyKey?, expectedRefundedEur?, reason?, restock?, notifyCustomer?}) -> RecordRefundResult
  *     markOrderPaidByBankTransfer(orderId, {receivedAmountEur?}?)            -> MarkPaidResult; THROWS AmountMismatchError
  *                                                                              (OPENSTAAND -> PAID only; a wire for a CANCELLED order is refused, see D14 below)
- *     restockedByPart(orderId), restockedFromNotes(notes)                    -> Map<partId, units> put back on the shelf through refunds
+ *     restockedByPart(orderId), restockedOfItems(items)                     -> Map<partId, units> put back on the shelf through refunds (OrderItem.restockedQty)
  *     checkRestock(db, order, restock)                                       -> Dutch refusal | null (shipped goods only, capped by ordered minus already restocked)
+ *     applyRestock(t, order, restock)                                        -> units put back; the conditional update on OrderItem.restockedQty is the cap AND the lock
+ *     stripLegacyRestock(linesJson)                                          legacy: notes issued before migration 20261009120000 carried the record on their lines
  *     isQuietCancellation(outcome, actor)                                    the one rule for "an abandoned order is not news" (no owner notice)
  *   Notices (never throw; call after the commit, from the path that won the claim)
  *     notifyOrderPlaced(orderId)              owner: new order
@@ -118,9 +120,12 @@ export type InvoiceLine = {
   unitPriceEur: number;
   lineTotalEur: number;
   /**
-   * Credit notes only, never printed: the units of this refund that went back on
-   * the shelf. It is the record that makes a restock cappable (ordered minus what
-   * earlier refunds already put back); there is no column for it.
+   * LEGACY, never printed and never written since migration
+   * 20261009120000_order_item_restocked_qty: credit notes issued before it
+   * recorded here which units of the refund went back on the shelf. The record
+   * now lives on OrderItem.restockedQty (that migration backfilled it). Old
+   * notes keep the annotation, because an issued document is immutable; the
+   * data export strips it (stripLegacyRestock) and nothing else reads it.
    */
   restock?: RestockLine[];
 };
@@ -493,8 +498,6 @@ export type CreditNoteInput = {
   stripeRefundId?: string | null;
   /** Same for a refund that has no Stripe id (bank transfer): the same key returns the same note. Max 100 characters. */
   idempotencyKey?: string | null;
-  /** Units of this refund that go back on the shelf. Only recorded on the note (see InvoiceLine.restock); the caller moves the stock. */
-  restock?: RestockLine[] | null;
 };
 
 /**
@@ -527,6 +530,15 @@ export function creditNoteVat(p: {
 }
 
 type Tx = Prisma.TransactionClient;
+/**
+ * A transaction client and NOTHING else. `Prisma.TransactionClient` is an Omit
+ * of the full client, so structurally the bare `prisma` satisfies it and a
+ * `t: Tx` parameter does not stop a caller from passing it. The bare client
+ * has `$transaction`; this type forbids that property, so `applyRestock(prisma,
+ * ...)` does not compile while the `t` of `prisma.$transaction((t) => ...)`
+ * (which has no `$transaction`) does.
+ */
+type TxOnly = Tx & { $transaction?: never };
 
 function formatCreditNoteNumber(year: number, seq: number): string {
   return `CN-${year}-${String(seq).padStart(5, "0")}`;
@@ -698,9 +710,6 @@ export async function issueCreditNote(invoiceId: string, input: CreditNoteInput,
           },
         ];
 
-    // The restock record rides on the first printed line; nothing prints it.
-    if (input.restock && input.restock.length > 0 && lines.length > 0) lines[0] = { ...lines[0], restock: input.restock.map((r) => ({ partId: r.partId, quantity: r.quantity })) };
-
     const year = amsterdamYear(new Date());
     const number = formatCreditNoteNumber(year, await allocateCreditNoteSequence(t, year));
 
@@ -747,28 +756,49 @@ export async function getCreditNotesForOrder(orderId: string): Promise<IssuedCre
   }
 }
 
-/** The units a credit note put back on the shelf (see InvoiceLine.restock), summed per part. */
-function restockOfLinesJson(linesJson: string): Map<string, number> {
-  const out = new Map<string, number>();
-  for (const line of safeJson<InvoiceLine[]>(linesJson) ?? []) {
-    for (const r of line.restock ?? []) out.set(r.partId, (out.get(r.partId) ?? 0) + r.quantity);
-  }
-  return out;
+// ─── Restock bookkeeping ──────────────────────────────────────────────
+//
+// Which units a refund put back on the shelf is counted on the order line,
+// OrderItem.restockedQty, and nowhere else: the cap "ordered minus already
+// restocked" is one conditional update on that column (applyRestock). Credit
+// notes issued before migration 20261009120000_order_item_restocked_qty carried
+// the record as a "restock" array on their first printed line instead; the
+// migration backfilled the column from them, and the only code that still
+// touches that annotation is stripLegacyRestock (the data export). The admin
+// pages (retouren, bestellingen) size their restock inputs from the column.
+
+/**
+ * Units per part that refunds of this order already put back on the shelf: the
+ * sum of OrderItem.restockedQty per part. Cancelling is not counted: it restocks
+ * everything and ends the order.
+ */
+export async function restockedByPart(orderId: string, db: Pick<typeof prisma, "orderItem"> = prisma): Promise<Map<string, number>> {
+  return restockedOfItems(await db.orderItem.findMany({ where: { orderId }, select: { partId: true, restockedQty: true } }));
 }
 
-/** Units per part that refunds of this order already put back on the shelf. Cancelling is not counted: it restocks everything and ends the order. */
-export async function restockedByPart(orderId: string, db: Pick<typeof prisma, "creditNote"> = prisma): Promise<Map<string, number>> {
-  const notes = await db.creditNote.findMany({ where: { invoice: { orderId } }, select: { linesJson: true } });
+/** Same, from order lines a page already loaded (select `partId` and `restockedQty`). */
+export function restockedOfItems(items: ReadonlyArray<{ partId: string; restockedQty: number }>): Map<string, number> {
   const total = new Map<string, number>();
-  for (const n of notes) for (const [partId, q] of restockOfLinesJson(n.linesJson)) total.set(partId, (total.get(partId) ?? 0) + q);
+  for (const it of items) total.set(it.partId, (total.get(it.partId) ?? 0) + it.restockedQty);
   return total;
 }
 
-/** Same, from the linesJson strings a page already loaded. Exported for the order desk. */
-export function restockedFromNotes(notes: Array<{ linesJson: string }>): Map<string, number> {
-  const total = new Map<string, number>();
-  for (const n of notes) for (const [partId, q] of restockOfLinesJson(n.linesJson)) total.set(partId, (total.get(partId) ?? 0) + q);
-  return total;
+/**
+ * The linesJson of a credit note without the legacy "restock" annotation (see
+ * InvoiceLine.restock): what the customer was given, nothing of the shop's
+ * stock bookkeeping. Returns the input unchanged when it is not a JSON array or
+ * carries no annotation, so a document is never re-serialised for nothing.
+ */
+export function stripLegacyRestock(linesJson: string): string {
+  const lines = safeJson<unknown>(linesJson);
+  if (!Array.isArray(lines)) return linesJson;
+  let stripped = false;
+  const clean = lines.map((line) => {
+    if (!line || typeof line !== "object" || !("restock" in line)) return line;
+    stripped = true;
+    return Object.fromEntries(Object.entries(line as Record<string, unknown>).filter(([key]) => key !== "restock"));
+  });
+  return stripped ? JSON.stringify(clean) : linesJson;
 }
 
 // ─── Order helpers ────────────────────────────────────────────────────
@@ -1209,9 +1239,12 @@ export type RecordRefundInput = {
   /**
    * Units that came back in good condition and go back on the shelf (returns).
    * Only for a SHIPPED or DELIVERED order, and capped CUMULATIVELY: what was
-   * ordered minus what earlier refunds already put back. An order that has not
-   * shipped has no returned goods (its units never left); cancelling it puts
-   * them all back, so a restock there would be counted twice and is refused.
+   * ordered minus what earlier refunds already put back, counted on
+   * OrderItem.restockedQty and claimed with one conditional update per line
+   * (applyRestock), so two refunds cannot together exceed what was ordered. An
+   * order that has not shipped has no returned goods (its units never left);
+   * cancelling it puts them all back, so a restock there would be counted
+   * twice and is refused.
    */
   restock?: Array<{ partId: string; quantity: number }>;
   notifyCustomer?: boolean;
@@ -1233,8 +1266,9 @@ export type RecordRefundResult =
       /**
        * Units this call put back on the shelf. On a replay it is non-zero when the
        * refund had been booked first without a restock (the Stripe webhook beats the
-       * admin) and the admin ticked one: it is applied once, here, and recorded on
-       * the credit note so a third call does not apply it again.
+       * admin) and the admin ticked one: the admin's booking is the first to bring
+       * an idempotency key, applies the restock once and leaves its key on the
+       * note, so the same form submitted again finds its key and applies nothing.
        */
       restockedUnits: number;
     }
@@ -1247,7 +1281,7 @@ export type RecordRefundResult =
  * moves money at Stripe; recordRefund runs it again under the order lock.
  */
 export async function checkRestock(
-  db: Pick<typeof prisma, "creditNote">,
+  db: Pick<typeof prisma, "orderItem">,
   order: { id: string; status: string; items: Array<{ partId: string; quantity: number }> },
   restock: ReadonlyArray<RestockLine> | undefined,
 ): Promise<string | null> {
@@ -1272,6 +1306,64 @@ export async function checkRestock(
     }
   }
   return null;
+}
+
+const RESTOCK_RACE_LOST = "Van dit onderdeel is zojuist door een andere terugbetaling voorraad teruggezet; er kan niet meer terug dan besteld. Ververs de pagina en kijk opnieuw.";
+
+/**
+ * Put returned units back on the shelf, under the cap, inside the transaction
+ * that books the refund. Per part the units are claimed on the order line with
+ * ONE conditional update: `restockedQty <= quantity - units` in the WHERE and
+ * the increment in the SET. Of two refunds that together would exceed what was
+ * ordered exactly one gets count 1; the other gets count 0 and is refused,
+ * whether it asked for more than is left or a concurrent refund took the units
+ * first. The conditional update is the lock, as for every other transition in
+ * this module; it does not depend on anything read before it. Then Part.stock
+ * grows by the same units. Returns the units put back (0 for an empty request).
+ * checkRestock runs first, so a request that is wrong on its face gets the
+ * precise Dutch refusal and changes nothing.
+ *
+ * Exported for the tests (the race is proved on it directly); recordRefund is
+ * the caller, under the order lock. The first parameter is the TRANSACTION
+ * client on purpose (TxOnly: the bare client does not compile here): a part
+ * that spans two lines claims them one by one, and a conflict on the second
+ * must roll the first claim back.
+ *
+ * @throws OrderDomainError  invalid_input (refused by checkRestock) | conflict (the claim lost)
+ */
+export async function applyRestock(
+  t: TxOnly,
+  order: { id: string; status: string; items: Array<{ partId: string; quantity: number }> },
+  restock: ReadonlyArray<RestockLine>,
+): Promise<number> {
+  const wanted = new Map<string, number>();
+  for (const r of restock) if (r.quantity > 0) wanted.set(r.partId, (wanted.get(r.partId) ?? 0) + r.quantity);
+  if (wanted.size === 0) return 0;
+  const refusal = await checkRestock(t, order, restock);
+  if (refusal) throw new OrderDomainError("invalid_input", refusal);
+
+  let units = 0;
+  for (const [partId, quantity] of wanted) {
+    // One line per part is the rule (the cart merges duplicate references); should an
+    // order carry two, the units are claimed line by line in id order.
+    const lines = await t.orderItem.findMany({ where: { orderId: order.id, partId }, orderBy: { id: "asc" }, select: { id: true, quantity: true, restockedQty: true } });
+    let left = quantity;
+    for (const line of lines) {
+      if (left === 0) break;
+      const take = Math.min(left, Math.max(0, line.quantity - line.restockedQty));
+      if (take === 0) continue;
+      const claimed = await t.orderItem.updateMany({
+        where: { id: line.id, restockedQty: { lte: line.quantity - take } },
+        data: { restockedQty: { increment: take } },
+      });
+      if (claimed.count === 0) throw new OrderDomainError("conflict", RESTOCK_RACE_LOST);
+      left -= take;
+    }
+    if (left > 0) throw new OrderDomainError("conflict", RESTOCK_RACE_LOST);
+    await t.part.update({ where: { id: partId }, data: { stock: { increment: quantity } } });
+    units += quantity;
+  }
+  return units;
 }
 
 /**
@@ -1321,31 +1413,23 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
             if (existing.invoice.orderId !== orderId) throw new OrderDomainError("conflict", "Deze terugbetaling hoort bij een andere bestelling.");
             // The Stripe webhook can book a refund BEFORE the admin's own booking of
             // the same refund id arrives; the admin's call is then answered as a
-            // replay and the restock they ticked used to be dropped. Apply it once
-            // (the note records what it restocked, so a third call finds it done).
+            // replay and the restock they ticked used to be dropped. The form's key
+            // is the record that it was handled: a note the webhook booked carries
+            // the Stripe refund id but no key, so the first booking that brings a key
+            // claims the note (applies the ticked restock once, under the cap, and
+            // stores the key); the same form submitted again (a double click, a
+            // retry) finds its key on the note and restocks nothing more. A replay
+            // that brings no key, or whose key already sits on another note, could
+            // not be recognised next time, so it restocks nothing either.
             let restockedUnits = 0;
             let noteRow = existing;
             const wanted = (input.restock ?? []).filter((r) => r.quantity > 0);
-            const patch: { linesJson?: string; idempotencyKey?: string } = {};
-            if (wanted.length > 0 && restockOfLinesJson(existing.linesJson).size === 0) {
-              const refusal = await checkRestock(t, order, wanted);
-              if (refusal) throw new OrderDomainError("invalid_input", refusal);
-              for (const r of wanted) await t.part.update({ where: { id: r.partId }, data: { stock: { increment: r.quantity } } });
-              const lines = safeJson<InvoiceLine[]>(existing.linesJson) ?? [];
-              if (lines.length > 0) {
-                lines[0] = { ...lines[0], restock: wanted.map((r) => ({ partId: r.partId, quantity: r.quantity })) };
-                patch.linesJson = JSON.stringify(lines);
-                restockedUnits = wanted.reduce((n, r) => n + r.quantity, 0);
-              }
-            }
-            // A note the webhook booked has the Stripe refund id but not the admin form's key. Give it the key, so the
-            // same form submitted again (a double click, a retry) is recognised as this refund, not as a stale page.
-            if (input.idempotencyKey && !existing.idempotencyKey && !(await t.creditNote.findUnique({ where: { idempotencyKey: input.idempotencyKey }, select: { id: true } }))) {
-              patch.idempotencyKey = input.idempotencyKey;
-            }
-            // Metadata only: no printed field of the credit note changes.
-            if (patch.linesJson !== undefined || patch.idempotencyKey !== undefined) {
-              noteRow = await t.creditNote.update({ where: { id: existing.id }, data: patch, include: { invoice: { select: { number: true, orderId: true } } } });
+            const keyClaimsNote =
+              !!input.idempotencyKey && !existing.idempotencyKey && !(await t.creditNote.findUnique({ where: { idempotencyKey: input.idempotencyKey }, select: { id: true } }));
+            if (keyClaimsNote) {
+              if (wanted.length > 0) restockedUnits = await applyRestock(t, order, wanted);
+              // Metadata only: no printed field of the credit note changes.
+              noteRow = await t.creditNote.update({ where: { id: existing.id }, data: { idempotencyKey: input.idempotencyKey }, include: { invoice: { select: { number: true, orderId: true } } } });
             }
             return {
               creditNote: deserializeCreditNote(noteRow, existing.invoice.number, true),
@@ -1426,16 +1510,15 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
           return { creditNote: note, refundedEur: order.refundedEur + note.totalEur, fullyRefunded: true, cancelled: true, replayed: false, mailBase, partial: false, totalEur: order.totalEur, restockedUnits: 0 };
         }
 
-        const restock = (input.restock ?? []).filter((r) => r.quantity > 0);
         const note = await issueCreditNote(
           invoiceId,
-          { amountEur: input.amountEur, reason: input.reason ?? "Terugbetaling", stripeRefundId: input.stripeRefundId ?? null, idempotencyKey: input.idempotencyKey ?? null, restock },
+          { amountEur: input.amountEur, reason: input.reason ?? "Terugbetaling", stripeRefundId: input.stripeRefundId ?? null, idempotencyKey: input.idempotencyKey ?? null },
           t,
         );
         const updated = await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: note.totalEur } }, select: { refundedEur: true } });
-        for (const r of restock) {
-          await t.part.update({ where: { id: r.partId }, data: { stock: { increment: r.quantity } } });
-        }
+        // Same transaction as the note: the units are claimed on the order lines
+        // (the cap) and put back on the shelf, or the whole refund rolls back.
+        const restockedUnits = await applyRestock(t, order, input.restock ?? []);
         return {
           creditNote: note,
           refundedEur: money(updated.refundedEur),
@@ -1445,7 +1528,7 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
           mailBase,
           partial: !completes,
           totalEur: order.totalEur,
-          restockedUnits: restock.reduce((n, r) => n + r.quantity, 0),
+          restockedUnits,
         };
       },
       { maxWait: 10_000, timeout: 20_000 },

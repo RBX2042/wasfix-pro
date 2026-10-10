@@ -6,6 +6,276 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
 
 ---
 
+## 2026-10-09 — D21 The restock record is a column on the order line, not an annotation in the credit note (bundle R)
+
+- **Decision.** `OrderItem.restockedQty` (migration `20261009120000_order_item_restocked_qty`: additive, with a
+  backfill) counts the units of a line that refunds already put back on the shelf. The cap "ordered minus already
+  restocked" is enforced with ONE conditional update on that column inside the refund's transaction (`applyRestock`
+  in `src/lib/invoicing.ts`): `restockedQty <= quantity - units` in the WHERE, the increment in the SET, count 0 is
+  the refusal, whether the request asked for too much or a concurrent refund took the units first. `checkRestock`
+  still runs first, for the Dutch refusal texts; the update is the guarantee. Nothing writes the `restock`
+  annotation into a credit note's linesJson any more, and `issueCreditNote` no longer knows about restocks at all.
+- **Why.** Until now the units went on the first printed line of the credit note's linesJson and the cap parsed every
+  note of the order: stock bookkeeping inside a fiscal document, a data export that had to strip it (and did not: the
+  stripping tested `Array.isArray` on a JSON *string* and never fired), and a cap that depended on JSON parsing.
+- **Backfill.** The migration sums the `restock` arrays of all existing notes per (order, part) and writes the sum,
+  capped at the line's quantity, in plain SQL with `jsonb_typeof` guards and a tolerant cast (a note whose linesJson
+  is not JSON or not an array, a line without the array, an entry with the wrong types, a quantity that is negative
+  or beyond int4 (0..2147483647): each contributes nothing and aborts nothing; the sums are taken in numeric and the
+  only cast to int comes after the cap, so no value in a note can raise "integer out of range"). The one cast of a
+  quantity to numeric sits inside a `CASE` on its `jsonb_typeof`, not as a plain WHERE conjunct next to the typeof
+  test: Postgres documents no evaluation order for WHERE conjuncts, and with the planner's cost of `jsonb_typeof`
+  raised on a scratch copy the plain conjunct was evaluated first and aborted the backfill on a quantity `"abc"`;
+  the `CASE` text ran clean under the same costs. Credit notes are not rewritten, because an issued document is
+  immutable: old notes keep their annotation, the data export strips it (`stripLegacyRestock`), and nothing else
+  reads it.
+- **The parameter type of `applyRestock` is `TxOnly`**, `Prisma.TransactionClient & { $transaction?: never }`, not
+  `Prisma.TransactionClient`: that type is an `Omit` of the full client, so the bare `prisma` satisfies it
+  structurally and a plain `t: Tx` parameter stops nothing (proved: a probe passing `prisma` compiled against
+  `t: Tx` and fails against `TxOnly`). A part that spans two lines is claimed line by line, and a conflict on the
+  second must roll the first claim back, so running outside the refund's transaction may not compile.
+- **The replay with a restock (the webhook books first).** The note no longer records what it restocked, so the
+  form's idempotency key is the marker: the first replayed booking that brings a key claims the note (applies the
+  ticked restock once, under the cap, and stores the key); the same form submitted again finds its key on the note
+  and restocks nothing. A replay that brings no key restocks nothing (before, it restocked and only the annotation
+  stopped a repeat). Every real caller (`performRefund`) brings a key.
+- **Alternatives rejected.** A `restockJson` column on CreditNote (still bookkeeping on the document, and a second
+  place to sum). Keeping the annotation next to the column (two truths that can disagree). Check-then-write under
+  the order lock alone (correct today, because `recordRefund` locks the order row first, but then the cap depends
+  on every future caller taking that lock; the conditional update depends on nothing read before it).
+- **The two admin pages (closed in the integration pass).** `src/app/admin/retouren/page.tsx` and
+  `src/app/admin/bestellingen/page.tsx` were outside the bundle and still computed "what can still go back" with the
+  legacy reader `restockedFromNotes`: after a post-migration refund they offered the restocked units again, and the
+  booking refused them with the Dutch cap message before Stripe was touched (`checkRestock` in `performRefund`),
+  nothing moved. Applied since: `retouren/page.tsx` selects `restockedQty` on the items (no `creditNotes` any more)
+  and builds the form with `quantity: Math.max(0, i.quantity - i.restockedQty)`; `bestellingen/page.tsx` computes
+  `restockedOfItems(o.items)` (`ORDER_LIST_INCLUDE` loads the items with `include`, so the column is on every row) and
+  `linesJson` left the `creditNotes` select in `src/app/admin/_lib/orders-query.ts`; `restockedFromNotes` and
+  `restockOfLinesJson` are deleted from `src/lib/invoicing.ts` (only `stripLegacyRestock` still touches the
+  annotation, for the data export). The pages are server components behind the admin login, so
+  `scripts/qa-orders.ts` 12h pins their source (the column selected and subtracted, no legacy reader anywhere) rather
+  than rendering them.
+- **Not verified from here:** the migration against the production database (no network). It is proved on a
+  scratch database by `scripts/qa-migration.ts` (old-format notes, exact and capped backfill, negative, out-of-range
+  and non-number quantities skipped, no pre-existing value changed), and the cap, the race and the replay by
+  `scripts/qa-orders.ts` section 12 (the lock test 12e hands over with promises and `pg_stat_activity`, not with a
+  sleep: the second transaction starts only once the first holds the row, and the first commits only once Postgres
+  reports the second waiting on a lock).
+
+## 2026-10-09 — D20 Newsletter opt-out: our table is authoritative, the Resend audience follows, every broadcast carries our link (bundle N)
+
+- **Decision.** Every address on the list has a signed opt-out link, `/api/newsletter/afmelden?token=…`: HMAC-SHA256
+  over the address with the key already derived for the confirmation token (`CRON_SECRET`, else `CLERK_SECRET_KEY`,
+  decision D10), a purpose string the confirmation token never signs, two parts instead of three, so neither token
+  verifies as the other. It does not expire (an opt-out must keep working for as long as the address is on the list) and
+  carries no secret, but cannot be derived from the address: it only travels in mail to that address. GET shows a
+  button (mail scanners open links); POST (the button, or a mail client's RFC 8058 one-click POST with body
+  `List-Unsubscribe=One-Click`, answered with a line of text) sets `unsubscribedAt` in `NewsletterSubscriber` FIRST and
+  then PATCHes the Resend contact to `unsubscribed: true`, best effort within the existing 8 s deadline. Resend failing
+  (500, timeout) never fails the opt-out; the page then says the opt-out is stored, in force and still being passed on
+  (not "you receive nothing more", which only the owner's follow-up makes true), and the owner is told once per address
+  and direction per process (an in-memory set: a serverless host repeats it per instance; reason and row id, never the
+  address) AFTER the response, through next/server `after()` as notify.ts asks, so the reader never waits for a 3 s
+  channel timeout. When our own table cannot be written the answer is an honest 503 ("Afmelden lukt nu niet"), never
+  "afgemeld". A second click is still "afgemeld"; an unknown address gets the identical page and no row (no
+  enumeration, and no re-storing of a purged or erased address), and its Resend contact is still flagged (the token
+  proves we once mailed it); Resend's 404 for an address it does not know is an answer, not a failure, and raises no
+  notice. A new sign-up plus a new click clears the opt-out and puts the contact back as subscribed; a confirmation
+  link mailed BEFORE the opt-out does not: the link's issue time is in the token (expiry minus TTL), the clear is one
+  conditional statement (`unsubscribedAt < issuedAt`), and the person who presses the button in an old mail is told the
+  opt-out stands and can sign up again (AVG art. 21 lid 3: a later objection is never undone by an earlier mail).
+  Rate limits, two buckets: a token that does NOT verify counts against the caller (30 per address and hour, the guard
+  against guessing); a valid token never counts against the caller, only against the address it was signed for (10 per
+  hour from any callers), because one-click POSTs come from the mail provider's servers, shared by all its readers (and
+  readers behind a carrier NAT share one address), and a 429 there would be a refused opt-out for a request that can
+  only ever unsubscribe its own address; past the per-address bucket the opt-out was recorded by the first POST. The
+  body (a small form) is therefore read before anything is counted.
+- **How the audience is kept in step.** Subscribe updates the contact (`PATCH {unsubscribed:false}`) and creates it
+  when the update is refused with ANY non-2xx status, not only 404: an address that opted out earlier is still a
+  contact flagged unsubscribed, and what Resend answers to a duplicate create could not be verified from here, while an
+  update has one documented meaning; but what it answers for a contact it does not know could not be verified either,
+  and a wrong guess about that status would have silently stopped the audience from growing while our table said the
+  person subscribed (review finding, repaired the same day). When both calls fail the confirmation stands and the owner
+  is told once per address and direction per process, like a failed opt-out; when the CREATE answered 404 the notice
+  names `RESEND_AUDIENCE_ID` as the thing to check (a contact being created cannot be "not found", so that 404 is the
+  audience path itself), which is the owner's only signal for a wrong id: an opt-out's single PATCH gets the same 404
+  for an unknown contact and stays silent by design. Both calls share one deadline. The audience base URL honours
+  `RESEND_BASE_URL` like the Resend SDK, so the QA suite runs a real local HTTP stand-in (200, 500, 422, hang, 404)
+  instead of patching `fetch`.
+- **Newsletters are Resend Broadcasts sent by the owner; the app sends no marketing mail.** The confirmation mail is the
+  only mail this code sends to the list, and it carries the link, the sentence that every newsletter will, and the
+  RFC 8058 `List-Unsubscribe` / `List-Unsubscribe-Post` headers from `listUnsubscribeHeaders()`. A broadcast is one
+  body for all contacts, so a per-reader link can only reach it as a merge field. Chosen, as the simplest honest
+  option within this bundle: `GET /api/newsletter/afmeldlinks` (admin only) gives every subscriber with its link as CSV
+  `email,afmeldlink`; the owner loads that column into the audience as a contact property and uses the merge field in
+  **every** broadcast, so our table sees the opt-out. The CSV is a snapshot, so it is re-imported right before every
+  send (a contact confirmed after the last import would otherwise have an empty property and no link of ours in that
+  newsletter), and Resend's own unsubscribe link ALWAYS stays in the template as the fallback for such a contact: a
+  newsletter without a working opt-out is unlawful, so the fallback is not optional. **Known gap, named:** an opt-out
+  through Resend's own link is not synced back to our table (whether Resend itself stops mailing that contact is not
+  verified from here; our count stays too high and a later sign-up would read "already subscribed"); closing it needs
+  a Resend webhook (`contact.updated`) that this bundle did not build.
+- **Not built, and why.** Storing the link as a contact property from our own code (the property API and its merge
+  syntax could not be verified from here, and a refused property would risk the subscribe call itself); an expiring
+  opt-out token (would break old mails); a GET that unsubscribes (scanners); a row for unknown addresses (would
+  re-store erased data). The custom-header passthrough in `sendMail`/`sendRaw` was outside this bundle's files; the
+  integration pass added it (see below).
+- **Repaired after review (same day).** The create now follows any refused update, not only a 404, and a confirmation
+  whose update and create both fail is reported to the owner like a failed opt-out; the owner notice goes out after
+  the response; the page and the one-click line say "stored and in force, still being passed on" when the Resend
+  update failed; the rate limit runs before the body is read; the owner workflow says "re-import the CSV before every
+  send, keep Resend's own link as the fallback". Section 5b now also pins the purpose string in the signature, the
+  silent 404 on an opt-out (unknown address, never-confirmed row), the PATCH for an unknown address, the 422
+  fall-through, the both-fail notice and its dedupe, the asynchronous notice and the 429 shapes.
+- **Repaired after the second review (same day).** An old confirmation link no longer undoes a later opt-out (issue
+  time in the token, conditional clear, "Je afmelding blijft staan" page); the rate limit became the two buckets above
+  (before: 30 per caller for valid and forged tokens alike, which after a broadcast would have refused the 31st
+  one-click reader behind one provider address); the subscribe notice names `RESEND_AUDIENCE_ID` on a 404 from the
+  create; the docs say "per server instance" where they said "once per address". Section 5b now also pins the honest
+  503 when the table cannot be written (button and one-click), the per-address-AND-direction dedupe, the old-link
+  rule, the wrong-audience-id notice and the opt-out's silent 404 under it, a valid token from a caller whose
+  forged-token bucket is exhausted, and the per-address bucket.
+- **Integration pass (same day), the cross-file items.** `SendMailOptions.headers` and `RawMail.headers` exist and
+  `sendMail` -> `sendRaw` hand them to the Resend SDK as given (`headers` in the `emails.send` payload, SDK 4.8.0), so
+  the RFC 8058 pair is on the wire; section 5b sends one mail through the real `sendMail` to the local Resend stand-in
+  and reads both headers back from the body the SDK posted (that a mail client turns them into its own button is not
+  verifiable from here). An account erasure (`src/lib/erasure.ts`) flags the Resend contact unsubscribed after the
+  commit (`forgetNewsletterContactAfterResponse`: the same PATCH as an opt-out, after the response, never a reason for
+  the erasure to wait or fail; the contact itself stays in Resend, flagged; section 1 pins the PATCH for both doors).
+  The one-click URL gets a line of text for every answer, 200 and 503 included, also on a bodiless POST (5b pins it).
+  `/admin/aanvragen` links to the CSV export next to the subscriber count. BLOCKED step 7 and the README say that a
+  `CRON_SECRET` rotation invalidates every opt-out link sent before it. **Edge named, not changed:** a repeated opt-out
+  keeps the FIRST `unsubscribedAt` (the idempotent write), and the confirmation compares the link's issue time with
+  that timestamp, so an opt-out repeated after a newer sign-up's link went out is undone by the button in that newer
+  mail; that needs the mailbox owner's own press on "Ja, meld mij aan" (a consent act), and a later objection made
+  through our link always stands against every link mailed before it.
+- **Not verified from here:** anything against the real Resend API (no network): that `PATCH
+  /audiences/{id}/contacts/{email}` accepts the address in the path (the Resend documentation and SDK say id or email),
+  which status an unknown contact gets (the code no longer depends on it), what a duplicate create answers (the code
+  only creates after a refused update), that an unknown audience id answers 404 on the create (the SDK maps `not_found`
+  to 404; the hint in the notice rests on that), and that a broadcast can fill a contact property as a merge field. A key
+  rotation (new `CRON_SECRET`) invalidates every opt-out link sent before it; the invalid-link page then points to the
+  configured contact address. `scripts/qa-privacy.ts` section 5b proves the behaviour above against the local stand-in.
+
+## 2026-10-09 — D19 Production deploys run from GitHub Actions, gated on CI and on the preflight (bundle D)
+
+- **Decision.** `.github/workflows/deploy.yml` deploys `main` to Vercel with the Vercel CLI (`vercel pull`, `vercel build
+  --prod`, `vercel deploy --prebuilt --prod`), triggered by a successful run of the CI workflow on `main`, or by hand from
+  `main`. It never runs without the three repository secrets (`VERCEL_TOKEN`, `VERCEL_ORG_ID`, `VERCEL_PROJECT_ID`: a
+  skip with a note, not a failure, so an unwired repository stays green), never deploys a commit that is no longer the tip
+  of `main` (`scripts/deploy/check-ref.sh`: queued deploys finish in arbitrary order, and an older commit deployed after a
+  newer one is a silent rollback), never deploys a commit whose most recent CI run is not a success
+  (`scripts/deploy/check-ci.sh`, so a hand-started deploy obeys "no red main" too), and never runs two deploys at once
+  (one concurrency group, `cancel-in-progress: false`: a deploy must not be cut off between the migration and the upload).
+- **A run whose commit is no longer the tip deploys the tip instead of skipping.** GitHub keeps one waiting run per
+  concurrency group and cancels the older waiting one; since CI runs finish in any order, the cancelled run can be the
+  tip's own deploy run, and a green skip would leave `main` undeployed until the next push. So `check-ref.sh` outputs the
+  commit to deploy (its own, or the tip), `check-ci.sh` must find the tip's newest CI run green (not green: the run steps
+  aside with exit 0 and says what to do; the tip is then deployed by its next GREEN CI run, the running one when it
+  finishes or the one after a fix, because a red CI run never triggers the workflow and a dispatch of a red commit is
+  refused by the same gate), and `scripts/deploy/checkout-tip.sh` fetches the tip by sha into the shallow checkout and
+  verifies HEAD before `npm ci`, the migrations and the build. The tip can be deployed twice this way (by the stand-in
+  and by its own run when that one was not cancelled): harmless, the migrations are a no-op the second time and the
+  deployment is identical.
+- **Order: pull -> migrate -> preflight -> build -> deploy -> preflight --url.** Migrations run BEFORE the new code is live
+  because every migration is additive and the new build expects the new schema from its first request (the health route
+  answers 503 until then). `scripts/qa-deploy.ts` enforces the rule it can enforce: a migration fails the suite when it
+  drops (table, column, index, constraint, type), renames, retypes or truncates, deletes rows, adds a `NOT NULL` column
+  without a `DEFAULT` to an existing table, makes an existing column `NOT NULL`, or puts a unique index or a constraint
+  (UNIQUE, PRIMARY KEY, FOREIGN KEY, CHECK) on columns the live code already writes; tables and columns created in the
+  same migration are exempt (the live code never writes them: `20261008100000` relies on that for `Order.accessToken`,
+  `Order.idempotencyKey` and `RmaRequest.linkedOrderId`). The scanner is textual and statement-anchored: it reads the
+  spellings Postgres accepts for these at the start of a statement (`ADD` and `ALTER` without the `COLUMN` keyword,
+  unnamed constraints such as `ADD UNIQUE (...)`, `IF NOT EXISTS`, schema-qualified tables) and is itself tested on
+  SQL samples of each, in both directions, before it runs over the real migrations. Not scanned: the same DDL inside a
+  `DO $$ ... $$` block, a function body or an `EXECUTE` string (only the DROP/RENAME/TYPE/TRUNCATE/DELETE words are
+  seen there), a `--` inside a string literal (read as a comment), dropping a DEFAULT, removing enum values, the lock a
+  new index takes on a very large table; those need a human reading the SQL. Without `DATABASE_URL` in the
+  Production environment the pipeline stops before the build. The offline preflight must be READY or READY WITH WARNINGS
+  before anything is built; its report prints no secret value (proved on a file of recognisable fake secrets). The live
+  probe afterwards targets `NEXT_PUBLIC_APP_URL`, not the deployment's own `*.vercel.app` address: customers use the
+  domain, the preflight compares every live check against it, and Vercel's deployment protection can put a login page in
+  front of a generated address. A failing probe fails the job although the deploy has happened; the summary says so,
+  with the URL. A failure inside `vercel deploy` itself (non-zero exit, or no URL on stdout) is reported as UNKNOWN,
+  with the instruction to look at the dashboard's Deployments before deploying again: the CLI may have uploaded and
+  promoted before it failed. Only a failure before that step is reported as "nothing deployed". No automatic rollback
+  was built: promoting the previous deployment is one action in the dashboard, and the owner should look at the report
+  first.
+- **Shell scripts, not workflow steps.** The logic is `scripts/deploy/*.sh` (one script per gate and per step, `run.sh`
+  for the order and the `.vercel/` cleanup on every exit), so `scripts/qa-deploy.ts` runs the whole pipeline in CI with a
+  fake `vercel` and a fake `npm` on PATH, a fake GitHub API and a temporary git origin, without a token or a database.
+  The pulled variables file is read by a small parser (`env_value` in `lib.sh`), never sourced and never printed; the
+  scripts print names, counts, hosts and the deployment URL only. Every way a gate can fail ends in `fail()` (an error
+  annotation, the job summary, exit 1), including a GitHub API answer that is not JSON (a maintenance page with HTTP
+  200) or is JSON without the documented `workflow_runs` array (`{}`, `{"message": ...}`: never read as "no CI run",
+  which the API did not say) and an unreachable `origin` for `git ls-remote`; a bare stack trace or a bare git error is
+  not an owner-facing message. The "no CI run" hint says to wait for CI or re-run it, not to push: the job only runs
+  for a commit that is on `main` already.
+- **Alternatives rejected.** The Vercel Git integration (it may not be linked, GitHub shows no deployments or statuses
+  from any host, and enabled next to this workflow it makes every push deploy twice: BLOCKED.md step 4b says to pick
+  one). A marketplace GitHub Action for Vercel (one more unverifiable moving part; the CLI calls are three lines).
+  Migrating after the deploy (a 503 window on every deploy). Deploying on `push` to `main` directly (that is before CI
+  has judged the commit). Pinning a CLI version (none could be verified from here: `vercel@latest`, with the instruction
+  to pin the version that worked after the first successful run).
+- **Not verified from here:** the workflow against a real Vercel project (no network, no token); the exact format of the
+  file `vercel pull` writes (the parser accepts `NAME="value"` and `NAME=value`); that `vercel deploy` prints the URL on
+  stdout (the documented CI pattern); that `vercel deploy --prod` returns only after the production domain points at the
+  new deployment (the CLI's documented default without `--no-wait`; the probe of `NEXT_PUBLIC_APP_URL` right after it
+  relies on this, and README "Deployen" item (5) says what a wrong assumption looks like); that GitHub lets the runner
+  fetch the tip by sha (`git fetch origin <sha>`, what `actions/checkout` itself does; tested here against a local bare
+  origin only, from a shallow clone built the way `actions/checkout` builds it that did not yet have the tip, so the
+  fetch itself is what the test exercises; not against github.com); the GitHub concurrency and `workflow_run` semantics
+  the stand-in rule is built on (documented, not observed); that GitHub-hosted runners have no IPv6 (the reason the
+  runbook asks for `DIRECT_URL` to be the session pooler, not the IPv6-only direct host).
+
+## 2026-10-09 — D18 One daily schedule runs the four scheduled jobs (bundle C)
+
+- **Decision.** `vercel.json` schedules exactly one route, `/api/cron/daily`, once a day (03:43 UTC). It runs the four
+  jobs in a fixed order (orders -> retention -> stripe-subscriptions -> stripe-reconcile), each isolated, inside one
+  function with `maxDuration = 60`. The job bodies moved out of the route files into `src/app/api/cron/_lib/jobs/*`
+  (a route file may only export handlers and route config, so a job cannot be imported from one); the list and its order
+  are `_lib/daily-jobs.ts`, the runner is `_lib/runner.ts`. The four single-job routes remain, unscheduled, with the same
+  guard, the same JSON and the same `maxDuration`: for a hand run with curl, an external scheduler, or an owner whose
+  plan allows more schedules.
+- **Why one schedule.** According to Vercel's documentation (not verifiable from here: no network) the Hobby plan allows
+  2 cron jobs per project, each at most once a day, and Pro allows 40. Four schedules would reject a Hobby deployment.
+  Rather than rely on the exact number, the configuration is plan-agnostic: one schedule.
+- **The budget trade-off.** 60 s is the lowest function limit of any plan; a higher `maxDuration` than the plan allows
+  fails the build, so it is not raised. The runner uses 50 s of it and starts no job with less than 10 s left. What does
+  not fit is skipped, recorded in the result, reported to the owner once (the notice says the jobs are not retried before
+  the next day and gives the curl that runs them now), and the route answers 500 whenever a job failed or was skipped so
+  the platform's cron log shows the day as failed, with the per-job detail in the body (never the error text: a Prisma or
+  Stripe message can quote a connection string; that goes to the log and the owner notice). The price: four jobs share
+  one minute instead of having one each. To keep one job from taking the others with it, every job gets a cap: what
+  is left minus 10 s for each later job, never below 10 s (so the first of four may take 20 s, the last gets all that
+  is left; a quick job leaves its share to the next). The runner gives up on a job still running at its cap (recorded
+  as failed with `job_timed_out`, logged, the owner told by name, the next job started); without that, a backlog day
+  in the orders job would run the function into the platform's 60 s kill with no response, no notice and the other
+  three jobs lost for the day. A promise cannot be cancelled, so the abandoned job finishes or fails in the background
+  (logged) and may be frozen with the function once the response is out; a job should therefore fit itself inside its
+  cap. Which bounds each job has (repair after review): the **orders** job derives a deadline for each of its three
+  steps from its cap (the bank-transfer sweep up to half of it, through the `deadlineMs` that `src/lib/cart-expiry.ts`
+  already offered; the abandoned-order sweep its usual 15 s at most; the reminders the rest, stopping before the next
+  claim, so a cut-off loses nothing, it delays) and reports a cut-short run as `truncated` to the result and to the
+  owner, with the curl that drains the rest now; the **stripe-reconcile** job cuts its Stripe scan to what is left
+  (20 s at most, as before); **retention** and **stripe-subscriptions** take no deadline and are bounded by row counts
+  only (batches of 2000 rows; at most 100 Stripe cancellations per run), so for those two the runner's cut-off is the
+  only time bound. On a backlog day the orders job therefore does about 20 s of work per daily run (a hand run of
+  `/api/cron/orders` gets the whole 50 s); before this bundle it had a minute of its own. The order is the priority:
+  money first (orders), then retention, then subscriptions and the reconcile safety net.
+- **Alternatives rejected.** Keep four schedules and hope the plan allows them (the owner would find out at go-live from
+  a rejected deployment). Two schedules (fits Hobby's documented limit exactly, leaving no room for a third job, ever).
+  Raise `maxDuration` (fails the build on a plan that does not allow it). Let a job that failed be retried inside the
+  same run (a job that crashes once will usually crash twice; the next day's run is the retry).
+- **Reporting.** A failed job is logged with `report: false` and reported through `notifyError` by name once; the
+  logger's sink would otherwise tell the owner a second time.
+- **Not verified from here:** the plan limits and the deploy itself. `scripts/qa-platform.ts` section 8 holds the
+  configuration to exactly one daily schedule pointing at the daily route whose job list covers the four jobs, and
+  `scripts/qa-admin.ts` section 6 proves the runner (isolation, order, budget, one notice per failure, one notice for the
+  skipped jobs) with fake jobs and a fake clock, and the daily route end to end against the database.
+
+---
+
 ## 2026-10-08 — Binding decisions D1 to D13 (taken by the project lead)
 
 These govern the code and the documents. They were not re-argued while building to them.
@@ -78,6 +348,7 @@ These govern the code and the documents. They were not re-argued while building 
   was worth less than the risk.
 - **Scheduled jobs run once a day** in `vercel.json`, to be safe on every plan. The routes document the intended tighter schedule
   (hourly orders, 15-minute reconcile). Whether a given Vercel plan allows more frequent crons was not verified.
+  *Replaced by D18 (2026-10-09): one schedule, `/api/cron/daily`, runs the four jobs; the number of schedules, not only their frequency, is plan-bound.*
 - **`maxDuration` is set in the route files** (checkout, webhook, subscribe, portal, crons), not in a `vercel.json` `functions`
   block: a pattern that matches no function fails the deployment, and matching could not be verified without Vercel.
 - **Health route is a readiness check.** `/api/v1/health` answers 503 when the database is unreachable or a migration from the

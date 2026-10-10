@@ -128,8 +128,86 @@ Het volledige, geordende draaiboek met tijdschattingen staat in **[BLOCKED.md](B
 5. Meldingskanaal (Slack, Discord of e-mail), Clerk, Resend, Stripe, Gemini, Upstash.
 6. `npm run preflight -- --env-file … --live-checks`, herstel tot **READY**, dan deployen en met `--url` nogmaals.
 
-Geplande taken staan in `vercel.json` (vier routes, elk één keer per dag, de veilige keuze voor elk
-abonnement; strakker zetten kan, zie BLOCKED.md). De regio is `fra1`; pas die aan als je database elders staat.
+Geplande taken: `vercel.json` plant **één** route, `/api/cron/daily`, één keer per dag (03:43 UTC). Die draait de
+vier taken na elkaar (bestellingen, bewaartermijnen, abonnementen, Stripe-afstemming) binnen één functie van 60 s,
+zodat de configuratie op elk Vercel-abonnement past: volgens de documentatie van Vercel staat het Hobby-abonnement
+maar twee cron-taken toe (hier niet te controleren), en vier schema's zouden zo'n deployment laten afwijzen. Elke taak
+krijgt een deel van de tijd (de eerste van vier hoogstens 20 s); een taak die daar overheen gaat wordt losgelaten en
+gemeld (de dagrun wacht er niet langer op en gaat verder met de volgende; wat al liep kan op de achtergrond nog
+afmaken en nog een eigen melding sturen). Past een taak niet meer in de tijd, dan wordt hij overgeslagen, krijg je één
+melding en antwoordt de dagrun met 500. De vier losse routes `/api/cron/<taak>` blijven bestaan, zonder schema, voor
+een handmatige aanroep met curl (zie BLOCKED.md, stap 4); zo'n losse aanroep krijgt de volle 50 s, handig bij een
+achterstand. De regio is `fra1`; pas die aan als je database elders staat.
+
+## Deployen (GitHub Actions naar Vercel)
+
+`.github/workflows/deploy.yml` zet `main` op productie zonder de Git-integratie van Vercel (die is mogelijk niet aan
+deze repository gekoppeld: GitHub toont geen deployments of commit-statussen van welke host dan ook). De workflow start
+als de workflow **CI** op `main` geslaagd is, of met de hand (Actions, Deploy, Run workflow; alleen vanaf `main`), en
+doet dan in deze vaste volgorde, in één script (`scripts/deploy/run.sh`, elke stap een eigen script in `scripts/deploy/`):
+
+1. `vercel pull --yes --environment=production`: projectinstellingen en de Production-variabelen naar `.vercel/`
+   (staat in `.gitignore`; de map wordt aan het einde altijd verwijderd, ook na een fout).
+2. `npm run db:migrate:deploy` met `DATABASE_URL` en `DIRECT_URL` uit dat bestand, **vóór** de nieuwe code live gaat.
+   Dat is veilig omdat elke migratie in `prisma/migrations` alleen toevoegt, en nodig omdat de nieuwe build vanaf zijn
+   eerste aanvraag het nieuwe schema verwacht (`/api/v1/health` geeft anders 503). `scripts/qa-deploy.ts` keurt een
+   migratie af die iets dropt, hernoemt, hertypt of leegmaakt, rijen verwijdert, een `NOT NULL`-kolom zonder `DEFAULT`
+   aan een bestaande tabel toevoegt, een bestaande kolom `NOT NULL` maakt, of een unieke index of constraint legt op
+   kolommen die de draaiende code al schrijft (nieuwe tabellen en nieuwe kolommen mogen dat wel); ook in de spellingen
+   zonder `COLUMN`, zonder constraint-naam (`ADD UNIQUE (...)`) en met schema-prefix, maar alleen als los statement: de
+   controle is tekstueel. Niet gecontroleerd: dezelfde SQL binnen een `DO $$ … $$`-blok of een functie-body, een
+   `DEFAULT` weghalen of enum-waarden verwijderen; lees zulke SQL zelf. Ontbreekt `DATABASE_URL` in de
+   Production-omgeving, dan stopt de deploy hier, vóór de build.
+3. `npm run preflight -- --env-file .vercel/.env.production.local` (offline). **NIET KLAAR** stopt alles voordat er iets
+   gebouwd is; het rapport staat in het log en bevat geen geheime waarden (ook dat controleert `scripts/qa-deploy.ts`).
+4. `vercel build --prod`, op de runner; er is nog niets geüpload.
+5. `vercel deploy --prebuilt --prod`; de deployment-URL komt in de job-samenvatting. Faalt juist deze stap (de CLI
+   stopt met een fout of geeft geen URL), dan zegt de samenvatting dat het **onbekend** is of er iets is gedeployed:
+   kijk dan eerst onder Deployments in het Vercel-dashboard voordat je opnieuw deployt. Faalt een stap vóór 5, dan is
+   er niets gedeployed en zegt de samenvatting dat.
+6. `npm run preflight -- --env-file … --url <NEXT_PUBLIC_APP_URL>`: de live site. Faalt dit, dan is de job rood
+   **terwijl de deploy al gedaan is**; de samenvatting zegt dat, met de URL. Herstel en deploy opnieuw, of zet in het
+   Vercel-dashboard de vorige deployment terug op productie (er is geen automatische rollback).
+
+Drie poorten vooraf: zonder de secrets `VERCEL_TOKEN`, `VERCEL_ORG_ID` en `VERCEL_PROJECT_ID` slaat de workflow over
+(groen, met een melding in de samenvatting; geen fout); een commit die niet meer de top van `main` is wordt niet
+gedeployed, die run deployt in plaats daarvan de huidige top (deploys die in een andere volgorde klaarkomen zouden
+anders een oudere versie over een nieuwere zetten, en GitHub bewaart maar één wachtende deploy-run tegelijk, dus de
+eigen run van de top kan geannuleerd zijn; de top kan daardoor twee keer gedeployed worden, dat is onschuldig); en de
+laatste CI-run van de te deployen commit moet geslaagd zijn, ook bij een handmatige start. Is CI voor de top nog bezig
+of rood terwijl een oudere run voor hem invalt, dan slaat die run over (groen, met uitleg in de samenvatting). Bij
+rood: herstel CI; een rode CI-run start nooit een deploy en een handmatige start van een rode commit wordt geweigerd,
+de eerstvolgende groene CI-run op `main` start de deploy vanzelf. Bij nog bezig: de groene run start hem; staat die
+deploy-run daarna in Actions als geannuleerd, start Deploy dan met de hand. Kan een poort zijn vraag niet stellen (de
+GitHub API geeft geen geldig antwoord, `origin` is onbereikbaar), dan is de job rood met de reden in de samenvatting;
+er is dan niets gedeployed. Twee deploys draaien nooit tegelijk.
+
+**Instellen (eenmalig).**
+
+- `VERCEL_ORG_ID` en `VERCEL_PROJECT_ID`: draai lokaal `npx vercel link` in de repository en kies het project; dat
+  schrijft `.vercel/project.json` met `orgId` en `projectId`. (Of lees ze in het Vercel-dashboard: Project Settings,
+  General, Project ID; het team-id onder Team Settings, General.)
+- `VERCEL_TOKEN`: Vercel-dashboard, Account Settings, Tokens, Create. Scope: het team waarin het project staat. Kies een
+  vervaldatum en zet een herinnering om hem te vernieuwen.
+- Zet de drie in GitHub: repository Settings, Secrets and variables, Actions, New repository secret.
+- Zet in Vercel (Settings, Environment Variables, Production) ook `DIRECT_URL` (session pooler, poort 5432): de site
+  gebruikt hem niet, de migratiestap wel. Niet de directe host `db.<ref>.supabase.co`: die is alleen via IPv6 bereikbaar
+  en GitHub-runners hebben, voor zover bekend, geen IPv6.
+- Staat de Git-integratie van Vercel óók aan voor deze repository, dan deployt elke push **twee** keer (Vercel zelf én
+  deze workflow). Kies er één: koppel de repository los in Vercel (Settings, Git) of verwijder `deploy.yml`.
+
+**Niet gedaan; let hierop bij de eerste run.** Deze workflow is niet tegen een echt Vercel-project gedraaid (geen
+netwerk en geen token waar hij geschreven is). De scripts eronder zijn getest met een nagemaakte `vercel` en `npm`
+(`scripts/qa-deploy.ts`: volgorde, poorten, URL, opruimen, geen geheimen in de uitvoer). Kijk bij de eerste run of
+(1) `vercel pull` zonder vraag koppelt en `.vercel/.env.production.local` schrijft (anders kloppen de id's of de scope
+van de token niet), (2) de migratiestap de database bereikt via `DIRECT_URL`, (3) de preflight KLAAR of KLAAR MET
+WAARSCHUWINGEN geeft, (4) `vercel deploy` de URL op stdout zet zoals de documentatie van Vercel zegt, en (5) de
+live-controle slaagt tegen `NEXT_PUBLIC_APP_URL`: dat veronderstelt dat `vercel deploy --prod` pas terugkeert als het
+productiedomein naar de nieuwe deployment wijst (zo beschrijft de CLI-documentatie het, zonder `--no-wait`); geeft de
+controle direct na de deploy nog de oude versie, dan klopt die aanname niet. Ook niet gezien op een runner: een run die
+voor een nieuwere top invalt (`git fetch` van die commit bij GitHub, zoals `actions/checkout` zelf doet; hier alleen
+getest tegen een lokale git-origin, vanuit een ondiepe clone die de top nog niet had). De CLI is niet vastgepind
+(`vercel@latest`): pin na de eerste geslaagde run in `deploy.yml` de versie die werkte.
 
 ## Architectuur
 
@@ -173,6 +251,46 @@ door iemand geschreven die het product gebruikt heeft. Sterbeoordelingen op de p
 schema.org `AggregateRating` worden **altijd** uit die echte reviews berekend; is er geen
 review, dan publiceren we geen rating. Verzin hier nooit cijfers: dat is in strijd met het
 schema.org-beleid van Google en met de EU Omnibus-richtlijn over consumentenreviews.
+
+### Nieuwsbrief
+
+Dubbele opt-in en een werkende, gratis afmelding (`src/lib/newsletter.ts`; Telecommunicatiewet art. 11.7 lid 6, AVG art. 21 lid 3):
+
+- **Aanmelden** (`POST /api/newsletter`, `POST /api/lead-magnet`) slaat het adres **onbevestigd** op en mailt een ondertekende link;
+  pas de klik op `/api/newsletter/confirm` zet `confirmedAt` en zet het contact in de Resend-audience (`RESEND_AUDIENCE_ID`).
+- **Afmelden.** Elke mail aan de lijst draagt `/api/newsletter/afmelden?token=…`: een HMAC-link per adres die **niet verloopt**,
+  niet uit het adres is af te leiden en nooit als bevestigingslink werkt (andere vorm én ander doel in de handtekening).
+  GET toont alleen een knop (mailscanners openen links); POST (de knop, of de RFC 8058 one-click-POST van een mailprogramma)
+  zet `unsubscribedAt` in **onze tabel** (leidend) en zet daarna het Resend-contact op `unsubscribed`. Mislukt Resend (500,
+  time-out), dan blijft de afmelding staan, zegt de pagina dat de afmelding is opgeslagen en nog wordt doorgegeven, en
+  krijg je (ná het antwoord aan de lezer) een melding om het contact zelf te corrigeren vóór de volgende nieuwsbrief:
+  één per adres en richting **per serverinstantie** (op Vercel kan dezelfde melding dus vaker komen). Kan de tabel
+  zelf niet worden geschreven, dan is het antwoord een eerlijke 503 ("Afmelden lukt nu niet"), nooit "afgemeld".
+  Een onbekend adres krijgt dezelfde pagina (Resend wordt ook dan bijgewerkt; "niet in de audience" is geen fout).
+  Opnieuw aanmelden én bevestigen heft een afmelding op, maar alleen met een bevestigingslink die **ná** de afmelding
+  is gemaild (de uitgiftetijd zit in de token): de knop in een oudere bevestigingsmail laat een latere afmelding staan
+  en zegt dat. Bij het opheffen wordt het contact bijgewerkt (`PATCH`) en bij **elke** afwijzing daarvan aangemaakt;
+  mislukt ook dat, dan blijft de bevestiging staan en krijg je dezelfde melding (een 404 op het aanmaken noemt
+  `RESEND_AUDIENCE_ID` als vermoedelijke oorzaak; bij een afmelding is een 404 niet van "niet in de audience" te
+  onderscheiden en dus stil). Limieten op `POST /api/newsletter/afmelden`: vervalste tokens 30 per aanroeper per uur;
+  geldige tokens 10 per **adres** per uur en nooit per aanroeper (one-click-POSTs komen van de servers van de
+  mailprovider, die al zijn lezers delen; een 429 daar zou een geweigerde afmelding zijn). Verander je `CRON_SECRET`,
+  dan werkt geen eerder verstuurde afmeldlink van ons meer (de pagina verwijst dan naar het contactadres; Resends eigen
+  link in het sjabloon blijft werken): exporteer de CSV opnieuw en importeer hem vóór de volgende broadcast.
+- **Nieuwsbrieven** verstuur je zelf als Resend **Broadcast**; de app verstuurt geen marketingmail. Zet in elke broadcast
+  **onze** afmeldlink als merge-veld (zie `DECISIONS.md` D20): `GET /api/newsletter/afmeldlinks` (ingelogd als beheerder)
+  geeft een CSV `email,afmeldlink` van alle abonnees om als contact-eigenschap in de audience te laden. Laad die CSV
+  **vóór elke broadcast opnieuw** (het is een momentopname: wie zich daarna bevestigde heeft anders geen link) en laat
+  Resends **eigen** afmeldlink altijd in het sjabloon staan als vangnet. Een afmelding via die eigen link komt **niet** in
+  onze tabel terecht (bekend gat: die lezer telt hier nog mee; of Resend hem zelf niet meer aanschrijft is niet gecontroleerd).
+- Het aantal abonnees op `/admin/aanvragen` telt `confirmedAt` gezet én `unsubscribedAt` leeg; daarnaast staat de link naar
+  de CSV met afmeldlinks. Accountverwijdering wist de rij en zet daarna het Resend-contact op `unsubscribed` (best effort,
+  na het antwoord, nooit een reden om de verwijdering te laten mislukken; het contact zelf blijft bij Resend staan, gevlagd).
+- De headers `List-Unsubscribe` / `List-Unsubscribe-Post` (RFC 8058) staan op de bevestigingsmail: `listUnsubscribeHeaders`
+  maakt ze en `sendMail`/`sendRaw` geven ze ongewijzigd door aan Resend (sectie 5b van de test ziet ze in wat de SDK
+  verstuurt). Of een mailprogramma er zijn eigen afmeldknop van maakt is niet vanaf hier gecontroleerd; de link in de
+  mailtekst werkt altijd.
+- Test: `scripts/qa-privacy.ts` sectie 1 (verwijdering), 5 en 5b (lokale Resend-stand-in via `RESEND_BASE_URL`, dezelfde override als de SDK).
 
 ## Routes (selectie)
 

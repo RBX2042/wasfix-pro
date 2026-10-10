@@ -1321,7 +1321,9 @@ const RESTOCK_RACE_LOST = "Van dit onderdeel is zojuist door een andere terugbet
  * this module; it does not depend on anything read before it. Then Part.stock
  * grows by the same units. Returns the units put back (0 for an empty request).
  * checkRestock runs first, so a request that is wrong on its face gets the
- * precise Dutch refusal and changes nothing.
+ * precise Dutch refusal and changes nothing; a caller that already ran it in
+ * the SAME transaction (recordRefund does, before deciding whether the refund
+ * is a cancellation) passes `{ checked: true }` so it is not read twice.
  *
  * Exported for the tests (the race is proved on it directly); recordRefund is
  * the caller, under the order lock. The first parameter is the TRANSACTION
@@ -1335,12 +1337,15 @@ export async function applyRestock(
   t: TxOnly,
   order: { id: string; status: string; items: Array<{ partId: string; quantity: number }> },
   restock: ReadonlyArray<RestockLine>,
+  opts: { checked?: boolean } = {},
 ): Promise<number> {
   const wanted = new Map<string, number>();
   for (const r of restock) if (r.quantity > 0) wanted.set(r.partId, (wanted.get(r.partId) ?? 0) + r.quantity);
   if (wanted.size === 0) return 0;
-  const refusal = await checkRestock(t, order, restock);
-  if (refusal) throw new OrderDomainError("invalid_input", refusal);
+  if (!opts.checked) {
+    const refusal = await checkRestock(t, order, restock);
+    if (refusal) throw new OrderDomainError("invalid_input", refusal);
+  }
 
   let units = 0;
   for (const [partId, quantity] of wanted) {
@@ -1518,7 +1523,7 @@ export async function recordRefund(orderId: string, input: RecordRefundInput): P
         const updated = await t.order.update({ where: { id: orderId }, data: { refundedEur: { increment: note.totalEur } }, select: { refundedEur: true } });
         // Same transaction as the note: the units are claimed on the order lines
         // (the cap) and put back on the shelf, or the whole refund rolls back.
-        const restockedUnits = await applyRestock(t, order, input.restock ?? []);
+        const restockedUnits = await applyRestock(t, order, input.restock ?? [], { checked: true });
         return {
           creditNote: note,
           refundedEur: money(updated.refundedEur),

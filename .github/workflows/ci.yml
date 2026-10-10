@@ -164,6 +164,15 @@ jobs:
           suite privacy    env VERCEL=1 npx tsx scripts/qa-privacy.ts              || status=1
           exit $status
 
+      # The migrations on a POPULATED database: the script creates a scratch database from the
+      # job's credentials (the postgres superuser may CREATE DATABASE), fills it in the previous
+      # migration state (orders, invoices, credit notes in the old format), applies the migrations
+      # and compares every pre-existing value column by column, then drops it. The restockedQty
+      # backfill (bundle R) is proved only here; db:setup above only shows the SQL runs on an
+      # empty database.
+      - name: Migrations on a populated database (scratch db, created and dropped by the script)
+        run: npx tsx scripts/qa-migration.ts
+
       - name: Content-Security-Policy probe in Chromium
         env:
           QA_REQUIRE_BROWSER: "1"
@@ -216,6 +225,7 @@ jobs:
 # a dev server in demo mode or a longer runner than is sensible per push):
 #   scripts/qa-checkout-ui.ts, scripts/qa-plans-ui.ts, scripts/qa-storefront-browser.mjs
 #     browser suites that need a DEMO_MODE dev server and the same database;
-#   scripts/qa-seed.ts, scripts/qa-migration.ts
-#     create and drop scratch databases; run them by hand before changing
-#     migrations or the seed (see QA_CHECKLIST.md).
+#   scripts/qa-seed.ts
+#     creates and drops a scratch database; run it by hand before changing the
+#     seed (see QA_CHECKLIST.md). scripts/qa-migration.ts does the same for the
+#     migrations and DOES run above.

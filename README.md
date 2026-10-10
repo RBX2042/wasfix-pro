@@ -287,9 +287,9 @@ Dubbele opt-in en een werkende, gratis afmelding (`src/lib/newsletter.ts`; Telec
   de CSV met afmeldlinks. Accountverwijdering wist de rij en zet daarna het Resend-contact op `unsubscribed` (best effort,
   na het antwoord, nooit een reden om de verwijdering te laten mislukken; het contact zelf blijft bij Resend staan, gevlagd).
 - De headers `List-Unsubscribe` / `List-Unsubscribe-Post` (RFC 8058) staan op de bevestigingsmail: `listUnsubscribeHeaders`
-  maakt ze en `sendMail`/`sendRaw` geven ze ongewijzigd door aan Resend (sectie 5b van de test ziet ze in wat de SDK
-  verstuurt). Of een mailprogramma er zijn eigen afmeldknop van maakt is niet vanaf hier gecontroleerd; de link in de
-  mailtekst werkt altijd.
+  maakt ze en `sendMail`/`sendRaw` geven ze ongewijzigd door aan de Resend-SDK (sectie 5b van de test ziet ze in wat
+  de SDK verstuurt). Dat Resend het veld `headers` ook werkelijk op de mail zet, en of een mailprogramma er zijn eigen
+  afmeldknop van maakt, is niet vanaf hier gecontroleerd; de link in de mailtekst werkt altijd.
 - Test: `scripts/qa-privacy.ts` sectie 1 (verwijdering), 5 en 5b (lokale Resend-stand-in via `RESEND_BASE_URL`, dezelfde override als de SDK).
 
 ## Routes (selectie)

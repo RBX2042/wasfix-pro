@@ -37,10 +37,12 @@
 -- the units are spread over them in id order, each line capped at its own
 -- quantity.
 --
--- The backfill SETS the column (it does not add to it), so it is idempotent
--- for a database the new code has not written to yet. It is NOT meant to be
--- re-run by hand once the application writes the column: that would overwrite
--- restocks booked since, which carry no annotation.
+-- The backfill UPDATE SETS the column (it does not add to it), so that statement
+-- is idempotent for a database the new code has not written to yet. The FILE is
+-- not re-runnable and must not be: Prisma applies it once, ADD COLUMN is
+-- deliberately without IF NOT EXISTS, and once the application writes the
+-- column a second backfill would overwrite restocks booked since, which carry
+-- no annotation.
 
 -- AlterTable
 ALTER TABLE "OrderItem" ADD COLUMN "restockedQty" INTEGER NOT NULL DEFAULT 0;

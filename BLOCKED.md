@@ -276,7 +276,7 @@ geslaagd is; anders slaat hij over en zegt wat te doen: bij rood CI herstellen, 
 - Zet ook een DMARC-record. Het is niet vereist door de code, wel verstandig voor aflevering.
 - **Nieuwsbrief (audience, afmelden).** Maak in Resend een Audience aan en zet `RESEND_AUDIENCE_ID`. Bevestigde
   aanmeldingen komen er als contact in; een afmelding via onze link (`/api/newsletter/afmelden`) zet het contact op
-  `unsubscribed`. Onze tabel `NewsletterSubscriber` is leidend (`DECISIONS.md` D20). Verstuur je een broadcast, doe
+  `unsubscribed` (volgens de Resend-documentatie; niet vanaf hier gecontroleerd, zie `DECISIONS.md` D20). Onze tabel `NewsletterSubscriber` is leidend (`DECISIONS.md` D20). Verstuur je een broadcast, doe
   dan **vóór elke verzending** dit: haal ingelogd als beheerder `<APP_URL>/api/newsletter/afmeldlinks` op (CSV
   `email,afmeldlink`), laad die kolom **opnieuw** als contact-eigenschap in de audience en gebruik dat merge-veld in de
   broadcast. De CSV is een momentopname: wie zich ná de vorige import heeft bevestigd, heeft anders een lege

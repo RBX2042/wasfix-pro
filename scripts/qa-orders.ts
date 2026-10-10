@@ -10,10 +10,17 @@
  */
 import http from "node:http";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
+// The probe scripts below each live in their own temp directory; all of them are removed in the main finally.
+const probeDirs: string[] = [];
+function probeDir(prefix: string): string {
+  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  probeDirs.push(dir);
+  return dir;
+}
 
 const log: string[] = [];
 const check = (cond: boolean, ok: string, bad: string) => log.push(cond ? `✅ ${ok}` : `❌ ${bad}`);
@@ -553,7 +560,7 @@ async function main() {
 
       // The A1-02 repro: production, only COMPANY_KVK set. The invoice must NOT be issued.
       const o = await mkOrder({ status: "PAID", invoice: false });
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-probe-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-probe-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -619,7 +626,7 @@ async function main() {
       // Production, company identity incomplete: no invoice can be issued, the refund is still owed.
       const o = await mkOrder({ status: "PAID", invoice: false, qty: 2, price: 20 });
       const before = await o.stockNow();
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-cancel-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-cancel-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { cancelOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -786,7 +793,7 @@ async function main() {
     {
       const o1 = await mkOrder({ status: "PAID", invoice: false });
       const o2 = await mkOrder({ status: "PAID", invoice: false });
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-company-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-company-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -832,7 +839,7 @@ async function main() {
     // 11g. D15: no contact address, no invoice (the old behaviour was a warning and an invoice anyway).
     {
       const o3 = await mkOrder({ status: "PAID", invoice: false });
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-noemail-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-noemail-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -1012,6 +1019,7 @@ async function main() {
     await cleanup().catch((e) => console.error("cleanup failed", e));
     await prisma.$disconnect();
     slack.close();
+    for (const dir of probeDirs) rmSync(dir, { recursive: true, force: true });
     console.log(log.join("\n"));
     const failures = log.filter((l) => l.startsWith("❌")).length;
     console.log(`\n${log.length - failures}/${log.length} checks passed`);

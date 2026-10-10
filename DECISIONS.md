@@ -149,7 +149,8 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
   that timestamp, so an opt-out repeated after a newer sign-up's link went out is undone by the button in that newer
   mail; that needs the mailbox owner's own press on "Ja, meld mij aan" (a consent act), and a later objection made
   through our link always stands against every link mailed before it.
-- **Not verified from here:** anything against the real Resend API (no network): that `PATCH
+- **Not verified from here:** anything against the real Resend API (no network): that the `headers` field of
+  `emails.send` ends up on the delivered message (only what the SDK sends is seen); that `PATCH
   /audiences/{id}/contacts/{email}` accepts the address in the path (the Resend documentation and SDK say id or email),
   which status an unknown contact gets (the code no longer depends on it), what a duplicate create answers (the code
   only creates after a refused update), that an unknown audience id answers 404 on the create (the SDK maps `not_found`
@@ -273,6 +274,22 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
   configuration to exactly one daily schedule pointing at the daily route whose job list covers the four jobs, and
   `scripts/qa-admin.ts` section 6 proves the runner (isolation, order, budget, one notice per failure, one notice for the
   skipped jobs) with fake jobs and a fake clock, and the daily route end to end against the database.
+
+---
+
+## 2026-10-09 — D14 to D17 (taken during the fix round; recorded here because the code cites them)
+
+- **D14 No way back from CANCELLED.** A bank transfer that arrives after the order was cancelled (grace period
+  over, units released, credit note issued) does not revive the order: the money is refunded and the customer told.
+  `src/lib/order-status.ts`, `src/lib/invoicing.ts`; terms 7.1.
+- **D15 `COMPANY_EMAIL` is the contact address and part of readiness.** Every page that names a contact address
+  prints `COMPANY_EMAIL`; without it the pages say "volgt na inschrijving", no address is invented, and checkout
+  stays closed like for a missing fiscal field. `src/lib/company-validate.ts`, `src/lib/cart-gate.ts`, `src/app/contact/page.tsx`.
+- **D16 A guest order is attached to a real account only when the placer is signed in as it.** A guest who types
+  the e-mail address of an existing account gets a guest order on the shared holder row, reachable by its token,
+  never a row in a stranger's dashboard. `src/lib/checkout-user.ts`, `src/app/admin/_lib/economics.ts`.
+- **D17 The per-address order cap is 10 per day, not 3.** An address is not a person (households, offices,
+  carrier-grade NAT); the cap exists against abuse, not against customers. `src/lib/cart-limits.ts`.
 
 ---
 

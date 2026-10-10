@@ -29,6 +29,8 @@ export type RawMail = {
   text?: string;
   replyTo?: string;
   from?: string;
+  /** Extra message headers, forwarded to Resend as given (e.g. List-Unsubscribe / List-Unsubscribe-Post from src/lib/newsletter.ts). */
+  headers?: Record<string, string>;
 };
 
 const SEND_TIMEOUT_MS = 10_000;
@@ -74,6 +76,7 @@ export async function sendRaw(msg: RawMail): Promise<MailResult> {
       html: msg.html,
       text: msg.text ?? htmlToText(msg.html),
       ...(msg.replyTo ? { replyTo: msg.replyTo } : {}),
+      ...(msg.headers ? { headers: msg.headers } : {}),
     });
     let timer: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {

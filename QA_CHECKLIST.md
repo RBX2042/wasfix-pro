@@ -12,12 +12,15 @@ walking the flow.
 | `npm run typecheck` · `npm run lint` · `npm run build` | compiles, lints, builds | `NEXT_PUBLIC_APP_URL` for a production build to be useful |
 | `npm run db:smoke` · `npm run money:smoke` | database CRUD; VAT, invoices, quota, margin | `DATABASE_URL` (migrated + seeded) |
 | `npx tsx scripts/qa-admin.ts` · `qa-plans.ts` | owner operations; plans, gating, API keys, admin bootstrap | `DATABASE_URL`; **plain `tsx`, not `--conditions=react-server`** |
-| `npx tsx --conditions=react-server scripts/qa-orders.ts` · `qa-stripe.ts` · `qa-diagnose.ts` · `qa-notify.ts` | order domain and credit notes; Stripe webhook and subscriptions (fake Stripe); diagnosis honesty and quota; owner notifications | `DATABASE_URL` (not qa-notify) |
+| `npx tsx --conditions=react-server scripts/qa-orders.ts` · `qa-stripe.ts` · `qa-diagnose.ts` · `qa-notify.ts` · `qa-credit-note.ts` | order domain, restock cap and credit notes; Stripe webhook and subscriptions (fake Stripe); diagnosis honesty and quota; owner notifications; the credit note as a document (its HTTP half needs `QA_ANON_URL`, else reported as skipped) | `DATABASE_URL` (not qa-notify) |
+| `VERCEL=1 npx tsx scripts/qa-privacy.ts` | erasure through both doors, data export, guest orders, newsletter double opt-in and opt-out (local Resend stand-in) | `DATABASE_URL`; **plain `tsx`**; `VERCEL=1` (separate rate-limit buckets) |
+| `npm run qa:deploy` | the deploy pipeline's gates and order (`scripts/deploy/*.sh`, `deploy.yml`) with a fake `vercel` and a fake `npm` | nothing (no database, no network) |
 | `npx tsx --conditions=react-server scripts/qa-checkout.ts` · `qa-storefront.ts` | checkout, guest access, cart; storefront truth | a running **production** server (`QA_BASE_URL`, `QA_ANON_URL`) and `VERCEL=1` (they send `x-vercel-forwarded-for`) |
 | `npm run qa:platform` · `qa:preflight` · `qa:csp` | env/APP_URL, rate-limit identity, monitoring, health route, migrate, vercel.json, service worker, `.env.example`; the preflight script; the CSP in Chromium | `qa:csp` and part of `qa:platform` need Chromium; `QA_REQUIRE_BROWSER=1` makes a missing browser a failure |
 | `npm run smoke` | 60+ HTTP checks against `BASE_URL` | a running server |
 | `scripts/qa-checkout-ui.ts` · `qa-plans-ui.ts` · `qa-storefront-browser.mjs` | clicks and layout at 375 px | a DEMO dev server; not in CI |
-| `scripts/qa-seed.ts` · `qa-migration.ts` | the seed in production mode; the order-domain migration on a database with data | rights to CREATE DATABASE; run before changing the seed or a migration; not in CI |
+| `npx tsx scripts/qa-migration.ts` | the migrations on a database WITH data (the order-domain migration and the `restockedQty` backfill), every pre-existing value compared afterwards | rights to CREATE DATABASE (creates and drops a scratch database); in CI |
+| `scripts/qa-seed.ts` | the seed in production mode | rights to CREATE DATABASE; run before changing the seed; not in CI |
 
 Several suites leave test rows behind and `qa-admin` asserts the clean 96-part catalogue: give each suite its own
 database copied from a freshly migrated and seeded template (`createdb -T`), as CI does. `.github/workflows/ci.yml` shows the exact

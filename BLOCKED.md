@@ -160,23 +160,72 @@ Er is niet, en daar helpt geen sleutel tegen:
   `RESEND_API_KEY`, `RESEND_FROM_EMAIL`, `CRON_SECRET`; voor betalen en abonnementen de `STRIPE_*`.
   `NEXT_PUBLIC_*` en de Clerk-sleutels worden bij de build gebruikt (client-code, CSP, CORS, doorverwijzingen): na het wijzigen
   opnieuw deployen.
-- **Geplande taken en `CRON_SECRET`.** Er zijn vier routes: `/api/cron/orders`, `/api/cron/retention`,
-  `/api/cron/stripe-subscriptions` en `/api/cron/stripe-reconcile`. **Zet `CRON_SECRET`** in de
-  hostingomgeving: zonder die waarde weigert elke route te draaien (503) en gebeurt er niets: geen
-  verlopen bankoverschrijvingen annuleren, geen betaalherinneringen, geen Stripe-afstemming, geen bewaartermijnen.
-  Vercel stuurt de waarde zelf mee als `Authorization: Bearer <CRON_SECRET>`.
-  - `vercel.json` draait ze alle vier **één keer per dag** (03:17, 03:37, 04:07 en 04:27 UTC). Dat is bewust
-    de veilige keuze **voor elk abonnement**: of een schema dat vaker dan dagelijks loopt op jouw plan is
-    toegestaan is hier niet gecontroleerd, en een toegevoegd schema dat niet mag kan een deployment laten falen.
-  - De routes zijn bedoeld voor een strakker ritme: `orders` ieder uur, `stripe-reconcile` elke 15 minuten
-    (zie de kop van elke route). Met dagelijks loopt een klant die betaalde terwijl de webhook uitviel
-    maximaal een dag op `PENDING`, en verloopt een bankoverschrijving maximaal een dag later.
-  - **Strakker zetten:** pas de `schedule` in `vercel.json` aan (`0 * * * *` en `*/15 * * * *`) als je plan
-    het toestaat, of roep de routes aan vanuit een externe planner:
-    `curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://wasfix.nl/api/cron/stripe-reconcile`.
-    (De routes accepteren GET en POST.)
+- **Geplande taken en `CRON_SECRET`.** `vercel.json` plant **één** route: `/api/cron/daily`, één keer per dag
+  (03:43 UTC). Die draait vier taken na elkaar: `orders` (verlopen bankoverschrijvingen annuleren, verlaten
+  Stripe-bestellingen afhandelen, betaalherinneringen), `retention` (bewaartermijnen), `stripe-subscriptions`
+  (verlopen abonnementen, abonnementen van gewiste accounts) en `stripe-reconcile` (Stripe-bestellingen waarvan de
+  webhook nooit aankwam). **Zet `CRON_SECRET`** in de hostingomgeving: zonder die waarde weigert elke route te
+  draaien (503) en gebeurt er niets. Vercel stuurt de waarde zelf mee als `Authorization: Bearer <CRON_SECRET>`.
+  - **Waarom één schema.** Volgens de documentatie van Vercel staat het Hobby-abonnement twee cron-taken per
+    project toe (elk hoogstens één keer per dag) en Pro veertig; vier schema's zouden een deployment op Hobby laten
+    afwijzen. Dat is hier niet te controleren (geen netwerk), dus de configuratie gaat niet uit van het aantal:
+    één schema past op elk abonnement.
+  - **Tijd.** Eén aanroep mag 60 s duren (`maxDuration`, de laagste grens van elk abonnement; hoger dan je plan
+    toestaat laat de build falen). De dagrun gebruikt daarvan 50 s en begint geen taak meer als er minder dan 10 s
+    over is: wat niet past wordt overgeslagen, jij krijgt daar **één** melding van, en de route antwoordt met
+    HTTP 500 zodat het cronlog van Vercel de dag als mislukt toont. Overgeslagen taken worden pas de volgende dag
+    weer geprobeerd (of door jou, zie hieronder). Elke taak krijgt bovendien een plafond: wat er over is min 10 s
+    voor elke taak erna (de eerste van vier dus hoogstens 20 s, de laatste alles wat rest). Een taak die bij haar
+    plafond nog bezig is wordt losgelaten (`job_timed_out`, gemeld met haar naam; de dagrun wacht er niet langer op en
+    de volgende draait gewoon; wat al liep kan op de achtergrond nog afmaken en dan nog een eigen melding sturen);
+    zonder dat plafond zou een achterstand in `orders` de functie in de 60 s-kill van Vercel laten lopen, zonder
+    antwoord, zonder melding en zonder de andere drie taken. De `orders`-taak houdt zich zelf aan haar tijd
+    (annuleringen, verlaten Stripe-bestellingen en herinneringen krijgen elk een deadline; een annulering of mail die
+    al bezig is wordt nog afgemaakt, de rest wacht op de volgende run) en zegt in haar samenvatting wat er niet paste;
+    `retention` en `stripe-subscriptions` kennen geen deadline (alleen een maximum aantal rijen), daar is het
+    plafond de enige grens. Bij een achterstand doet de dagrun dus ongeveer 20 s annuleringen en herinneringen per
+    dag; een losse aanroep van `/api/cron/orders` krijgt de volle 50 s. Een taak die een fout geeft (crasht) wordt
+    net zo gemeld met haar naam; de volgende taak draait gewoon.
+  - **Wat dagelijks betekent.** Een klant die betaalde terwijl de webhook uitviel staat maximaal een dag op
+    `PENDING`; een bankoverschrijving verloopt maximaal een dag later; de eerste betaalherinnering gaat de dag na
+    de vervaldatum.
+  - **Handmatig of strakker.** De vier losse routes blijven bestaan, zonder schema (GET of POST). Nu draaien:
+    `curl -fsS -H "Authorization: Bearer $CRON_SECRET" https://wasfix.nl/api/cron/stripe-reconcile`
+    (`orders`, `retention` en `stripe-subscriptions` net zo; `daily` draait alle vier). Staat je plan meer schema's
+    toe, dan kun je een losse route aan `vercel.json` toevoegen (bijvoorbeeld `stripe-reconcile` elke 15 minuten);
+    een schema dat je plan niet toestaat laat de deployment falen, dus controleer dat eerst bij Vercel.
 - **Looptijd van functies:** checkout, de Stripe-webhook, abonnement en de cron-routes zetten
   `maxDuration` in hun eigen bestand. Welke maximale duur jouw Vercel-plan toestaat is niet gecontroleerd.
+
+### Stap 4b. Deployen: vanuit GitHub Actions, niet via de Git-integratie van Vercel
+
+De repository heeft een workflow die `main` op productie zet: `.github/workflows/deploy.yml` (uitleg en instellen in
+README.md onder "Deployen"). Hij start na een geslaagde CI-run op `main` (of met de hand, alleen vanaf `main`) en doet
+in vaste volgorde: Production-variabelen ophalen (`vercel pull`), migreren (`npm run db:migrate:deploy`, vóór de nieuwe
+code live gaat; elke migratie voegt alleen toe), `npm run preflight` offline (NIET KLAAR stopt alles vóór de build),
+`vercel build`, `vercel deploy --prebuilt --prod`, en daarna `npm run preflight --url` tegen de live site. Faalt die
+laatste controle, dan is de job rood terwijl de deploy al gedaan is; de samenvatting zegt dat, met de URL. Faalt de
+stap `vercel deploy` zelf, dan zegt de samenvatting dat het onbekend is of er iets is gedeployed: kijk eerst in het
+Vercel-dashboard. Is de commit van een run niet meer de top van `main`, dan deployt die run de top (als CI daarvoor
+geslaagd is; anders slaat hij over en zegt wat te doen: bij rood CI herstellen, de eerstvolgende groene CI-run op
+`main` deployt dan zelf), omdat de eigen deploy-run van de top door de wachtrij geannuleerd kan zijn.
+
+- **Instellen:** drie repository-secrets in GitHub: `VERCEL_ORG_ID` en `VERCEL_PROJECT_ID` (uit `.vercel/project.json`
+  na `npx vercel link`) en `VERCEL_TOKEN` (Vercel, Account Settings, Tokens; scope: jouw team). Zonder die drie slaat de
+  workflow over en meldt dat; hij faalt niet. Zonder `DATABASE_URL` in de Production-omgeving stopt hij vóór de build.
+- **Zet `DIRECT_URL` ook in de Production-omgeving van Vercel** (session pooler, poort 5432): de migratiestap draait op
+  een GitHub-runner en gebruikt hem. Niet de directe host `db.<ref>.supabase.co`: die is alleen via IPv6 bereikbaar en
+  GitHub-runners hebben voor zover bekend geen IPv6.
+- **Kies één deploy-weg.** Staat de Git-integratie van Vercel óók aan voor deze repository, dan deployt elke push naar
+  `main` twee keer (Vercel zelf, en deze workflow), met twee builds en twee migratiepogingen tegelijk. Koppel de
+  repository dan los in Vercel (Settings, Git) of verwijder de workflow; dit draaiboek gaat uit van de workflow.
+- **Niet gecontroleerd:** de workflow is nooit tegen een echt Vercel-project gedraaid (geen netwerk, geen token). De
+  scripts eronder (`scripts/deploy/*.sh`) zijn getest met een nagemaakte `vercel` en `npm` (`scripts/qa-deploy.ts`).
+  Kijk bij de eerste run naar: koppelt `vercel pull` zonder vraag en schrijft hij `.vercel/.env.production.local`;
+  bereikt de migratiestap de database; geeft de preflight KLAAR; zet `vercel deploy` de URL op stdout; slaagt de
+  live-controle tegen `NEXT_PUBLIC_APP_URL` (die gaat ervan uit dat `vercel deploy --prod` pas terugkeert als het
+  domein naar de nieuwe deployment wijst, zoals de CLI-documentatie zegt). Pin daarna in `deploy.yml` de CLI-versie
+  die werkte (nu `vercel@latest`).
 
 ### Stap 5. Meldingen aan jou (doe dit vóór de rest, zodat je de volgende stappen kunt volgen)
 
@@ -225,6 +274,33 @@ Er is niet, en daar helpt geen sleutel tegen:
   `npm run preflight -- --live-checks` leest de domeinstatus uit Resend (een sleutel die alleen mag verzenden kan
   dat niet lezen; dan meldt het script dat het niet te controleren is).
 - Zet ook een DMARC-record. Het is niet vereist door de code, wel verstandig voor aflevering.
+- **Nieuwsbrief (audience, afmelden).** Maak in Resend een Audience aan en zet `RESEND_AUDIENCE_ID`. Bevestigde
+  aanmeldingen komen er als contact in; een afmelding via onze link (`/api/newsletter/afmelden`) zet het contact op
+  `unsubscribed` (volgens de Resend-documentatie; niet vanaf hier gecontroleerd, zie `DECISIONS.md` D20). Onze tabel `NewsletterSubscriber` is leidend (`DECISIONS.md` D20). Verstuur je een broadcast, doe
+  dan **vóór elke verzending** dit: haal ingelogd als beheerder `<APP_URL>/api/newsletter/afmeldlinks` op (CSV
+  `email,afmeldlink`), laad die kolom **opnieuw** als contact-eigenschap in de audience en gebruik dat merge-veld in de
+  broadcast. De CSV is een momentopname: wie zich ná de vorige import heeft bevestigd, heeft anders een lege
+  eigenschap en dus geen link van ons in die nieuwsbrief. Laat daarom **altijd ook Resends eigen afmeldlink** in het
+  sjabloon staan als vangnet voor een contact zonder (of met een lege) eigenschap: een nieuwsbrief zonder werkende
+  afmeldlink is verboden (Telecommunicatiewet art. 11.7 lid 6). Bekend gat: een afmelding via Resends eigen link komt
+  **niet** in onze tabel terecht; vergelijk na een verzending de audience met de tabel (of Resend zo'n contact zelf
+  niet meer aanschrijft is niet vanaf hier gecontroleerd). Krijg je de melding "Afmelding niet doorgegeven aan Resend"
+  of "Aanmelding niet doorgegeven aan Resend", zet dat contact dan zelf op unsubscribed respectievelijk in de audience
+  vóór de volgende broadcast (de melding noemt de rij-id, niet het adres; ze komt één keer per adres en richting
+  **per serverinstantie**, op Vercel dus mogelijk vaker voor hetzelfde adres). Staat er `http_404_then_http_404` in
+  een "Aanmelding niet doorgegeven"-melding, dan klopt `RESEND_AUDIENCE_ID` vrijwel zeker niet (meer): controleer die
+  eerst. Dat is je **enige** signaal daarvoor: een afmelding krijgt van Resend dezelfde 404 als voor een contact dat
+  niet in de audience staat en meldt daarom niets; bevestig na het zetten of wijzigen van `RESEND_AUDIENCE_ID` dus
+  zelf één proefadres en kijk of er géén melding komt. **Verander je `CRON_SECRET`** (de sleutel waarmee de
+  afmeldlinks zijn ondertekend), dan werkt geen eerder verstuurde afmeldlink van ons meer (de pagina verwijst dan naar
+  het contactadres; Resends eigen link in het sjabloon blijft werken): exporteer de CSV opnieuw en importeer hem vóór
+  de volgende broadcast. Een accountverwijdering wist de rij in onze tabel en zet daarna het Resend-contact op
+  `unsubscribed` (het contact zelf blijft bij Resend staan; verwijder het daar met de hand als je ook dat weg wilt).
+  **Niet vanaf
+  hier gecontroleerd:** dat Resend een contact-eigenschap als merge-veld in een broadcast kan invullen en in welke
+  syntaxis; controleer dat in de broadcast-editor vóór de eerste verzending. Kan het niet, dan is er geen eerlijke
+  manier om per lezer onze link in één broadcast te krijgen en moet de app zelf gaan versturen (open punt, niet
+  gebouwd).
 
 ### Stap 8. Betalen (Stripe)
 
@@ -305,6 +381,11 @@ interval, belastinggedrag), het webhook-endpoint (adres, events, API-versie), St
   wordt eenmalig gelogd).
 
 ### Stap 10. Controleer alles: `npm run preflight`
+
+De deploy-workflow (stap 4b) doet dit zelf vóór elke deploy: `vercel pull` haalt de Production-variabelen naar
+`.vercel/.env.production.local` en de preflight draait daartegen, offline vóór de build en met `--url` erna. De
+commando's hieronder zijn dezelfde controle vanaf je eigen computer (`vercel env pull` schrijft hetzelfde soort bestand
+op een plek naar keuze).
 
 ```bash
 vercel env pull .env.production.local --environment=production        # of zet de variabelen zelf in een bestand

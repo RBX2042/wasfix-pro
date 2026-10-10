@@ -33,7 +33,7 @@ Versions are the ranges in `package.json`; the CI workflow pins Node 22.
 | Rate limiting | Upstash Redis REST, in-memory fallback (per instance) | — |
 | Cart state | Zustand | ^5.0.2 |
 | Charts | Recharts (admin analytics) | ^3.8.1 |
-| Hosting | Vercel (`vercel.json`: region fra1, daily crons) | per BLOCKED.md |
+| Hosting | Vercel (`vercel.json`: region fra1, one daily cron) | per BLOCKED.md |
 
 **3D is dead code.** `three`, `@react-three/fiber` and `@react-three/drei` are
 installed and `src/components/3d/HeroScene.tsx` exists, but `HeroSceneWrapper`
@@ -108,7 +108,9 @@ Methods are the exported handlers in each `route.ts`.
 | `/api/checkout` | POST |
 | `/api/retour` | POST |
 | `/api/reviews` | GET, POST |
-| `/api/newsletter` · `/api/lead-magnet` | POST |
+| `/api/newsletter` · `/api/lead-magnet` | POST (stores the address unconfirmed and mails a signed confirmation link) |
+| `/api/newsletter/confirm` | GET (a page with the button), POST (confirms; an opt-out made after the link was mailed stands) |
+| `/api/newsletter/afmelden` | GET (a page with the button), POST (the button, or a mail client's RFC 8058 one-click POST, answered as text; our table first, then the Resend audience; two rate-limit buckets) |
 | `/api/monteur/signup` · `/api/monteur/kvk-lookup` | POST |
 | `/api/referral/track` | POST, GET |
 | `/api/client-error` | POST (browser errors from the error boundaries; same-origin only, rate-limited, stores nothing; the owner is told an error name and a path pattern, never the browser's text) |
@@ -124,6 +126,7 @@ There is **no `/api/contact`.** `/contact` is a page with a `mailto:` link.
 | `/api/account/data-export` | GET |
 | `/api/account/delete` | POST |
 | `/api/admin/analytics/gsc-status` | GET |
+| `/api/newsletter/afmeldlinks` | GET (admin only: CSV `email,afmeldlink` of every subscriber, to load into the Resend audience before a broadcast; linked from `/admin/aanvragen`) |
 | `/api/stripe/subscribe` · `/api/stripe/portal` | POST |
 
 ### B2B API v1 (Bearer `wf_live_…`)
@@ -133,7 +136,8 @@ There is **no `/api/contact`.** `/contact` is a page with a `mailto:` link.
 - `GET /api/v1/errorcodes/[brand]/[code]`
 
 ### Scheduled (Bearer `CRON_SECRET`, GET or POST)
-- `/api/cron/orders` · `/api/cron/retention` · `/api/cron/stripe-subscriptions` · `/api/cron/stripe-reconcile`
+- `/api/cron/daily` — the only path in `vercel.json`; runs the four jobs below in order
+- `/api/cron/orders` · `/api/cron/retention` · `/api/cron/stripe-subscriptions` · `/api/cron/stripe-reconcile` — unscheduled, for hand runs
 
 ### Webhooks
 - `POST /api/stripe/webhook` — idempotent via the `StripeEvent` table
@@ -168,13 +172,23 @@ Diagnosis        saved AI diagnoses (sessionId, symptoms, messages, result)
 Order            status, subtotalEur, discountEur, shippingEur, totalEur,
                  vatRate, vatEur, vatNumber, costEur, stripePaymentId,
                  paymentMethod, dueAt, paidAt
-OrderItem        line items (partId, quantity, unitPrice)
+OrderItem        line items (partId, quantity, unitPrice, restockedQty)
 Invoice          numbered VAT invoice for an order; seller/buyer/lines snapshotted as JSON
 InvoiceSequence  per-year counter — the series must be gapless
 StripeEvent      processed webhook ids (idempotency)
 ApiKey           B2B keys: prefix, SHA-256 hash, scopes, rateLimit, usageCount
 UsageCounter     quota counters per scope+key (diagnoses for anonymous visitors)
 ```
+
+**Restocks.** When a refund puts returned units back on the shelf (a SHIPPED or DELIVERED order), the units are
+counted on the order line, `OrderItem.restockedQty`, inside the refund's transaction: one conditional update
+(`restockedQty <= quantity - units` in the WHERE, the increment in the SET) is both the cap "ordered minus already
+put back" and the lock, so two refunds can never together exceed what was ordered (`applyRestock` in
+`src/lib/invoicing.ts`; `checkRestock` runs first for the Dutch refusal texts). Cancelling restocks everything and
+ends the order, so it is not counted there. Credit notes issued before migration
+`20261009120000_order_item_restocked_qty` carried this record as a `restock` array on their first printed line; that
+migration backfilled the column from them, the annotation is never written since, and the data export strips it from
+those old notes (an issued document is immutable, so they keep it).
 
 ### Monteur (B2B)
 ```
@@ -271,7 +285,7 @@ lives in Vercel, not in the repo — see BLOCKED.md for the current state.
 | Owner channel | `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `ORDER_NOTIFY_EMAIL` / `COMPANY_EMAIL` + Resend | the owner is told nothing (logged once) |
 | Scheduled jobs | `CRON_SECRET` | every `/api/cron/*` route answers 503 |
 | Gemini | `GEMINI_API_KEY` | labelled keyword fallback |
-| Resend | `RESEND_API_KEY`, `RESEND_AUDIENCE_ID` | e-mail is a no-op; subscribers still stored |
+| Resend | `RESEND_API_KEY`, `RESEND_AUDIENCE_ID` | e-mail is a no-op; subscribers still stored. With both set, confirmations, opt-outs and erasures are recorded in our table first and the audience contact follows (best effort); a failed audience update is reported to the owner once per address and direction per instance |
 | Upstash | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | in-memory limiter, per instance; warned once in production |
 | Google Search Console | `GSC_OAUTH_*`, `GSC_REFRESH_TOKEN` | `/admin/analytics` shows no search data |
 | KvK | `KVK_API_KEY` | `/api/monteur/kvk-lookup` returns a mock company |
@@ -287,8 +301,18 @@ documented in `.env.example`; `npm run preflight` checks them.
   layout gives every page a self-referencing canonical.
 - **Health:** `GET /api/v1/health` is a readiness check. 503 when the database is unreachable or a migration of this build is missing;
   `next.config.ts` puts the migration folder names into `WASFIX_EXPECTED_MIGRATIONS` at build time for that comparison.
-- **Jobs:** `vercel.json` calls `/api/cron/orders`, `/retention`, `/stripe-subscriptions` and `/stripe-reconcile` once a day with
-  `Authorization: Bearer CRON_SECRET`. The routes' headers say what schedule they are meant for.
+- **Jobs:** `vercel.json` schedules ONE route, `/api/cron/daily`, once a day with `Authorization: Bearer CRON_SECRET`
+  (one schedule fits every plan; according to Vercel's documentation Hobby allows two, not verifiable from here). The job
+  bodies live in `src/app/api/cron/_lib/jobs/*` (route files may only export handlers), the list and order in
+  `_lib/daily-jobs.ts`, and the runner in `_lib/runner.ts`: orders -> retention -> stripe-subscriptions -> stripe-reconcile,
+  each isolated (a crash is logged, reported to the owner by name, and the next job still runs), within a 50 s budget of
+  the function's 60 s; a job that no longer fits is skipped, reported once, and not retried before the next day. Each job
+  is capped at what is left minus 10 s per later job (the first of four: 20 s) and given up on when still running at its
+  cap (`job_timed_out`, reported by name; the next job runs), so one backlog job cannot run the function into the
+  platform's kill. The orders job derives a deadline per step from its cap and reports a cut-short run as `truncated`;
+  reconcile cuts its Stripe scan to fit; retention and stripe-subscriptions have row limits only, the cap is their
+  bound. The route answers 500 when any job failed or was skipped, with the per-job detail. The four single-job routes
+  stay, unscheduled, for hand runs with the whole budget (`curl -H "Authorization: Bearer $CRON_SECRET" <site>/api/cron/<job>`).
 - **Migrations:** `npm run db:migrate:deploy` (through `scripts/migrate.ts`, over `DIRECT_URL`). Never `prisma db push` on production.
 - **Service worker:** none. `public/sw.js` unregisters the old one.
 - **Go-live check:** `npm run preflight`.

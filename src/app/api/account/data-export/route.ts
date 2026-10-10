@@ -7,6 +7,7 @@ import { apiError } from "@/lib/api-response";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 import { logger } from "@/lib/logger";
 import { supportEmail, supportHint } from "@/lib/support-contact";
+import { stripLegacyRestock } from "@/lib/invoicing";
 
 export const dynamic = "force-dynamic";
 
@@ -115,13 +116,11 @@ export async function GET(req: NextRequest) {
         ])
       : [[], [], [], [], [], [], [], [], [], null, [], [], [], [], []];
 
-    // linesJson of a credit note may carry our own restock record (which units went back on the shelf) on its first
-    // line. That is stock bookkeeping, not part of the document the customer was given, so it stays out of the export.
-    const exportedCreditNotes = creditNotes.map((note) => {
-      const lines = (note as { linesJson?: unknown }).linesJson;
-      if (!Array.isArray(lines)) return note;
-      return { ...note, linesJson: lines.map((line) => (line && typeof line === "object" ? Object.fromEntries(Object.entries(line as Record<string, unknown>).filter(([key]) => key !== "restock")) : line)) };
-    });
+    // A credit note issued before migration 20261009120000_order_item_restocked_qty carried the shop's own restock
+    // record (which units went back on the shelf) on the first line of its linesJson. That is stock bookkeeping, not
+    // part of the document the customer was given, so it stays out of the export. Notes issued since never carry it
+    // (the record is OrderItem.restockedQty); the helper leaves those untouched.
+    const exportedCreditNotes = creditNotes.map((note) => ({ ...note, linesJson: stripLegacyRestock(note.linesJson) }));
 
     const data = {
       exportedAt: new Date().toISOString(),

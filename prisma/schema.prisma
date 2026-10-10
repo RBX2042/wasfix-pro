@@ -311,6 +311,16 @@ model OrderItem {
   part      Part   @relation(fields: [partId], references: [id])
   quantity  Int
   unitPrice Float
+  /// Units of this line that refunds already put back on the shelf (goods that
+  /// came back from a SHIPPED or DELIVERED order). The cap "ordered minus already
+  /// restocked" is enforced on this column with a conditional update inside the
+  /// refund's transaction (src/lib/invoicing.ts, applyRestock), so two refunds
+  /// can never together put back more than was ordered. Cancelling is NOT
+  /// counted here: it restocks every unit and ends the order. Credit notes
+  /// issued before migration 20261009120000_order_item_restocked_qty carried
+  /// this record on their linesJson; that migration backfilled the column from
+  /// them and the annotation is never written since.
+  restockedQty Int @default(0)
 
   /// Postgres does not index foreign keys automatically, and this table had no
   /// index at all beyond its primary key. Both columns are read on every order

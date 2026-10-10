@@ -25,7 +25,8 @@ import { findStripeMarkers, putStripeMarker } from "./lease";
 export const RECONCILE_MIN_AGE_MS = 15 * 60 * 1000;
 const PAGE = 50;
 const DEFAULT_MAX_ORDERS = 500;
-const DEFAULT_BUDGET_MS = 20_000;
+/** The time budget of one scan when the caller passes none; the daily runner's reconcile job derives its cap from it (src/app/api/cron/_lib/jobs/stripe-reconcile.ts). */
+export const RECONCILE_DEFAULT_BUDGET_MS = 20_000;
 
 export type ReconcileResult = {
   checked: number;
@@ -113,7 +114,7 @@ export async function reconcilePendingStripeOrders(opts: { olderThanMs?: number;
   if (!stripe) return result;
   const cutoff = new Date((opts.now ?? new Date()).getTime() - (opts.olderThanMs ?? RECONCILE_MIN_AGE_MS));
   const maxOrders = opts.limit ?? DEFAULT_MAX_ORDERS;
-  const deadline = Date.now() + (opts.budgetMs ?? DEFAULT_BUDGET_MS);
+  const deadline = Date.now() + (opts.budgetMs ?? RECONCILE_DEFAULT_BUDGET_MS);
   let seen = 0;
   // Keyset paging over ALL old PENDING orders, oldest first. A fixed "oldest 50"
   // never reached a paid order that sat behind 50 older, still open sessions.

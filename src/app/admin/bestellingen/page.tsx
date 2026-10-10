@@ -14,7 +14,7 @@ import { AdminShell } from "../_lib/page-shell";
 import { AdminNav } from "../_lib/admin-nav";
 import { dateNl, dateTimeNl, eur, parseShippingAddress, stripeDashboardUrl } from "../_lib/format";
 import { ORDER_VIEWS, VIEW_LABEL, isFullyRefunded, isOrderView, listOrders, orderCounts, type OrderRow, type OrderView } from "../_lib/orders-query";
-import { restockedFromNotes } from "@/lib/invoicing";
+import { restockedOfItems } from "@/lib/invoicing";
 import { CancelForm, DeliverForm, IssueInvoiceForm, MarkPaidForm, RefundForm, ResendMailForm, ShipForm, TrackingForm, type ResendKind } from "./order-actions";
 
 export const dynamic = "force-dynamic";
@@ -150,8 +150,8 @@ function OrderCard({ order: o, now }: { order: OrderRow; now: Date }) {
   const credited = o.invoice?.creditNotes ?? [];
   const fullyRefunded = isFullyRefunded(o);
   const paidState = status === "PAID" || status === "SHIPPED" || status === "DELIVERED";
-  // Units that earlier refunds already put back on the shelf: the restock boxes offer what is LEFT.
-  const restocked = restockedFromNotes(credited);
+  // Units that earlier refunds already put back on the shelf (OrderItem.restockedQty, decision D21): the restock boxes offer what is LEFT.
+  const restocked = restockedOfItems(o.items);
   // The one customer mail that belongs to this state, for the "send again" button.
   const resendKind: ResendKind | null =
     bank && status === "OPENSTAAND" ? "bank-instructions" : paidState && !bank ? "order-paid" : paidState && bank ? "payment-received" : null;

@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { restockedFromNotes } from "@/lib/invoicing";
 import { redirect } from "next/navigation";
 import { DashboardLayout } from "@/components/dashboard-layout";
 import { getCurrentUser } from "@/lib/auth";
@@ -62,8 +61,9 @@ export default async function AdminReturnsPage({ searchParams }: { searchParams:
           select: {
             id: true, status: true, paymentMethod: true, totalEur: true, refundedEur: true, deliveredAt: true, shippedAt: true, paidAt: true,
             stripePaymentIntentId: true,
-            invoice: { select: { number: true, creditNotes: { select: { linesJson: true } } } },
-            items: { select: { partId: true, quantity: true, part: { select: { sku: true, name: true } } } },
+            invoice: { select: { number: true } },
+            // restockedQty: what earlier refunds already put back (OrderItem.restockedQty, decision D21); the form offers the rest.
+            items: { select: { partId: true, quantity: true, restockedQty: true, part: { select: { sku: true, name: true } } } },
           },
         },
       },
@@ -164,7 +164,7 @@ export default async function AdminReturnsPage({ searchParams }: { searchParams:
                         id={r.id}
                         remainingEur={remaining}
                         expectedRefundedEur={o.refundedEur}
-                        items={o.items.map((i) => ({ partId: i.partId, sku: i.part.sku, quantity: Math.max(0, i.quantity - (restockedFromNotes(o.invoice?.creditNotes ?? []).get(i.partId) ?? 0)) }))}
+                        items={o.items.map((i) => ({ partId: i.partId, sku: i.part.sku, quantity: Math.max(0, i.quantity - i.restockedQty) }))}
                         canRestock={o.status === "SHIPPED" || o.status === "DELIVERED"}
                         how={how}
                       />

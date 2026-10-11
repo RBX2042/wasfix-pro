@@ -1,5 +1,5 @@
 import { NextRequest } from "next/server";
-import { confirmNewsletterSubscription, verifyNewsletterToken } from "@/lib/newsletter";
+import { confirmNewsletterSubscription, readNewsletterToken, verifyNewsletterToken } from "@/lib/newsletter";
 import { htmlPage } from "@/lib/html-page";
 import { rateLimit, getClientKey } from "@/lib/ratelimit";
 
@@ -29,10 +29,18 @@ export async function POST(req: NextRequest) {
     return htmlPage("Te veel pogingen", "Probeer het over een uur opnieuw.", 429);
   }
   const fd = await req.formData().catch(() => null);
-  const email = verifyNewsletterToken(String(fd?.get("token") ?? ""));
-  if (!email) return htmlPage("Link werkt niet meer", "Deze bevestigingslink is ongeldig of verlopen. Meld je opnieuw aan voor de nieuwsbrief, dan krijg je een nieuwe link.", 400);
-  if (!(await confirmNewsletterSubscription(email))) {
+  const link = readNewsletterToken(String(fd?.get("token") ?? ""));
+  if (!link) return htmlPage("Link werkt niet meer", "Deze bevestigingslink is ongeldig of verlopen. Meld je opnieuw aan voor de nieuwsbrief, dan krijg je een nieuwe link.", 400);
+  // The link's issue time goes along: an opt-out made AFTER this mail went out is kept (see confirmNewsletterSubscription).
+  const result = await confirmNewsletterSubscription(link.email, link.issuedAt);
+  if (!result.ok) {
     return htmlPage("Bevestigen lukt nu niet", "Je aanmelding kon niet worden opgeslagen. Probeer de link over een paar minuten opnieuw.", 503);
+  }
+  if (result.status === "opted_out_later") {
+    return htmlPage(
+      "Je afmelding blijft staan",
+      "Je hebt je afgemeld voor de nieuwsbrief nadat deze bevestigingsmail is verstuurd. Die afmelding blijft staan; we hebben niets gewijzigd. Wil je de nieuwsbrief toch weer ontvangen, meld je dan opnieuw aan op de website; je krijgt dan een nieuwe bevestigingsmail.",
+    );
   }
   return htmlPage("Je bent aangemeld", "Bedankt, je aanmelding voor de WasFix Pro-nieuwsbrief is bevestigd.");
 }

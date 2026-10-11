@@ -111,7 +111,8 @@ function clauseFor(terms: SearchTerms): Prisma.OrderWhereInput[] {
 
 export const ORDER_LIST_INCLUDE = {
   items: { include: { part: { select: { id: true, sku: true, name: true, stock: true } } } },
-  invoice: { select: { number: true, issuedAt: true, totalEur: true, creditNotes: { select: { number: true, totalEur: true, issuedAt: true, linesJson: true }, orderBy: { issuedAt: "asc" } } } },
+  // The restock record is on the items (OrderItem.restockedQty, decision D21), so a note's linesJson is not loaded here.
+  invoice: { select: { number: true, issuedAt: true, totalEur: true, creditNotes: { select: { number: true, totalEur: true, issuedAt: true }, orderBy: { issuedAt: "asc" } } } },
 } satisfies Prisma.OrderInclude;
 
 export type OrderRow = Prisma.OrderGetPayload<{ include: typeof ORDER_LIST_INCLUDE }>;

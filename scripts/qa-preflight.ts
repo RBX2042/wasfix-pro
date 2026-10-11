@@ -225,6 +225,8 @@ async function main() {
       if (kind === "good") {
         check(r.code === 0 && liveBlocks.length === 0, "a correctly deployed site passes every deployed-site check", liveBlocks.join(" | ") || r.text.slice(0, 300));
         check((r.report?.checks ?? []).some((c) => c.level === "ok" && /live \/voorwaarden toont de ingestelde bedrijfsgegevens/.test(c.message)) && (r.report?.checks ?? []).some((c) => c.level === "ok" && /live \/contact toont de ingestelde/.test(c.message)), "live: /voorwaarden and /contact are compared with COMPANY_* and match", (r.report?.checks ?? []).map((c) => c.message).join(" | "));
+        // The scheduled path itself is probed (vercel.json calls /api/cron/daily; a deploy without it would run no job at all), next to one single-job route.
+        check((r.report?.checks ?? []).some((c) => c.level === "ok" && /^\/api\/cron\/daily weigert aanroepen zonder geheim \(401\)/.test(c.message)) && (r.report?.checks ?? []).some((c) => c.level === "ok" && /^\/api\/cron\/orders weigert aanroepen zonder geheim \(401\)/.test(c.message)), "live: the scheduled route /api/cron/daily AND /api/cron/orders are probed and answer 401 without the secret", (r.report?.checks ?? []).filter((c) => /cron/.test(c.message)).map((c) => `${c.level}:${c.message}`).join(" | "));
       } else if (kind === "stale") {
         // R2-19: a build without COMPANY_* started later with them. Every other check passes; only the comparison objects.
         check(liveBlocks.some((m) => /voorbeeldgegevens/.test(m)) && liveBlocks.filter((m) => /COMPANY_\*/.test(m)).length === 2 && liveBlocks.length === 3 && liveBlocks.some((m) => /\/voorwaarden toont de bedrijfsnaam en het KvK-nummer/.test(m)) && liveBlocks.some((m) => /\/contact toont het KvK-nummer en het contactadres/.test(m)) && (blocksOf(r).find((c) => /voorwaarden/.test(c.message))?.fix ?? "").includes("bouw opnieuw"), "stale build: /voorwaarden and /contact that do not show the COMPANY_* values are blockers, and the fix says to rebuild", liveBlocks.join(" | ") || r.text.slice(0, 300));
@@ -233,6 +235,7 @@ async function main() {
         for (const [what, re] of [["health 503", /health/], ["demo login", /Demo modus/], ["unprotected /admin", /\/admin/], ["localhost robots", /robots\.txt/], ["localhost sitemap", /sitemap\.xml/], ["demo webhook", /webhook/], ["cron without secret", /CRON_SECRET/], ["placeholder IBAN on /checkout", /voorbeeldgegevens/], ["no enforced CSP", /Content-Security-Policy/]] as const) {
           check(liveBlocks.some((m) => re.test(m)), `bad site: ${what} is a blocker`, `bad site: ${what} not reported. blocks: ${liveBlocks.join(" | ")}`);
         }
+        check(liveBlocks.filter((m) => /^\/api\/cron\/(daily|orders) antwoordt 503 cron_not_configured/.test(m)).length === 2, "bad site: the 503 without CRON_SECRET is reported for the scheduled route /api/cron/daily and for /api/cron/orders, each by name", `bad site cron blocks: ${liveBlocks.filter((m) => /cron/.test(m)).join(" | ")}`);
         check(r.code === 1, "bad site: exit code 1");
       }
     } finally {

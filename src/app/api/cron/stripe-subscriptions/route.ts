@@ -1,24 +1,20 @@
 /**
- * Subscription upkeep. Needs `Authorization: Bearer <CRON_SECRET>`.
+ * Subscription upkeep, run alone. Needs `Authorization: Bearer <CRON_SECRET>`.
  *
- * EXPECTED SCHEDULE: daily, e.g. "0 4 * * *" (bundle S6 writes vercel.json from this header).
- * This route is a BLOCKER for the Stripe bundle: without it the grace window for
- * lapsed subscriptions and the cancellation of subscriptions of erased accounts
- * never run. It only wires runSubscriptionMaintenance(); the logic lives in
- * src/app/api/stripe/_lib/subscriptions.ts.
+ * NOT SCHEDULED by vercel.json: /api/cron/daily runs this job as its third
+ * step (see ../_lib/runner.ts). This route stays for a hand run or an external
+ * scheduler. The job is ../_lib/jobs/stripe-subscriptions.ts; the logic lives
+ * in src/app/api/stripe/_lib/subscriptions.ts.
  */
-import { runCron } from "../_lib/auth";
-import { getStripe } from "@/lib/stripe";
-import { runSubscriptionMaintenance } from "@/app/api/stripe/_lib/subscriptions";
+import { runCronJob } from "../_lib/runner";
+import { stripeSubscriptionsJob } from "../_lib/jobs/stripe-subscriptions";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const job = async () => ({ result: await runSubscriptionMaintenance(getStripe()) });
-
 export async function GET(req: Request) {
-  return runCron(req, "stripe-subscriptions", job);
+  return runCronJob(req, stripeSubscriptionsJob);
 }
 export async function POST(req: Request) {
-  return runCron(req, "stripe-subscriptions", job);
+  return runCronJob(req, stripeSubscriptionsJob);
 }

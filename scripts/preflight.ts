@@ -592,11 +592,15 @@ async function probeDeployed(base: string, checks: Check[], ctx: { clerkHost: st
     else add("block", `Stripe-webhook antwoordt HTTP ${hook.status} op een ongeldige handtekening (verwacht 400).`, "Controleer STRIPE_WEBHOOK_SECRET in de Production-omgeving.");
   }
 
-  const cron = await attempt("cron-route", () => http(`${base}/api/cron/orders`));
-  if (cron) {
-    if (cron.status === 401) add("ok", "Geplande taken weigeren aanroepen zonder geheim (401): CRON_SECRET staat in de hosting");
-    else if (cron.status === 503) add("block", "Geplande taken antwoorden 503 cron_not_configured: CRON_SECRET staat NIET in de hostingomgeving.", "Zet CRON_SECRET in de Production-omgeving en deploy opnieuw.");
-    else add("block", `Een cron-route zonder geheim antwoordt HTTP ${cron.status} (verwacht 401).`, "De route hoort zonder 'Authorization: Bearer <CRON_SECRET>' niet te draaien; controleer de deploy.");
+  // The scheduled path (/api/cron/daily, the one vercel.json calls) and one of the single-job routes: a deploy without the
+  // daily route, or one without CRON_SECRET, must show here, not in an empty cron log weeks later.
+  for (const cronPath of ["/api/cron/daily", "/api/cron/orders"]) {
+    const cron = await attempt(`cron-route ${cronPath}`, () => http(`${base}${cronPath}`));
+    if (!cron) continue;
+    if (cron.status === 401) add("ok", `${cronPath} weigert aanroepen zonder geheim (401): de route bestaat en CRON_SECRET staat in de hosting`);
+    else if (cron.status === 503) add("block", `${cronPath} antwoordt 503 cron_not_configured: CRON_SECRET staat NIET in de hostingomgeving.`, "Zet CRON_SECRET in de Production-omgeving en deploy opnieuw.");
+    else if (cron.status === 404) add("block", `${cronPath} bestaat niet op de live site (404)${cronPath === "/api/cron/daily" ? ": de geplande taken uit vercel.json draaien dan nooit" : ""}.`, "Controleer dat de deploy deze build bevat (src/app/api/cron) en deploy opnieuw.");
+    else add("block", `${cronPath} antwoordt zonder geheim HTTP ${cron.status} (verwacht 401).`, "De route hoort zonder 'Authorization: Bearer <CRON_SECRET>' niet te draaien; controleer de deploy.");
   }
 
   const checkout = await attempt("/checkout", () => http(`${base}/checkout`, { redirect: "follow" }));

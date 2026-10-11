@@ -42,6 +42,8 @@ export type ReminderResult = {
   gaveUp: number;
   /** Resend is not configured: nothing was attempted and nothing was recorded. */
   skippedNoMail: boolean;
+  /** The deadline passed before every examined order was handled; the rest is sent by the next run. */
+  truncated: boolean;
 };
 
 async function claim(key: string, now: Date): Promise<boolean> {
@@ -57,13 +59,20 @@ async function claim(key: string, now: Date): Promise<boolean> {
   }
 }
 
-export async function sendPaymentReminders(opts: { now?: Date; limit?: number } = {}): Promise<ReminderResult> {
+/**
+ * `deadlineMs`: stop BEFORE the next order once this much time has passed (a
+ * deadline of 0 claims nothing). The check sits before the claim, so a cut-off
+ * never leaves a claimed-but-unsent reminder behind: an order that was not
+ * reached is simply reminded by the next run. The mail in flight is awaited.
+ */
+export async function sendPaymentReminders(opts: { now?: Date; limit?: number; deadlineMs?: number } = {}): Promise<ReminderResult> {
   const now = opts.now ?? new Date();
-  const result: ReminderResult = { examined: 0, sentDue: 0, sentLast: 0, alreadySent: 0, failed: 0, gaveUp: 0, skippedNoMail: false };
+  const result: ReminderResult = { examined: 0, sentDue: 0, sentLast: 0, alreadySent: 0, failed: 0, gaveUp: 0, skippedNoMail: false, truncated: false };
   if (!getResend()) {
     result.skippedNoMail = true;
     return result;
   }
+  const deadline = opts.deadlineMs === undefined ? null : Date.now() + opts.deadlineMs;
   // Due or past due, and not yet at the cancellation moment (the sweep owns those).
   const orders = await prisma.order.findMany({
     where: {
@@ -80,6 +89,10 @@ export async function sendPaymentReminders(opts: { now?: Date; limit?: number } 
 
   for (const o of orders) {
     if (!o.dueAt || !o.invoice) continue;
+    if (deadline !== null && Date.now() >= deadline) {
+      result.truncated = true;
+      break;
+    }
     const stage: "due" | "last" = now.getTime() >= o.dueAt.getTime() + LAST_REMINDER_AFTER_DAYS * DAY ? "last" : "due";
     const key = `${o.id}:${stage}`;
     const failKey = `${key}:fail`;

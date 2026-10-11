@@ -156,12 +156,22 @@ jobs:
           # QA_REQUIRE_BROWSER=1: without Chromium the service-worker half would be SKIPPED silently; here a missing browser must fail.
           suite platform  env QA_REQUIRE_BROWSER=1 npx tsx scripts/qa-platform.ts  || status=1
           suite preflight npx tsx scripts/qa-preflight.ts                          || status=1
+          echo "::group::deploy"; npx tsx scripts/qa-deploy.ts || status=1; echo "::endgroup::"  # bundle D: the deploy pipeline (scripts/deploy, deploy.yml) with a fake vercel; no database, so not through suite()
           # fix round: the credit note as a document (data half; the HTTP half runs against the server below)
           # and privacy (erasure through both doors, data export, guest orders, newsletter double opt-in).
           # qa-privacy stubs "server-only" itself, so it runs without the react-server condition.
           suite creditnote npx tsx --conditions=react-server scripts/qa-credit-note.ts || status=1
           suite privacy    env VERCEL=1 npx tsx scripts/qa-privacy.ts              || status=1
           exit $status
+
+      # The migrations on a POPULATED database: the script creates a scratch database from the
+      # job's credentials (the postgres superuser may CREATE DATABASE), fills it in the previous
+      # migration state (orders, invoices, credit notes in the old format), applies the migrations
+      # and compares every pre-existing value column by column, then drops it. The restockedQty
+      # backfill (bundle R) is proved only here; db:setup above only shows the SQL runs on an
+      # empty database.
+      - name: Migrations on a populated database (scratch db, created and dropped by the script)
+        run: npx tsx scripts/qa-migration.ts
 
       - name: Content-Security-Policy probe in Chromium
         env:
@@ -215,6 +225,7 @@ jobs:
 # a dev server in demo mode or a longer runner than is sensible per push):
 #   scripts/qa-checkout-ui.ts, scripts/qa-plans-ui.ts, scripts/qa-storefront-browser.mjs
 #     browser suites that need a DEMO_MODE dev server and the same database;
-#   scripts/qa-seed.ts, scripts/qa-migration.ts
-#     create and drop scratch databases; run them by hand before changing
-#     migrations or the seed (see QA_CHECKLIST.md).
+#   scripts/qa-seed.ts
+#     creates and drops a scratch database; run it by hand before changing the
+#     seed (see QA_CHECKLIST.md). scripts/qa-migration.ts does the same for the
+#     migrations and DOES run above.

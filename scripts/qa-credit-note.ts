@@ -29,6 +29,13 @@ const skipped = (what: string) => log.push(`⏭️  SKIPPED ${what}`);
 const DOMAIN = "qa-credit-note.test";
 const SKU_PREFIX = "QA-CN-";
 
+// The data-export check signs a test account in through the auth seam. That needs Clerk "configured" (keys that are
+// never sent anywhere) and demo mode off; otherwise getCurrentUser() answers with the demo user. Assembled at runtime:
+// a key-shaped literal in the repository would trip push protection.
+process.env.CLERK_SECRET_KEY = ["sk", "test", "qa_credit_note"].join("_");
+process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY = ["pk", "test", "qa_credit_note"].join("_");
+delete process.env.DEMO_MODE;
+
 async function main() {
   if (!process.env.DATABASE_URL) throw new Error("DATABASE_URL is required");
   const slackBodies: string[] = [];
@@ -141,6 +148,76 @@ async function main() {
       "Access for the credit note is the invoice's: a valid token, the signed-in owner or an admin; a wrong or missing token and a stranger are out",
       "decideOrderAccess matrix wrong",
     );
+
+    // ── 1b. The restock record is the order line, not the document ────────
+    // A refund that puts a returned unit back on the shelf leaves the credit note's lines clean and counts the unit
+    // on OrderItem.restockedQty (migration 20261009120000; before it the record rode on the first printed line).
+    const returned = await mkOrder({ status: "SHIPPED", qty: 2, price: 20, tracking: true });
+    const ret = await inv.recordRefund(returned.order.id, { amountEur: 20, idempotencyKey: "qa-cn-returned-1", restock: [{ partId: returned.part.id, quantity: 1 }], notifyCustomer: false });
+    const retNote = (await inv.getCreditNotesForOrder(returned.order.id))[0];
+    const retRow = await prisma.creditNote.findFirstOrThrow({ where: { invoice: { orderId: returned.order.id } }, select: { linesJson: true } });
+    const retItem = await prisma.orderItem.findFirstOrThrow({ where: { orderId: returned.order.id }, select: { restockedQty: true } });
+    check(
+      ret.ok && ret.restockedUnits === 1 && !!retNote && retNote.lines.length === 1 && retNote.lines.every((l) => l.restock === undefined) && !/"restock"/.test(retRow.linesJson) && retItem.restockedQty === 1,
+      "A refund with a returned unit: the credit note's lines carry no restock key (document and raw linesJson alike); the order line counts the unit (restockedQty 1)",
+      `Restock on the document: ${JSON.stringify([ret, retRow.linesJson, retItem])}`,
+    );
+    {
+      // Notes issued before the migration carried the record on their first line; the export strips exactly that.
+      const legacy = JSON.stringify([
+        { sku: "", name: "Gedeeltelijke creditering van factuur 2026-00001", quantity: 1, unitPriceEur: 7.5, lineTotalEur: 7.5, restock: [{ partId: "p1", quantity: 1 }] },
+        { sku: "X", name: "Verzendkosten", quantity: 1, unitPriceEur: 5.95, lineTotalEur: 5.95 },
+      ]);
+      const stripped = JSON.parse(inv.stripLegacyRestock(legacy)) as Array<Record<string, unknown>>;
+      const clean = JSON.stringify([{ sku: "", name: "Aanvullende creditering", quantity: 1, unitPriceEur: 1, lineTotalEur: 1 }]);
+      const untouched = ["not json", '{"restock":[1]}', '[null, 1, "x"]', clean];
+      check(
+        stripped.length === 2 && !("restock" in stripped[0]) && stripped[0].name === "Gedeeltelijke creditering van factuur 2026-00001" && stripped[0].lineTotalEur === 7.5 && JSON.stringify(stripped[1]) === JSON.stringify(JSON.parse(legacy)[1]) &&
+          untouched.every((s) => inv.stripLegacyRestock(s) === s),
+        "stripLegacyRestock: removes the legacy restock key from a line and keeps every other field; a clean note, a non-array, odd entries and non-JSON come back byte for byte",
+        `stripLegacyRestock: ${inv.stripLegacyRestock(legacy)} / ${untouched.map((s) => inv.stripLegacyRestock(s) === s).join(",")}`,
+      );
+    }
+    {
+      // The customer's own export (AVG art. 15/20) hands out the credit notes as documents: a note from before the
+      // migration loses its restock annotation, a new note is passed on exactly as stored.
+      const auth = await import("../src/lib/auth");
+      const { NextRequest } = await import("next/server");
+      const exportRoute = await import("../src/app/api/account/data-export/route");
+      const clerkId = `user_qa_cn_export_${Date.now()}`;
+      const account = await prisma.user.create({ data: { email: `export@${DOMAIN}`, name: "QA Export", clerkId } });
+      const exp = await mkOrder({ status: "SHIPPED", qty: 2, price: 20, tracking: true });
+      await prisma.order.update({ where: { id: exp.order.id }, data: { userId: account.id, refundedEur: 5 } });
+      const expInvoice = await prisma.invoice.findUniqueOrThrow({ where: { orderId: exp.order.id } });
+      // As the code before the migration wrote it: the restock record on the first printed line.
+      const legacyLines = JSON.stringify([{ sku: "", name: `Gedeeltelijke creditering van factuur ${expInvoice.number}`, quantity: 1, unitPriceEur: 5, lineTotalEur: 5, restock: [{ partId: exp.part.id, quantity: 1 }] }]);
+      const legacyNumber = `CN-2999-${String(Date.now() % 100000).padStart(5, "0")}`;
+      await prisma.creditNote.create({
+        data: { number: legacyNumber, year: 2999, invoiceId: expInvoice.id, reason: "legacy", subtotalEur: 4.13, vatRate: 0.21, vatEur: 0.87, totalEur: 5, sellerJson: expInvoice.sellerJson, buyerJson: expInvoice.buyerJson, linesJson: legacyLines },
+      });
+      const fresh = await inv.recordRefund(exp.order.id, { amountEur: 10, idempotencyKey: "qa-cn-export-fresh", restock: [{ partId: exp.part.id, quantity: 1 }], notifyCustomer: false });
+      auth._setIdentityReaderForTests(async () => ({ clerkId, email: account.email, emailVerified: true, name: "QA Export" }));
+      let exported: { creditNotes?: Array<{ number: string; linesJson: string }> } = {};
+      let status = 0;
+      try {
+        const res = await exportRoute.GET(new NextRequest("http://localhost/api/account/data-export"));
+        status = res.status;
+        exported = JSON.parse(await res.text());
+      } finally {
+        auth._setIdentityReaderForTests(null);
+      }
+      const notes = exported.creditNotes ?? [];
+      const legacyOut = notes.find((n) => n.number === legacyNumber);
+      const freshOut = notes.find((n) => fresh.ok && n.number === fresh.creditNote.number);
+      const freshRow = fresh.ok ? await prisma.creditNote.findUniqueOrThrow({ where: { number: fresh.creditNote.number }, select: { linesJson: true } }) : null;
+      const legacyParsed = legacyOut ? (JSON.parse(legacyOut.linesJson) as Array<Record<string, unknown>>) : [];
+      check(
+        status === 200 && notes.length === 2 && !!legacyOut && legacyParsed.length === 1 && !("restock" in legacyParsed[0]) && legacyParsed[0].lineTotalEur === 5 && typeof legacyParsed[0].name === "string" &&
+          !!freshOut && freshRow !== null && freshOut.linesJson === freshRow.linesJson && !/"restock"/.test(freshOut.linesJson),
+        "Data export: both credit notes are there; the pre-migration note's linesJson is handed out WITHOUT its restock annotation (the other fields intact), the new note's linesJson exactly as stored",
+        `Export credit notes (${status}): ${JSON.stringify(notes.map((n) => [n.number, n.linesJson]))} fresh ${JSON.stringify(fresh.ok ? fresh.creditNote.number : fresh)}`,
+      );
+    }
 
     // D2: the cart evaluation (checkout lines and the 409 cart_changed answer) never hands out a placeholder tile as a photo.
     {

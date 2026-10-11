@@ -1,27 +1,22 @@
 /**
- * Safety net for Stripe orders whose webhook never arrived. Needs
+ * Safety net for Stripe orders whose webhook never arrived, run alone. Needs
  * `Authorization: Bearer <CRON_SECRET>`.
  *
- * INTENDED SCHEDULE: every 15 minutes (cron expression with step 15 in the minute field); bundle S6
- * writes vercel.json from this header. NOT VERIFIED: whether the hosting plan allows a cron this
- * often (see the note in ../orders/route.ts); check before copying it. On a slower schedule the route
- * does the same work later: a customer who paid while the webhook was down stays PENDING until the
- * next run. A BLOCKER for the Stripe bundle: without any run, that customer stays PENDING forever. Wires
- * reconcilePendingStripeOrders() from src/app/api/stripe/_lib/reconcile.ts; it
- * only looks at orders older than RECONCILE_MIN_AGE_MS there and does nothing
- * without a Stripe client.
+ * NOT SCHEDULED by vercel.json: /api/cron/daily runs this job as its last step
+ * (see ../_lib/runner.ts). This route stays for a hand run, an external
+ * scheduler, or a 15-minute schedule on a plan that allows one (NOT VERIFIED
+ * which plans do; check before adding it to vercel.json, a schedule the plan
+ * refuses can fail the deployment). The job is ../_lib/jobs/stripe-reconcile.ts.
  */
-import { runCron } from "../_lib/auth";
-import { reconcilePendingStripeOrders } from "@/app/api/stripe/_lib/reconcile";
+import { runCronJob } from "../_lib/runner";
+import { stripeReconcileJob } from "../_lib/jobs/stripe-reconcile";
 
 export const dynamic = "force-dynamic";
 export const maxDuration = 60;
 
-const job = async () => ({ result: await reconcilePendingStripeOrders() });
-
 export async function GET(req: Request) {
-  return runCron(req, "stripe-reconcile", job);
+  return runCronJob(req, stripeReconcileJob);
 }
 export async function POST(req: Request) {
-  return runCron(req, "stripe-reconcile", job);
+  return runCronJob(req, stripeReconcileJob);
 }

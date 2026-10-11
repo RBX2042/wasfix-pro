@@ -1,0 +1,152 @@
+name: Deploy
+
+# Production deploy to Vercel from GitHub Actions, without the Vercel Git
+# integration (which may not be linked to this repository). It runs when the CI
+# workflow has finished successfully on main, and by hand (workflow_dispatch from
+# main), and it deploys only when the three repository secrets VERCEL_TOKEN,
+# VERCEL_ORG_ID and VERCEL_PROJECT_ID are set; without them it skips with a note
+# in the job summary and stays green.
+#
+# The order inside scripts/deploy/run.sh is the point of this workflow:
+#   vercel pull -> migrate -> preflight (offline) -> vercel build -> vercel deploy -> preflight --url
+# A NOT READY preflight stops the job before anything is built; a failing probe
+# of the live site afterwards fails the job even though the deploy has happened.
+# The shell logic lives in scripts/deploy/*.sh so scripts/qa-deploy.ts can run it
+# with a fake `vercel` and a fake `npm` in CI.
+#
+# NOT verified: this workflow has never been run against a real Vercel project
+# from where it was written (no network, no token). README.md ("Deployen") says
+# what to watch in the first run.
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read # checkout, git ls-remote
+  actions: read # scripts/deploy/check-ci.sh lists the CI runs of the commit
+
+# Two deploys never run at once; a running one is never cancelled half-way (it
+# would leave the database migrated for a build that was not uploaded). A newer
+# run waits. GitHub keeps at most one run waiting per group and cancels the
+# older waiting one; because CI runs finish in any order, the cancelled run can
+# be the one for the TIP of main. That is why scripts/deploy/check-ref.sh makes
+# a run whose own commit is no longer the tip deploy the tip instead (when the
+# tip's CI is green), rather than skip: a skip could leave main undeployed.
+concurrency:
+  group: production-deploy
+  cancel-in-progress: false
+
+env:
+  NEXT_TELEMETRY_DISABLED: 1
+
+jobs:
+  deploy:
+    name: Production (Vercel)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    # Only the CI run of a PUSH to main of this repository, and only a green one.
+    # A pull_request run from a fork whose branch happens to be called "main" has
+    # head_branch == 'main' too; the event and repository tests keep it out.
+    # By hand: from main only; check-ci.sh then verifies CI succeeded for that commit.
+    # One folded line: every continuation at the same indentation, so YAML joins
+    # them with spaces (a more-indented line would keep its newline).
+    if: >-
+      (github.event_name == 'workflow_run'
+      && github.event.workflow_run.conclusion == 'success'
+      && github.event.workflow_run.event == 'push'
+      && github.event.workflow_run.head_branch == 'main'
+      && github.event.workflow_run.head_repository.full_name == github.repository)
+      || (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main')
+    env:
+      # The secrets reach the scripts as environment only. GitHub masks their
+      # values in the log; the scripts never print them anyway.
+      VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+      VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID }}
+      # The commit to deploy: the one CI tested (workflow_run), or the tip of
+      # main at the time of the dispatch.
+      DEPLOY_SHA: ${{ github.event.workflow_run.head_sha || github.sha }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+
+      # Gate 1. Secrets cannot be read in a job-level `if:`, so a step decides and
+      # every later step tests its output. Missing secrets: skip, exit 0.
+      - name: Are the Vercel secrets set?
+        id: secrets
+        run: bash scripts/deploy/check-secrets.sh
+
+      # Gate 2. Deploys queue up and CI runs finish in any order; an older commit
+      # must never be deployed after a newer one (a silent rollback). Outputs:
+      # current (is DEPLOY_SHA still the tip of main?) and sha (the commit to
+      # deploy: DEPLOY_SHA, or the tip when main has moved on; see the
+      # concurrency note above for why the tip is deployed rather than skipped).
+      - name: Which commit, this one or the tip of main?
+        id: ref
+        if: steps.secrets.outputs.configured == 'true'
+        run: bash scripts/deploy/check-ref.sh "$DEPLOY_SHA" main
+
+      - uses: actions/setup-node@v4
+        if: steps.secrets.outputs.configured == 'true'
+        with:
+          node-version: 22
+          cache: npm
+
+      # Gate 3. The most recent CI run of the commit to deploy must be a success.
+      # The workflow_run trigger guarantees that for the run's own commit; a
+      # dispatch and the tip of main are checked here. Not green: fail, or, when
+      # this run stands in for a newer tip: skip (exit 0, green=false). The tip
+      # is then deployed by the next GREEN CI run on main (the running one when
+      # it finishes, or the one after a fix): a red CI run never triggers this
+      # workflow, and a dispatch of a red commit is refused by this gate.
+      # Outputs: green.
+      # Step outputs reach the script as environment, never inlined in `run:`.
+      - name: Did CI succeed for the commit to deploy?
+        id: ci
+        if: steps.secrets.outputs.configured == 'true'
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          DEPLOY_TARGET: ${{ steps.ref.outputs.sha }}
+          STALE_RUN: ${{ steps.ref.outputs.current == 'false' }}
+        run: bash scripts/deploy/check-ci.sh "$DEPLOY_TARGET"
+
+      # Only when this run's own commit is older than the tip: the working tree
+      # becomes the tip, so that npm ci, the migrations, the preflight and the
+      # build all come from the commit that is deployed.
+      - name: Check out the tip of main (only when this run's commit is older)
+        if: steps.ci.outputs.green == 'true' && steps.ref.outputs.current == 'false'
+        env:
+          DEPLOY_TARGET: ${{ steps.ref.outputs.sha }}
+        run: bash scripts/deploy/checkout-tip.sh "$DEPLOY_TARGET"
+
+      # From here on every step is conditional on the CI gate, which only ran
+      # (and only says true) when the secrets gate said true.
+      # The migrations (prisma, tsx) and the preflight (tsx, src/lib/*) run from
+      # this checkout, so the dependencies are needed here as well as in the
+      # Vercel build.
+      - name: Install dependencies
+        if: steps.ci.outputs.green == 'true'
+        run: npm ci
+
+      # Unpinned on purpose: no CLI version could be verified from where this
+      # was written. After the first successful run, pin the version that worked
+      # (npm i -g vercel@<that version>) so a CLI release cannot change a deploy.
+      - name: Install the Vercel CLI
+        if: steps.ci.outputs.green == 'true'
+        run: npm i -g vercel@latest
+
+      - name: Pull, migrate, preflight, build, deploy, probe
+        id: pipeline
+        if: steps.ci.outputs.green == 'true'
+        run: bash scripts/deploy/run.sh
+
+      # run.sh removes .vercel/ itself on every exit; this covers a run that the
+      # runner killed (timeout), where no trap runs. Always, also after a skip.
+      - name: Remove the pulled settings and variables
+        if: always()
+        run: rm -rf .vercel

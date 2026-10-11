@@ -493,7 +493,12 @@ async function main() {
       await settle();
       const after = await prisma.rmaRequest.findUniqueOrThrow({ where: { id: rma.id } });
       const notes = await inv.getCreditNotesForOrder(o.order.id);
-      check(rf1.ok && after.status === "REFUNDED" && after.refundEur === 40 && after.resolvedAt !== null && notes.length === 1 && (await row(o.order.id)).refundedEur === 40 && (await o.stockNow()) === stockBefore + 2, `Refund RMA (x2 at once): REFUNDED with refundEur and resolvedAt, ONE credit note (${notes[0]?.number}), order refundedEur 40, 2 units restocked`, `RMA refund: ${JSON.stringify([rf1, rf2])} status ${after.status}, notes ${notes.length}`);
+      // Two concurrent submits finish in either order: exactly one of them BOOKS the note ("Creditnota ... uitgegeven"); the
+      // other is either answered as the same booking ("al geboekt", the form's idempotency key) or refused. Which one is
+      // which is not fixed, so neither rf1 nor rf2 is assumed to be the winner.
+      const bookedRma = [rf1, rf2].filter((r) => r.ok && /Creditnota .* uitgegeven/.test(r.message ?? ""));
+      const otherRma = [rf1, rf2].find((r) => !bookedRma.includes(r));
+      check(bookedRma.length === 1 && !!otherRma && (!otherRma.ok || /al geboekt/.test(otherRma.message ?? "")) && after.status === "REFUNDED" && after.refundEur === 40 && after.resolvedAt !== null && notes.length === 1 && (await row(o.order.id)).refundedEur === 40 && (await o.stockNow()) === stockBefore + 2, `Refund RMA (x2 at once): exactly one submit books it (the other replays it as 'al geboekt' or is refused), REFUNDED with refundEur and resolvedAt, ONE credit note (${notes[0]?.number}), order refundedEur 40, 2 units restocked`, `RMA refund: ${JSON.stringify([rf1, rf2])} status ${after.status}, notes ${notes.length}`);
       check(mails.some((m) => m.to.includes(o.order.email) && /terugbetaling|creditnota/i.test(m.subject + m.html)), "Refund e-mails the customer (credit note number)", `Refund mail missing: ${mails.map((m) => m.subject)}`);
       const unlinked = ghostRow!;
       const rr = await rmaAct.refundRmaAction(null, fd({ id: unlinked.id, amount: "1,00", expectedRefundedEur: "0" }));
@@ -554,15 +559,20 @@ async function main() {
       const retRoute = await import("../src/app/api/cron/retention/route");
       const subsRoute = await import("../src/app/api/cron/stripe-subscriptions/route");
       const recRoute = await import("../src/app/api/cron/stripe-reconcile/route");
+      const dailyRoute = await import("../src/app/api/cron/daily/route");
       const authMod = await import("../src/app/api/cron/_lib/auth");
+      const runner = await import("../src/app/api/cron/_lib/runner");
+      const { DAILY_JOBS } = await import("../src/app/api/cron/_lib/daily-jobs");
+      const { reconcileBudgetMs, RECONCILE_BUDGET_MS } = await import("../src/app/api/cron/_lib/jobs/stripe-reconcile");
+      const { RECONCILE_DEFAULT_BUDGET_MS } = await import("../src/app/api/stripe/_lib/reconcile");
       const call = async (route: { GET: (r: Request) => Promise<Response> }, auth?: string) => {
         const res = await route.GET(new Request("http://localhost/api/cron/x", { headers: auth ? { authorization: auth } : {} }));
-        return { status: res.status, json: (await res.json()) as Record<string, any> };  
+        return { status: res.status, json: (await res.json()) as Record<string, any> };
       };
       const secret = process.env.CRON_SECRET!;
 
-      // Guard
-      const routes = { orders: ordersRoute, retention: retRoute, "stripe-subscriptions": subsRoute, "stripe-reconcile": recRoute };
+      // Guard (the four single-job routes and the one scheduled route, bundle C)
+      const routes = { orders: ordersRoute, retention: retRoute, "stripe-subscriptions": subsRoute, "stripe-reconcile": recRoute, daily: dailyRoute };
       let guardOk = true;
       for (const [name, route] of Object.entries(routes)) {
         const none = await call(route);
@@ -572,18 +582,173 @@ async function main() {
         const bare = await call(route, secret);
         if (![none, wrong, prefix, basic, bare].every((x) => x.status === 401)) { guardOk = false; log.push(`❌ Cron ${name}: unauthenticated calls not all 401: ${[none, wrong, prefix, basic, bare].map((x) => x.status)}`); }
       }
-      if (guardOk) check(true, "Cron guard: all 4 routes answer 401 to no header, a wrong secret, a prefix of the secret, Basic auth and a bare secret", "");
+      if (guardOk) check(true, "Cron guard: all 5 routes (the four jobs and daily) answer 401 to no header, a wrong secret, a prefix of the secret, Basic auth and a bare secret", "");
       check(authMod.refuseUnlessCron(new Request("http://x/", { headers: { authorization: `Bearer ${secret}` } }), null)?.status === 503, "Cron guard: with CRON_SECRET unset even the 'right' header is refused (503)", "Cron guard: accepted with no secret configured");
       const cronProbe = path.join(tmpdir(), `qa-admin-cron-${process.pid}.ts`);
-      writeFileSync(cronProbe, `import { GET } from "${ROOT}/src/app/api/cron/orders/route";\nGET(new Request("http://x/", { headers: { authorization: "Bearer anything" } })).then((r) => { console.log("STATUS=" + r.status); process.exit(0); });\n`);
+      writeFileSync(cronProbe, `import { GET } from "${ROOT}/src/app/api/cron/orders/route";\nimport { GET as DAILY } from "${ROOT}/src/app/api/cron/daily/route";\nconst h = { headers: { authorization: "Bearer anything" } };\nPromise.all([GET(new Request("http://x/", h)), DAILY(new Request("http://x/", h))]).then(([a, b]) => { console.log("STATUS=" + a.status + " DAILY=" + b.status); process.exit(0); });\n`);
       const noSecret = spawnSync("npx", ["tsx", cronProbe], { cwd: ROOT, encoding: "utf8", env: { ...process.env, CRON_SECRET: "" } });
       unlinkSync(cronProbe);
-      check(/STATUS=503/.test(noSecret.stdout), "Cron route imported with CRON_SECRET unset: refuses everything (503)", `No-secret probe: ${noSecret.stdout.slice(-200)} ${noSecret.stderr.slice(-200)}`);
+      check(/STATUS=503 DAILY=503/.test(noSecret.stdout), "Cron routes (orders and daily) imported with CRON_SECRET unset: refuse everything (503)", `No-secret probe: ${noSecret.stdout.slice(-200)} ${noSecret.stderr.slice(-200)}`);
       const ok = await call(ordersRoute, `Bearer ${secret}`);
       check(ok.status === 200 && ok.json.ok === true && typeof ok.json.expiry?.cancelled === "number" && typeof ok.json.reminders === "object", `Cron orders with the secret: 200 and JSON counts (${JSON.stringify({ expiry: ok.json.expiry, abandoned: ok.json.abandonedStripe })})`, `Cron orders ok-call: ${JSON.stringify(ok)}`);
       const sub = await call(subsRoute, `Bearer ${secret}`);
       const rec = await call(recRoute, `Bearer ${secret}`);
       check(sub.status === 200 && sub.json.ok && rec.status === 200 && rec.json.ok && rec.json.result?.checked === 0, "Cron stripe-subscriptions and stripe-reconcile are wired: 200 with their counts", `Stripe crons: ${JSON.stringify([sub, rec])}`);
+
+      // Bundle C: ONE scheduled route (/api/cron/daily) runs the four jobs in order and reports per job, so the
+      // cron configuration fits every plan. The single-job routes above stay for hand runs.
+      const daily = await call(dailyRoute, `Bearer ${secret}`);
+      const dailyNames = ((daily.json.jobs ?? []) as Array<{ job: string }>).map((j) => j.job);
+      check(daily.status === 200 && daily.json.ok === true && daily.json.job === "daily" && dailyNames.join(" -> ") === "orders -> retention -> stripe-subscriptions -> stripe-reconcile" && daily.json.jobs.every((j: any) => j.status === "ok" && typeof j.ms === "number") && daily.json.failed.length === 0 && daily.json.skipped.length === 0 && typeof daily.json.ms === "number" && daily.json.budgetMs === runner.DAILY_BUDGET_MS, `Cron daily with the secret: 200, ok, the four jobs in order (${dailyNames.join(" -> ")}), each with status ok and a duration`, `Cron daily: ${JSON.stringify(daily)}`);
+      const byName: Record<string, any> = Object.fromEntries(((daily.json.jobs ?? []) as Array<{ job: string; result?: unknown }>).map((j) => [j.job, j.result ?? {}]));
+      check(typeof byName.orders?.expiry?.cancelled === "number" && typeof byName.orders?.reminders === "object" && typeof byName.orders?.abandonedStripe?.cancelled === "number" && typeof byName.retention?.ipCountersDeleted === "number" && typeof byName["stripe-subscriptions"]?.result?.lapsed === "number" && byName["stripe-reconcile"]?.result?.checked === 0, "Cron daily: each job's result has the shape its standalone route answers with (orders counts, retention counts, subscription and reconcile results)", `Cron daily results: ${JSON.stringify(byName)}`);
+      check(DAILY_JOBS.map((j) => j.name).join(",") === "orders,retention,stripe-subscriptions,stripe-reconcile" && reconcileBudgetMs(runner.DAILY_BUDGET_MS) === RECONCILE_BUDGET_MS && RECONCILE_BUDGET_MS === RECONCILE_DEFAULT_BUDGET_MS && RECONCILE_DEFAULT_BUDGET_MS === 20_000 && reconcileBudgetMs(12_000) < 12_000 && reconcileBudgetMs(12_000) >= 1_000 && reconcileBudgetMs(0) >= 1_000, "Cron daily: the job list is the four jobs in priority order; the reconcile job's Stripe scan fits what is left (full budget -> reconcile.ts's own default of 20 s, one constant; 12 s left -> under 12 s, never below 1 s)", `DAILY_JOBS ${DAILY_JOBS.map((j) => j.name)} reconcile ${reconcileBudgetMs(runner.DAILY_BUDGET_MS)} / ${reconcileBudgetMs(12_000)} / ${reconcileBudgetMs(0)} default ${RECONCILE_DEFAULT_BUDGET_MS}`);
+
+      // The pure runner with fake jobs and a fake clock: isolation, order, budget, notifications.
+      {
+        const failures: Array<{ job: string; message: string }> = [];
+        const skips: Array<{ skipped: string[]; elapsedMs: number; budgetMs: number }> = [];
+        const quiet = { error: () => undefined, warn: () => undefined };
+        const hooks = {
+          notifyFailure: async (err: unknown, job: string) => { failures.push({ job, message: err instanceof Error ? err.message : String(err) }); },
+          notifySkipped: async (skipped: string[], info: { elapsedMs: number; budgetMs: number }) => { skips.push({ skipped, ...info }); },
+          log: quiet,
+        };
+        const ran: string[] = [];
+        const fakeJob = (name: string, body?: () => Promise<Record<string, unknown>>) => ({ name, run: async () => { ran.push(name); return body ? body() : { did: name }; } });
+        // 1. Two throw (an Error and a bare string); the others still run, in order; the result marks them failed without the message.
+        const r1 = await runner.runDailyJobs([fakeJob("a"), fakeJob("b", async () => { throw new Error("qa boom b"); }), fakeJob("c"), fakeJob("d", async () => { throw "qa string d"; })], hooks);
+        const okShape = r1.jobs.every((j) => j.status !== "ok" || (typeof j.ms === "number" && (j.result as { did?: string }).did === j.job));
+        check(ran.join(",") === "a,b,c,d" && r1.jobs.map((j) => `${j.job}:${j.status}`).join(",") === "a:ok,b:failed,c:ok,d:failed" && r1.ok === false && r1.failed.join(",") === "b,d" && r1.skipped.length === 0 && okShape && (r1.jobs[1] as { error?: string }).error === "job_failed" && !JSON.stringify(r1).includes("qa boom"), "Daily runner: a throwing job (an Error or a bare string) is recorded as failed without its message in the result, and every later job still runs, in order", `Runner isolation: ${JSON.stringify(r1)} ran ${ran}`);
+        check(failures.length === 2 && failures[0].job === "b" && failures[0].message === "qa boom b" && failures[1].job === "d" && failures[1].message === "qa string d" && skips.length === 0, "Daily runner: the owner is told once per failed job, naming the job", `Runner failure notices: ${JSON.stringify(failures)} skips ${JSON.stringify(skips)}`);
+        // 2. The budget: a fake clock that the first job advances by 45 of the 50 s; the rest is skipped, reported once, the run is not ok.
+        ran.length = 0; failures.length = 0; skips.length = 0;
+        let clock = 1_000_000;
+        const r2 = await runner.runDailyJobs([fakeJob("a", async () => { clock += 45_000; return { did: "a" }; }), fakeJob("b"), fakeJob("c")], { ...hooks, budgetMs: 50_000, minJobMs: 10_000, now: () => clock });
+        const sk = r2.jobs[1] as { reason?: string; remainingMs?: number };
+        check(ran.join(",") === "a" && r2.ok === false && r2.skipped.join(",") === "b,c" && r2.failed.length === 0 && r2.jobs.map((j) => `${j.job}:${j.status}`).join(",") === "a:ok,b:skipped,c:skipped" && sk.reason === "budget_exhausted" && sk.remainingMs === 5_000 && (r2.jobs[0] as { ms?: number }).ms === 45_000 && r2.ms === 45_000 && r2.budgetMs === 50_000, "Daily runner: with 5 s of the 50 s budget left (minimum 10 s per job) the remaining jobs are not started, recorded as skipped with the reason and the time left, and the run is not ok", `Runner budget: ${JSON.stringify(r2)} ran ${ran}`);
+        check(skips.length === 1 && skips[0].skipped.join(",") === "b,c" && skips[0].elapsedMs === 45_000 && skips[0].budgetMs === 50_000 && failures.length === 0, "Daily runner: the owner is told ONCE which jobs were skipped", `Runner skip notices: ${JSON.stringify(skips)}`);
+        // 3. Exactly the minimum left still starts the next job; the check is before each job, so a job that overruns is finished, not cut off.
+        ran.length = 0; skips.length = 0; clock = 0;
+        const r3 = await runner.runDailyJobs([fakeJob("a", async () => { clock += 40_000; return {}; }), fakeJob("b", async () => { clock += 30_000; return {}; }), fakeJob("c")], { ...hooks, budgetMs: 50_000, minJobMs: 10_000, now: () => clock });
+        check(ran.join(",") === "a,b" && r3.jobs[1].status === "ok" && r3.jobs[2].status === "skipped" && (r3.jobs[2] as { remainingMs?: number }).remainingMs === 0 && skips.length === 1 && r3.ms === 70_000, "Daily runner: 10 s left starts the next job (the minimum is inclusive); the budget check is before each job (a job that overruns its fake clock is still recorded ok, the real cut-off is below), and the time left is reported as 0, never negative", `Runner boundary: ${JSON.stringify(r3)}`);
+        // 4. The default notifications reach the owner's channel (the fake Slack) and name the job.
+        slackBodies.length = 0;
+        const stamp = Date.now();
+        const r4 = await runner.runDailyJobs([fakeJob("fake-a"), fakeJob("fake-b", async () => { throw new Error(`qa daily failure ${stamp}`); })], { log: quiet });
+        await settle();
+        const told = slackTexts().filter((t) => t.includes(`qa daily failure ${stamp}`));
+        check(r4.ok === false && told.length === 1 && /Fout in cron fake-b/.test(told[0]) && /runner=daily/.test(told[0]), "Daily runner: by default a failed job reaches the owner through notifyError (Slack here), titled with the job name", `Runner e2e notice: ${JSON.stringify(slackTexts())}`);
+        slackBodies.length = 0;
+        clock = 0;
+        const r5 = await runner.runDailyJobs([fakeJob("fake-c", async () => { clock += 49_000; return {}; }), fakeJob("stripe-reconcile")], { log: quiet, budgetMs: 50_000, minJobMs: 10_000, now: () => clock });
+        await settle();
+        const toldSkip = slackTexts().filter((t) => /Dagelijkse taken niet afgemaakt/.test(t));
+        check(r5.skipped.join(",") === "stripe-reconcile" && toldSkip.length === 1 && /stripe-reconcile/.test(toldSkip[0]) && /morgen/.test(toldSkip[0]) && /\/api\/cron\/stripe-reconcile/.test(toldSkip[0]) && /LET OP/.test(toldSkip[0]), "Daily runner: by default the skip notice reaches the owner once (warn level), names the skipped job, says it is not retried before tomorrow and gives the path to run it by hand", `Runner e2e skip notice: ${JSON.stringify(toldSkip)}`);
+        // 5. A notification hook that throws does not break the run.
+        const r6 = await runner.runDailyJobs([fakeJob("x", async () => { throw new Error("qa x"); }), fakeJob("y")], { ...hooks, notifyFailure: async () => { throw new Error("channel down"); } });
+        check(r6.ok === false && r6.failed.join(",") === "x" && r6.jobs.map((j) => j.status).join(",") === "failed,ok", "Daily runner: a notification that throws does not break the run", `Runner notify-throws: ${JSON.stringify(r6)}`);
+        // 6. The HTTP wrapper the daily route delegates to, with fake jobs: 500 with the per-job detail when a job fails, 200 when all ran, 401 without the secret (and then nothing runs).
+        const withSecret = () => new Request("http://x/api/cron/daily", { headers: { authorization: `Bearer ${secret}` } });
+        ran.length = 0;
+        const bad = await runner.runDailyCron(withSecret(), [fakeJob("p"), fakeJob("q", async () => { throw new Error(`qa daily 500 ${stamp}`); }), fakeJob("r")]);
+        const badJson = (await bad.json()) as Record<string, any>;
+        check(bad.status === 500 && badJson.ok === false && badJson.job === "daily" && badJson.failed.join(",") === "q" && badJson.jobs.map((j: any) => `${j.job}:${j.status}`).join(",") === "p:ok,q:failed,r:ok" && !JSON.stringify(badJson).includes("qa daily 500") && bad.headers.get("cache-control") === "no-store" && ran.join(",") === "p,q,r", "Daily route: when a job fails the answer is 500 with the per-job detail and without the error text (so the platform's cron log shows the day as failed), no-store", `Daily 500: ${bad.status} ${JSON.stringify(badJson)} ran ${ran}`);
+        const good = await runner.runDailyCron(withSecret(), [fakeJob("p")]);
+        const goodJson = (await good.json()) as Record<string, any>;
+        ran.length = 0;
+        const unauth = await runner.runDailyCron(new Request("http://x/api/cron/daily"), [fakeJob("p")]);
+        check(good.status === 200 && goodJson.ok === true && goodJson.jobs[0].status === "ok" && unauth.status === 401 && ran.length === 0, "Daily route: 200 when every job ran OK; 401 without the secret, and then no job runs", `Daily 200/401: ${good.status} ${JSON.stringify(goodJson)} / ${unauth.status} ran ${ran}`);
+      }
+
+      // Reviewer (bundle C repair, P2): a job must never run the function into the platform's 60 s kill (no response,
+      // no notice, the later jobs lost for the day). The runner caps each job at what is left minus the minimum for
+      // every later job, gives up on a job that overruns its cap, and the orders job fits ITSELF inside its cap.
+      {
+        const failures: Array<{ job: string; message: string }> = [];
+        const skips: string[][] = [];
+        const logged: string[] = [];
+        const hooks = {
+          notifyFailure: async (err: unknown, job: string) => { failures.push({ job, message: err instanceof Error ? err.message : String(err) }); },
+          notifySkipped: async (skipped: string[]) => { skips.push(skipped); },
+          log: { error: (msg: string) => { logged.push(msg); }, warn: (msg: string) => { logged.push(msg); } },
+        };
+        const seen: Array<{ job: string; remainingMs: number }> = [];
+        // 1. The standalone wrapper hands its job the WHOLE budget (the reviewer's probe: /api/cron/stripe-reconcile
+        //    alone must still scan for its usual 20 s, which it derives from this number).
+        const probeRes = await runner.runCronJob(new Request("http://x/api/cron/probe", { headers: { authorization: `Bearer ${secret}` } }), { name: "probe", run: async (ctx) => { seen.push({ job: "probe", remainingMs: ctx.remainingMs }); return { probed: true }; } });
+        const probeJson = (await probeRes.json()) as Record<string, unknown>;
+        check(probeRes.status === 200 && probeJson.ok === true && probeJson.job === "probe" && probeJson.probed === true && seen.length === 1 && seen[0].remainingMs === runner.DAILY_BUDGET_MS, "Standalone route wrapper: the job gets the whole 50 s budget (so /api/cron/stripe-reconcile alone keeps its 20 s Stripe scan)", `runCronJob budget: ${JSON.stringify(seen)} ${JSON.stringify(probeJson)}`);
+        // 2. The cap arithmetic, fake clock: the first of four jobs gets budget - 3 x minimum; a quick job leaves its share
+        //    to the later ones; the last job gets everything left; a started job never gets less than the minimum.
+        seen.length = 0;
+        let clock = 0;
+        const timed = (name: string, takesMs: number) => ({ name, run: async (ctx: { remainingMs: number }) => { seen.push({ job: name, remainingMs: ctx.remainingMs }); clock += takesMs; return {}; } });
+        const r7 = await runner.runDailyJobs([timed("j1", 15_000), timed("j2", 5_000), timed("j3", 20_000), timed("j4", 0)], { ...hooks, budgetMs: 50_000, minJobMs: 10_000, now: () => clock });
+        check(r7.ok && seen.map((s) => `${s.job}:${s.remainingMs}`).join(",") === "j1:20000,j2:15000,j3:20000,j4:10000" && runner.jobBudgetMs(10_000, 2, 10_000) === 10_000 && runner.jobBudgetMs(50_000, 3, 10_000) === 20_000 && runner.jobBudgetMs(50_000, 0, 10_000) === 50_000, "Daily runner: each job is capped at what is left minus 10 s for every later job (the first of four gets 20 s, a quick job leaves its share to the next, the last gets all that is left), never below the 10 s minimum", `Runner caps: ${JSON.stringify(seen)} ${JSON.stringify(r7)}`);
+        // 3. The cut-off, REAL timers: budget 1.5 s, minimum 0.3 s, three jobs. The first is capped at 0.9 s and does not
+        //    settle in time: it is recorded as timed out (duration = the cap), the owner is told once by name, the two
+        //    later jobs still run, the whole run stays inside the budget, and the abandoned job's late failure is logged,
+        //    not thrown (an unhandled rejection would end this process).
+        seen.length = 0; failures.length = 0; skips.length = 0; logged.length = 0;
+        const ranCut: string[] = [];
+        //    Budget 3 s, minimum 0.6 s, so the cap of the first of three is 1.8 s and the slow job rejects at 2.4 s: 0.6 s of
+        //    tolerance for timer lateness on a busy CI runner (the same semantics at half these numbers flaked within 0.3 s).
+        const slow = { name: "slow", run: (ctx: { remainingMs: number }) => { ranCut.push("slow"); seen.push({ job: "slow", remainingMs: ctx.remainingMs }); return new Promise<Record<string, unknown>>((_, reject) => { setTimeout(() => reject(new Error("qa slow failed late")), 2_400); }); } };
+        const quick = (name: string) => ({ name, run: async () => { ranCut.push(name); return { did: name }; } });
+        const t0 = Date.now();
+        const r8 = await runner.runDailyJobs([slow, quick("f1"), quick("f2")], { ...hooks, budgetMs: 3_000, minJobMs: 600 });
+        const wall = Date.now() - t0;
+        const slowOut = r8.jobs[0] as { status: string; ms?: number; error?: string };
+        check(ranCut.join(",") === "slow,f1,f2" && r8.ok === false && r8.failed.join(",") === "slow" && r8.skipped.length === 0 && slowOut.status === "failed" && slowOut.error === "job_timed_out" && (slowOut.ms ?? 0) >= 1_700 && (slowOut.ms ?? 0) < 2_400 && r8.jobs[1].status === "ok" && r8.jobs[2].status === "ok" && seen[0].remainingMs >= 1_700 && seen[0].remainingMs <= 1_800 && wall < 3_000, "Daily runner: a job still running when its cap (1.8 s here) is spent is given up on: failed with error job_timed_out and the cap as its duration; the later jobs still run and the run ends inside the budget", `Runner cut-off: ${JSON.stringify(r8)} ran ${ranCut} wall ${wall} seen ${JSON.stringify(seen)}`);
+        check(failures.length === 1 && failures[0].job === "slow" && /job_timed_out/.test(failures[0].message) && /\/api\/cron\/slow/.test(failures[0].message) && skips.length === 0, "Daily runner: the owner is told once about the timed-out job, by name, with the path to run it by hand", `Cut-off notices: ${JSON.stringify(failures)} skips ${JSON.stringify(skips)}`);
+        await new Promise((r) => setTimeout(r, Math.max(0, 2_800 - (Date.now() - t0))));
+        check(logged.some((l) => /\[cron\] slow failed after the daily run gave up on it/.test(l)), "Daily runner: the abandoned job's late failure is logged and never becomes an unhandled rejection (this process is still here)", `Late failure log: ${JSON.stringify(logged)}`);
+
+        // 4. The orders job fits itself inside its cap: the three steps get deadlines derived from ctx.remainingMs
+        //    (fake steps watch what they are handed; a fake clock moves by each deadline), and a run that did not reach
+        //    everything is reported as truncated, to the result and to the owner.
+        const orders = await import("../src/app/api/cron/_lib/jobs/orders");
+        const got: { sweep?: { limit?: number; deadlineMs?: number }; abandoned?: { deadlineMs?: number }; reminders?: { deadlineMs?: number } } = {};
+        const notes: Array<{ level: string; lines: string[] }> = [];
+        let oclock = 0;
+        const remResult = (truncated: boolean) => ({ examined: 3, sentDue: 1, sentLast: 0, alreadySent: 0, failed: 0, gaveUp: 0, skippedNoMail: false, truncated });
+        const fakeOrders = (expiry: { examined: number; cancelled: number; failed: number; conflicts: number }, remTruncated: boolean) => orders.makeOrdersJob({
+          now: () => oclock,
+          releaseExpired: async (o) => { got.sweep = o; oclock += o?.deadlineMs ?? 0; return expiry; },
+          expireAbandoned: async (o) => { got.abandoned = o; oclock += o?.deadlineMs ?? 0; return { cancelled: 0, fulfilled: 0, left: 0 }; },
+          sendReminders: async (o) => { got.reminders = o; return remResult(remTruncated); },
+          notify: async (n) => { notes.push({ level: n.level ?? "info", lines: n.lines ?? [] }); return { configured: true, delivered: ["slack"], failed: [] }; },
+        });
+        const resT = await fakeOrders({ examined: 5, cancelled: 2, failed: 0, conflicts: 0 }, true).run({ remainingMs: 20_000 });
+        // 4 s reserve (the awaited owner summary can take notify's 3 s time-out): 16 s to split, sweep 8 s, then 8 s left of
+        // which the abandoned sweep gets two thirds (5333 ms), the reminders the remaining 2667 ms.
+        check(orders.ORDERS_RESERVE_MS === 4_000 && got.sweep?.limit === orders.EXPIRY_LIMIT && got.sweep?.deadlineMs === 8_000 && got.abandoned?.deadlineMs === 5_333 && got.reminders?.deadlineMs === 2_667 && resT.truncated === true, "Orders job: its 20 s cap as the first of four daily jobs is split (4 s reserve, which covers a 3 s notify time-out on the summary; the bank-transfer sweep up to 8 s, with the existing deadlineMs; the abandoned-order sweep up to 5.3 s; the reminders what is left, 2.7 s); a sweep that did not reach every examined order and a cut reminder loop are reported as truncated", `Orders split (20 s): ${JSON.stringify(got)} result ${JSON.stringify(resT)} reserve ${orders.ORDERS_RESERVE_MS}`);
+        check(notes.length === 1 && notes[0].level === "warn" && notes[0].lines.some((l) => /Niet alles paste in de 20 s/.test(l) && /annuleringen en herinneringen/.test(l) && /\/api\/cron\/orders/.test(l)), "Orders job: the owner summary (warn) says what did not fit and gives the curl to run the rest now", `Orders truncated notice: ${JSON.stringify(notes)}`);
+        oclock = 0; notes.length = 0;
+        const resN = await fakeOrders({ examined: 0, cancelled: 0, failed: 0, conflicts: 0 }, false).run({ remainingMs: runner.DAILY_BUDGET_MS });
+        check(got.sweep?.deadlineMs === 23_000 && got.abandoned?.deadlineMs === orders.ABANDONED_SWEEP_MS && got.reminders?.deadlineMs === 8_000 && resN.truncated === false && notes.length === 0, "Orders job on its standalone route (the whole 50 s): the sweep up to 23 s, the abandoned-order sweep its usual 15 s, the reminders the rest (8 s); nothing truncated and nothing to tell", `Orders split (50 s): ${JSON.stringify(got)} result ${JSON.stringify(resN)} notes ${notes.length}`);
+        oclock = 0;
+        await fakeOrders({ examined: 0, cancelled: 0, failed: 0, conflicts: 0 }, false).run({ remainingMs: 500 });
+        check(got.sweep?.deadlineMs === orders.ORDERS_STEP_FLOOR_MS && got.abandoned?.deadlineMs === orders.ORDERS_STEP_FLOOR_MS && got.reminders?.deadlineMs === orders.ORDERS_STEP_FLOOR_MS, "Orders job: even a budget below the reserve gives each step the 1 s floor", `Orders split (0.5 s): ${JSON.stringify(got)}`);
+
+        // 5. The reminders' deadline is cooperative, on the real database: a spent deadline stops BEFORE the first claim
+        //    (nothing sent, nothing claimed), so the next run still sends them; with time left both go out.
+        const { sendPaymentReminders: remind } = await import("../src/app/api/cron/_lib/reminders");
+        const dl1 = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -1, email: `deadline1@${DOMAIN}` });
+        const dl2 = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -2, email: `deadline2@${DOMAIN}` });
+        const dlKeys = [`${dl1.order.id}:due`, `${dl2.order.id}:due`];
+        mails.length = 0;
+        const cut = await remind({ deadlineMs: 0 });
+        await settle();
+        const claimedCut = await prisma.usageCounter.count({ where: { scope: "payment-reminder", key: { in: dlKeys } } });
+        check(cut.truncated === true && cut.examined >= 2 && cut.sentDue === 0 && cut.sentLast === 0 && claimedCut === 0 && mails.length === 0, "Reminders with a spent deadline: the loop stops before the first claim (nothing sent, nothing claimed, truncated reported), so nothing is lost", `Reminders cut: ${JSON.stringify(cut)} claimed ${claimedCut} mails ${mails.length}`);
+        mails.length = 0;
+        const full = await remind({ deadlineMs: 30_000 });
+        await settle();
+        const sentTo = (email: string) => mails.filter((m) => m.to.includes(email) && /herinnering/i.test(m.subject)).length;
+        check(full.truncated === false && full.sentDue >= 2 && sentTo(`deadline1@${DOMAIN}`) === 1 && sentTo(`deadline2@${DOMAIN}`) === 1 && (await prisma.usageCounter.count({ where: { scope: "payment-reminder", key: { in: dlKeys } } })) === 2, "Reminders with time left: both are sent and claimed, not truncated", `Reminders full: ${JSON.stringify(full)} mails ${mails.map((m) => m.to.join(","))}`);
+      }
 
       // A2-09: expiry with ZERO traffic (no checkout request in this process)
       const expired = await mkOrder({ status: "OPENSTAAND", qty: 3, dueInDays: -9, email: `expired@${DOMAIN}` });
@@ -1293,7 +1458,13 @@ async function main() {
         "D4: dueStanding compares Amsterdam calendar days (23:30 UTC on the 8th is already the 9th in Amsterdam)", "D4: dueStanding wrong");
       await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: -2, email: `rem-late@${DOMAIN}` });
       const same = await mkOrder({ status: "OPENSTAAND", qty: 1, dueInDays: 0, email: `rem-today@${DOMAIN}` });
-      await prisma.order.update({ where: { id: same.order.id }, data: { dueAt: new Date(Date.now() - 30 * 60_000) } });
+      // Due half an hour ago, but never before today's Amsterdam midnight: in the first half hour of an Amsterdam day
+      // "now - 30 min" is yesterday there, and the reminder would rightly say "verlopen op", failing this check for
+      // 30 minutes a day (seen in review). The due moment is therefore the later of the two.
+      const amsParts = new Intl.DateTimeFormat("en-GB", { timeZone: "Europe/Amsterdam", hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: false }).formatToParts(new Date());
+      const amsPart = (type: string) => Number(amsParts.find((p) => p.type === type)?.value ?? 0) % 24;
+      const amsMidnight = Date.now() - (amsPart("hour") * 3600 + amsPart("minute") * 60 + amsPart("second")) * 1000;
+      await prisma.order.update({ where: { id: same.order.id }, data: { dueAt: new Date(Math.max(Date.now() - 30 * 60_000, amsMidnight + 60_000)) } });
       mails.length = 0;
       const { sendPaymentReminders } = await import("../src/app/api/cron/_lib/reminders");
       await sendPaymentReminders({ limit: 200 });

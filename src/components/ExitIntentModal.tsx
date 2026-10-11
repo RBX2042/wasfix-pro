@@ -202,7 +202,7 @@ export function ExitIntentModal() {
             )}
 
             <p style={{ color: "rgba(232,238,251,0.45)", fontSize: 11, marginTop: 14, lineHeight: 1.5 }}>
-              Je krijgt de cheatsheet meteen. Daarnaast sturen we je een e-mail om je aanmelding voor de nieuwsbrief te bevestigen; zonder jouw klik daarin sturen we je geen nieuwsbrief. Afmelden kan altijd via de contactpagina. We delen je e-mailadres niet met derden.
+              Je krijgt de cheatsheet meteen. Daarnaast sturen we je een e-mail om je aanmelding voor de nieuwsbrief te bevestigen; zonder jouw klik daarin sturen we je geen nieuwsbrief. Afmelden kan altijd via de link in elke nieuwsbrief. We delen je e-mailadres niet met derden.
             </p>
           </>
         ) : (

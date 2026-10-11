@@ -477,20 +477,35 @@ function section7_migrate() {
   }
 }
 
-function section8_vercelJson() {
-  note("vercel.json (A5-12) and the scheduled routes");
+async function section8_vercelJson() {
+  note("vercel.json (A5-12, bundle C) and the scheduled routes: ONE schedule, so the cron configuration fits every plan (fails before: four schedules; according to Vercel's documentation the Hobby plan allows two, which cannot be verified from here)");
   const v = JSON.parse(fs.readFileSync(path.join(ROOT, "vercel.json"), "utf8")) as { regions?: string[]; crons?: Array<{ path: string; schedule: string }> };
   check(JSON.stringify(v.regions) === '["fra1"]', "region pinned (fra1, near a Frankfurt database; documented as a choice to change)");
   const crons = v.crons ?? [];
-  const routes = fs.readdirSync(path.join(ROOT, "src/app/api/cron"), { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith("_")).map((d) => `/api/cron/${d.name}`).sort();
-  check(JSON.stringify(crons.map((c) => c.path).sort()) === JSON.stringify(routes), `every cron route has a schedule and every schedule a route (${routes.join(", ")})`, `routes ${routes.join(",")} vs schedules ${crons.map((c) => c.path).join(",")}`);
-  for (const c of crons) {
-    const f = c.schedule.split(/\s+/);
-    check(f.length === 5 && /^\d+$/.test(f[0]) && /^\d+$/.test(f[1]) && f[2] === "*" && f[3] === "*" && f[4] === "*", `${c.path}: ${c.schedule} runs once a day (safe on any plan; the route headers name the tighter intended schedule)`);
-    const src = fs.readFileSync(path.join(ROOT, "src/app/api/cron", c.path.split("/").pop()!, "route.ts"), "utf8");
-    check(/export async function GET/.test(src), `${c.path} answers GET (what Vercel Cron sends)`);
+  check(crons.length === 1 && crons[0].path === "/api/cron/daily", `exactly ONE schedule, and it points at /api/cron/daily (got: ${crons.map((c) => `${c.path} @ ${c.schedule}`).join(", ") || "none"})`);
+  const f = (crons[0]?.schedule ?? "").trim().split(/\s+/);
+  const minute = Number(f[0]);
+  const hour = Number(f[1]);
+  check(f.length === 5 && /^\d+$/.test(f[0]) && /^\d+$/.test(f[1]) && f[2] === "*" && f[3] === "*" && f[4] === "*" && hour <= 23 && minute >= 1 && minute <= 59 && minute % 5 !== 0, `the schedule (${crons[0]?.schedule ?? "none"}) is once a day (the Hobby floor: more often is not allowed there), at a minute that is not a multiple of 5 (the busiest minutes on a shared platform)`);
+  const routeDirs = fs.readdirSync(path.join(ROOT, "src/app/api/cron"), { withFileTypes: true }).filter((d) => d.isDirectory() && !d.name.startsWith("_")).map((d) => d.name).sort();
+  check(JSON.stringify(routeDirs) === JSON.stringify(["daily", "orders", "retention", "stripe-reconcile", "stripe-subscriptions"]), `the cron routes are daily plus the four single-job routes, which stay for hand runs (${routeDirs.join(", ")})`);
+  // The job list itself, not the source text: the daily route runs exactly these, in this order.
+  const { DAILY_JOBS } = await import("../src/app/api/cron/_lib/daily-jobs");
+  const names = DAILY_JOBS.map((j) => j.name);
+  check(names.join(" -> ") === "orders -> retention -> stripe-subscriptions -> stripe-reconcile" && DAILY_JOBS.every((j) => typeof j.run === "function"), `the daily runner's job list covers the four jobs in priority order (${names.join(" -> ")})`);
+  check(JSON.stringify([...names].sort()) === JSON.stringify(routeDirs.filter((d) => d !== "daily")), "every job in the daily list has its own route, and every single-job route is in the daily list (a job added to one side needs the other)");
+  const { CRON_MAX_DURATION_S, DAILY_BUDGET_MS, MIN_JOB_MS, jobBudgetMs } = await import("../src/app/api/cron/_lib/runner");
+  check(CRON_MAX_DURATION_S === 60 && DAILY_BUDGET_MS + MIN_JOB_MS <= CRON_MAX_DURATION_S * 1000 && MIN_JOB_MS > 0, `the runner budget (${DAILY_BUDGET_MS} ms) plus the per-job minimum (${MIN_JOB_MS} ms) fits inside maxDuration ${CRON_MAX_DURATION_S} s`);
+  // The cut-off that keeps a backlog day in one job from running the function into the platform's kill: each job is
+  // capped at what is left minus the minimum for every later job, so the list must fit (first cap >= the minimum
+  // without the floor doing the work) and the last job's cap is the whole remainder.
+  const firstCap = DAILY_BUDGET_MS - (DAILY_JOBS.length - 1) * MIN_JOB_MS;
+  check(firstCap >= MIN_JOB_MS && jobBudgetMs(DAILY_BUDGET_MS, DAILY_JOBS.length - 1) === firstCap && jobBudgetMs(DAILY_BUDGET_MS, 0) === DAILY_BUDGET_MS && jobBudgetMs(MIN_JOB_MS - 1, 3) === MIN_JOB_MS, `the ${DAILY_JOBS.length} daily jobs fit the budget with the reserve for the later jobs (the first job's cap is ${firstCap} ms, the last job's the whole remainder, and a cap is never below the minimum)`);
+  for (const dir of routeDirs) {
+    const src = fs.readFileSync(path.join(ROOT, "src/app/api/cron", dir, "route.ts"), "utf8");
+    const m = /export const maxDuration = (\d+)/.exec(src);
+    check(/export async function GET/.test(src) && m !== null && Number(m[1]) <= 60, `/api/cron/${dir} answers GET (what Vercel Cron sends) and sets maxDuration <= 60 in the route file (${m?.[1] ?? "unset"}; a higher value than the plan allows fails the build)`);
   }
-  check(new Set(crons.map((c) => c.schedule)).size === crons.length, "the four jobs do not all start in the same minute");
   const uniq = (p: string) => /export const maxDuration = \d+/.test(fs.readFileSync(path.join(ROOT, p), "utf8"));
   check(uniq("src/app/api/checkout/route.ts") && uniq("src/app/api/stripe/webhook/route.ts"), "checkout and the Stripe webhook set maxDuration in the route file (the mechanism Vercel documents for App Router)");
 }
@@ -861,7 +876,7 @@ async function main() {
   await sectionAdminList();
   await section6_health();
   section7_migrate();
-  section8_vercelJson();
+  await section8_vercelJson();
   await section9_serviceWorker();
   section10_envExample();
   section11_docs();

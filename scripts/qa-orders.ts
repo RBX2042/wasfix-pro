@@ -10,10 +10,17 @@
  */
 import http from "node:http";
 import { spawnSync } from "node:child_process";
-import { mkdtempSync, writeFileSync } from "node:fs";
+import { mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import type { AddressInfo } from "node:net";
+// The probe scripts below each live in their own temp directory; all of them are removed in the main finally.
+const probeDirs: string[] = [];
+function probeDir(prefix: string): string {
+  const dir = mkdtempSync(path.join(tmpdir(), prefix));
+  probeDirs.push(dir);
+  return dir;
+}
 
 const log: string[] = [];
 const check = (cond: boolean, ok: string, bad: string) => log.push(cond ? `✅ ${ok}` : `❌ ${bad}`);
@@ -502,7 +509,7 @@ async function main() {
       check((await noticesSince(mark)).filter((t) => /geannuleerd/.test(t)).length === 3, "R2-14: an admin cancel, a system cancel of an INVOICED order and a cancel of a PAID order still reach the owner (3 notices)", `R2-14 others: ${(await noticesSince(mark)).length} notices`);
       check(inv.isQuietCancellation({ wasPaid: false, hadInvoice: false }, "stripe") && inv.isQuietCancellation({ wasPaid: false, hadInvoice: false }, "system") && !inv.isQuietCancellation({ wasPaid: false, hadInvoice: false }, "admin") && !inv.isQuietCancellation({ wasPaid: false, hadInvoice: true }, "system") && !inv.isQuietCancellation({ wasPaid: true, hadInvoice: false }, "stripe"), "R2-14: isQuietCancellation is the one rule (unpaid + never invoiced + stripe/system)", "R2-14: isQuietCancellation wrong");
 
-      // R2-15: the restock record lives on the credit note and caps cumulatively; the guard for unshipped orders.
+      // R2-15: the restock record lives on OrderItem.restockedQty (section 12) and caps cumulatively; the guard for unshipped orders.
       const sh = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 3 });
       const base = await sh.stockNow();
       const a1 = await inv.recordRefund(sh.order.id, { amountEur: 3, idempotencyKey: "qa-orders-rs-1", restock: [{ partId: sh.part.id, quantity: 2 }], notifyCustomer: false });
@@ -553,7 +560,7 @@ async function main() {
 
       // The A1-02 repro: production, only COMPANY_KVK set. The invoice must NOT be issued.
       const o = await mkOrder({ status: "PAID", invoice: false });
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-probe-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-probe-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -619,7 +626,7 @@ async function main() {
       // Production, company identity incomplete: no invoice can be issued, the refund is still owed.
       const o = await mkOrder({ status: "PAID", invoice: false, qty: 2, price: 20 });
       const before = await o.stockNow();
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-cancel-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-cancel-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { cancelOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -786,7 +793,7 @@ async function main() {
     {
       const o1 = await mkOrder({ status: "PAID", invoice: false });
       const o2 = await mkOrder({ status: "PAID", invoice: false });
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-company-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-company-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -832,7 +839,7 @@ async function main() {
     // 11g. D15: no contact address, no invoice (the old behaviour was a warning and an invoice anyway).
     {
       const o3 = await mkOrder({ status: "PAID", invoice: false });
-      const probeFile = path.join(mkdtempSync(path.join(tmpdir(), "qa-orders-noemail-")), "probe.ts");
+      const probeFile = path.join(probeDir("qa-orders-noemail-"), "probe.ts");
       writeFileSync(
         probeFile,
         `import { issueInvoiceForOrder } from ${JSON.stringify(path.resolve("src/lib/invoicing"))};
@@ -847,10 +854,172 @@ async function main() {
       const out = (run.stdout.match(/(ISSUED|THROWN).*/) ?? [""])[0];
       check(/^THROWN CompanyNotReadyError.*email/.test(out) && (await prisma.invoice.count({ where: { orderId: o3.order.id } })) === 0, `Production with a complete identity but no COMPANY_EMAIL: no invoice (${out})`, `No-email repro: ${out} ${run.stderr.slice(0, 200)}`);
     }
+
+    // ── 12. OrderItem.restockedQty: the restock record as a column ─────────
+    // Until migration 20261009120000 the units a refund put back were written on the first line of the credit
+    // note's linesJson and the cap was computed by parsing every note. Now the order line counts them and the cap
+    // is one conditional update on that column, inside the refund's transaction.
+    {
+      const itemOf = async (orderId: string) => prisma.orderItem.findFirstOrThrow({ where: { orderId }, select: { id: true, quantity: true, restockedQty: true } });
+      const rawNotes = async (orderId: string) => prisma.creditNote.findMany({ where: { invoice: { orderId } }, orderBy: { issuedAt: "asc" }, select: { linesJson: true, idempotencyKey: true } });
+
+      // 12a. Every refund that restocks adds to the column; the document carries no restock key.
+      const o = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 3, price: 10 }); // 30,00
+      const s0 = await o.stockNow();
+      check((await itemOf(o.order.id)).restockedQty === 0, "Column: a fresh order line has restockedQty 0", "Column: a fresh order line is not 0");
+      const r1 = await inv.recordRefund(o.order.id, { amountEur: 5, idempotencyKey: `qa-col-1-${o.order.id}`, restock: [{ partId: o.part.id, quantity: 1 }], notifyCustomer: false });
+      const after1 = await itemOf(o.order.id);
+      const r2 = await inv.recordRefund(o.order.id, { amountEur: 5, idempotencyKey: `qa-col-2-${o.order.id}`, restock: [{ partId: o.part.id, quantity: 1 }], notifyCustomer: false });
+      const after2 = await itemOf(o.order.id);
+      check(
+        r1.ok && r1.restockedUnits === 1 && after1.restockedQty === 1 && r2.ok && r2.restockedUnits === 1 && after2.restockedQty === 2 && (await o.stockNow()) === s0 + 2,
+        "Column: two refunds that each restock one unit leave restockedQty 2 (1 after the first) and the shelf +2",
+        `Column increments: ${JSON.stringify([r1.ok, after1.restockedQty, r2.ok, after2.restockedQty])} stock ${await o.stockNow()} vs ${s0 + 2}`,
+      );
+      const notes = await rawNotes(o.order.id);
+      const parsedLines = notes.map((n) => JSON.parse(n.linesJson) as Array<Record<string, unknown>>);
+      check(
+        notes.length === 2 && notes.every((n) => !/"restock"/.test(n.linesJson)) && parsedLines.every((lines) => Array.isArray(lines) && lines.length === 1 && !("restock" in lines[0]) && typeof lines[0].name === "string"),
+        'Document: the issued credit notes\' linesJson carries no "restock" key (the record is the column, not the fiscal document)',
+        `linesJson still annotated: ${notes.map((n) => n.linesJson).join(" | ")}`,
+      );
+      check((await inv.getCreditNotesForOrder(o.order.id)).every((n) => n.lines.every((l) => l.restock === undefined)), "Document: getCreditNotesForOrder returns lines without a restock property", "Document: a deserialised line has a restock property");
+
+      // 12b. The cap: the unit that would exceed what was ordered is refused with the Dutch message; nothing moves.
+      const r3 = await inv.recordRefund(o.order.id, { amountEur: 5, idempotencyKey: `qa-col-3-${o.order.id}`, restock: [{ partId: o.part.id, quantity: 2 }], notifyCustomer: false });
+      const after3 = await itemOf(o.order.id);
+      check(
+        !r3.ok && r3.code === "invalid_input" && /maximaal 1 stuk/.test(r3.error) && /besteld 3, eerder al 2/.test(r3.error) && after3.restockedQty === 2 && (await o.stockNow()) === s0 + 2 && (await rawNotes(o.order.id)).length === 2,
+        `Cap: ordered 3, 2 already back, a restock of 2 is refused ("${r3.ok ? "" : r3.error}"); the column stays 2, no note, no stock movement`,
+        `Cap: ${JSON.stringify(r3)} column ${after3.restockedQty} stock ${await o.stockNow()} vs ${s0 + 2}`,
+      );
+      const r4 = await inv.recordRefund(o.order.id, { amountEur: 5, idempotencyKey: `qa-col-4-${o.order.id}`, restock: [{ partId: o.part.id, quantity: 1 }], notifyCustomer: false });
+      const r5 = await inv.recordRefund(o.order.id, { amountEur: 5, idempotencyKey: `qa-col-5-${o.order.id}`, restock: [{ partId: o.part.id, quantity: 1 }], notifyCustomer: false });
+      check(
+        r4.ok && (await itemOf(o.order.id)).restockedQty === 3 && !r5.ok && r5.code === "invalid_input" && /al alles terug/.test(r5.error) && (await o.stockNow()) === s0 + 3,
+        "Cap: the last unit goes back (column 3 = ordered), one more is refused as 'al alles terug'",
+        `Cap last unit: ${JSON.stringify([r4, r5])} column ${(await itemOf(o.order.id)).restockedQty}`,
+      );
+
+      // 12c. The cap reads the column, not the notes: a line set by hand counts although no credit note exists.
+      const h = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 2 });
+      await prisma.orderItem.updateMany({ where: { orderId: h.order.id }, data: { restockedQty: 1 } });
+      const byPart = await inv.restockedByPart(h.order.id);
+      const hr = await inv.recordRefund(h.order.id, { amountEur: 4, idempotencyKey: `qa-col-h-${h.order.id}`, restock: [{ partId: h.part.id, quantity: 2 }], notifyCustomer: false });
+      const summed = inv.restockedOfItems([{ partId: "a", restockedQty: 1 }, { partId: "a", restockedQty: 2 }, { partId: "b", restockedQty: 0 }]);
+      check(
+        byPart.get(h.part.id) === 1 && (await notesOf(h.order.id)).length === 0 && !hr.ok && /maximaal 1 stuk/.test(hr.ok ? "" : hr.error) && summed.get("a") === 3 && summed.get("b") === 0,
+        "Cap reads the column: restockedQty 1 set without any credit note caps the next restock at 1; restockedOfItems sums per part",
+        `Column read: ${JSON.stringify([byPart.get(h.part.id), hr, [...summed]])}`,
+      );
+
+      // 12d. TWO CONCURRENT refunds that together exceed what was ordered: exactly one is booked (real Postgres, two connections).
+      const c = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 2, price: 10 }); // 20,00
+      const c0 = await c.stockNow();
+      const race = await Promise.all([
+        inv.recordRefund(c.order.id, { amountEur: 4, idempotencyKey: `qa-col-c1-${c.order.id}`, restock: [{ partId: c.part.id, quantity: 2 }], notifyCustomer: false }),
+        inv.recordRefund(c.order.id, { amountEur: 4, idempotencyKey: `qa-col-c2-${c.order.id}`, restock: [{ partId: c.part.id, quantity: 1 }], notifyCustomer: false }),
+      ]);
+      const cItem = await itemOf(c.order.id);
+      const won = race.filter((r) => r.ok);
+      const wonUnits = won[0]?.ok ? won[0].restockedUnits : -1;
+      check(
+        won.length === 1 && race.filter((r) => !r.ok && (r.code === "invalid_input" || r.code === "conflict")).length === 1 && cItem.restockedQty === wonUnits && (await c.stockNow()) === c0 + wonUnits && (await notesOf(c.order.id)).length === 1,
+        `Race: two concurrent refunds restocking 2 and 1 on an order of 2: exactly one is booked (${wonUnits} unit(s)), the other is refused, the column (${cItem.restockedQty}) equals the shelf delta, one note`,
+        `Race: ${JSON.stringify(race.map((r) => (r.ok ? `ok:${r.restockedUnits}` : r.code)))} column ${cItem.restockedQty} stock ${await c.stockNow()} vs ${c0}`,
+      );
+
+      // 12e. The conditional update ALONE is the lock. Two transactions claim 2 units on a line of 2 without any order
+      // lock. No sleep decides who goes first: the FIRST claims the row and signals; only then the SECOND starts, reads
+      // the line as still 0 (nothing is committed), passes the pre-check and blocks on the row; the first commits only
+      // once Postgres reports the second waiting on a lock (pg_stat_activity, up to 10 s as a safety valve), so the
+      // second's WHERE no longer holds when it finally runs (count 0), at any timing.
+      const d = await mkOrder({ status: "SHIPPED", method: "BANK_TRANSFER", qty: 2 });
+      const d0 = await d.stockNow();
+      const dOrder = { id: d.order.id, status: "SHIPPED", items: [{ partId: d.part.id, quantity: 2 }] };
+      const txOpts = { maxWait: 10_000, timeout: 20_000 };
+      let rowHeld!: () => void;
+      const held = new Promise<void>((resolve) => (rowHeld = resolve));
+      let release!: () => void;
+      const released = new Promise<void>((resolve) => (release = resolve));
+      const first = prisma.$transaction(async (t) => {
+        const units = await inv.applyRestock(t, dOrder, [{ partId: d.part.id, quantity: 2 }]);
+        rowHeld(); // the row is locked by this transaction from here until it commits
+        await released;
+        return units;
+      }, txOpts);
+      await held;
+      let secondSaw = -1;
+      const second = prisma.$transaction(async (t) => {
+        secondSaw = (await t.orderItem.findFirstOrThrow({ where: { orderId: d.order.id }, select: { restockedQty: true } })).restockedQty;
+        return inv.applyRestock(t, dOrder, [{ partId: d.part.id, quantity: 2 }]);
+      }, txOpts);
+      let secondWaited = false;
+      for (const deadline = Date.now() + 10_000; !secondWaited && Date.now() < deadline; ) {
+        const waiting = await prisma.$queryRaw<{ n: number }[]>`SELECT count(*)::int AS n FROM pg_stat_activity WHERE datname = current_database() AND pid <> pg_backend_pid() AND wait_event_type = 'Lock'`;
+        secondWaited = waiting[0].n > 0;
+        if (!secondWaited) await new Promise((r) => setTimeout(r, 20));
+      }
+      release();
+      const claims = await Promise.allSettled([first, second]);
+      const dItem = await itemOf(d.order.id);
+      const lost = claims.filter((r): r is PromiseRejectedResult => r.status === "rejected");
+      check(
+        secondSaw === 0 && secondWaited && claims[0].status === "fulfilled" && claims[0].value === 2 && lost.length === 1 && lost[0].reason instanceof inv.OrderDomainError && lost[0].reason.code === "conflict" && dItem.restockedQty === 2 && (await d.stockNow()) === d0 + 2,
+        "Lock: two transactions each claim the 2 units of a line of 2 with no order lock; the second read the line as 0 and was seen waiting on the row; the conditional update on restockedQty lets exactly the first through, the second is a conflict, column 2, shelf +2",
+        `applyRestock race: ${JSON.stringify(claims.map((r) => (r.status === "fulfilled" ? `ok:${r.value}` : String((r.reason as { code?: string; message?: string }).code ?? r.reason))))} second saw ${secondSaw}, waited on a lock: ${secondWaited}, column ${dItem.restockedQty} stock ${await d.stockNow()} vs ${d0 + 2}`,
+      );
+
+      // 12f. Replay (the webhook books first): the admin's key claims the note and the column takes the admin's restock, once.
+      const w = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 2 });
+      const wRefund = `re_qa_col_${w.order.id}`;
+      const wKey = `qa-col-w-${w.order.id}`;
+      const wFirst = await inv.recordRefund(w.order.id, { amountEur: 5, stripeRefundId: wRefund, notifyCustomer: false });
+      const wSecond = await inv.recordRefund(w.order.id, { amountEur: 5, stripeRefundId: wRefund, idempotencyKey: wKey, restock: [{ partId: w.part.id, quantity: 1 }], notifyCustomer: false });
+      const wThird = await inv.recordRefund(w.order.id, { amountEur: 5, stripeRefundId: wRefund, idempotencyKey: wKey, restock: [{ partId: w.part.id, quantity: 1 }], notifyCustomer: false });
+      const wNotes = await rawNotes(w.order.id);
+      check(
+        wFirst.ok && wSecond.ok && wSecond.replayed && wSecond.restockedUnits === 1 && wThird.ok && wThird.restockedUnits === 0 && (await itemOf(w.order.id)).restockedQty === 1 && wNotes.length === 1 && wNotes[0].idempotencyKey === wKey && !/"restock"/.test(wNotes[0].linesJson),
+        "Replay: the webhook's note takes the admin's key, the column takes the admin's restock once (a repeat of the form adds nothing), and the note's lines stay without a restock key",
+        `Replay column: ${JSON.stringify([wSecond.ok && [wSecond.replayed, wSecond.restockedUnits], wThird.ok && wThird.restockedUnits, (await itemOf(w.order.id)).restockedQty, wNotes])}`,
+      );
+      // A replay that brings no key could not be told apart from its own repeat, so it restocks nothing (documented).
+      const k = await mkOrder({ status: "SHIPPED", method: "STRIPE", qty: 2 });
+      const kRefund = `re_qa_colk_${k.order.id}`;
+      const kFirst = await inv.recordRefund(k.order.id, { amountEur: 5, stripeRefundId: kRefund, notifyCustomer: false });
+      const kKeyless = await inv.recordRefund(k.order.id, { amountEur: 5, stripeRefundId: kRefund, restock: [{ partId: k.part.id, quantity: 1 }], notifyCustomer: false });
+      check(
+        kFirst.ok && kKeyless.ok && kKeyless.replayed && kKeyless.restockedUnits === 0 && (await itemOf(k.order.id)).restockedQty === 0 && (await k.stockNow()) === k.stockStart - 2,
+        "Replay without a key: recognised as the same refund, but it restocks nothing (nothing could make its repeat a no-op)",
+        `Keyless replay: ${JSON.stringify(kKeyless)} column ${(await itemOf(k.order.id)).restockedQty}`,
+      );
+
+      // 12g. Cancelling puts every unit back but counts nothing on the column: the order is over.
+      const cz = await mkOrder({ status: "PAID", qty: 2 });
+      const czCancel = await inv.cancelOrder(cz.order.id, { reason: "klant belde", actor: "admin", notifyCustomer: false });
+      check(czCancel.ok && czCancel.restocked && (await itemOf(cz.order.id)).restockedQty === 0 && (await cz.stockNow()) === cz.stockStart, "Cancel: the units go back on the shelf, restockedQty stays 0", `Cancel column: ${JSON.stringify(czCancel.ok)} ${(await itemOf(cz.order.id)).restockedQty}`);
+
+      // 12h. The two admin refund forms size their restock inputs from the COLUMN, not from the legacy credit-note
+      //      annotation (which no new note carries, so a page reading it offered units the booking then refused). The
+      //      pages are server components behind the admin login, so this reads their source: the line the form is built
+      //      from must subtract restockedQty of the loaded items, and the legacy reader must be gone from invoicing.ts.
+      const { readFileSync } = await import("node:fs");
+      const retourenSrc = readFileSync(path.resolve("src/app/admin/retouren/page.tsx"), "utf8");
+      const bestellingenSrc = readFileSync(path.resolve("src/app/admin/bestellingen/page.tsx"), "utf8");
+      const ordersQuerySrc = readFileSync(path.resolve("src/app/admin/_lib/orders-query.ts"), "utf8");
+      check(
+        /restockedQty: true/.test(retourenSrc) && /quantity: Math\.max\(0, i\.quantity - i\.restockedQty\)/.test(retourenSrc) && !/restockedFromNotes|linesJson:\s*true/.test(retourenSrc)
+          && /restockedOfItems\(o\.items\)/.test(bestellingenSrc) && /quantity: Math\.max\(0, i\.quantity - \(restocked\.get\(i\.partId\) \?\? 0\)\)/.test(bestellingenSrc) && !/restockedFromNotes/.test(bestellingenSrc)
+          && !/linesJson:\s*true/.test(ordersQuerySrc) && !("restockedFromNotes" in inv),
+        "Admin pages: /admin/retouren and /admin/bestellingen size the restock inputs from OrderItem.restockedQty (retouren selects the column and subtracts it per line; bestellingen sums it with restockedOfItems over the loaded items), neither reads a note's linesJson, and the legacy reader restockedFromNotes no longer exists",
+        `Admin pages read the column: retouren ${/i\.restockedQty/.test(retourenSrc)} / ${!/restockedFromNotes/.test(retourenSrc)}, bestellingen ${/restockedOfItems\(o\.items\)/.test(bestellingenSrc)} / ${!/restockedFromNotes/.test(bestellingenSrc)}, orders-query selects linesJson ${/linesJson:\s*true/.test(ordersQuerySrc)}, invoicing exports restockedFromNotes ${"restockedFromNotes" in inv}`,
+      );
+    }
   } finally {
     await cleanup().catch((e) => console.error("cleanup failed", e));
     await prisma.$disconnect();
     slack.close();
+    for (const dir of probeDirs) rmSync(dir, { recursive: true, force: true });
     console.log(log.join("\n"));
     const failures = log.filter((l) => l.startsWith("❌")).length;
     console.log(`\n${log.length - failures}/${log.length} checks passed`);

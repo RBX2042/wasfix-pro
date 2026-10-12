@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { COMPANY, companyIdentityLine } from "@/lib/plans";
+import { ThemeToggle } from "./theme-toggle";
 
 export function SiteFooter() {
   // Only a real, registered identity is printed; "in oprichting" stays on the legal pages.
@@ -59,6 +60,7 @@ export function SiteFooter() {
         <div className="mt-10 pt-6 border-t flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} WasFix Pro{identity ? ` · ${identity}` : ""}. Alle rechten voorbehouden.</p>
           <p>Made with care in The Netherlands.</p>
+          <ThemeToggle variant="segmented" />
         </div>
       </div>
     </footer>

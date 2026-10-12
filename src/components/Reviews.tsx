@@ -7,7 +7,7 @@ export type { PublicReview } from "@/lib/reviews";
 function Stars({ rating, className }: { rating: number; className?: string }) {
   const full = Math.round(rating);
   return (
-    <span style={{ color: "#f5b643" }} className={className} aria-label={`${rating} van 5 sterren`}>
+    <span className={`text-warning ${className ?? ""}`.trim()} aria-label={`${rating} van 5 sterren`}>
       {"★".repeat(full)}
       {"☆".repeat(Math.max(0, 5 - full))}
     </span>
@@ -34,7 +34,7 @@ export function ReviewList({ reviews }: { reviews: PublicReview[] }) {
               <span className="font-medium text-sm">{r.title}</span>
             </div>
             {r.verified && (
-              <span className="text-xs text-emerald-600 flex items-center gap-1">
+              <span className="text-xs text-success flex items-center gap-1">
                 <span aria-hidden>✓</span> Geverifieerde aankoop
               </span>
             )}

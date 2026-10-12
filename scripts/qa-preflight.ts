@@ -17,6 +17,7 @@ import path from "node:path";
 import type { AddressInfo } from "node:net";
 import { spawn } from "node:child_process";
 import { makeChecker } from "./lib/browser";
+import { resolveKey } from "./lib/indexnow";
 
 const { check, note, finish } = makeChecker("qa-preflight");
 
@@ -61,6 +62,9 @@ const GOOD: Record<string, string> = {
   COMPANY_VAT: "NL001234567B01",
   COMPANY_IBAN: iban("RABO", "0123456789"),
   COMPANY_EMAIL: "info@shop.example.nl",
+  // D24: unset verification tokens are warnings (zoekmachines group), so a READY environment sets both.
+  GOOGLE_SITE_VERIFICATION: "gsv-TOKEN-0123456789abcdef",
+  BING_SITE_VERIFICATION: "0123456789ABCDEF0123456789ABCDEF",
 };
 
 const dir = fs.mkdtempSync(path.join(os.tmpdir(), "wasfix-preflight-"));
@@ -92,6 +96,10 @@ function runCli(env: Record<string, string | undefined>, extra: string[] = [], j
 const without = (...names: string[]) => Object.fromEntries(Object.entries(GOOD).filter(([k]) => !names.includes(k)));
 const blocksOf = (r: Run) => (r.report?.checks ?? []).filter((c) => c.level === "block");
 const warnsOf = (r: Run) => (r.report?.checks ?? []).filter((c) => c.level === "warn");
+
+// The IndexNow key file this repository ships (public/<key>.txt): the preflight finds it the same way seo-submit does.
+const repoKeyRes = resolveKey(undefined, path.join(process.cwd(), "public"));
+const repoKey = repoKeyRes.ok ? repoKeyRes.key : null;
 
 type Case = { name: string; env: Record<string, string | undefined>; args?: string[]; expect: "block" | "warn" | "clean"; mention?: RegExp };
 const CASES: Case[] = [
@@ -136,6 +144,16 @@ const CASES: Case[] = [
   { name: "DEMO_MODE=true in production (warning)", env: { ...GOOD, DEMO_MODE: "true" }, expect: "warn", mention: /DEMO_MODE/ },
   { name: "referral programme switched on (warning)", env: { ...GOOD, NEXT_PUBLIC_FEATURE_REFERRAL: "true" }, expect: "warn", mention: /verwijsprogramma/ },
   { name: "no GEMINI key (warning)", env: without("GEMINI_API_KEY"), expect: "warn", mention: /GEMINI_API_KEY/ },
+  // D24, group zoekmachines (offline half). Verification can also be done with a DNS TXT record, so "not set" is a warning, never a block.
+  { name: "GOOGLE_SITE_VERIFICATION not set (warning: DNS TXT is the alternative)", env: without("GOOGLE_SITE_VERIFICATION"), expect: "warn", mention: /GOOGLE_SITE_VERIFICATION is niet ingesteld[\s\S]*DNS-TXT/ },
+  { name: "BING_SITE_VERIFICATION not set (warning)", env: without("BING_SITE_VERIFICATION"), expect: "warn", mention: /BING_SITE_VERIFICATION is niet ingesteld[\s\S]*DNS-TXT/ },
+  { name: "GOOGLE_SITE_VERIFICATION is not a valid token (the site would emit no tag)", env: { ...GOOD, GOOGLE_SITE_VERIFICATION: "x" }, expect: "warn", mention: /GOOGLE_SITE_VERIFICATION is ingesteld maar geen geldig token/ },
+  { name: "BING_SITE_VERIFICATION is junk", env: { ...GOOD, BING_SITE_VERIFICATION: 'a"><script>' }, expect: "warn", mention: /BING_SITE_VERIFICATION is ingesteld maar geen geldig token/ },
+  { name: "verification tokens unset on staging are information only", env: without("GOOGLE_SITE_VERIFICATION", "BING_SITE_VERIFICATION"), args: ["--target", "staging"], expect: "clean" },
+  { name: "INDEXNOW_KEY has the wrong shape", env: { ...GOOD, INDEXNOW_KEY: "has a space" }, expect: "warn", mention: /INDEXNOW_KEY heeft niet het goede formaat/ },
+  { name: "INDEXNOW_KEY is too short", env: { ...GOOD, INDEXNOW_KEY: "abc" }, expect: "warn", mention: /INDEXNOW_KEY heeft niet het goede formaat/ },
+  { name: "INDEXNOW_KEY is valid but public/ holds no key file with it", env: { ...GOOD, INDEXNOW_KEY: "0123456789abcdef0123456789abcdef" }, expect: "warn", mention: /geen sleutelbestand met precies die sleutel/ },
+  ...(repoKey ? [{ name: "INDEXNOW_KEY equal to the key file in public/ is fine", env: { ...GOOD, INDEXNOW_KEY: repoKey }, expect: "clean" as const }] : []),
 ];
 
 async function pool<T>(items: T[], size: number, fn: (item: T) => Promise<void>) {
@@ -180,6 +198,140 @@ function stubSite(kind: "good" | "bad" | "stale") {
     return send(200, "<html>home</html>", csp);
   });
   return new Promise<{ origin: string; close: () => void }>((resolve) => server.listen(0, "127.0.0.1", () => resolve({ origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, close: () => server.close() })));
+}
+
+// ── D24, group zoekmachines: the half that reads the deployed site ───────────────────────────────────────────────
+type SeoStub = {
+  robots?: "good" | "404" | "nositemap" | "foreign" | "disallowall";
+  sitemap?: "good" | "404" | "html" | "empty" | "foreign" | "private" | "noindex-family" | "index";
+  header?: "ok" | "noindex";
+  meta?: "ok" | "noindex";
+  canonical?: "ok" | "wrong" | "missing";
+  keyFile?: "ok" | "404" | "wrong" | "redirect" | "json";
+  tags?: "ok" | "missing";
+  /** The address the pages name (robots Sitemap line, sitemap URLs, canonical). Default: the stub's own address. */
+  publicOrigin?: string;
+};
+
+/** A site as a search engine sees it. Every option defaults to the healthy answer, so a case breaks exactly one thing. */
+function stubSeoSite(o: SeoStub, key: string | null) {
+  const server = http.createServer((req, res) => {
+    const self = `http://${req.headers.host}`;
+    const site = o.publicOrigin ?? self;
+    const url = (req.url ?? "/").split("?")[0];
+    const send = (status: number, body: string, headers: Record<string, string> = {}) => { res.writeHead(status, { "content-type": "text/html", ...headers }); res.end(body); };
+    if (url === "/robots.txt") {
+      const kind = o.robots ?? "good";
+      if (kind === "404") return send(404, "nope");
+      const sitemapLine = kind === "nositemap" ? "" : `Sitemap: ${kind === "foreign" ? "https://wasfix.example" : site}/sitemap.xml\n`;
+      const rules = kind === "disallowall" ? "User-agent: *\nDisallow: /\n\n" : "User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nUser-agent: GPTBot\nUser-agent: CCBot\nDisallow: /\n\n";
+      return send(200, rules + sitemapLine, { "content-type": "text/plain" });
+    }
+    const urlset = (locs: string[]) => `<?xml version="1.0" encoding="UTF-8"?>\n<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${locs.map((l) => `<url><loc>${l}</loc></url>`).join("")}</urlset>`;
+    if (url === "/sitemap.xml") {
+      switch (o.sitemap ?? "good") {
+        case "404": return send(404, "nope");
+        case "html": return send(200, "<html><body>Welkom</body></html>");
+        case "empty": return send(200, urlset([]), { "content-type": "application/xml" });
+        case "foreign": return send(200, urlset([`${site}/`, "https://wasfix.example/diagnose"]), { "content-type": "application/xml" });
+        case "private": return send(200, urlset([`${site}/`, `${site}/admin`, `${site}/diagnose`]), { "content-type": "application/xml" });
+        case "noindex-family": return send(200, urlset([`${site}/`, `${site}/qr/ABC123`, `${site}/robots.txt`, `${site}/diagnose`]), { "content-type": "application/xml" });
+        case "index": return send(200, `<?xml version="1.0" encoding="UTF-8"?><sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9"><sitemap><loc>${site}/sitemap-a.xml</loc></sitemap><sitemap><loc>${site}/sitemap-b.xml</loc></sitemap></sitemapindex>`, { "content-type": "application/xml" });
+        default: return send(200, urlset([`${site}/`, `${site}/diagnose`, `${site}/onderdelen/WF-PUMP-01`]), { "content-type": "application/xml" });
+      }
+    }
+    if (url === "/sitemap-a.xml") return send(200, urlset([`${site}/`, `${site}/diagnose`]), { "content-type": "application/xml" });
+    if (url === "/sitemap-b.xml") return send(200, urlset([`${site}/onderdelen/WF-PUMP-01`]), { "content-type": "application/xml" });
+    if (key && url === `/${key}.txt`) {
+      switch (o.keyFile ?? "ok") {
+        case "404": return send(404, "nope");
+        case "wrong": return send(200, "something else", { "content-type": "text/plain" });
+        case "redirect": return send(301, "", { location: "/elsewhere.txt" });
+        case "json": return send(200, key, { "content-type": "application/json" });
+        default: return send(200, key, { "content-type": "text/plain; charset=utf-8" });
+      }
+    }
+    if (url === "/") {
+      const head = [
+        `<meta name="robots" content="${o.meta === "noindex" ? "noindex, nofollow" : "index, follow"}"/>`,
+        o.canonical === "missing" ? "" : `<link rel="canonical" href="${o.canonical === "wrong" ? "https://wasfix.example" : site}/"/>`,
+        o.tags === "missing" ? "" : `<meta name="google-site-verification" content="${GOOD.GOOGLE_SITE_VERIFICATION}"/><meta name="msvalidate.01" content="${GOOD.BING_SITE_VERIFICATION}"/>`,
+      ].join("");
+      return send(200, `<!doctype html><html><head><title>WasFix</title>${head}</head><body>home</body></html>`, o.header === "noindex" ? { "x-robots-tag": "noindex, nofollow" } : {});
+    }
+    return send(404, "nope");
+  });
+  return new Promise<{ origin: string; close: () => void }>((resolve) => server.listen(0, "127.0.0.1", () => resolve({ origin: `http://127.0.0.1:${(server.address() as AddressInfo).port}`, close: () => server.close() })));
+}
+
+type SeoCase = { name: string; stub: SeoStub; args?: string[]; publicIsStub?: boolean; blocks?: RegExp; warns?: RegExp; warnCount?: number; infos?: RegExp; clean?: boolean };
+const SEO_CASES: SeoCase[] = [
+  { name: "a healthy site", stub: {}, clean: true },
+  { name: "a sitemap index with two child sitemaps", stub: { sitemap: "index" }, clean: true },
+  { name: "the deployment answers on another address than the public one (read from --url, judged against NEXT_PUBLIC_APP_URL)", stub: { publicOrigin: "https://shop.example.nl" }, publicIsStub: false, clean: true },
+  { name: "robots.txt is a 404", stub: { robots: "404" }, blocks: /robots\.txt antwoordt HTTP 404/ },
+  { name: "robots.txt names no sitemap", stub: { robots: "nositemap" }, blocks: /robots\.txt noemt geen Sitemap/ },
+  { name: "robots.txt names a sitemap on another address", stub: { robots: "foreign" }, blocks: /robots\.txt wijst met Sitemap naar https:\/\/wasfix\.example\/sitemap\.xml/ },
+  { name: "robots.txt shuts everybody out (User-agent: * Disallow: /)", stub: { robots: "disallowall" }, blocks: /sluit de hele site uit/ },
+  { name: "sitemap.xml is a 404", stub: { sitemap: "404" }, blocks: /sitemap\.xml:.*404/ },
+  { name: "sitemap.xml is an HTML page", stub: { sitemap: "html" }, blocks: /sitemap\.xml:.*geen sitemap/ },
+  { name: "sitemap.xml is valid but empty", stub: { sitemap: "empty" }, blocks: /geldig maar bevat geen URL/ },
+  { name: "sitemap.xml names a URL on another address", stub: { sitemap: "foreign" }, blocks: /1 van de 2 URL's in sitemap\.xml staan niet op/ },
+  { name: "sitemap.xml lists a private path (warning)", stub: { sitemap: "private" }, warns: /1 URL's in sitemap\.xml horen niet bij zoekmachines[\s\S]*admin/ },
+  { name: "sitemap.xml lists a /qr/ page (noindex family) and a technical file (warning)", stub: { sitemap: "noindex-family" }, warns: /2 URL's in sitemap\.xml horen niet bij zoekmachines[\s\S]*\/qr\/ABC123/ },
+  { name: "the home page sends X-Robots-Tag: noindex", stub: { header: "noindex" }, blocks: /X-Robots-Tag: noindex/ },
+  { name: "the home page has a noindex meta tag", stub: { meta: "noindex" }, blocks: /robots-meta-tag met noindex/ },
+  { name: "the home page names another canonical", stub: { canonical: "wrong" }, blocks: /canonical van de startpagina is https:\/\/wasfix\.example\// },
+  { name: "the home page names no canonical (warning)", stub: { canonical: "missing" }, warns: /noemt geen canonical/ },
+  { name: "the IndexNow key file is a 404 (warning)", stub: { keyFile: "404" }, warns: /IndexNow:.*404/ },
+  { name: "the IndexNow key file holds something else (warning)", stub: { keyFile: "wrong" }, warns: /bevat niet de sleutel/ },
+  { name: "the IndexNow key file is behind a redirect (warning)", stub: { keyFile: "redirect" }, warns: /verwijst door/ },
+  { name: "the IndexNow key file is served as JSON (still ok, noted)", stub: { keyFile: "json" }, clean: true },
+  { name: "verification tokens are configured but the page lacks the tags (one warning per tag)", stub: { tags: "missing" }, warnCount: 2, warns: /GOOGLE_SITE_VERIFICATION is ingesteld maar de startpagina bevat de tag google-site-verification niet/ },
+  { name: "staging: noindex everywhere and Disallow: / are what is wanted (information, no blocker)", stub: { robots: "disallowall", header: "noindex", meta: "noindex" }, args: ["--target", "staging"], infos: /juist voor een preview of staging/ },
+];
+
+async function searchEngineProbes() {
+  note("D24 group zoekmachines, offline half: an environment is judged without touching the network");
+  const offline = await runCli(GOOD, ["--only", "zoekmachines"]);
+  const offlineChecks = offline.report?.checks ?? [];
+  check(offlineChecks.length > 0 && offlineChecks.every((c) => c.group === "zoekmachines"), "--only zoekmachines selects exactly this group", JSON.stringify(offlineChecks.map((c) => c.group)));
+  check(offlineChecks.some((c) => c.level === "skip" && /--url/.test(c.message) && /robots\.txt/.test(c.message)) && !offlineChecks.some((c) => c.level === "ok" && /200|sitemap\.xml|robots\.txt|canonical/.test(c.message)), "offline: the live-site checks are reported as skipped (use --url), never as passed", offlineChecks.map((c) => `${c.level}:${c.message}`).join(" | "));
+  check(offlineChecks.some((c) => c.level === "ok" && /GOOGLE_SITE_VERIFICATION is ingesteld/.test(c.message)) && offlineChecks.some((c) => c.level === "ok" && /BING_SITE_VERIFICATION is ingesteld/.test(c.message)), "offline: configured verification tokens are reported as set");
+  check(!repoKey || offlineChecks.some((c) => c.level === "ok" && /IndexNow-sleutel aanwezig \(32 tekens, uit public\/\)/.test(c.message)), "offline: the key file this repository ships is found in public/ (by length, the key is not printed)", offlineChecks.map((c) => c.message).join(" | "));
+  const unset = await runCli(without("GOOGLE_SITE_VERIFICATION", "BING_SITE_VERIFICATION"), ["--only", "zoekmachines"]);
+  check(unset.code === 0 && unset.report?.verdict === "READY WITH WARNINGS" && warnsOf(unset).length === 2 && blocksOf(unset).length === 0, "both tokens unset: two warnings, no blocker, exit 0 (verification by DNS is allowed)", JSON.stringify(unset.report?.checks.map((c) => `${c.level}:${c.message.slice(0, 50)}`)));
+
+  note("D24 group zoekmachines, --url: a stub site per case (one thing wrong at a time)");
+  const cases = repoKey ? SEO_CASES : SEO_CASES.filter((c) => !/key file/.test(c.name));
+  const runs = new Map<string, Run>();
+  await pool(cases, 4, async (c) => {
+    const site = await stubSeoSite(c.stub, repoKey);
+    try {
+      const env = { ...GOOD, NEXT_PUBLIC_APP_URL: c.publicIsStub === false ? "https://shop.example.nl" : site.origin };
+      runs.set(c.name, await runCli(env, ["--url", site.origin, "--only", "zoekmachines", ...(c.args ?? [])]));
+    } finally {
+      site.close();
+    }
+  });
+  for (const c of cases) {
+    const r = runs.get(c.name)!;
+    const zm = (r.report?.checks ?? []).filter((x) => x.group === "zoekmachines");
+    const blocks = zm.filter((x) => x.level === "block");
+    const warns = zm.filter((x) => x.level === "warn");
+    const infos = zm.filter((x) => x.level === "info");
+    const dump = zm.map((x) => `${x.level}:${x.message}`).join(" | ") || r.text.slice(0, 300);
+    if (!r.report) { check(false, c.name, `${c.name}: preflight crashed: ${r.text.slice(0, 300)}`); continue; }
+    if (c.clean) {
+      const oks = zm.filter((x) => x.level === "ok").map((x) => x.message);
+      check(r.code === 0 && blocks.length === 0 && warns.length === 0 && oks.some((m) => /^robots\.txt antwoordt 200/.test(m)) && oks.some((m) => /^sitemap\.xml: 200, geldig, 3 URL's/.test(m)) && oks.some((m) => /geen noindex in de X-Robots-Tag-header/.test(m)) && oks.some((m) => /geen robots-meta-tag met noindex/.test(m)) && oks.some((m) => /canonical van de startpagina is/.test(m)) && oks.some((m) => /verificatietag google-site-verification/.test(m)) && oks.some((m) => /verificatietag msvalidate\.01/.test(m)) && (!repoKey || oks.some((m) => /IndexNow-sleutelbestand .*<sleutel>\.txt\) antwoordt 200 en bevat de sleutel/.test(m))), `${c.name}: every search-engine check passes (exit 0)`, `${c.name}: exit ${r.code}: ${dump}`);
+    }
+    if (c.blocks) check(r.code === 1 && blocks.length === 1 && c.blocks.test(blocks[0].message) && (blocks[0].fix ?? "").length > 20, `${c.name}: exactly one blocker, naming the problem and its fix (exit 1)`, `${c.name}: exit ${r.code}: ${dump}`);
+    if (c.warns) check(r.code === 0 && blocks.length === 0 && warns.length === (c.warnCount ?? 1) && c.warns.test(`${warns[0].message}`) && warns.every((w) => (w.fix ?? "").length > 20), `${c.name}: ${c.warnCount ?? 1} warning(s) with a fix, no blocker (exit 0)`, `${c.name}: exit ${r.code}: ${dump}`);
+    if (c.infos) check(r.code === 0 && blocks.length === 0 && warns.length === 0 && infos.some((x) => c.infos!.test(x.message)), `${c.name}: no blocker, no warning, explained as information (exit 0)`, `${c.name}: exit ${r.code}: ${dump}`);
+  }
+  const forbidden = [...runs.values()].filter((r) => repoKey && r.text.includes(repoKey));
+  check(forbidden.length === 0, "no report prints the key (only its length)", `${forbidden.length} reports contain the key`);
 }
 
 async function main() {
@@ -243,6 +395,7 @@ async function main() {
     }
   }
 
+  await searchEngineProbes();
   await liveDatabase();
   fs.rmSync(dir, { recursive: true, force: true });
   process.exit(finish());

@@ -69,7 +69,7 @@ export default async function ApiKeysPage() {
         </div>
 
         {!allowance && (
-          <div role="alert" className="border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 text-sm">
+          <div role="alert" className="border border-warning/50 bg-warning/10 rounded-lg p-4 text-sm">
             <p className="font-medium">Je keys zijn uitgeschakeld.</p>
             <p className="text-muted-foreground mt-1">
               Je huidige plan ({planName}) bevat geen API. Zolang dat zo is, antwoorden je keys met HTTP 402. Je kunt ze hieronder nog wel intrekken.{" "}

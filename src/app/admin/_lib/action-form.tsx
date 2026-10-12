@@ -88,7 +88,7 @@ export function ActionForm({ action, children, className }: { action: Action; ch
         <p role="alert" className="mt-2 text-sm text-destructive break-words">{state.error}</p>
       )}
       {state?.ok && state.message && (
-        <p role="status" className="mt-2 text-sm text-emerald-700 dark:text-emerald-400 break-words">{state.message}</p>
+        <p role="status" className="mt-2 text-sm text-success break-words">{state.message}</p>
       )}
     </form>
   );

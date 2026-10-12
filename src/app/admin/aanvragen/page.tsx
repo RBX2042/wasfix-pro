@@ -75,7 +75,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
       </p>
 
       {notice && (
-        <div role="status" className={`mb-6 rounded-md border p-4 text-sm ${notice.tone === "ok" ? "border-emerald-500/40 bg-emerald-50 text-emerald-900" : "border-amber-500/40 bg-amber-50 text-amber-900"}`}>
+        <div role="status" className={`mb-6 rounded-md border p-4 text-sm ${notice.tone === "ok" ? "border-success/40 bg-success/10 text-foreground" : "border-warning/40 bg-warning/10 text-foreground"}`}>
           {notice.text}
         </div>
       )}
@@ -92,7 +92,7 @@ export default async function AdminRequestsPage({ searchParams }: { searchParams
                   <div key={r.id} className="border rounded-md p-3 text-sm">
                     <div className="flex flex-wrap items-center gap-2 mb-1">
                       <Badge variant={STATUS_VARIANT[r.status] ?? "secondary"}>{r.status}</Badge>
-                      <span style={{ color: "#f5b643" }}>{"★".repeat(r.rating)}</span>
+                      <span className="text-warning">{"★".repeat(r.rating)}</span>
                       <span className="font-medium">{r.title}</span>
                       <span className="text-muted-foreground text-xs">{r.targetType} {r.targetSku ?? r.targetSlug} · {r.author} · {formatDate(r.createdAt)}</span>
                     </div>

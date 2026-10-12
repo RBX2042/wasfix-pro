@@ -77,7 +77,7 @@ export function ApiKeysClient({ canCreate }: { canCreate: boolean }) {
     <>
       {/* New-key reveal */}
       {showNewKey && (
-        <div className="border-2 border-emerald-500 rounded-lg p-5 bg-emerald-50 dark:bg-emerald-950/30 mb-6">
+        <div className="border-2 border-success rounded-lg p-5 bg-success/10 mb-6">
           <div className="flex items-start gap-3">
             <div className="text-2xl">🔑</div>
             <div className="flex-1">
@@ -154,7 +154,7 @@ export function ApiKeysClient({ canCreate }: { canCreate: boolean }) {
                 <td className="p-3 text-muted-foreground text-xs">{k.lastUsedAt ? new Date(k.lastUsedAt).toLocaleDateString("nl-NL") : "Nooit"}</td>
                 <td className="p-3 text-right tabular-nums">{k.usageCount.toLocaleString("nl-NL")}</td>
                 <td className="p-3 text-right">
-                  <button onClick={() => revoke(k.id)} className="text-xs text-rose-600 hover:underline">
+                  <button onClick={() => revoke(k.id)} className="text-xs text-destructive hover:underline">
                     Revoke
                   </button>
                 </td>

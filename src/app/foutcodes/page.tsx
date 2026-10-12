@@ -8,16 +8,24 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Search, AlertCircle, ChevronRight } from "lucide-react";
 import { formatCount } from "@/lib/catalog-stats";
+import { LIST_FILTER_PARAMS, listMetadata, pageDescription, pageTitle } from "@/lib/seo";
 
 // Not force-dynamic: the reads are tagged cache entries. The page renders per request
 // only because it reads searchParams.
 
-export const metadata = {
-  title: "Foutcodes database: alle wasmachine fouten",
-  description:
-    "Zoek de foutcode van je wasmachine (Bosch, Miele, Samsung, LG, AEG en meer) en lees de mogelijke oorzaken en wat je eraan kunt doen.",
-  alternates: { canonical: "/foutcodes" },
-};
+// The unfiltered list is the page. ?q=, ?brand= and ?n= give a different list: noindex,follow, no canonical
+// (src/lib/seo.ts listMetadata); utm_* and the like keep the self-canonical without the query string.
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return listMetadata(
+    {
+      title: pageTitle("Foutcodes database: alle wasmachine fouten"),
+      description: pageDescription("Zoek de foutcode van je wasmachine (Bosch, Miele, Samsung, LG, AEG en meer) en lees de mogelijke oorzaken en wat je eraan kunt doen."),
+      path: "/foutcodes",
+    },
+    await searchParams,
+    LIST_FILTER_PARAMS["/foutcodes"],
+  );
+}
 
 const PAGE_SIZE = 50;
 const MAX_SHOWN = 400;

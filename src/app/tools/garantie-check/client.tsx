@@ -86,11 +86,11 @@ export function WarrantyCheckClient() {
     return (
       <div>
         <div style={{
-          background: result.status === "GREEN" ? "rgba(60,200,140,0.08)" : result.status === "YELLOW" ? "rgba(255,170,0,0.08)" : "rgba(255,80,80,0.08)",
+          background: result.status === "GREEN" ? "rgb(var(--ok-rgb) / 0.08)" : result.status === "YELLOW" ? "rgb(var(--warn-rgb) / 0.08)" : "rgb(var(--danger-rgb) / 0.08)",
           border: `1px solid ${result.status === "GREEN" ? "var(--ok)" : result.status === "YELLOW" ? "var(--warn)" : "var(--danger)"}`,
           borderRadius: 12, padding: 24, marginBottom: 24,
         }}>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--muted)", marginBottom: 6 }}>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "var(--mute)", marginBottom: 6 }}>
             Garantiestatus
           </div>
           <h2 style={{ fontSize: 22, fontWeight: 500, margin: 0 }}>
@@ -122,7 +122,7 @@ export function WarrantyCheckClient() {
           />
         </div>
 
-        <div style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 20 }}>
+        <div style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 12, padding: 20 }}>
           <h3 style={{ fontSize: 15, fontWeight: 500, margin: 0, marginBottom: 10 }}>Wat nu?</h3>
           {stillUnderFactory ? (
             <p style={{ color: "var(--text-2)", fontSize: 14, lineHeight: 1.6 }}>
@@ -155,7 +155,7 @@ export function WarrantyCheckClient() {
   }
 
   return (
-    <form onSubmit={calculate} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 28 }}>
+    <form onSubmit={calculate} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 28 }}>
       <div style={{ display: "grid", gap: 16 }}>
         <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
@@ -212,7 +212,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
   background: "var(--surf-2)",
-  border: "1px solid var(--border)",
+  border: "1px solid var(--field-line)",
   borderRadius: 8,
   color: "var(--text)",
   fontSize: 14,
@@ -221,12 +221,12 @@ const inputStyle: React.CSSProperties = {
 
 function Row({ ok, label, value, hint }: { ok: boolean; label: string; value: string; hint: string }) {
   return (
-    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: 14, background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 10 }}>
+    <div style={{ display: "flex", gap: 14, alignItems: "flex-start", padding: 14, background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 10 }}>
       <div style={{
         flexShrink: 0,
         width: 32, height: 32, borderRadius: 16,
-        background: ok ? "rgba(60,200,140,0.15)" : "rgba(255,255,255,0.06)",
-        color: ok ? "var(--ok)" : "var(--muted)",
+        background: ok ? "rgb(var(--ok-rgb) / 0.15)" : "rgb(var(--ink-rgb) / 0.06)",
+        color: ok ? "var(--ok)" : "var(--mute)",
         display: "grid", placeItems: "center",
       }}>
         {ok ? <Icon name="check" size={16} /> : <Icon name="close" size={14} />}

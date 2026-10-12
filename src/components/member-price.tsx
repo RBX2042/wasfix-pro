@@ -105,7 +105,7 @@ export function MemberPrice({ priceEur, className = "" }: { priceEur: number; cl
   // Same arithmetic as /api/checkout (see member-discount.ts), so the price shown is the price charged.
   const discounted = memberLineTotal(priceEur, discount);
   return (
-    <p className={`text-sm font-medium text-emerald-700 dark:text-emerald-400 ${className}`}>
+    <p className={`text-sm font-medium text-success ${className}`}>
       Jouw prijs {formatEur(discounted)} <span className="font-normal">({Math.round(discount * 100)}% ledenkorting)</span>
     </p>
   );

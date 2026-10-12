@@ -54,7 +54,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
             <p>Je winkelmand is leeg</p>
             {/* Why it is empty: the server check removes sold-out parts, and a silent empty cart looks like a bug. */}
             {notices.length > 0 && (
-              <div role="status" className="mt-4 rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-left text-xs text-foreground space-y-1">
+              <div role="status" className="mt-4 rounded-md border border-warning/50 bg-warning/10 p-3 text-left text-xs text-foreground space-y-1">
                 {notices.map((n, i) => (
                   <p key={i}>{describeCartNotice(n)}</p>
                 ))}
@@ -67,7 +67,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
         ) : (
           <>
             {notices.length > 0 && (
-              <div role="status" className="rounded-md border border-amber-400 bg-amber-50 dark:bg-amber-950/30 p-3 text-xs space-y-1">
+              <div role="status" className="rounded-md border border-warning/50 bg-warning/10 p-3 text-xs space-y-1">
                 {notices.map((n, i) => (
                   <p key={i}>{describeCartNotice(n)}</p>
                 ))}
@@ -112,7 +112,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                           <span className="text-right">
                             <span className="font-semibold block">{formatEur(i.priceEur * i.quantity)}</span>
                             {discount > 0 && (
-                              <span className="block text-xs font-medium text-emerald-700 dark:text-emerald-400">
+                              <span className="block text-xs font-medium text-success">
                                 Jouw prijs {formatEur(memberLineTotal(i.priceEur, discount, i.quantity))}
                               </span>
                             )}
@@ -133,7 +133,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
               {/* Shipping and the free-shipping threshold were invisible until the last step. */}
               <div className="space-y-1" aria-label="Gratis verzending">
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted" role="progressbar" aria-valuemin={0} aria-valuemax={100} aria-valuenow={freeProgress} aria-label="Voortgang naar gratis verzending">
-                  <div className="h-full bg-emerald-500 transition-all" style={{ width: `${freeProgress}%` }} />
+                  <div className="h-full bg-success transition-all motion-reduce:transition-none" style={{ width: `${freeProgress}%` }} />
                 </div>
                 <p className="text-xs text-muted-foreground flex items-center gap-1">
                   <Truck className="h-3 w-3" aria-hidden />
@@ -147,7 +147,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                 <span>{formatEur(totals.subtotalEur)}</span>
               </div>
               {totals.discountEur > 0 && (
-                <div className="flex justify-between text-sm text-emerald-700 dark:text-emerald-400">
+                <div className="flex justify-between text-sm text-success">
                   <span>Ledenkorting ({Math.round(discount * 100)}%)</span>
                   <span>-{formatEur(totals.discountEur)}</span>
                 </div>
@@ -160,7 +160,7 @@ export function CartDrawer({ open, onOpenChange }: { open: boolean; onOpenChange
                 <span>Totaal <span className="text-xs font-normal text-muted-foreground">incl. btw</span></span>
                 <span>{formatEur(totals.totalEur)}</span>
               </div>
-              {overLimit && <p role="alert" className="text-xs text-red-700 dark:text-red-300">{overLimit}</p>}
+              {overLimit && <p role="alert" className="text-xs text-destructive">{overLimit}</p>}
               <Button asChild className="w-full" size="lg" onClick={() => onOpenChange(false)}>
                 <Link href="/checkout">Naar afrekenen</Link>
               </Button>

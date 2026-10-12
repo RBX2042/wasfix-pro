@@ -60,10 +60,10 @@ export default async function InvoicePage({
   // What the document says about payment, from the order row: a bookkeeper must be able to
   // tell from the paper alone whether, how and by when this invoice is paid.
   const stamp = status === "CANCELLED"
-    ? { text: "Geannuleerd", tone: "text-red-700 border-red-700" }
+    ? { text: "Geannuleerd", tone: "text-destructive border-destructive" }
     : isPaid
-      ? { text: "Betaald", tone: "text-emerald-700 border-emerald-700" }
-      : { text: "Openstaand", tone: "text-amber-700 border-amber-700" };
+      ? { text: "Betaald", tone: "text-success border-success" }
+      : { text: "Openstaand", tone: "text-warning border-warning" };
 
   return (
     <div className="bg-muted/30 min-h-screen py-8 print:bg-white print:py-0">
@@ -161,7 +161,7 @@ export default async function InvoicePage({
                 <dd className="tabular-nums">{formatEur(invoice.subtotalEur)}</dd>
               </div>
               {invoice.discountEur > 0 && (
-                <div className="flex justify-between text-emerald-600">
+                <div className="flex justify-between text-success">
                   <dt>Korting</dt>
                   <dd className="tabular-nums">-{formatEur(invoice.discountEur)}</dd>
                 </div>

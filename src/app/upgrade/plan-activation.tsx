@@ -112,9 +112,9 @@ export function PlanActivation({ initial, expectedPlan, supportEmail = null }: {
   const business = BUSINESS.has(snap.plan);
 
   return (
-    <div role="status" className="rounded-lg border border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30 p-5 space-y-3">
+    <div role="status" className="rounded-lg border border-success/40 bg-success/10 p-5 space-y-3">
       <p className="flex items-start gap-2 font-semibold">
-        <CheckCircle2 className="h-5 w-5 text-emerald-600 shrink-0 mt-0.5" aria-hidden />
+        <CheckCircle2 className="h-5 w-5 text-success shrink-0 mt-0.5" aria-hidden />
         <span>
           {trialing ? `Je ${snap.planName}-proefperiode is gestart.` : `Je ${snap.planName}-abonnement is actief.`}
         </span>

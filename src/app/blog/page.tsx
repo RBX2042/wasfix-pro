@@ -1,12 +1,13 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import postsData from "@/data/blog-posts.json";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Blog & kennisbank",
-  description: "Wasmachine reparatie tips, EU Right to Repair updates, foutcodes-analyses, en duurzame onderhoudsguides.",
-  alternates: { canonical: "/blog" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Blog & kennisbank"),
+  description: pageDescription("Wasmachine reparatie tips, EU Right to Repair updates, foutcodes-analyses, en duurzame onderhoudsguides."),
+  path: "/blog",
+});
 
 type Post = { slug: string; category: string; title: string; summary: string; readTime: number; publishedAt: string; heroEmoji: string; content: string };
 const posts = postsData as Post[];
@@ -62,7 +63,7 @@ export default function BlogIndexPage() {
             ))}
           </div>
 
-          <div style={{ marginTop: 56, padding: 32, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16, textAlign: "center" }}>
+          <div style={{ marginTop: 56, padding: 32, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 16, textAlign: "center" }}>
             <h2 style={{ fontSize: 22, fontWeight: 500, marginBottom: 10 }}>Wekelijkse nieuwsbrief</h2>
             <p className="muted" style={{ marginBottom: 18, maxWidth: 480, margin: "0 auto 18px" }}>
               Eens per week — trending foutcodes, nieuwe gidsen, duurzame tips. Geen spam, altijd opzegbaar.
@@ -73,7 +74,7 @@ export default function BlogIndexPage() {
                 name="email"
                 placeholder="je@email.nl"
                 required
-                style={{ padding: "10px 14px", background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)", minWidth: 240, fontSize: 14 }}
+                style={{ padding: "10px 14px", background: "var(--surf-2)", border: "1px solid var(--field-line)", borderRadius: 8, color: "var(--text)", minWidth: 240, fontSize: 14 }}
               />
               <button type="submit" className="btn btn-primary btn-sm">
                 Abonneer <Icon name="send" size={13} />

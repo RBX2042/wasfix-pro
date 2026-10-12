@@ -1,9 +1,14 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import { RmaForm } from "./rma-form";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
 
 const metadata = {
-  title: "Retour aanvragen · WasFix Pro",
-  description: "Start hier je retour-aanvraag bij WasFix Pro. 30 dagen bedenktijd, gratis bij defecten.",
+  // The title brought its own " · WasFix Pro" and the template added a second one.
+  ...pageMetadata({
+    title: pageTitle("Retour aanvragen"),
+    description: pageDescription("Start hier je retour-aanvraag bij WasFix Pro. 30 dagen bedenktijd, gratis bij defecten.", "Je krijgt een RMA-nummer en het retouradres."),
+    path: "/retour/start",
+  }),
   // The address can carry the order's access token (link from the order page): keep it out of Referer headers.
   referrer: "no-referrer" as const,
 };
@@ -14,7 +19,9 @@ const first = (v: string | string[] | undefined) => (Array.isArray(v) ? v[0] : v
 // The address can carry the order's access token (D2): pages that honour it are not indexed.
 export async function generateMetadata({ searchParams }: { searchParams: Promise<SP> }) {
   const t = first((await searchParams).t);
-  return t ? { ...metadata, robots: { index: false, follow: false } } : metadata;
+  // With a token the page is private: noindex and NO canonical (a canonical to the indexable /retour/start next to a
+  // noindex is a mixed signal), and no social card.
+  return t ? { title: metadata.title, referrer: metadata.referrer, alternates: {}, robots: robotsMeta(false, false) } : metadata;
 }
 
 export default async function RetourStartPage({ searchParams }: { searchParams: Promise<SP> }) {
@@ -41,7 +48,7 @@ export default async function RetourStartPage({ searchParams }: { searchParams: 
             ].map((b, i) => (
               <div key={i} className="step-card">
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(79,140,255,0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
+                  <span style={{ width: 28, height: 28, borderRadius: 7, background: "rgb(var(--acc-rgb) / 0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
                     <Icon name={b.icon} size={14} />
                   </span>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{b.title}</div>

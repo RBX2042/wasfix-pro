@@ -3,12 +3,13 @@ import Link from "next/link";
 import articlesData from "@/data/help-articles.json";
 import { correctHelpText } from "./_corrections";
 import { SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Helpcentrum",
-  description: "Antwoorden op de meest gestelde vragen. AI diagnose, onderdelen, bestellingen, abonnement, garantie, privacy.",
-  alternates: { canonical: "/help" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Helpcentrum"),
+  description: pageDescription("Antwoorden op de meest gestelde vragen. AI diagnose, onderdelen, bestellingen, abonnement, garantie, privacy."),
+  path: "/help",
+});
 
 type Article = { slug: string; category: string; title: string; summary: string; content: string };
 const articles = (articlesData as Article[]).map((a) => ({ ...a, title: correctHelpText(a.title), summary: correctHelpText(a.summary) }));
@@ -48,7 +49,7 @@ export default function HelpPage() {
               return (
                 <div key={category}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 14 }}>
-                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgba(79,140,255,0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
+                    <div style={{ width: 32, height: 32, borderRadius: 8, background: "rgb(var(--acc-rgb) / 0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
                       <Icon name={iconName} size={14} />
                     </div>
                     <h2 style={{ fontSize: 20, fontWeight: 500, margin: 0, letterSpacing: "-0.01em" }}>{category}</h2>
@@ -72,7 +73,7 @@ export default function HelpPage() {
             })}
           </div>
 
-          <div style={{ marginTop: 56, padding: 32, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16, textAlign: "center" }}>
+          <div style={{ marginTop: 56, padding: 32, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 16, textAlign: "center" }}>
             <h2 style={{ fontSize: 22, fontWeight: 500, marginBottom: 10 }}>Niet gevonden wat je zocht?</h2>
             <p className="muted" style={{ marginBottom: 18, maxWidth: 480, margin: "0 auto 18px" }}>
               Stuur ons een bericht — we reageren binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen.

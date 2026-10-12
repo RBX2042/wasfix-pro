@@ -34,7 +34,7 @@ export default function GlobalError({
             Er ging iets mis aan onze kant. Probeer de pagina opnieuw te laden, vaak helpt dat. Blijft het probleem, neem dan contact op met support en noem de foutcode hieronder.
           </p>
           {error.digest && (
-            <div className="mono" style={{ fontSize: 11, color: "var(--muted)", marginBottom: 28, letterSpacing: "0.04em" }}>
+            <div className="mono" style={{ fontSize: 11, color: "var(--mute)", marginBottom: 28, letterSpacing: "0.04em" }}>
               Foutcode: {error.digest}
             </div>
           )}

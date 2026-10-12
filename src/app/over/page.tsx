@@ -4,10 +4,17 @@ import { Sparkles, Recycle, Users, Award } from "lucide-react";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
 const STATS = catalogStats();
 
-export const metadata = { title: "Over WasFix Pro" };
+// The title was "Over WasFix Pro" + the template's " · WasFix Pro", and the page had no description, so it shared
+// the site-wide sentence with /api-info.
+export const metadata = pageMetadata({
+  title: pageTitle("Over ons: de missie van WasFix Pro"),
+  description: pageDescription("Onze missie: wasmachines weer laten repareren in plaats van weggooien. Zo werkt de AI-indicatie, en dit zit er in het platform."),
+  path: "/over",
+});
 
 export default function OverPage() {
   return (

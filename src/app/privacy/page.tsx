@@ -2,12 +2,13 @@ import { ContactEmail } from "@/lib/contact-email";
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { COMPANY, realOrNull, PENDING_REGISTRATION } from "@/lib/plans";
 import Link from "next/link";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Privacybeleid",
-  description: "Hoe WasFix Pro persoonsgegevens verwerkt — AVG-conform privacybeleid.",
-  alternates: { canonical: "/privacy" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Privacybeleid"),
+  description: pageDescription("Hoe WasFix Pro persoonsgegevens verwerkt — AVG-conform privacybeleid.", "Welke gegevens, waarvoor, hoe lang en welke rechten je hebt."),
+  path: "/privacy",
+});
 
 export default function PrivacyPage() {
   return (
@@ -149,7 +150,7 @@ export default function PrivacyPage() {
 
             <h2>12. Klachten</h2>
             <p>Heb je een klacht over onze gegevensverwerking? Neem eerst contact met ons op via <ContactEmail />. Kom je er met ons niet uit? Je hebt het recht een klacht in te dienen bij de Autoriteit Persoonsgegevens:</p>
-            <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "12px 16px" }}>
+            <p style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "12px 16px" }}>
               <strong>Autoriteit Persoonsgegevens</strong><br />
               Postbus 93374, 2509 AJ Den Haag<br />
               <a href="https://autoriteitpersoonsgegevens.nl" target="_blank" rel="noopener noreferrer">autoriteitpersoonsgegevens.nl</a>

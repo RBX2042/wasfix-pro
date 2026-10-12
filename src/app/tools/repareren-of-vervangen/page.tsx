@@ -3,19 +3,16 @@ import RepairOrReplaceCalculator from "@/components/tools/RepairOrReplaceCalcula
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Leaf, Euro, Clock } from "lucide-react";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
+import { ldJson } from "@/lib/json-ld";
 
-export const metadata = {
-  title: "Repareren of vervangen wasmachine? — Eerlijk advies in 2 minuten",
-  description:
-    "Twijfelt u of uw wasmachine repareren wel de moeite waard is? Onze gratis calculator geeft eerlijk advies op basis van leeftijd, kosten en energieverbruik. EU Right to Repair compliant.",
-  keywords: ["wasmachine repareren of vervangen", "wasmachine kapot vervangen", "is reparatie de moeite waard", "right to repair", "wasmachine economisch"],
-  openGraph: {
-    title: "Repareren of vervangen? — WasFix Pro Calculator",
-    description: "Eerlijk advies in 2 minuten — gebaseerd op leeftijd, kosten en CO₂ impact.",
-    images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
-  },
-  alternates: { canonical: "/tools/repareren-of-vervangen" },
-};
+// Shorter title and description (77 and 185 characters before). "EU Right to Repair compliant" is gone: a
+// calculator is not compliant with a directive, and nothing backs the wording. The meta keywords are gone too.
+export const metadata = pageMetadata({
+  title: pageTitle("Wasmachine repareren of vervangen? Calculator"),
+  description: pageDescription("Twijfel je of repareren de moeite waard is? Onze gratis calculator geeft advies op basis van leeftijd, kosten en energieverbruik."),
+  path: "/tools/repareren-of-vervangen",
+});
 
 export default function RepairOrReplacePage() {
   const jsonLd = {
@@ -29,7 +26,7 @@ export default function RepairOrReplacePage() {
 
   return (
     <MarketingLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }} />
 
       <section className="border-b bg-muted/30">
         <div className="container py-12 max-w-3xl">

@@ -16,7 +16,7 @@
  *                       (default: production)
  *   --strict            warnings also give a non-zero exit code
  *   --json              machine-readable report
- *   --only a,b          only these groups (core,database,company,auth,stripe,email,owner,ai,ops,catalog,live)
+ *   --only a,b          only these groups (core,database,company,auth,stripe,email,owner,ai,ops,catalog,live,zoekmachines)
  *
  * Verdict: READY (exit 0), READY WITH WARNINGS (exit 0, exit 1 with --strict), NOT READY (exit 1;
  * at least one BLOCK). Exit 2: the script itself crashed. Every BLOCK and WARN carries the exact
@@ -33,6 +33,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { checkKeyFile, filterUrls, headSignals, keyFileUrl, parseOrigin, readSitemap, resolveKey, robotsBlocksEverything, type HttpGet } from "./lib/indexnow";
 
 export type Level = "ok" | "info" | "warn" | "block" | "skip";
 export type Check = { group: string; level: Level; message: string; fix?: string };
@@ -48,6 +49,7 @@ const KNOWN_VARS = [
   "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "API_DEMO_KEY", "CRON_SECRET",
   "COMPANY_NAME", "COMPANY_STREET", "COMPANY_POSTAL_CODE", "COMPANY_CITY", "COMPANY_KVK", "COMPANY_VAT", "COMPANY_IBAN", "COMPANY_EMAIL", "COMPANY_PHONE",
   "NEXT_PUBLIC_FEATURE_REFERRAL", "NEXT_PUBLIC_FEATURE_I18N", "NEXT_PUBLIC_FEATURE_EXIT_INTENT", "NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_GA_ID",
+  "INDEXNOW_KEY", "GOOGLE_SITE_VERIFICATION", "BING_SITE_VERIFICATION",
   "VERCEL", "VERCEL_ENV",
 ];
 
@@ -322,6 +324,46 @@ export async function runPreflight(args: Args): Promise<Report> {
     else warn(g, "Upstash ontbreekt (verminderde modus, toegestaan): de rate limits (bijv. 10 bestellingen per uur per IP) tellen per serverinstantie en beginnen bij elke koude start opnieuw. Op een serverless host is de echte grens dus de ingestelde grens maal het aantal instanties. De maandquota in de database (diagnoses, API-aanroepen) blijven wel exact.", "Optioneel maar aanbevolen: maak een gratis Upstash Redis-database in de EU en zet UPSTASH_REDIS_REST_URL en _TOKEN.");
   }
 
+  // ── zoekmachines, offline half (D24; the half that needs the site is probeSearchEngines, with --url) ─────────
+  {
+    const g = "zoekmachines";
+    const publicDir = path.join(process.cwd(), "public");
+    const envKey = get("INDEXNOW_KEY");
+    const key = resolveKey(envKey, publicDir);
+    if (key.ok) {
+      const fileHoldsKey = (() => {
+        try {
+          return fs.readFileSync(path.join(publicDir, `${key.key}.txt`), "utf8").trim() === key.key;
+        } catch {
+          return false;
+        }
+      })();
+      if (!fileHoldsKey) warn(g, `INDEXNOW_KEY is ingesteld (${key.key.length} tekens), maar public/ bevat geen sleutelbestand met precies die sleutel: een zoekmachine kan de sleutel dan niet controleren en weigert elke IndexNow-melding (403).`, "Zet in public/ het bestand <sleutel>.txt met als inhoud alleen de sleutel, commit het en deploy opnieuw. De sleutel is openbaar bedoeld; hij staat op de site.");
+      else ok(g, `IndexNow-sleutel aanwezig (${key.key.length} tekens, ${key.source === "env" ? "uit INDEXNOW_KEY" : "uit public/"}) en public/ bevat het sleutelbestand`);
+    } else if (envKey) warn(g, key.reason, "Gebruik een sleutel van 8 tot 128 tekens (a-z, A-Z, 0-9 en -), of haal INDEXNOW_KEY weg: dan wordt het ene sleutelbestand in public/ gebruikt.");
+    else if ((key.candidates ?? 0) > 1) warn(g, key.reason, "Laat precies één sleutelbestand in public/ staan, of zet INDEXNOW_KEY op de goede.");
+    else add(g, "info", "Geen IndexNow-sleutel (INDEXNOW_KEY of een bestand public/<sleutel>.txt): IndexNow is niet ingericht. Dat is optioneel; zie README, Indexeren.");
+
+    // Verification can also be done with a DNS TXT record or an HTML file, so "not set" is a warning, never a blocker.
+    const { verificationMetadata } = await import("../src/lib/seo");
+    const googleRaw = get("GOOGLE_SITE_VERIFICATION");
+    const bingRaw = get("BING_SITE_VERIFICATION");
+    const vm = verificationMetadata({ GOOGLE_SITE_VERIFICATION: googleRaw, BING_SITE_VERIFICATION: bingRaw });
+    for (const v of [
+      { name: "GOOGLE_SITE_VERIFICATION", raw: googleRaw, active: Boolean(vm?.google), tool: "Google Search Console" },
+      { name: "BING_SITE_VERIFICATION", raw: bingRaw, active: Boolean(vm?.other?.["msvalidate.01"]), tool: "Bing Webmaster Tools" },
+    ]) {
+      const fix = `Verifieer het domein in ${v.tool} met een DNS-TXT-record (voorkeur: dat dekt het hele domein en blijft staan), of zet ${v.name} (alleen het token uit de meta-tag) in de Production-omgeving en deploy opnieuw.`;
+      if (!v.raw) {
+        const message = `${v.name} is niet ingesteld: de site zet geen verificatietag voor ${v.tool}. Dat is in orde zolang je het domein via een DNS-TXT-record verifieert; verifieer je het nergens, dan kun je daar de sitemap niet indienen.`;
+        if (production) warn(g, message, fix);
+        else add(g, "info", message);
+      } else if (!v.active) warn(g, `${v.name} is ingesteld maar geen geldig token (8 tot 200 tekens: a-z, A-Z, 0-9, _ en -): de site zet GEEN verificatietag.`, fix);
+      else ok(g, `${v.name} is ingesteld: de site zet de verificatietag voor ${v.tool}`);
+    }
+    if (!args.url) add(g, "skip", "robots.txt, sitemap, indexeerbaarheid, canonical en sleutelbestand op de live site (niet gecontroleerd: gebruik --url <adres>)");
+  }
+
   // ── network checks ───────────────────────────────────────────────────
   if (args.live) await liveChecks(args, checks, { clerkHost, resendFromDomain, production });
   else {
@@ -462,6 +504,7 @@ async function liveChecks(args: Args, checks: Check[], ctx: { clerkHost: string 
   }
 
   if (args.url) await probeDeployed(args.url.replace(/\/+$/, ""), checks, ctx);
+  if (args.url) await probeSearchEngines(args.url.replace(/\/+$/, ""), checks, { production });
 }
 
 function checkAppUrlSafe(): string | null {
@@ -634,6 +677,129 @@ async function probeDeployed(base: string, checks: Check[], ctx: { clerkHost: st
       if (p === "/contact" && configured.email && !text.includes(configured.email)) missing.push("het contactadres");
       if (missing.length) add("block", `De live ${p} toont ${missing.join(" en ")} uit COMPANY_* niet: de pagina is gebouwd met andere (of geen) bedrijfsgegevens dan nu zijn ingesteld.`, REDEPLOY);
       else add("ok", `De live ${p} toont de ingestelde bedrijfsgegevens`);
+    }
+  }
+}
+
+/**
+ * What a search engine sees of the deployed site (group zoekmachines, decision D24): robots.txt names the sitemap on the
+ * public address and does not shut everyone out; the sitemap is valid, not empty and entirely on that address; the home page
+ * carries no noindex (header or meta tag) and names itself as canonical; the IndexNow key file answers; a verification tag
+ * that is configured is really in the page. Read-only GET requests. The page is read from `base` (the deployment under
+ * test) and judged against NEXT_PUBLIC_APP_URL (the address search engines will use), because the public address may not
+ * answer yet.
+ *
+ * Nothing here tells a search engine anything: it only reads. On a staging target a noindex is what is wanted, so it is
+ * reported as such instead of as a problem.
+ */
+async function probeSearchEngines(base: string, checks: Check[], ctx: { production: boolean }) {
+  const g = "zoekmachines";
+  const { production } = ctx;
+  const add = (level: Level, message: string, fix?: string) => checks.push({ group: g, level, message, fix });
+  // For a production target a wrong answer blocks; for staging the same findings are only warnings.
+  const bad = (message: string, fix: string) => add(production ? "block" : "warn", message, fix);
+  const expected = checkAppUrlSafe() ?? new URL(base).origin;
+  const expectedO = parseOrigin(expected);
+  const baseO = parseOrigin(new URL(base).origin);
+  if (!expectedO.ok || !baseO.ok) {
+    add("warn", "Het adres van de site is niet te lezen: de zoekmachinecontroles zijn niet gedaan.", "Controleer --url en NEXT_PUBLIC_APP_URL.");
+    return;
+  }
+  const toBase = (url: string) => (url.startsWith(`${expected}/`) ? `${base}${url.slice(expected.length)}` : url);
+  const fetchPage = (redirect: RequestRedirect): HttpGet => async (url) => {
+    const r = await http(toBase(url), { redirect });
+    return { status: r.status, location: r.headers.get("location"), contentType: r.headers.get("content-type"), xRobotsTag: r.headers.get("x-robots-tag"), text: await r.text() };
+  };
+  const follow = fetchPage("follow");
+  const direct = fetchPage("manual");
+  const attempt = async <T,>(name: string, fn: () => Promise<T>): Promise<T | null> => {
+    try {
+      return await fn();
+    } catch (err) {
+      bad(`${name}: niet bereikbaar (${(err as Error).message.slice(0, 80)}): een zoekmachine kan het ook niet lezen.`, "Controleer dat de site online is en het domein naar het project wijst.");
+      return null;
+    }
+  };
+
+  // robots.txt
+  const robots = await attempt("robots.txt", () => follow(`${base}/robots.txt`));
+  if (robots) {
+    if (robots.status !== 200) bad(`robots.txt antwoordt HTTP ${robots.status}, niet 200.`, "Zoekmachines lezen robots.txt eerst: controleer de deploy (src/app/robots.ts).");
+    else {
+      const sitemaps = [...robots.text.matchAll(/^Sitemap:\s*(\S+)/gim)].map((m) => m[1]);
+      const origins = sitemaps.map((s) => { try { return new URL(s).origin; } catch { return s; } });
+      if (robotsBlocksEverything(robots.text)) {
+        if (production) add("block", "robots.txt sluit de hele site uit voor alle zoekmachines (User-agent: * met Disallow: /).", "Dit hoort alleen bij een preview of development. Controleer dat dit de productie-deploy is (VERCEL_ENV=production) en deploy opnieuw.");
+        else add("info", "robots.txt sluit de site uit voor zoekmachines (Disallow: /): juist voor een preview of staging.");
+      } else if (sitemaps.length === 0) {
+        if (production) add("block", "robots.txt noemt geen Sitemap: zoekmachines vinden de sitemap dan alleen als je hem zelf indient.", "NEXT_PUBLIC_APP_URL is niet bruikbaar in deze build; zet hem en bouw opnieuw.");
+        else add("info", "robots.txt noemt geen Sitemap (staging).");
+      } else if (origins.some((o) => o !== expected)) {
+        bad(`robots.txt wijst met Sitemap naar ${sitemaps.find((_, i) => origins[i] !== expected)}, niet naar ${expected}.`, "Zet NEXT_PUBLIC_APP_URL op het publieke adres en bouw opnieuw.");
+      } else add("ok", `robots.txt antwoordt 200, laat de site open en noemt de sitemap ${sitemaps[0]} op ${expected}`);
+    }
+  }
+
+  // sitemap.xml
+  const sm = await attempt("sitemap.xml", () => readSitemap(expectedO.value, follow));
+  if (sm) {
+    if (!sm.ok) bad(`sitemap.xml: ${sm.reason}`, "Controleer NEXT_PUBLIC_APP_URL en de databaseverbinding; de sitemap hoort 200 en geldige XML te geven.");
+    else if (sm.urls.length === 0) bad("sitemap.xml is geldig maar bevat geen URL's.", "Controleer NEXT_PUBLIC_APP_URL en de databaseverbinding.");
+    else {
+      const foreign = sm.urls.filter((u) => { try { return new URL(u).origin !== expected; } catch { return true; } });
+      if (foreign.length) bad(`${foreign.length} van de ${sm.urls.length} URL's in sitemap.xml staan niet op ${expected} (bijvoorbeeld ${foreign[0].slice(0, 80)}).`, "Zet NEXT_PUBLIC_APP_URL correct en bouw opnieuw: Search Console weigert een sitemap met URL's van een ander adres.");
+      else {
+        add("ok", `sitemap.xml: 200, geldig, ${sm.urls.length} URL's, alle op ${expected}${sm.files > 1 ? ` (${sm.files} bestanden)` : ""}`);
+        const filtered = filterUrls(sm.urls, expectedO.value);
+        const notForEngines = filtered.dropped.filter((d) => d.reason !== "dubbel");
+        if (notForEngines.length) add("warn", `${notForEngines.length} URL's in sitemap.xml horen niet bij zoekmachines (privépad, query, noindex-familie, technisch bestand): bijvoorbeeld ${notForEngines[0].url.slice(0, 80)}.`, "Laat de sitemap alleen indexeerbare pagina's noemen (src/app/sitemap.ts, src/lib/seo.ts indexability).");
+        if (filtered.dropped.some((d) => d.reason === "dubbel")) add("warn", `sitemap.xml noemt ${filtered.dropped.filter((d) => d.reason === "dubbel").length} URL('s) dubbel.`, "Haal de dubbelingen uit src/app/sitemap.ts.");
+      }
+    }
+  }
+
+  // the home page: indexable, names itself, carries the verification tags that are configured
+  const home = await attempt("startpagina", () => follow(`${base}/`));
+  if (home) {
+    if (home.status !== 200) bad(`De startpagina antwoordt HTTP ${home.status}, niet 200: een zoekmachine kan hem niet lezen.`, "Controleer de deploy en het domein.");
+    else {
+      const sig = headSignals(home.text);
+      const headerNoindex = /(^|[\s,])(noindex|none)\b/i.test(home.xRobotsTag ?? "");
+      if (headerNoindex) {
+        if (production) add("block", `De startpagina stuurt X-Robots-Tag: ${(home.xRobotsTag ?? "").slice(0, 60)}: de hele site wordt zo uit de index gehouden.`, "Controleer dat dit de productie-deploy is (VERCEL_ENV=production) en of de host of next.config.ts een noindex-header over de hele site zet.");
+        else add("info", "De startpagina stuurt een noindex-header: juist voor een preview of staging.");
+      } else add("ok", "De startpagina stuurt geen noindex in de X-Robots-Tag-header");
+      if (sig.noindex) {
+        if (production) add("block", `De startpagina heeft een robots-meta-tag met noindex (${sig.robots.join(", ")}): de hele site wordt zo uit de index gehouden.`, "Haal de noindex uit de metadata van de startpagina of van src/app/layout.tsx.");
+        else add("info", "De startpagina heeft een noindex-tag: juist voor een preview of staging.");
+      } else add("ok", "De startpagina heeft geen robots-meta-tag met noindex");
+      const want = `${expected}/`;
+      if (sig.canonical.length === 0) add("warn", "De startpagina noemt geen canonical-link.", "Gebruik pageMetadata() (src/lib/seo.ts) voor de metadata van de startpagina.");
+      else {
+        const canon = (() => { try { return new URL(sig.canonical[0], base).href; } catch { return sig.canonical[0]; } })();
+        if (canon === want) add("ok", `De canonical van de startpagina is ${want}`);
+        else bad(`De canonical van de startpagina is ${canon}, niet ${want}.`, "Zet NEXT_PUBLIC_APP_URL op het publieke adres en bouw opnieuw: zoekmachines volgen de canonical naar dat adres.");
+      }
+      const { verificationMetadata } = await import("../src/lib/seo");
+      const vm = verificationMetadata({ GOOGLE_SITE_VERIFICATION: get("GOOGLE_SITE_VERIFICATION"), BING_SITE_VERIFICATION: get("BING_SITE_VERIFICATION") });
+      for (const t of [
+        { name: "GOOGLE_SITE_VERIFICATION", meta: "google-site-verification", token: vm?.google },
+        { name: "BING_SITE_VERIFICATION", meta: "msvalidate.01", token: vm?.other?.["msvalidate.01"] },
+      ]) {
+        if (!t.token) continue;
+        if (sig.meta[t.meta] === String(t.token)) add("ok", `De startpagina bevat de verificatietag ${t.meta}`);
+        else add("warn", `${t.name} is ingesteld maar de startpagina bevat de tag ${t.meta} niet (of met een andere waarde): de pagina is gebouwd zonder, of met een andere waarde.`, "De waarde wordt bij de build ingebakken: deploy opnieuw (bouw opnieuw, niet alleen herstarten).");
+      }
+    }
+  }
+
+  // the IndexNow key file, when a key exists
+  const key = resolveKey(get("INDEXNOW_KEY"), path.join(process.cwd(), "public"));
+  if (key.ok) {
+    const kf = await attempt("IndexNow-sleutelbestand", () => checkKeyFile(baseO.value, key.key, direct));
+    if (kf) {
+      if (kf.ok) add("ok", `Het IndexNow-sleutelbestand (${keyFileUrl(baseO.value, key.key).replace(key.key, "<sleutel>")}) antwoordt 200 en bevat de sleutel${kf.contentType && !/^text\//i.test(kf.contentType) ? ` (let op: geserveerd als ${kf.contentType.split(";")[0]}, gebruikelijk is text/plain)` : ""}`);
+      else add("warn", `IndexNow: ${kf.reason.replace(key.key, "<sleutel>")}. Zonder dit weigeren de zoekmachines elke melding (403); de rest van de site merkt er niets van.`, "Zet public/<sleutel>.txt (alleen de sleutel als inhoud) op de site en deploy opnieuw; het bestand mag niet doorverwijzen.");
     }
   }
 }

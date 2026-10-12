@@ -49,7 +49,7 @@ export function QrStickerClient() {
     return (
       <div>
         {/* Sticker preview — also the print target */}
-        <div id="sticker-print-area" style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 30, marginBottom: 20 }}>
+        <div id="sticker-print-area" style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 30, marginBottom: 20 }}>
           <div className="sticker">
             <div className="sticker-header">
               <div className="sticker-brand-mark">
@@ -94,7 +94,7 @@ export function QrStickerClient() {
           </button>
         </div>
 
-        <div style={{ padding: 20, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12 }}>
+        <div style={{ padding: 20, background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 12 }}>
           <h3 style={{ fontSize: 15, fontWeight: 500, marginBottom: 10 }}>Print-instructies</h3>
           <ol style={{ paddingLeft: 22, color: "var(--text-2)", lineHeight: 1.7, fontSize: 13.5 }}>
             <li>Klik &ldquo;Print direct&rdquo; — kies &ldquo;Opslaan als PDF&rdquo; of selecteer je printer</li>
@@ -105,10 +105,12 @@ export function QrStickerClient() {
           </ol>
         </div>
 
-        <div style={{ marginTop: 16, padding: 18, background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 10, fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
+        <div style={{ marginTop: 16, padding: 18, background: "rgb(var(--acc-rgb) / 0.06)", border: "1px solid var(--line-ac)", borderRadius: 10, fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text)" }}>Voor monteurs:</strong> bij elke klant een unieke sticker plakken = klantenbinding + 1-click pre-diagnose volgende keer. Vraag <a href="/monteur" style={{ color: "var(--acc-2)", textDecoration: "underline" }}>Monteur Pro</a> voor batch-generatie + custom branding.
         </div>
 
+        {/* The sticker is a print artefact: white paper, dark ink, whatever the theme of the page around it.
+            That is why its colours are literals here and not tokens (the one place besides the press kit). */}
         <style>{`
           .sticker {
             width: 100%; max-width: 400px; margin: 0 auto;
@@ -144,7 +146,7 @@ export function QrStickerClient() {
           .sticker-instructions { margin-top: auto; text-align: center; padding-top: 12px; border-top: 1px solid #e2e8f0; }
           .sticker-instruction-title { font-size: 11px; color: #4a5568; font-weight: 500; margin-bottom: 4px; }
           .sticker-instruction-text { font-size: 10px; color: #6a7488; line-height: 1.4; margin-bottom: 8px; }
-          .sticker-url { font-family: monospace; font-size: 10px; color: #4f8cff; }
+          .sticker-url { font-family: monospace; font-size: 10px; color: #2152d1; }
 
           @media print {
             @page { size: A6 portrait; margin: 5mm; }
@@ -159,7 +161,7 @@ export function QrStickerClient() {
   }
 
   return (
-    <form onSubmit={generate} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 28 }}>
+    <form onSubmit={generate} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 28 }}>
       <div style={{ display: "grid", gap: 16 }}>
         <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
@@ -199,7 +201,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
   background: "var(--surf-2)",
-  border: "1px solid var(--border)",
+  border: "1px solid var(--field-line)",
   borderRadius: 8,
   color: "var(--text)",
   fontSize: 14,

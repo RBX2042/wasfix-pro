@@ -46,7 +46,7 @@ describing something that never shipped.
 Every path below has a `page.tsx` under `src/app`. Bracketed segments are dynamic.
 
 ### Public marketing & catalogue
-- `/` — homepage (dark theme, SVG hero, counts from `catalogStats()`)
+- `/` — homepage (light by default, dark through the theme switch (D22); SVG hero, counts from `catalogStats()`)
 - `/diagnose` — AI diagnose chat
 - `/foutcodes` · `/foutcodes/[code]` — error-code index and detail
 - `/gidsen` · `/gidsen/[slug]` — repair guides (premium guides show 2 steps)
@@ -254,6 +254,7 @@ monteur-invoicing.ts monteur invoices and per-monteur number series
 api-auth.ts          B2B API key verification
 ratelimit.ts         Upstash REST or in-memory; clientIp() trusts x-vercel-forwarded-for only on Vercel
 csp.ts · site-url.ts Content-Security-Policy built from the env (Clerk host from the publishable key); NEXT_PUBLIC_APP_URL checks
+seo.ts · seo-text.ts · json-ld.ts  SEO rules in one place (D23): titles, descriptions, canonical, Open Graph, indexability, the private paths, the X-Robots-Tag rules next.config.ts turns into headers; structured data builders that take only what the page shows
 notify.ts            owner notifications (Slack, Discord, e-mail), the one module that tells the owner anything
 monitoring.ts        cool-down + cap in front of notify for server errors (used by src/instrumentation.ts); renders logger.error payloads from an allow-list of fields
 referrals.ts         click → signup → conversion attribution
@@ -262,7 +263,7 @@ analytics.ts · predictive.ts · logger.ts · visitor.ts · utils.ts
 ```
 
 `src/middleware.ts` (repo root of `src/`, **not** in `lib/`) does the brand-page
-SEO rewrite and mounts `clerkMiddleware` when Clerk is configured. `src/instrumentation.ts` (Next's instrumentation
+SEO rewrite and mounts `clerkMiddleware` when Clerk is configured; its matcher skips static file types, `.txt` and `.xml` included (robots.txt, sitemap.xml and the IndexNow key file reach a crawler untouched, D24). `src/instrumentation.ts` (Next's instrumentation
 hook) installs the error reporting: exceptions that escape a request and every `logger.error` reach the owner through
 `notify.ts`, with a cool-down per error signature and a cap per hour; unhandled promise rejections are logged. It runs
 in the Node.js runtime only.
@@ -325,7 +326,7 @@ wasfix-pro/
 │   ├── app/                  App Router: pages + api/
 │   ├── components/
 │   │   ├── ui/               Radix/shadcn primitives
-│   │   ├── redesign/         dark-theme homepage components
+│   │   ├── redesign/         homepage and shared page components (two palettes, light and dark: wasfix-design.css)
 │   │   ├── 3d/               HeroScene — installed, imported nowhere
 │   │   └── …                 cart, nav, forms
 │   ├── data/                 static JSON catalogue
@@ -349,10 +350,11 @@ wasfix-pro/
 - `npm run db:setup` — migrations + seed; `db:migrate:deploy` / `db:migrate:status` over `DIRECT_URL`
 - `npm run db:smoke`, `money:smoke`, `smoke` — database, money and HTTP checks
 - `npm run preflight` — go-live check (see `BLOCKED.md`)
-- The `scripts/qa-*.ts` suites (orders, notify, checkout, stripe, plans, admin, diagnose, storefront, csp, platform, preflight):
+- The `scripts/qa-*.ts` suites (orders, notify, checkout, stripe, plans, admin, diagnose, storefront, csp, platform, preflight, deploy, theme, seo, indexnow):
   what each proves and how to run it is in `QA_CHECKLIST.md`; CI runs them (`.github/workflows/ci.yml`).
 - CI: lint + typecheck + informational `npm audit` → build; and a Postgres job with the suites (each on its own database copied
-  from a template), a Chromium CSP probe, a production build with the HTTP smoke, and the checkout/storefront suites against it.
+  from a template, the IndexNow tooling among them), a Chromium CSP probe, a production build with the HTTP smoke, and against it the SEO crawl, the
+  checkout/storefront suites, the CSP on real pages and the theme suite (Chromium).
 
 There is no unit-test runner and no `npm test`; the scripts above are the safety net. They ran against a real Postgres and
 nagemaakte Stripe, Slack and Resend servers, never against the real vendors. Treat any document claiming a test count as

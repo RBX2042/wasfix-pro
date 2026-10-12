@@ -51,13 +51,13 @@ export function LanguageSwitcher() {
             position: "absolute",
             top: "calc(100% + 6px)",
             right: 0,
-            background: "var(--surf)",
-            border: "1px solid var(--border)",
+            background: "hsl(var(--popover))",
+            border: "1px solid hsl(var(--border))",
             borderRadius: 10,
             padding: 6,
             minWidth: 180,
             zIndex: 100,
-            boxShadow: "0 12px 32px -6px rgba(0,0,0,0.5)",
+            boxShadow: "0 12px 32px -6px hsl(0 0% 0% / 0.35)",
           }}
         >
           {locales.map((loc) => {
@@ -75,14 +75,14 @@ export function LanguageSwitcher() {
                   padding: "8px 12px",
                   borderRadius: 6,
                   textDecoration: "none",
-                  color: "var(--text)",
+                  color: "hsl(var(--popover-foreground))",
                   fontSize: 13,
-                  background: isActive ? "rgba(79,140,255,0.1)" : "transparent",
+                  background: isActive ? "hsl(var(--primary) / 0.1)" : "transparent",
                 }}
               >
                 <span style={{ fontSize: 18 }}>{localeFlags[loc]}</span>
                 <span style={{ flex: 1 }}>{localeNames[loc]}</span>
-                {isActive && <span style={{ color: "var(--acc-2)", fontSize: 12 }}>•</span>}
+                {isActive && <span style={{ color: "hsl(var(--primary))", fontSize: 12 }}>•</span>}
               </Link>
             );
           })}

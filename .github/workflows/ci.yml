@@ -63,7 +63,8 @@ jobs:
   database:
     name: Schema + seed + QA suites + smoke (Postgres)
     runs-on: ubuntu-latest
-    # ~5 min build + ~3 min suites + ~2 min browser install; 30 leaves room for a cold runner.
+    # ~5 min build + ~3 min suites + ~2 min browser install + ~4 min for the theme, SEO and IndexNow suites (measured on 4 shared
+    # cores: qa-theme 2 min 15 s, qa-seo 40 s, qa-indexnow 10 s; a GitHub runner has 2 cores, so allow roughly double); 30 leaves room for a cold runner.
     timeout-minutes: 30
     needs: lint-typecheck
     services:
@@ -157,6 +158,9 @@ jobs:
           suite platform  env QA_REQUIRE_BROWSER=1 npx tsx scripts/qa-platform.ts  || status=1
           suite preflight npx tsx scripts/qa-preflight.ts                          || status=1
           echo "::group::deploy"; npx tsx scripts/qa-deploy.ts || status=1; echo "::endgroup::"  # bundle D: the deploy pipeline (scripts/deploy, deploy.yml) with a fake vercel; no database, so not through suite()
+          # D24: the IndexNow tooling (key file, payload, batches, every refusal, retries, a redirect never followed, hostile sitemaps) against
+          # local fake servers; no database, no network. Its half that needs the production server runs further down.
+          echo "::group::indexnow"; npx tsx scripts/qa-indexnow.ts || status=1; echo "::endgroup::"
           # fix round: the credit note as a document (data half; the HTTP half runs against the server below)
           # and privacy (erasure through both doors, data export, guest orders, newsletter double opt-in).
           # qa-privacy stubs "server-only" itself, so it runs without the react-server condition.
@@ -191,6 +195,23 @@ jobs:
       - name: HTTP smoke test (production build, database)
         run: npm run smoke
 
+      # D23 and D24, before the suites below: qa-checkout creates and deletes catalogue parts, and both of these read the
+      # catalogue through the sitemap. qa-seo crawls the sitemap and a sample of every dynamic family as a crawler would (the
+      # whole sitemap with QA_SEO_FULL=1) and needs nothing but the server; no browser, no database of its own.
+      - name: SEO readiness against the production server
+        env:
+          QA_BASE_URL: http://localhost:3000
+          QA_REQUIRE_SERVER: "1"
+        run: npx tsx scripts/qa-seo.ts
+
+      # The same suite as the offline run above, now with the server half: the IndexNow key file is served as plain text, robots.txt
+      # does not shut it out, the middleware does not touch it, and the tool reads and filters the real sitemap (nothing is sent anywhere).
+      - name: IndexNow key file and the real sitemap against the production server
+        env:
+          QA_BASE_URL: http://localhost:3000
+          QA_REQUIRE_SERVER: "1"
+        run: npx tsx scripts/qa-indexnow.ts
+
       # The two suites that talk to the running server. It is a production build,
       # so the caller is an anonymous guest (demo auth does not exist there).
       # They share the server's database, which is why they come after the
@@ -216,6 +237,16 @@ jobs:
           QA_REQUIRE_BROWSER: "1"
           QA_BASE_URL: http://localhost:3000
         run: npx tsx scripts/qa-csp.ts
+
+      # D22: light by default, the switch to dark, every page legible in both themes at phone, tablet and desktop widths, form-field edges,
+      # focus rings, overlays, a junk stored theme and blocked web storage. Last, because its document check writes a user, a part, an order,
+      # an invoice and a credit note of year 2999 into this job's throw-away database and deletes them again. QA_DEMO_URL is unset, so
+      # the pages behind the login and the packing slip, pick list and work-order invoice print SKIPPED lines (they need a DEMO_MODE server).
+      - name: Theme in both modes against the production server
+        env:
+          QA_REQUIRE_BROWSER: "1"
+          QA_BASE_URL: http://localhost:3000
+        run: npx tsx scripts/qa-theme.ts
 
       - name: Server log
         if: failure()

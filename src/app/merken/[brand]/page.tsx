@@ -6,6 +6,8 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { indexability, pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { breadcrumbLd, ldJson } from "@/lib/json-ld";
 
 export const revalidate = 60;
 
@@ -21,27 +23,20 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ brand: string }> }) {
   const { brand: encBrand } = await params;
   const brand = safeDecode(encBrand);
-  if (brand === null) return { title: "Merk niet gevonden", robots: { index: false } };
+  if (brand === null) return { title: "Merk niet gevonden", robots: robotsMeta(false, true) };
   const machines = await dbMachinesByBrand(brand);
   const codeCount = machines.reduce((n, m) => n + m._count.errorCodes, 0);
   // No manual " | WasFix Pro" (the root template adds it), and a description that says
   // what is on THIS page instead of the generic root sentence.
-  const title = `${brand} wasmachine storing? Foutcodes en reparaties`;
-  const description = `Storing op je ${brand} wasmachine? ${machines.length} ${machines.length === 1 ? "model" : "modellen"} en ${codeCount} foutcodes met oorzaken, reparatiegidsen en bijpassende onderdelen.`;
-  return {
+  const title = pageTitle(`${brand} wasmachine storing? Foutcodes en reparaties`, `${brand} wasmachine: foutcodes en reparatie`, `${brand} foutcodes en reparatie`);
+  const description = pageDescription(`Storing op je ${brand} wasmachine? ${machines.length} ${machines.length === 1 ? "model" : "modellen"} en ${codeCount} foutcodes met oorzaken, reparatiegidsen en bijpassende onderdelen.`);
+  return pageMetadata({
     title,
     description,
-    keywords: [
-      `${brand} wasmachine storing`,
-      `${brand} foutcode`,
-      `${brand} onderdelen`,
-      `${brand} reparatie`,
-      `${brand} wasmachine kapot`,
-    ],
-    robots: machines.length === 0 ? { index: false } : undefined,
-    openGraph: { title, description, images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
-    alternates: { canonical: `/merken/${encodeURIComponent(brand)}` },
-  };
+    path: `/merken/${encodeURIComponent(brand)}`,
+    // The same function the sitemap asks (src/lib/seo.ts): a brand with no machines is not offered.
+    noindex: !indexability({ kind: "brandHub", machines: machines.length }).index,
+  });
 }
 
 export default async function BrandPage({ params }: { params: Promise<{ brand: string }> }) {
@@ -61,6 +56,8 @@ export default async function BrandPage({ params }: { params: Promise<{ brand: s
 
   return (
     <MarketingLayout>
+      {/* The trail printed below (Merken / <brand>). */}
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumbLd([{ name: "Merken", path: "/merken" }, { name: brand }])) }} />
       <section className="border-b bg-muted/30">
         <div className="container py-10">
           <nav className="text-sm text-muted-foreground mb-3">

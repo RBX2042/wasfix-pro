@@ -148,7 +148,7 @@ export default async function AdminReturnsPage({ searchParams }: { searchParams:
                           {stripeUrl && <p className="mt-1 text-xs">Stripe: <a className="underline" href={stripeUrl} target="_blank" rel="noreferrer noopener">{o.stripePaymentIntentId}</a></p>}
                         </>
                       ) : (
-                        <p className="text-amber-700 dark:text-amber-400">Het bestelnummer of e-mailadres klopte niet met een bestelling. Controleer het zelf en koppel handmatig; terugbetalen kan pas na koppelen.</p>
+                        <p className="text-warning">Het bestelnummer of e-mailadres klopte niet met een bestelling. Controleer het zelf en koppel handmatig; terugbetalen kan pas na koppelen.</p>
                       )}
                     </div>
                   </div>
@@ -174,7 +174,7 @@ export default async function AdminReturnsPage({ searchParams }: { searchParams:
                     )}
                     {(r.status === "APPROVED" || r.status === "RETURN_RECEIVED") && o && o.refundedEur > 0 && !refundable && <CloseForm id={r.id} refundedEur={eur(o.refundedEur)} />}
                     {r.status === "REFUNDED" && r.refundEur == null && (
-                      <p className="text-sm text-amber-700 dark:text-amber-400">Deze retour staat op Terugbetaald, maar hier is geen terugbetaling geboekt (waarschijnlijk met de losse knoppen onder Aanvragen gezet). Controleer of er een creditnota bij de bestelling staat.</p>
+                      <p className="text-sm text-warning">Deze retour staat op Terugbetaald, maar hier is geen terugbetaling geboekt (waarschijnlijk met de losse knoppen onder Aanvragen gezet). Controleer of er een creditnota bij de bestelling staat.</p>
                     )}
                     {!o && r.status !== "REFUNDED" && r.status !== "REJECTED" && <LinkForm id={r.id} />}
                   </div>

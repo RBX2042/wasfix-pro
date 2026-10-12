@@ -1,11 +1,12 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { PredictiveClient } from "./client";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Voorspellende onderhoud — Health-score wasmachine",
-  description: "Krijg een health-score per onderdeel-categorie op basis van merk + leeftijd. Voorkom defecten met preventief bestel-pakket.",
-  alternates: { canonical: "/tools/predictive" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Voorspellend onderhoud voor je wasmachine"),
+  description: pageDescription("Krijg een health-score per onderdeel-categorie op basis van merk + leeftijd. Voorkom defecten met preventief bestel-pakket."),
+  path: "/tools/predictive",
+});
 
 export default function PredictivePage() {
   return (

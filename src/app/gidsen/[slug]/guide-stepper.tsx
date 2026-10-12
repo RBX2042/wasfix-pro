@@ -44,7 +44,7 @@ export function GuideStepper({ steps }: { steps: Step[] }) {
               className={cn(
                 "transition-all",
                 isActive && "border-primary shadow-md",
-                isComplete && "bg-emerald-50/50 dark:bg-emerald-950/20"
+                isComplete && "bg-success/5"
               )}
             >
               <CardContent className="p-5">
@@ -62,7 +62,7 @@ export function GuideStepper({ steps }: { steps: Step[] }) {
                     <span
                       className={cn(
                         "h-8 w-8 rounded-full flex items-center justify-center font-heading font-bold text-sm transition-colors",
-                        isComplete ? "bg-emerald-500 text-white" : "bg-primary/10 text-primary"
+                        isComplete ? "bg-success text-success-foreground" : "bg-primary/10 text-primary"
                       )}
                     >
                       {isComplete ? <CheckCircle2 className="h-4 w-4" /> : s.stepNum}
@@ -81,9 +81,9 @@ export function GuideStepper({ steps }: { steps: Step[] }) {
                       <p className="text-sm text-muted-foreground mt-2 leading-relaxed [overflow-wrap:anywhere]">{s.description}</p>
                     )}
                     {s.warning && isActive && (
-                      <div className="mt-3 rounded-md border border-amber-500/30 bg-amber-50 dark:bg-amber-950/30 p-3 flex gap-2 text-sm">
-                        <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
-                        <span className="min-w-0 text-amber-900 dark:text-amber-200 [overflow-wrap:anywhere]">{s.warning}</span>
+                      <div className="mt-3 rounded-md border border-warning/30 bg-warning/10 p-3 flex gap-2 text-sm">
+                        <AlertTriangle className="h-4 w-4 text-warning shrink-0 mt-0.5" />
+                        <span className="min-w-0 text-foreground [overflow-wrap:anywhere]">{s.warning}</span>
                       </div>
                     )}
                   </button>
@@ -119,9 +119,9 @@ export function GuideStepper({ steps }: { steps: Step[] }) {
       </div>
 
       {progress === 100 && (
-        <Card className="mt-6 bg-emerald-50 dark:bg-emerald-950/30 border-emerald-500/30">
+        <Card className="mt-6 bg-success/10 border-success/30">
           <CardContent className="p-6 text-center">
-            <CheckCircle2 className="h-10 w-10 text-emerald-500 mx-auto mb-2" />
+            <CheckCircle2 className="h-10 w-10 text-success mx-auto mb-2" />
             <p className="font-heading font-bold text-lg">Klus geklaard! 🎉</p>
             <p className="text-sm text-muted-foreground mt-1">Hopelijk werkt je wasmachine weer als nieuw.</p>
           </CardContent>

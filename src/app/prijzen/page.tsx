@@ -6,12 +6,18 @@ import Link from "next/link";
 import { CheckCircle2, X, Sparkles } from "lucide-react";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
 import { absoluteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
+import { ldJson } from "@/lib/json-ld";
 
-export const metadata = {
-  title: "Prijzen — Gratis tot €29/mnd excl. btw · WasFix Pro abonnementen",
-  description: "Gratis, Particulier €4,99/mnd incl. btw of Monteur Pro €29/mnd excl. btw. Onbeperkte AI-diagnoses (redelijk gebruik), kortingen op onderdelen, API. 14 dagen gratis proefperiode.",
-  alternates: { canonical: "/prijzen" },
-};
+// Prices come from PLANS, not from text typed here (the old description named €4,99 and €29 by hand). The title
+// was 77 characters and carried the brand twice.
+export const metadata = pageMetadata({
+  title: pageTitle("Prijzen en abonnementen"),
+  description: pageDescription(
+    `Gratis starten met ${PLANS.FREE.diagnosesPerMonth} AI-diagnoses per maand, of Particulier voor ${formatPlanPrice(PLANS.PARTICULIER)} per maand incl. btw en Monteur Pro voor ${formatPlanPrice(PLANS.MONTEUR_PRO)} per maand excl. btw. ${PLANS.PARTICULIER.trialDays} dagen gratis proberen.`,
+  ),
+  path: "/prijzen",
+});
 
 const PRICING_JSONLD = PLAN_ORDER.filter((id) => PLANS[id].priceCents > 0).map((id) => {
   const plan = PLANS[id];
@@ -25,8 +31,19 @@ const PRICING_JSONLD = PLAN_ORDER.filter((id) => PLANS[id].priceCents > 0).map((
       "@type": "Offer",
       price: (plan.priceCents / 100).toFixed(2),
       priceCurrency: "EUR",
+      // What the number is: a price per month, with or without VAT, exactly as the page prints it
+      // ("€ 29,00 per maand · excl. btw", "€ 4,99 per maand · incl. btw"). A bare price reads as a one-off amount.
+      priceSpecification: {
+        "@type": "UnitPriceSpecification",
+        price: (plan.priceCents / 100).toFixed(2),
+        priceCurrency: "EUR",
+        billingDuration: "P1M",
+        unitCode: "MON",
+        valueAddedTaxIncluded: plan.audience !== "business",
+      },
       availability: "https://schema.org/InStock",
-      url: absoluteUrl(`/upgrade?plan=${plan.id}`),
+      // This page, where the price is printed. It used to be /upgrade?plan=..., a noindex page.
+      url: absoluteUrl("/prijzen"),
     },
   };
 });
@@ -55,7 +72,7 @@ const TIERS = PLAN_ORDER.map((id) => {
 export default function PrijzenPage() {
   return (
     <MarketingLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(PRICING_JSONLD) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(PRICING_JSONLD) }} />
       <section className="border-b">
         <div className="container py-16 text-center">
           <Badge variant="secondary" className="mb-3"><Sparkles className="h-3 w-3 mr-1" /> Tarieven</Badge>

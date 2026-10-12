@@ -7,11 +7,17 @@ import { PLAN_API_HOURLY_BURST, PLAN_API_MONTHLY_CALLS } from "@/lib/api-auth";
 import { PLANS, formatPlanPrice } from "@/lib/plans";
 import { apiAccountDailyCalls } from "@/lib/ai-guard";
 import { siteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
 // The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
 const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
-export const metadata = { title: "API toegang" };
+// It had no description of its own and inherited the site-wide sentence, which /over inherited too.
+export const metadata = pageMetadata({
+  title: pageTitle("API-toegang voor monteurs en bedrijven"),
+  description: pageDescription("Foutcodes, onderdelen en een AI-indicatie van de storing in je eigen applicatie of werkflow: een sleutel per account en duidelijke limieten per abonnement."),
+  path: "/api-info",
+});
 
 const nl = (n: number) => new Intl.NumberFormat("nl-NL").format(n);
 

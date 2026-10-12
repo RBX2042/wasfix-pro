@@ -1,7 +1,9 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  // Class strategy (next-themes puts .dark on <html>), written as a variant so that dark: utilities do
+  // not apply to print: a document printed in dark mode must be white paper (see globals.css).
+  darkMode: ["variant", "@media not print { &:is(.dark *) }"],
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -47,6 +49,26 @@ const config: Config = {
         card: {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
+        },
+        // Status colours: bg-success/10 + text-success for a call-out, bg-success text-success-foreground for a solid fill.
+        success: {
+          DEFAULT: "hsl(var(--success) / <alpha-value>)",
+          foreground: "hsl(var(--success-foreground) / <alpha-value>)",
+        },
+        warning: {
+          DEFAULT: "hsl(var(--warning) / <alpha-value>)",
+          foreground: "hsl(var(--warning-foreground) / <alpha-value>)",
+        },
+        info: {
+          DEFAULT: "hsl(var(--info) / <alpha-value>)",
+          foreground: "hsl(var(--info-foreground) / <alpha-value>)",
+        },
+        // The scrim behind a modal. The token already carries its alpha: no /NN modifier on this one.
+        overlay: "hsl(var(--overlay))",
+        // <pre> and <code> blocks.
+        code: {
+          DEFAULT: "hsl(var(--code))",
+          foreground: "hsl(var(--code-foreground))",
         },
         brand: {
           teal: "#1a6b6b",

@@ -1,0 +1,73 @@
+name: SEO submit (IndexNow)
+
+# By hand only (decision D24). Asks the IndexNow search engines (Bing, Yandex, Seznam, Naver, Yep and other participants)
+# to look at the URLs in the sitemap, with scripts/seo-submit.ts. It does not reach Google: for Google you verify the
+# property in Search Console and submit the sitemap there (README, "Indexeren"). It never runs by itself: no push, no
+# pull_request, no schedule.
+#
+# A DRY RUN is the default: it reads the sitemap, prints what it would send, and sends nothing. "live" must be ticked
+# to submit, and a live run is refused unless the address is an https domain (not localhost, not *.vercel.app) whose
+# key file https://<domain>/<key>.txt answers with the key.
+#
+# No secrets: the IndexNow key is public by design (the protocol serves it from the site) and lives in the repository,
+# public/<key>.txt. Nothing in this workflow has been run: where it was written there is no network to GitHub, to the
+# search engines or to the site.
+
+on:
+  workflow_dispatch:
+    inputs:
+      origin:
+        description: "Site address, e.g. https://wasfix.nl. Empty = the repository variable PUBLIC_SITE_URL, else NEXT_PUBLIC_APP_URL."
+        type: string
+        required: false
+        default: ""
+      live:
+        description: "Really submit to IndexNow. Unticked = dry run (reads the sitemap, sends nothing)."
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-submit
+  cancel-in-progress: false
+
+jobs:
+  submit:
+    name: IndexNow (dry run unless live is ticked)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Submit to IndexNow
+        env:
+          # Inputs and variables reach the script through the environment, never pasted into the shell text.
+          INPUT_ORIGIN: ${{ inputs.origin }}
+          VAR_PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+          VAR_NEXT_PUBLIC_APP_URL: ${{ vars.NEXT_PUBLIC_APP_URL }}
+          LIVE: ${{ inputs.live }}
+        run: |
+          origin="${INPUT_ORIGIN:-${VAR_PUBLIC_SITE_URL:-$VAR_NEXT_PUBLIC_APP_URL}}"
+          if [ -z "$origin" ]; then
+            echo "::error::Geen adres: vul 'origin' in, of zet de repository-variabele PUBLIC_SITE_URL (of NEXT_PUBLIC_APP_URL)."
+            exit 1
+          fi
+          args=(--origin "$origin")
+          if [ "$LIVE" = "true" ]; then
+            if [ "$GITHUB_REF" != "refs/heads/main" ]; then
+              echo "::error::Een live indiening draait alleen vanaf main (nu: $GITHUB_REF)."
+              exit 1
+            fi
+            args+=(--live)
+            echo "IndexNow: LIVE voor $origin" >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "IndexNow: droogloop voor $origin (er wordt niets verstuurd)" >> "$GITHUB_STEP_SUMMARY"
+          fi
+          npx tsx scripts/seo-submit.ts "${args[@]}"

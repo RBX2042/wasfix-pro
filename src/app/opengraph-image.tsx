@@ -1,6 +1,7 @@
 import { ImageResponse } from "next/og";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 import { siteUrl } from "@/lib/site-url";
+import { IMAGE_CACHE_CONTROL } from "@/lib/seo";
 
 const STATS = catalogStats();
 
@@ -116,6 +117,7 @@ export default function OGImage() {
         </div>
       </div>
     ),
-    { ...size },
+    // /opengraph-image has no content hash in the address pages name it by: one day, not the default year (src/lib/seo.ts).
+    { ...size, headers: { "Cache-Control": IMAGE_CACHE_CONTROL } },
   );
 }

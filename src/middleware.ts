@@ -194,6 +194,10 @@ export const config = {
     // The extension exclusion must not reach /api: Next routes
     // /api/orders/<id>.pdf to the [id] handler, and excluding it here meant
     // that request never saw the middleware at all.
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|(?!api/).*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html)$).*)",
+    // txt and xml: robots.txt, sitemap.xml and the IndexNow key file (public/<key>.txt) are read by crawlers that want the file
+    // as it is. Through the middleware they would get the locale-hint cookie and, with NEXT_PUBLIC_FEATURE_I18N on, a redirect
+    // to /<locale>/... (a 404: no locale routes exist) for a visitor whose country or language maps to another locale; and with
+    // Clerk configured every crawler fetch of them would run clerkMiddleware for nothing (decision D24).
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|(?!api/).*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html|txt|xml)$).*)",
   ],
 };

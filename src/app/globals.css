@@ -2,8 +2,33 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ─────────────────────────────────────────────────────────────────────────
+   Theme tokens (decision D22).
+
+   LIGHT is the default and is always there; DARK is a switch the visitor
+   flips (src/components/theme-toggle.tsx, stored by next-themes under the
+   localStorage key "theme"). A component never carries a colour literal: it
+   uses one of the tokens below through a Tailwind class (bg-card, text-success,
+   border-input ...) or hsl(var(--token)). The tokens are HSL triples, "H S% L%",
+   so Tailwind's opacity modifier works (bg-primary/10).
+
+   Contrast, measured with the WCAG 2.x formula, in BOTH sets (scripts/qa-theme.ts
+   re-measures the rendered pages): every text token reaches 4.5:1 on background,
+   card, muted and secondary; every coloured text token (primary, accent,
+   destructive, success, warning, info) reaches 4.5:1 on those AND on its own
+   10 and 15 percent tint; the *-foreground tokens reach 4.5:1 on their fill;
+   --input (the outline of a form control) and --ring (focus) reach 3:1 on
+   background and card. --border is the quiet hairline of cards and tables, a
+   decoration, and is deliberately lighter.
+
+   Two sets, one rule: the dark values live in a block that does NOT apply to
+   print (see the "@media not print" block), so a document printed while the
+   visitor is in dark mode is still white paper with dark ink.
+   ───────────────────────────────────────────────────────────────────────── */
 @layer base {
   :root {
+    color-scheme: light;
+
     --background: 36 30% 94%;
     --foreground: 0 0% 5%;
 
@@ -14,7 +39,7 @@
     --popover-foreground: 0 0% 5%;
 
     --primary: 180 60% 26%;
-    --primary-foreground: 36 30% 96%;
+    --primary-foreground: 36 30% 98%;
 
     --secondary: 36 30% 88%;
     --secondary-foreground: 0 0% 8%;
@@ -22,20 +47,48 @@
     --muted: 36 20% 90%;
     --muted-foreground: 0 0% 35%;
 
-    --accent: 14 64% 47%;
-    --accent-foreground: 36 30% 96%;
+    /* Rust. Darker than the brand's #c94b2a on purpose: that value is 4.1:1 as text on the cream
+       background and 4.3:1 behind cream text, under the 4.5 minimum for both. */
+    --accent: 14 64% 38%;
+    --accent-foreground: 36 30% 98%;
 
-    --destructive: 0 84% 50%;
+    --destructive: 0 72% 40%;
     --destructive-foreground: 0 0% 100%;
 
+    /* Status colours. Each is readable as text on the page surfaces and on its own tint
+       (bg-success/10), and its -foreground is the text colour on a solid fill (bg-success). */
+    --success: 152 62% 24%;
+    --success-foreground: 0 0% 100%;
+    --warning: 30 90% 28%;
+    --warning-foreground: 0 0% 100%;
+    --info: 208 85% 30%;
+    --info-foreground: 0 0% 100%;
+
+    /* Hairline for cards and tables (decorative), the outline of a form control (UI 3:1), focus. */
     --border: 36 20% 82%;
-    --input: 36 20% 82%;
+    --input: 30 6% 46%;
     --ring: 180 60% 26%;
+
+    /* The scrim behind a modal. A complete colour WITH alpha, so use bg-overlay, not bg-overlay/50. */
+    --overlay: 222 47% 8% / 0.55;
+
+    /* Code and terminal blocks (<pre>, <code>). */
+    --code: 36 22% 91%;
+    --code-foreground: 0 0% 12%;
+
+    /* Stops of the soft hero wash (.gradient-mesh) and of tinted call-out panels. */
+    --hero-from: 180 60% 26% / 0.10;
+    --hero-to: 14 64% 38% / 0.08;
 
     --radius: 0.6rem;
   }
+}
 
+/* Dark values. Not applied to print: a document printed in dark mode must stay light. */
+@media not print {
   .dark {
+    color-scheme: dark;
+
     --background: 0 0% 7%;
     --foreground: 36 30% 96%;
 
@@ -54,15 +107,42 @@
     --muted: 0 0% 14%;
     --muted-foreground: 0 0% 65%;
 
-    --accent: 14 64% 55%;
+    --accent: 14 70% 62%;
     --accent-foreground: 0 0% 5%;
 
-    --destructive: 0 75% 50%;
-    --destructive-foreground: 0 0% 100%;
+    --destructive: 0 84% 68%;
+    --destructive-foreground: 0 0% 5%;
+
+    --success: 152 55% 52%;
+    --success-foreground: 0 0% 5%;
+    --warning: 38 92% 60%;
+    --warning-foreground: 0 0% 5%;
+    --info: 208 90% 68%;
+    --info-foreground: 0 0% 5%;
 
     --border: 0 0% 18%;
-    --input: 0 0% 18%;
+    --input: 0 0% 42%;
     --ring: 180 50% 50%;
+
+    --overlay: 0 0% 0% / 0.7;
+
+    --code: 0 0% 4%;
+    --code-foreground: 36 30% 92%;
+
+    --hero-from: 180 50% 50% / 0.12;
+    --hero-to: 14 70% 62% / 0.08;
+  }
+}
+
+/* Print: always white paper. The dark tokens above never apply to print, but next-themes also writes
+   color-scheme as an inline style on <html>, which only an important rule can beat. */
+@media print {
+  html { color-scheme: light !important; }
+  :root {
+    --background: 0 0% 100%;
+    --card: 0 0% 100%;
+    --popover: 0 0% 100%;
+    --muted: 0 0% 96%;
   }
 }
 
@@ -70,18 +150,133 @@
   * { @apply border-border; }
   body { @apply bg-background text-foreground; font-feature-settings: "rlig" 1, "calt" 1; }
   h1, h2, h3, h4 { @apply font-heading; letter-spacing: -0.01em; }
+  input[type="checkbox"], input[type="radio"], input[type="range"], progress { accent-color: hsl(var(--primary)); }
+  /* Tailwind's preflight paints placeholders #9ca3af (2.5:1 on white). A placeholder is text. */
+  input::placeholder, textarea::placeholder { color: hsl(var(--muted-foreground)); opacity: 1; }
 }
 
 @layer utilities {
   .container-narrow { @apply max-w-5xl mx-auto px-4 sm:px-6; }
   .gradient-mesh {
     background:
-      radial-gradient(at 0% 0%, hsl(180 60% 26% / 0.10) 0%, transparent 50%),
-      radial-gradient(at 100% 100%, hsl(14 64% 47% / 0.08) 0%, transparent 50%);
+      radial-gradient(at 0% 0%, hsl(var(--hero-from)) 0%, transparent 50%),
+      radial-gradient(at 100% 100%, hsl(var(--hero-to)) 0%, transparent 50%);
   }
 }
+
+::selection { background: hsl(var(--primary) / 0.25); }
 
 ::-webkit-scrollbar { width: 10px; height: 10px; }
 ::-webkit-scrollbar-track { background: hsl(var(--muted)); }
 ::-webkit-scrollbar-thumb { background: hsl(var(--muted-foreground) / 0.3); border-radius: 5px; }
 ::-webkit-scrollbar-thumb:hover { background: hsl(var(--muted-foreground) / 0.5); }
+
+/* ── Theme toggle (src/components/theme-toggle.tsx) ──────────────────────────
+   Plain CSS instead of utility classes because it has to read two palettes: the theme tokens above, and,
+   inside .wasfix-design (the redesign pages), that palette's own variables. Every colour comes from the
+   --tt-* variables of the block it sits in. Targets are 44x44 (WCAG 2.5.5); the focus ring is 2px solid,
+   offset 2px, in the ring colour of the palette (>= 3:1 on both surfaces, measured). */
+.theme-toggle {
+  --tt-fg: hsl(var(--foreground));
+  --tt-muted: hsl(var(--muted-foreground));
+  --tt-surface: hsl(var(--popover));
+  --tt-hover: hsl(var(--muted));
+  --tt-line: hsl(var(--input));
+  --tt-ring: hsl(var(--ring));
+  --tt-on: hsl(var(--primary));
+  --tt-on-fg: hsl(var(--primary-foreground));
+  position: relative;
+  display: inline-flex;
+  flex: none;
+  color: var(--tt-fg);
+  font-size: 14px;
+  line-height: 1.2;
+}
+.theme-toggle button {
+  font: inherit;
+  color: inherit;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+}
+.theme-toggle button:focus-visible { outline: 2px solid var(--tt-ring); outline-offset: 2px; }
+.theme-toggle svg { width: 18px; height: 18px; flex: none; }
+.theme-toggle__trigger {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px;
+  background: transparent; border: 1px solid transparent; border-radius: 10px;
+}
+.theme-toggle__trigger:hover, .theme-toggle__trigger[aria-expanded="true"] { background: var(--tt-hover); }
+/* Before the stored choice is known (server HTML and the first client render) the trigger shows the icon
+   that matches the class on <html>, which next-themes' inline script has already set. */
+.theme-toggle__moon { display: none; }
+.dark .theme-toggle__moon { display: inline; }
+.dark .theme-toggle__sun { display: none; }
+.theme-toggle__panel {
+  position: absolute; right: 0; z-index: 70;
+  min-width: 176px; padding: 6px;
+  background: var(--tt-surface); color: var(--tt-fg);
+  border: 1px solid var(--tt-line); border-radius: 12px;
+  box-shadow: 0 12px 32px -8px hsl(0 0% 0% / 0.35);
+}
+.theme-toggle__panel[data-placement="bottom-end"] { top: calc(100% + 6px); }
+.theme-toggle__panel[data-placement="top-end"] { bottom: calc(100% + 6px); }
+.theme-toggle__option, .theme-toggle__seg {
+  display: flex; align-items: center; gap: 10px;
+  min-height: 44px; padding: 0 12px;
+  background: transparent; border: 0; border-radius: 8px; text-align: left;
+}
+.theme-toggle__option { width: 100%; }
+.theme-toggle__option:hover, .theme-toggle__seg:hover { background: var(--tt-hover); }
+.theme-toggle__option[aria-pressed="true"], .theme-toggle__seg[aria-pressed="true"] { background: var(--tt-on); color: var(--tt-on-fg); }
+.theme-toggle__option .theme-toggle__check { margin-left: auto; visibility: hidden; }
+.theme-toggle__option[aria-pressed="true"] .theme-toggle__check { visibility: visible; }
+.theme-toggle--segmented {
+  display: inline-flex; gap: 2px; padding: 3px;
+  /* Never wider than the column it sits in: the three choices give way (shrink, then lose their icons) instead of the
+     page scrolling sideways. It used to be 262-292 px wide whatever the room, 20-30 px past the gutter of a 320-414 px
+     phone in the open mobile menu. */
+  max-width: 100%; min-width: 0;
+  background: var(--tt-surface); border: 1px solid var(--tt-line); border-radius: 12px;
+}
+.theme-toggle--segmented .theme-toggle__seg { flex: 1 1 auto; min-width: 0; justify-content: center; gap: 6px; padding: 0 12px; }
+@media (max-width: 479px) {
+  .theme-toggle--segmented .theme-toggle__seg { padding: 0 8px; gap: 4px; }
+  /* The open mobile menu stacks its "Thema" row below 480 px (site-header.tsx): the control takes the whole row and the
+     three choices share it equally. */
+  .theme-toggle--fill-narrow { display: flex; width: 100%; }
+  .theme-toggle--fill-narrow .theme-toggle__seg { flex: 1 1 0; }
+}
+/* On the narrowest phones (320-399 px) three icon + word choices do not fit side by side; the words are the names. */
+@media (max-width: 399px) {
+  .theme-toggle--segmented .theme-toggle__seg { padding: 0 6px; }
+  .theme-toggle--segmented .theme-toggle__seg svg { display: none; }
+}
+@media print { .theme-toggle { display: none; } }
+
+/* Toasts (sonner). The Toaster in app/layout.tsx stays on sonner's "light" theme; these rules hand it
+   the theme tokens instead, so a toast follows the chosen theme with no JavaScript. The selector is one
+   element stronger than sonner's own [data-theme='light'] rule, which defines the same variables and is injected
+   into <head> AFTER this stylesheet, so a tie would go to sonner. */
+html [data-sonner-toaster][data-theme] {
+  --normal-bg: hsl(var(--popover));
+  --normal-text: hsl(var(--popover-foreground));
+  --normal-border: hsl(var(--input));
+  --success-bg: hsl(var(--success) / 0.12);
+  --success-text: hsl(var(--success));
+  --success-border: hsl(var(--success) / 0.5);
+  --info-bg: hsl(var(--info) / 0.12);
+  --info-text: hsl(var(--info));
+  --info-border: hsl(var(--info) / 0.5);
+  --warning-bg: hsl(var(--warning) / 0.12);
+  --warning-text: hsl(var(--warning));
+  --warning-border: hsl(var(--warning) / 0.5);
+  --error-bg: hsl(var(--destructive) / 0.12);
+  --error-text: hsl(var(--destructive));
+  --error-border: hsl(var(--destructive) / 0.5);
+}
+/* A rich-colour toast is a translucent tint: lay it over the popover colour so it never lets the page show through. */
+html [data-sonner-toaster][data-theme] [data-sonner-toast][data-rich-colors='true'] { background-color: hsl(var(--popover)); }
+html [data-sonner-toaster][data-theme] [data-sonner-toast][data-rich-colors='true'][data-type='success'] { background-image: linear-gradient(var(--success-bg), var(--success-bg)); }
+html [data-sonner-toaster][data-theme] [data-sonner-toast][data-rich-colors='true'][data-type='info'] { background-image: linear-gradient(var(--info-bg), var(--info-bg)); }
+html [data-sonner-toaster][data-theme] [data-sonner-toast][data-rich-colors='true'][data-type='warning'] { background-image: linear-gradient(var(--warning-bg), var(--warning-bg)); }
+html [data-sonner-toaster][data-theme] [data-sonner-toast][data-rich-colors='true'][data-type='error'] { background-image: linear-gradient(var(--error-bg), var(--error-bg)); }

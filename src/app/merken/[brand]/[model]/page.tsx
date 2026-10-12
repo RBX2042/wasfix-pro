@@ -8,6 +8,8 @@ import { Button } from "@/components/ui/button";
 import { PartCard } from "@/components/part-card";
 import Link from "next/link";
 import { ChevronRight, Sparkles, AlertTriangle, BookOpen } from "lucide-react";
+import { indexability, pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { breadcrumbLd, ldJson } from "@/lib/json-ld";
 
 export const revalidate = 60;
 
@@ -24,20 +26,22 @@ export async function generateMetadata({ params }: { params: Promise<{ brand: st
   const { brand: encBrand, model: encModel } = await params;
   const brand = safeDecode(encBrand);
   const model = safeDecode(encModel);
-  if (brand === null || model === null) return { title: "Model niet gevonden", robots: { index: false } };
+  if (brand === null || model === null) return { title: "Model niet gevonden", robots: robotsMeta(false, true) };
   const machine = await dbMachineFull(brand, model);
-  const title = `${brand} ${model}: foutcodes en onderdelen`;
+  const title = pageTitle(`${brand} ${model}: foutcodes en onderdelen`, `${brand} ${model}: foutcodes`, `${brand} ${model}`);
   // 18 model pages carried the generic root description and no canonical.
-  const description = machine
-    ? `${brand} ${model}${machine.yearFrom ? ` (${machine.yearFrom}${machine.yearTo ? `–${machine.yearTo}` : ""})` : ""}: ${machine.errorCodes.length} foutcodes, ${machine.repairGuides.length} reparatiegidsen en ${machine.parts.length} compatibele onderdelen.`
-    : `Foutcodes en onderdelen voor de ${brand} ${model}.`;
-  return {
+  const description = pageDescription(
+    machine
+      ? `${brand} ${model}${machine.yearFrom ? ` (${machine.yearFrom}${machine.yearTo ? `–${machine.yearTo}` : ""})` : ""}: ${machine.errorCodes.length} foutcodes, ${machine.repairGuides.length} reparatiegidsen en ${machine.parts.length} compatibele onderdelen.`
+      : `Foutcodes en onderdelen voor de ${brand} ${model}.`,
+    "Met oorzaken, reparatiegidsen en bijpassende onderdelen voor dit model.",
+  );
+  return pageMetadata({
     title,
     description,
-    alternates: { canonical: `/merken/${encodeURIComponent(brand)}/${encodeURIComponent(model)}` },
-    robots: machine ? undefined : { index: false },
-    openGraph: { title, description, images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
-  };
+    path: `/merken/${encodeURIComponent(brand)}/${encodeURIComponent(model)}`,
+    noindex: !indexability({ kind: "model", exists: Boolean(machine) }).index,
+  });
 }
 
 export default async function ModelPage({ params }: { params: Promise<{ brand: string; model: string }> }) {
@@ -55,6 +59,11 @@ export default async function ModelPage({ params }: { params: Promise<{ brand: s
 
   return (
     <MarketingLayout>
+      {/* The trail printed below (Merken / <brand> / <model>). */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: ldJson(breadcrumbLd([{ name: "Merken", path: "/merken" }, { name: brand, path: `/merken/${encodeURIComponent(brand)}` }, { name: model }])) }}
+      />
       <section className="border-b bg-muted/30">
         <div className="container py-10">
           <nav className="text-sm text-muted-foreground mb-3">
@@ -82,7 +91,7 @@ export default async function ModelPage({ params }: { params: Promise<{ brand: s
         <Card className="min-w-0">
           <CardContent className="p-6">
             <h2 className="font-heading text-xl font-semibold mb-4 flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" /> Foutcodes ({machine.errorCodes.length})
+              <AlertTriangle className="h-5 w-5 text-warning" /> Foutcodes ({machine.errorCodes.length})
             </h2>
             <div className="space-y-2">
               {machine.errorCodes.map((ec) => (

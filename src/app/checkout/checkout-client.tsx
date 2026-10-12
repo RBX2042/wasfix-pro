@@ -223,8 +223,8 @@ export function CheckoutClient({
         {/* Why it is empty: a cart whose parts all sold out is emptied by the server check, and saying
             nothing made it look like a bug. */}
         {notices.length > 0 && (
-          <div role="alert" className="mx-auto mb-6 max-w-lg rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-4 text-left">
-            <p className="font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden /> Je winkelmand is aangepast</p>
+          <div role="alert" className="mx-auto mb-6 max-w-lg rounded-lg border-2 border-warning bg-warning/10 p-4 text-left">
+            <p className="font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" aria-hidden /> Je winkelmand is aangepast</p>
             <ul className="mt-2 list-disc pl-5 text-sm space-y-1">
               {notices.map((n, i) => (
                 <li key={i}>{describeCartNotice(n)}</li>
@@ -252,7 +252,7 @@ export function CheckoutClient({
       </p>
 
       {overLimit && (
-        <div role="alert" data-testid="cart-over-limit" className="mb-6 rounded-lg border-2 border-red-400 bg-red-50 dark:bg-red-950/30 p-4 text-sm text-red-900 dark:text-red-200">
+        <div role="alert" data-testid="cart-over-limit" className="mb-6 rounded-lg border-2 border-destructive bg-destructive/10 p-4 text-sm text-destructive">
           {overLimit}
         </div>
       )}
@@ -262,9 +262,9 @@ export function CheckoutClient({
           ref={noticeRef}
           tabIndex={-1}
           role="alert"
-          className="mb-6 rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-4 outline-none"
+          className="mb-6 rounded-lg border-2 border-warning bg-warning/10 p-4 outline-none"
         >
-          <p className="font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-600" aria-hidden /> Je winkelmand is aangepast</p>
+          <p className="font-semibold flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-warning" aria-hidden /> Je winkelmand is aangepast</p>
           <ul className="mt-2 list-disc pl-5 text-sm space-y-1">
             {notices.map((n, i) => (
               <li key={i}>{describeCartNotice(n)}</li>
@@ -342,7 +342,7 @@ export function CheckoutClient({
                 <div className="space-y-2" role="radiogroup" aria-label="Betaalmethode">
                   <label className={`flex items-start gap-3 rounded-md border p-3 cursor-pointer ${paymentMethod === "stripe" ? "border-primary bg-primary/5" : ""}`}>
                     <input type="radio" name="paymentMethodChoice" className="mt-1" checked={paymentMethod === "stripe"} onChange={() => setPaymentMethod("stripe")} />
-                    <Lock className="h-4 w-4 text-emerald-500 shrink-0 mt-0.5" aria-hidden />
+                    <Lock className="h-4 w-4 text-success shrink-0 mt-0.5" aria-hidden />
                     <span className="text-sm min-w-0">
                       <span className="font-medium block">Direct betalen met iDEAL of kaart</span>
                       <span className="text-xs text-muted-foreground">Je betaalt veilig bij Stripe; we verzenden zodra de betaling is bevestigd.</span>
@@ -397,7 +397,7 @@ export function CheckoutClient({
               <div className="border-t pt-4 space-y-2 text-sm">
                 <div className="flex justify-between"><span className="text-muted-foreground">Subtotaal</span><span>{mounted ? formatEur(totals.subtotalEur) : "—"}</span></div>
                 {totals.discountEur > 0 && (
-                  <div className="flex justify-between text-emerald-600">
+                  <div className="flex justify-between text-success">
                     <span>Ledenkorting ({Math.round(partsDiscount * 100)}%)</span>
                     <span>-{formatEur(totals.discountEur)}</span>
                   </div>
@@ -424,7 +424,7 @@ export function CheckoutClient({
               </div>
 
               {errors.form && (
-                <div id="form-error" tabIndex={-1} role="alert" className="rounded-md border border-red-300 bg-red-50 dark:bg-red-950/30 p-3 text-sm text-red-900 dark:text-red-200 outline-none">
+                <div id="form-error" tabIndex={-1} role="alert" className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive outline-none">
                   {errors.form}
                 </div>
               )}
@@ -441,7 +441,7 @@ export function CheckoutClient({
               >
                 {submitting ? "Verwerken..." : "Bestelling met betalingsverplichting"}
               </Button>
-              {needsConfirmation && <p className="text-xs text-amber-700 dark:text-amber-400 text-center">Bevestig eerst de wijzigingen hierboven.</p>}
+              {needsConfirmation && <p className="text-xs text-warning text-center">Bevestig eerst de wijzigingen hierboven.</p>}
 
               <p className="text-xs text-muted-foreground text-center">
                 Door te bestellen ga je akkoord met onze <Link href="/voorwaarden" className="underline" target="_blank">algemene voorwaarden</Link>.
@@ -479,7 +479,7 @@ function Field({ id, label, hint, error, children }: { id: string; label: React.
       <div className="mt-1.5">{children}</div>
       {hint && !error && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
       {error && (
-        <p id={`${id}-error`} role="alert" className="text-xs text-red-600 dark:text-red-400 mt-1">
+        <p id={`${id}-error`} role="alert" className="text-xs text-destructive mt-1">
           {error}
         </p>
       )}

@@ -3,12 +3,13 @@ import { SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
 import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
 import { WARRANTY_ROWS, formatWarranty } from "@/lib/warranty";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Garantievoorwaarden",
-  description: "Garantie op originele en universele wasmachine-onderdelen + EU Right-to-Repair.",
-  alternates: { canonical: "/garantie" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Garantievoorwaarden"),
+  description: pageDescription("Garantie op originele en universele wasmachine-onderdelen + EU Right-to-Repair."),
+  path: "/garantie",
+});
 
 export default function GarantiePage() {
   return (
@@ -30,14 +31,14 @@ export default function GarantiePage() {
       <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
-            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Categorie</th>
-            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Periode</th>
-            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Dekking</th>
+            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Categorie</th>
+            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Periode</th>
+            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Dekking</th>
           </tr>
         </thead>
         <tbody>
           {WARRANTY_ROWS.map((r, i) => {
-            const cell = { padding: "10px 12px", borderBottom: i < WARRANTY_ROWS.length - 1 ? "1px solid var(--border)" : undefined } as const;
+            const cell = { padding: "10px 12px", borderBottom: i < WARRANTY_ROWS.length - 1 ? "1px solid var(--line)" : undefined } as const;
             return (
               <tr key={r.key}>
                 <td style={cell}><strong>{r.label}</strong></td>
@@ -80,7 +81,7 @@ export default function GarantiePage() {
         Een geldige garantieclaim vereist een bewijs van aankoop (factuur of orderbevestiging). Je kunt deze altijd opvragen via je <Link href="/dashboard/bestellingen">dashboard</Link>.
       </p>
 
-      <p style={{ marginTop: 32, padding: "14px 16px", background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 10 }}>
+      <p style={{ marginTop: 32, padding: "14px 16px", background: "rgb(var(--acc-rgb) / 0.06)", border: "1px solid var(--line-ac)", borderRadius: 10 }}>
         <strong>Twijfel je of je iets onder garantie kan claimen?</strong> Stuur een mail naar <ContactEmail /> — we kijken graag met je mee, zonder verplichting.
       </p>
     </LegalPage>

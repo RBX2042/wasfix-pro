@@ -3,6 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import articlesData from "@/data/help-articles.json";
 import { correctHelpText } from "../_corrections";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { articleLd as buildArticleLd, ldJson } from "@/lib/json-ld";
 
 type Article = {
   slug: string;
@@ -26,12 +28,13 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const article = articles.find((a) => a.slug === slug);
-  if (!article) return { title: "Helpartikel niet gevonden" };
-  return {
-    title: `${article.title}`,
-    description: article.summary,
-    alternates: { canonical: `/help/${article.slug}` },
-  };
+  if (!article) return { title: "Helpartikel niet gevonden", robots: robotsMeta(false, true) };
+  return pageMetadata({
+    title: pageTitle(article.title),
+    description: pageDescription(article.summary, "Uit het helpcentrum van WasFix Pro."),
+    path: `/help/${article.slug}`,
+    type: "article",
+  });
 }
 
 // Minimal markdown renderer (h1/h2/h3, bold, lists, links, paragraphs)
@@ -116,22 +119,21 @@ export default async function HelpArticlePage({ params }: { params: Promise<{ sl
 
   const related = articles.filter((a) => a.category === article.category && a.slug !== article.slug).slice(0, 3);
 
-  const articleLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  // No datePublished: a help article carries no date, and the page shows none.
+  const articleLd = buildArticleLd({
     headline: article.title,
     description: article.summary,
-    articleSection: article.category,
-    publisher: { "@type": "Organization", name: "WasFix Pro" },
-  };
+    path: `/help/${article.slug}`,
+    section: article.category,
+  });
 
   return (
     <WasFixShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(articleLd) }} />
       <section className="section" style={{ paddingTop: 56 }}>
         <div className="container" style={{ maxWidth: 760 }}>
-          <nav style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
-            <Link href="/help" style={{ color: "var(--muted)" }}>Helpcentrum</Link>
+          <nav style={{ fontSize: 13, color: "var(--mute)", marginBottom: 12 }}>
+            <Link href="/help" style={{ color: "var(--mute)" }}>Helpcentrum</Link>
             <span style={{ margin: "0 6px" }}>›</span>
             <span style={{ color: "var(--text-2)" }}>{article.category}</span>
           </nav>
@@ -144,7 +146,7 @@ export default async function HelpArticlePage({ params }: { params: Promise<{ sl
           </h1>
           <p className="lead" style={{ marginBottom: 32 }}>{article.summary}</p>
 
-          <article style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 32px" }}>
+          <article style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: "28px 32px" }}>
             {renderMarkdown(article.content)}
           </article>
 
@@ -167,7 +169,7 @@ export default async function HelpArticlePage({ params }: { params: Promise<{ sl
             </div>
           )}
 
-          <div style={{ marginTop: 36, padding: 20, background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 12, textAlign: "center" }}>
+          <div style={{ marginTop: 36, padding: 20, background: "rgb(var(--acc-rgb) / 0.06)", border: "1px solid var(--line-ac)", borderRadius: 12, textAlign: "center" }}>
             <div style={{ fontSize: 14, marginBottom: 8 }}>Niet gevonden wat je zocht?</div>
             <Link className="btn btn-sm btn-primary" href="/contact">
               Contact support <Icon name="arrow" size={13} />

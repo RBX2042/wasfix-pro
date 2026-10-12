@@ -70,9 +70,9 @@ export default async function MonteurOnderdelenPage() {
       </div>
 
       {limits.partsDiscount > 0 && (
-        <Card className="mb-6 border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/30">
+        <Card className="mb-6 border-success/30 bg-success/10">
           <CardContent className="p-4 flex items-center gap-3">
-            <div className="h-10 w-10 rounded-md bg-emerald-500/20 flex items-center justify-center text-emerald-600">
+            <div className="h-10 w-10 rounded-md bg-success/20 flex items-center justify-center text-success">
               <Package className="h-5 w-5" />
             </div>
             <div>
@@ -84,7 +84,7 @@ export default async function MonteurOnderdelenPage() {
       )}
 
       {stockUnavailable && (
-        <Card className="mb-6 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+        <Card className="mb-6 border-warning/50 bg-warning/10">
           <CardContent className="p-4 text-sm">
             <p className="font-semibold">Voorraad nu niet beschikbaar</p>
             <p className="text-muted-foreground">We kunnen de voorraad op dit moment niet laden. Probeer het over een paar minuten opnieuw.</p>

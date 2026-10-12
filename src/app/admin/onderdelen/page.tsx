@@ -71,7 +71,7 @@ export default async function AdminPartsPage() {
       </div>
 
       {dbUnreadable && (
-        <Card className="mb-4 border-red-500/50 bg-red-50 dark:bg-red-950/20">
+        <Card className="mb-4 border-destructive/50 bg-destructive/10">
           <div className="p-4 text-sm">
             <p className="font-semibold">De database is nu niet bereikbaar</p>
             <p className="text-muted-foreground">De onderdelen en hun voorraad kunnen niet worden geladen. Ververs de pagina over een paar minuten; blijft het mis, kijk dan in de logs en op /api/v1/health.</p>
@@ -80,7 +80,7 @@ export default async function AdminPartsPage() {
       )}
 
       {stockNotCounted && (
-        <Card className="mb-4 border-amber-500/50 bg-amber-50 dark:bg-amber-950/20">
+        <Card className="mb-4 border-warning/50 bg-warning/10">
           <div className="p-4 text-sm">
             <p className="font-semibold">Voorraad nog niet geteld</p>
             <p className="text-muted-foreground">Bijna alle voorraadaantallen zijn nog de voorbeeldcijfers uit de seed. Tel de planken en zet de echte aantallen via CSV-import of &ldquo;Voorraad&rdquo; achter elk onderdeel voordat je verkoopt.</p>
@@ -130,20 +130,20 @@ export default async function AdminPartsPage() {
                       const cost = (p as { costEur?: number | null }).costEur;
                       const basis = costBasis({ costEur: cost, costSource: (p as { costSource?: string | null }).costSource });
                       if (basis === "UNKNOWN") {
-                        return <span className="text-xs text-amber-600">geen inkoop</span>;
+                        return <span className="text-xs text-warning">geen inkoop</span>;
                       }
                       const net = p.priceEur / 1.21;
                       const pct = net > 0 ? ((net - (cost as number)) / net) * 100 : 0;
                       // Only a cost from a real quote is a margin; the rest is labelled "schatting" (D8).
                       return (
-                        <span className={basis === "QUOTE" ? (pct < 20 ? "text-amber-600" : "text-emerald-600") : "text-muted-foreground"}>
+                        <span className={basis === "QUOTE" ? (pct < 20 ? "text-warning" : "text-success") : "text-muted-foreground"}>
                           {pct.toFixed(0)}%{basis === "ESTIMATE" && <span className="ml-1 text-[10px] uppercase">schatting</span>}
                         </span>
                       );
                     })()}
                   </td>
                   <td className="p-3 text-right">
-                    {p.stock > 10 ? <span className="text-emerald-600">{p.stock}</span> : p.stock > 0 ? <span className="text-amber-600">{p.stock}</span> : <span className="text-destructive">0</span>}
+                    {p.stock > 10 ? <span className="text-success">{p.stock}</span> : p.stock > 0 ? <span className="text-warning">{p.stock}</span> : <span className="text-destructive">0</span>}
                   </td>
                   <td className="p-3 text-right tabular-nums text-muted-foreground">{p.reserved ? p.reserved : "–"}</td>
                   <td className="p-3">

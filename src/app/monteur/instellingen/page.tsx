@@ -63,7 +63,7 @@ export default async function MonteurSettingsPage() {
       </div>
 
       {prefilled && (
-        <Card className="mb-6 border-sky-500/40 bg-sky-50 dark:bg-sky-950/30">
+        <Card className="mb-6 border-info/40 bg-info/10">
           <CardContent className="p-4 text-sm">
             We hebben alvast ingevuld wat je in je aanmelding hebt opgegeven. Controleer de gegevens, vul adres en bank aan en sla op: pas dan worden ze gebruikt op je facturen.
           </CardContent>
@@ -71,13 +71,13 @@ export default async function MonteurSettingsPage() {
       )}
 
       {!isDatabaseConfigured() ? (
-        <Card className="mb-6 border-amber-500/40">
+        <Card className="mb-6 border-warning/40">
           <CardContent className="p-4 text-sm">
             Zonder database kunnen bedrijfsgegevens niet worden opgeslagen. Stel <code>DATABASE_URL</code> in.
           </CardContent>
         </Card>
       ) : missing.length > 0 ? (
-        <Card className="mb-6 border-amber-500/40 bg-amber-50 dark:bg-amber-950/30">
+        <Card className="mb-6 border-warning/40 bg-warning/10">
           <CardContent className="p-4 text-sm">
             <p className="font-medium mb-1">Nog niet compleet</p>
             <p className="text-muted-foreground">
@@ -87,7 +87,7 @@ export default async function MonteurSettingsPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="mb-6 border-emerald-500/40 bg-emerald-50 dark:bg-emerald-950/30">
+        <Card className="mb-6 border-success/40 bg-success/10">
           <CardContent className="p-4 text-sm">
             Je gegevens zijn compleet. Bij elke werkorder met een bedrag kun je nu een factuur maken.
           </CardContent>

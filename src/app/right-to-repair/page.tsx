@@ -1,13 +1,14 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
-import { absoluteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
+import { articleLd as buildArticleLd, ldJson } from "@/lib/json-ld";
 
-export const metadata = {
-  title: "EU Right to Repair — wat zijn jouw rechten?",
-  description: "Wat de EU-regels over repareren precies zeggen — met de verordening en richtlijn erbij, zodat je het zelf kunt nalezen.",
-  alternates: { canonical: "/right-to-repair" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("EU Right to Repair — wat zijn jouw rechten?"),
+  description: pageDescription("Wat de EU-regels over repareren precies zeggen — met de verordening en richtlijn erbij, zodat je het zelf kunt nalezen."),
+  path: "/right-to-repair",
+});
 
 /**
  * Every claim on this page is tied to a specific EU instrument, and every
@@ -58,19 +59,19 @@ const TIMELINE = [
 ];
 
 export default function RightToRepairPage() {
+  // No datePublished: the page prints none.
   const jsonLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
-    headline: "EU Right to Repair — wat zijn jouw rechten?",
-    description: "Wat de EU-regels over repareren precies zeggen, met bronvermelding per recht.",
-    author: { "@type": "Organization", name: "WasFix Pro" },
-    publisher: { "@type": "Organization", name: "WasFix Pro", logo: { "@type": "ImageObject", url: absoluteUrl("/icon") } },
+    ...buildArticleLd({
+      headline: "EU Right to Repair — wat zijn jouw rechten?",
+      description: "Wat de EU-regels over repareren precies zeggen, met bronvermelding per recht.",
+      path: "/right-to-repair",
+    }),
     about: { "@type": "Thing", name: "EU Right to Repair Directive 2024/1799" },
   };
 
   return (
     <WasFixShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }} />
       <section className="section" style={{ paddingTop: 56 }}>
         <div className="container" style={{ maxWidth: 900 }}>
           <div className="pill pill-acc" style={{ marginBottom: 16 }}>
@@ -101,13 +102,13 @@ export default function RightToRepairPage() {
               {RIGHTS.map((r, i) => (
                 <div key={i} className="step-card" style={{ padding: "20px 22px" }}>
                   <div style={{ display: "flex", alignItems: "flex-start", gap: 10, marginBottom: 10 }}>
-                    <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(60,200,140,0.12)", color: "var(--ok)", display: "grid", placeItems: "center", flexShrink: 0, fontSize: 13, fontWeight: 600 }}>
+                    <div style={{ width: 28, height: 28, borderRadius: 7, background: "rgb(var(--ok-rgb) / 0.12)", color: "var(--ok)", display: "grid", placeItems: "center", flexShrink: 0, fontSize: 13, fontWeight: 600 }}>
                       {i + 1}
                     </div>
                     <div style={{ fontWeight: 500, fontSize: 15, lineHeight: 1.3 }}>{r.title}</div>
                   </div>
                   <p style={{ color: "var(--text-2)", fontSize: 13, lineHeight: 1.65, marginBottom: 12 }}>{r.text}</p>
-                  <div className="mono" style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.04em" }}>{r.law}</div>
+                  <div className="mono" style={{ fontSize: 10, color: "var(--mute)", letterSpacing: "0.04em" }}>{r.law}</div>
                 </div>
               ))}
             </div>
@@ -137,7 +138,7 @@ export default function RightToRepairPage() {
             <h2 className="h-section" style={{ fontSize: 28, marginBottom: 16 }}>
               WasFix Pro & <em>Right to Repair</em>
             </h2>
-            <div style={{ background: "var(--surf)", border: "1px solid var(--border-ac)", borderRadius: 14, padding: 28 }}>
+            <div style={{ background: "var(--surf)", border: "1px solid var(--line-ac)", borderRadius: 14, padding: 28 }}>
               <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 14 }}>
                 {[
                   `Onze ${formatCount(STATS.guides)} reparatiegidsen zijn gratis te lezen en in gewone taal geschreven.`,
@@ -183,7 +184,7 @@ export default function RightToRepairPage() {
           </section>
 
           {/* CTA */}
-          <div style={{ padding: 36, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16, textAlign: "center" }}>
+          <div style={{ padding: 36, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 16, textAlign: "center" }}>
             <h2 style={{ fontSize: 24, fontWeight: 500, marginBottom: 10, letterSpacing: "-0.015em" }}>
               Roep je rechten in — start vandaag
             </h2>

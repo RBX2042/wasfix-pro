@@ -7,6 +7,7 @@ import { CartDrawer } from "@/components/cart-drawer";
 import { toast } from "sonner";
 import "@/app/wasfix-design.css";
 import { WasFixFooter } from "@/components/redesign/SharedLayout";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
 
 // Headline numbers come from the server (page.tsx reads the real catalogue) and
@@ -117,19 +118,19 @@ function Hotspot({ part, active, hover, predict, onHover, onClick, local = false
       style={{ cursor: "pointer" }}
     >
       {predict && !active && (
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f5b643" strokeWidth="1" opacity="0.5">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--wm-warn-ring)" strokeWidth="1" opacity="0.5">
           <animate attributeName="r" values={`${r};${r + 8};${r}`} dur="2.4s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.5;0;0.5" dur="2.4s" repeatCount="indefinite" />
         </circle>
       )}
       <circle cx={cx} cy={cy} r={r}
-        fill={show ? "rgba(0,212,255,0.10)" : "transparent"}
-        stroke={show ? "#00d4ff" : "rgba(255,255,255,0.18)"}
+        fill={show ? "var(--wm-hot-fill)" : "transparent"}
+        stroke={show ? "var(--wm-hot)" : "var(--wm-hot-idle)"}
         strokeWidth={show ? 1.4 : 1}
         strokeDasharray={show ? "0" : "3 4"} />
-      <circle cx={cx} cy={cy} r={show ? 3 : 2} fill={show ? "#00d4ff" : "rgba(255,255,255,0.35)"} />
+      <circle cx={cx} cy={cy} r={show ? 3 : 2} fill={show ? "var(--wm-hot)" : "var(--wm-dot)"} />
       {active && (
-        <circle cx={cx} cy={cy} r={r} fill="none" stroke="#00d4ff" strokeWidth="1">
+        <circle cx={cx} cy={cy} r={r} fill="none" stroke="var(--wm-hot)" strokeWidth="1">
           <animate attributeName="r" values={`${r};${r + 10};${r}`} dur="1.8s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.9;0;0.9" dur="1.8s" repeatCount="indefinite" />
         </circle>
@@ -172,46 +173,48 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
 
   return (
     <svg viewBox="0 0 600 600" width="100%" style={{ display: "block", maxWidth: 580, margin: "0 auto" }}>
+      {/* Every colour here is a --wm-* variable of the active palette (src/app/wasfix-design.css): the machine is
+          a white appliance in the light theme and the navy one it always was in the dark theme. */}
       <defs>
         <linearGradient id="cabFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#1c2540" />
-          <stop offset="0.5" stopColor="#141a30" />
-          <stop offset="1" stopColor="#0f1426" />
+          <stop offset="0" stopColor="var(--wm-cab-1)" />
+          <stop offset="0.5" stopColor="var(--wm-cab-2)" />
+          <stop offset="1" stopColor="var(--wm-cab-3)" />
         </linearGradient>
         <linearGradient id="panelFill" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#1d2748" />
-          <stop offset="1" stopColor="#161e3a" />
+          <stop offset="0" stopColor="var(--wm-panel-1)" />
+          <stop offset="1" stopColor="var(--wm-panel-2)" />
         </linearGradient>
         <radialGradient id="glassFill" cx="0.35" cy="0.35" r="0.7">
-          <stop offset="0" stopColor="#1c2747" stopOpacity="0.7" />
-          <stop offset="0.6" stopColor="#0a0f1f" stopOpacity="0.9" />
-          <stop offset="1" stopColor="#040712" stopOpacity="0.95" />
+          <stop offset="0" stopColor="var(--wm-glass-1)" stopOpacity="0.7" />
+          <stop offset="0.6" stopColor="var(--wm-glass-2)" stopOpacity="0.9" />
+          <stop offset="1" stopColor="var(--wm-glass-3)" stopOpacity="0.95" />
         </radialGradient>
         <radialGradient id="drumFill" cx="0.5" cy="0.5" r="0.55">
-          <stop offset="0" stopColor="#1f2a4a" />
-          <stop offset="0.7" stopColor="#0d1326" />
-          <stop offset="1" stopColor="#070a18" />
+          <stop offset="0" stopColor="var(--wm-drum-1)" />
+          <stop offset="0.7" stopColor="var(--wm-drum-2)" />
+          <stop offset="1" stopColor="var(--wm-drum-3)" />
         </radialGradient>
         <linearGradient id="seal" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#2a3559" />
-          <stop offset="1" stopColor="#161d36" />
+          <stop offset="0" stopColor="var(--wm-seal-1)" />
+          <stop offset="1" stopColor="var(--wm-seal-2)" />
         </linearGradient>
         <linearGradient id="hiLight" x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#ffffff" stopOpacity="0.10" />
           <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
         <linearGradient id="accGrad" x1="0" x2="1">
-          <stop offset="0" stopColor="#4f8cff" />
-          <stop offset="1" stopColor="#00d4ff" />
+          <stop offset="0" stopColor="var(--acc)" />
+          <stop offset="1" stopColor="var(--acc-2)" />
         </linearGradient>
         <pattern id="drumHoles" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
-          <circle cx="7" cy="7" r="1.3" fill="rgba(255,255,255,0.10)" />
+          <circle cx="7" cy="7" r="1.3" fill="var(--wm-hole)" />
         </pattern>
         <linearGradient id="scanSweep" x1="0" x2="0" y1="0" y2="1">
-          <stop offset="0" stopColor="#00d4ff" stopOpacity="0" />
-          <stop offset="0.4" stopColor="#00d4ff" stopOpacity="0.7" />
-          <stop offset="0.6" stopColor="#00d4ff" stopOpacity="0.7" />
-          <stop offset="1" stopColor="#00d4ff" stopOpacity="0" />
+          <stop offset="0" stopColor="var(--wm-hot)" stopOpacity="0" />
+          <stop offset="0.4" stopColor="var(--wm-hot)" stopOpacity="0.7" />
+          <stop offset="0.6" stopColor="var(--wm-hot)" stopOpacity="0.7" />
+          <stop offset="1" stopColor="var(--wm-hot)" stopOpacity="0" />
         </linearGradient>
         <clipPath id="scanClip">
           <rect x="50" y="50" width="500" height="510" rx="22" />
@@ -220,26 +223,26 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
 
       <ellipse cx="300" cy="320" rx="280" ry="240" fill="url(#accGrad)" opacity="0.05" />
       <rect x={CABINET.x} y={CABINET.y} width={CABINET.w} height={CABINET.h} rx={CABINET.r}
-        fill="url(#cabFill)" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+        fill="url(#cabFill)" stroke="var(--wm-edge)" strokeWidth="1" />
       <rect x={CABINET.x + 8} y={CABINET.y + 8} width={CABINET.w - 16} height={CABINET.h - 16} rx={CABINET.r - 6}
-        fill="none" stroke="rgba(255,255,255,0.03)" strokeWidth="1" />
+        fill="none" stroke="var(--wm-edge-soft)" strokeWidth="1" />
       <rect x={CABINET.x + 4} y={CABINET.y + 4} width={CABINET.w - 8} height={120} rx={20} fill="url(#hiLight)" />
 
       <g transform="translate(70 72)">
-        <rect width="460" height="78" rx="12" fill="url(#panelFill)" stroke="rgba(255,255,255,0.07)" />
-        <rect x="16" y="14" width="148" height="50" rx="8" fill="#040712" stroke="rgba(0,212,255,0.25)" />
-        <text x="90" y="36" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="11" fill="#00d4ff" opacity="0.55" letterSpacing="0.12em">ERROR</text>
-        <text x="90" y="56" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="20" fontWeight="500" fill="#00d4ff" letterSpacing="0.2em">{displayText}</text>
-        <circle cx="156" cy="22" r="1.6" fill="#00d4ff" />
-        <circle cx="156" cy="28" r="1.6" fill="#00d4ff" opacity="0.5" />
-        <circle cx="220" cy="39" r="22" fill="#1a2240" stroke="rgba(255,255,255,0.10)" />
-        <circle cx="220" cy="39" r="16" fill="#0e1424" stroke="rgba(255,255,255,0.06)" />
-        <line x1="220" y1="39" x2="220" y2="25" stroke="#00d4ff" strokeWidth="1.5" strokeLinecap="round" />
-        <text x="220" y="76" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="8" fill="rgba(255,255,255,0.35)" letterSpacing="0.1em">PROGRAMMA</text>
+        <rect width="460" height="78" rx="12" fill="url(#panelFill)" stroke="var(--wm-edge-soft)" />
+        <rect x="16" y="14" width="148" height="50" rx="8" fill="var(--wm-screen)" stroke="var(--wm-hot)" strokeOpacity="0.4" />
+        <text x="90" y="36" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="11" fill="var(--wm-screen-ink)" opacity="0.7" letterSpacing="0.12em">ERROR</text>
+        <text x="90" y="56" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="20" fontWeight="500" fill="var(--wm-screen-ink)" letterSpacing="0.2em">{displayText}</text>
+        <circle cx="156" cy="22" r="1.6" fill="var(--wm-screen-ink)" />
+        <circle cx="156" cy="28" r="1.6" fill="var(--wm-screen-ink)" opacity="0.5" />
+        <circle cx="220" cy="39" r="22" fill="var(--wm-panel-2)" stroke="var(--wm-edge)" />
+        <circle cx="220" cy="39" r="16" fill="var(--wm-btn)" stroke="var(--wm-edge-soft)" />
+        <line x1="220" y1="39" x2="220" y2="25" stroke="var(--wm-hot)" strokeWidth="1.5" strokeLinecap="round" />
+        <text x="220" y="76" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="8" fill="var(--mute)" letterSpacing="0.1em">PROGRAMMA</text>
         {[0, 1, 2, 3].map((i) => (
           <g key={i} transform={`translate(${260 + i * 44} 24)`}>
-            <rect width="32" height="32" rx="7" fill="#10172c" stroke="rgba(255,255,255,0.06)" />
-            <circle cx="16" cy="16" r="3" fill={i === 1 ? "#00d4ff" : "rgba(255,255,255,0.20)"} />
+            <rect width="32" height="32" rx="7" fill="var(--wm-btn)" stroke="var(--wm-edge-soft)" />
+            <circle cx="16" cy="16" r="3" fill={i === 1 ? "var(--wm-hot)" : "var(--wm-dot)"} />
           </g>
         ))}
         <Hotspot part={MACHINE_PARTS.find(p => p.id === "pcb")} local
@@ -251,44 +254,44 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
       </g>
 
       <g transform="translate(70 168)">
-        <rect width="80" height="60" rx="6" fill="#0e1424" stroke="rgba(255,255,255,0.08)" />
-        <rect x="6" y="6" width="22" height="48" rx="3" fill="#08101e" />
-        <rect x="32" y="6" width="22" height="48" rx="3" fill="#08101e" />
-        <rect x="58" y="6" width="18" height="48" rx="3" fill="#08101e" />
-        <circle cx="40" cy="56" r="2" fill="rgba(255,255,255,0.20)" />
+        <rect width="80" height="60" rx="6" fill="var(--wm-panel-2)" stroke="var(--wm-edge)" />
+        <rect x="6" y="6" width="22" height="48" rx="3" fill="var(--wm-slot)" />
+        <rect x="32" y="6" width="22" height="48" rx="3" fill="var(--wm-slot)" />
+        <rect x="58" y="6" width="18" height="48" rx="3" fill="var(--wm-slot)" />
+        <circle cx="40" cy="56" r="2" fill="var(--wm-dot)" />
       </g>
 
       <g>
-        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 14} fill="url(#seal)" stroke="rgba(255,255,255,0.09)" strokeWidth="1" />
-        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 7} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth="1" strokeDasharray="2 3" />
-        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R} fill="url(#glassFill)" stroke="rgba(255,255,255,0.10)" strokeWidth="1" />
+        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 14} fill="url(#seal)" stroke="var(--wm-edge)" strokeWidth="1" />
+        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 7} fill="none" stroke="var(--wm-edge-soft)" strokeWidth="1" strokeDasharray="2 3" />
+        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R} fill="url(#glassFill)" stroke="var(--wm-edge)" strokeWidth="1" />
         <g transform={`rotate(${drumAngle} ${DOOR_CX} ${DOOR_CY})`}>
           <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R} fill="url(#drumFill)" />
           <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R} fill="url(#drumHoles)" />
           {[0, 120, 240].map((a) => (
             <g key={a} transform={`rotate(${a} ${DOOR_CX} ${DOOR_CY})`}>
-              <rect x={DOOR_CX - 5} y={DOOR_CY - DRUM_R + 18} width="10" height="38" rx="3" fill="#1a2240" stroke="rgba(255,255,255,0.10)" />
+              <rect x={DOOR_CX - 5} y={DOOR_CY - DRUM_R + 18} width="10" height="38" rx="3" fill="var(--wm-panel-2)" stroke="var(--wm-edge)" />
             </g>
           ))}
         </g>
-        <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R - 4} fill="none" stroke="rgba(255,255,255,0.04)" />
-        <ellipse cx={DOOR_CX - 40} cy={DOOR_CY - 60} rx="32" ry="14" fill="rgba(255,255,255,0.06)" transform={`rotate(-25 ${DOOR_CX - 40} ${DOOR_CY - 60})`} />
-        <circle cx={DOOR_CX - DOOR_R - 14} cy={DOOR_CY} r="3" fill="rgba(255,255,255,0.15)" />
-        <circle cx={DOOR_CX + DOOR_R + 14} cy={DOOR_CY - 76} r="4" fill="#00d4ff" opacity="0.7" />
-        <circle cx={DOOR_CX + DOOR_R + 14} cy={DOOR_CY - 76} r="4" fill="none" stroke="#00d4ff" opacity="0.4">
+        <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R - 4} fill="none" stroke="var(--wm-edge-soft)" />
+        <ellipse cx={DOOR_CX - 40} cy={DOOR_CY - 60} rx="32" ry="14" fill="var(--wm-shine)" transform={`rotate(-25 ${DOOR_CX - 40} ${DOOR_CY - 60})`} />
+        <circle cx={DOOR_CX - DOOR_R - 14} cy={DOOR_CY} r="3" fill="var(--wm-dot)" />
+        <circle cx={DOOR_CX + DOOR_R + 14} cy={DOOR_CY - 76} r="4" fill="var(--wm-hot)" opacity="0.7" />
+        <circle cx={DOOR_CX + DOOR_R + 14} cy={DOOR_CY - 76} r="4" fill="none" stroke="var(--wm-hot)" opacity="0.4">
           <animate attributeName="r" values="4;9;4" dur="2.4s" repeatCount="indefinite" />
           <animate attributeName="opacity" values="0.4;0;0.4" dur="2.4s" repeatCount="indefinite" />
         </circle>
       </g>
 
       <g>
-        <rect x="65" y="448" width="470" height="80" rx="10" fill="#0c1324" stroke="rgba(255,255,255,0.05)" />
-        <circle cx="396" cy="472" r="14" fill="#0e1424" stroke="rgba(255,255,255,0.10)" />
-        <line x1="386" y1="472" x2="406" y2="472" stroke="rgba(255,255,255,0.18)" strokeWidth="1.5" strokeLinecap="round" />
+        <rect x="65" y="448" width="470" height="80" rx="10" fill="var(--wm-slot)" stroke="var(--wm-edge-soft)" />
+        <circle cx="396" cy="472" r="14" fill="var(--wm-btn)" stroke="var(--wm-edge)" />
+        <line x1="386" y1="472" x2="406" y2="472" stroke="var(--wm-hot-idle)" strokeWidth="1.5" strokeLinecap="round" />
       </g>
 
-      <rect x="70" y="540" width="40" height="14" rx="2" fill="#0a0f1c" />
-      <rect x="490" y="540" width="40" height="14" rx="2" fill="#0a0f1c" />
+      <rect x="70" y="540" width="40" height="14" rx="2" fill="var(--wm-foot)" />
+      <rect x="490" y="540" width="40" height="14" rx="2" fill="var(--wm-foot)" />
 
       {scanning && (
         <g clipPath="url(#scanClip)">
@@ -308,26 +311,28 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
         const id = hover || activeId!;
         const p = MACHINE_PARTS.find(x => x.id === id);
         if (!p) return null;
-        const offsetX = p.hot.cx < 300 ? -1 : 1;
-        const labelX = p.hot.cx < 300 ? 56 : 544;
-        const labelY = Math.max(70, Math.min(540, p.hot.cy));
-        const anchor = p.hot.cx < 300 ? "end" : "start";
+        // The tag sits above (lower half of the machine) or below (upper half) the hotspot and is kept inside the 600-wide
+        // viewBox: it used to hang 124 to 180 units outside it, so the browser cut it off ("erpomp").
+        const W = 180, H = 40;
+        const rx = Math.max(6, Math.min(600 - W - 6, p.hot.cx - W / 2));
+        const above = p.hot.cy > 300;
+        const ry = above ? p.hot.cy - p.hot.r - 16 - H : p.hot.cy + p.hot.r + 16;
+        const lineFrom = above ? p.hot.cy - 2.5 : p.hot.cy + 2.5;
+        const lineTo = above ? ry + H : ry;
         return (
           <g pointerEvents="none">
-            <line x1={p.hot.cx} y1={p.hot.cy} x2={labelX - offsetX * 8} y2={labelY}
-              stroke="#00d4ff" strokeWidth="1" strokeDasharray="2 3" opacity="0.7" />
-            <circle cx={p.hot.cx} cy={p.hot.cy} r="2.5" fill="#00d4ff" />
-            <g transform={`translate(${labelX} ${labelY - 12})`}>
-              <rect x={anchor === "end" ? -180 : 0} y="0" width="180" height="24" rx="6"
-                fill="#0b1224" stroke="rgba(0,212,255,0.45)" />
-              <text x={anchor === "end" ? -10 : 10} y="15" textAnchor={anchor}
-                fontFamily="var(--font-geist-mono), monospace" fontSize="11" fill="#e8eefb" letterSpacing="0.02em">
+            <line x1={p.hot.cx} y1={lineFrom} x2={p.hot.cx} y2={lineTo}
+              stroke="var(--wm-hot)" strokeWidth="1" strokeDasharray="2 3" opacity="0.7" />
+            <circle cx={p.hot.cx} cy={p.hot.cy} r="2.5" fill="var(--wm-hot)" />
+            <g transform={`translate(${rx} ${ry})`}>
+              <rect x="0" y="0" width={W} height={H} rx="6"
+                fill="var(--wm-tag-bg)" stroke="var(--wm-hot)" strokeOpacity="0.6" />
+              <text x="10" y="16" textAnchor="start"
+                fontFamily="var(--font-geist-mono), monospace" fontSize="11" fill="var(--wm-tag-text)" letterSpacing="0.02em">
                 {p.name}
               </text>
-            </g>
-            <g transform={`translate(${labelX} ${labelY + 14})`}>
-              <text x={anchor === "end" ? -10 : 10} y="0" textAnchor={anchor}
-                fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="#00d4ff" opacity="0.7" letterSpacing="0.08em">
+              <text x="10" y="31" textAnchor="start"
+                fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="var(--wm-hot)" letterSpacing="0.08em">
                 {p.code}
               </text>
             </g>
@@ -367,6 +372,7 @@ function Nav() {
           <Link className="nav-link" href="/prijzen">Prijzen</Link>
         </div>
         <div className="nav-cta">
+          <ThemeToggle />
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setOpen(true)}
@@ -377,11 +383,11 @@ function Nav() {
             {count > 0 && (
               <span style={{
                 position: "absolute", top: -4, right: -4,
-                background: "linear-gradient(180deg, #5d97ff, #3b7aff)",
-                color: "#fff", fontSize: 10, fontWeight: 600,
+                background: "linear-gradient(180deg, var(--btn-from), var(--btn-to))",
+                color: "var(--on-acc)", fontSize: 10, fontWeight: 600,
                 minWidth: 16, height: 16, borderRadius: 8,
                 display: "grid", placeItems: "center", padding: "0 4px",
-                boxShadow: "0 0 12px rgba(79,140,255,0.6)",
+                boxShadow: "0 0 12px var(--acc-glow)",
               }}>{count}</span>
             )}
           </button>
@@ -459,7 +465,7 @@ function Hero() {
               </div>
               <WashingMachine activeId={activePart} onSelect={(p) => setActivePart(p.id)} displayText="E 1 8" />
               <div style={{ display: "flex", justifyContent: "space-between", gap: 12, position: "relative", zIndex: 2, marginTop: 4, alignItems: "center" }}>
-                <div style={{ fontSize: 12, color: "var(--muted)" }}>
+                <div style={{ fontSize: 12, color: "var(--mute)" }}>
                   Klik op een onderdeel voor uitleg en de bijbehorende foutcodes
                 </div>
                 <div style={{ display: "flex", gap: 6 }}>
@@ -629,8 +635,8 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
 
           <div style={{ display: "grid", gridTemplateRows: "auto 1fr", gap: 14 }}>
             <div className="card card-glow" style={{ padding: 0, overflow: "hidden" }}>
-              <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--border)", alignItems: "center" }}>
-                <div className="mono" style={{ fontSize: 11.5, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Diagnose visual</div>
+              <div style={{ padding: "14px 18px", display: "flex", justifyContent: "space-between", borderBottom: "1px solid var(--line)", alignItems: "center" }}>
+                <div className="mono" style={{ fontSize: 11.5, letterSpacing: "0.08em", color: "var(--mute)", textTransform: "uppercase" }}>Diagnose visual</div>
                 <div className="pill pill-acc"><Icon name="bolt" size={11} /> {scanning ? "Scanning…" : (focusIds.length ? `${focusIds.length} verdachte onderdelen` : "Idle")}</div>
               </div>
               <div style={{ padding: "8px 0" }}>
@@ -644,7 +650,7 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
             <div className="diag-result">
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                 <div>
-                  <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>Top oorzaken</div>
+                  <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--mute)", textTransform: "uppercase" }}>Top oorzaken</div>
                   <div style={{ fontWeight: 500, fontSize: 15, marginTop: 2 }}>Bosch · foutcode E18</div>
                 </div>
                 <span className="pill pill-mono">Voorbeeld</span>
@@ -653,16 +659,16 @@ function DiagnoseDemo({ filterPart }: { filterPart?: PartItem }) {
               {(latest?.probs || []).map((p, i) => (
                 <div key={p.name} className="prob-bar">
                   <div className="prob-name" style={{ width: "auto", flex: 1 }}>
-                    <span className="mono" style={{ color: "var(--muted)", marginRight: 7 }}>{i + 1}</span>
+                    <span className="mono" style={{ color: "var(--mute)", marginRight: 7 }}>{i + 1}</span>
                     {p.name}
                   </div>
-                  <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{p.part} · {p.diff}</div>
+                  <div className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>{p.part} · {p.diff}</div>
                   <div className="prob-pct" style={{ width: 52 }}>{p.price ?? ""}</div>
                 </div>
               ))}
 
               {latest && filterPart && (
-                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--border)" }}>
+                <div style={{ marginTop: "auto", display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 14, borderTop: "1px solid var(--line)" }}>
                   <div>
                     <div style={{ fontWeight: 500 }}>Uit de winkel: {filterPart.name}</div>
                     <div className="muted" style={{ fontSize: 12 }}>€ {filterPart.priceEur.toFixed(2).replace(".", ",")} · verzending op werkdagen</div>
@@ -711,67 +717,67 @@ function HowItWorks() {
 function PartGlyph({ sku }: { sku: string }) {
   if (sku.includes("FILTER")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <circle cx="40" cy="30" r="22" fill="none" stroke="rgba(79,140,255,0.6)" />
-      <circle cx="40" cy="30" r="14" fill="none" stroke="rgba(0,212,255,0.5)" />
+      <circle cx="40" cy="30" r="22" fill="none" stroke="rgb(var(--acc-rgb) / 0.6)" />
+      <circle cx="40" cy="30" r="14" fill="none" stroke="rgb(var(--acc2-rgb) / 0.5)" />
       {Array.from({ length: 8 }).map((_, i) => {
         const a = i * Math.PI / 4;
-        return <line key={i} x1={40 + Math.cos(a) * 8} y1={30 + Math.sin(a) * 8} x2={40 + Math.cos(a) * 22} y2={30 + Math.sin(a) * 22} stroke="rgba(255,255,255,0.18)" />;
+        return <line key={i} x1={40 + Math.cos(a) * 8} y1={30 + Math.sin(a) * 8} x2={40 + Math.cos(a) * 22} y2={30 + Math.sin(a) * 22} stroke="rgb(var(--ink-rgb) / 0.18)" />;
       })}
     </svg>);
   if (sku.includes("PUMP")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <circle cx="38" cy="30" r="18" fill="none" stroke="rgba(0,212,255,0.6)" />
-      <circle cx="38" cy="30" r="6" fill="rgba(79,140,255,0.6)" />
-      <rect x="56" y="24" width="14" height="12" rx="2" fill="none" stroke="rgba(255,255,255,0.25)" />
-      <path d="M38 12v-4M38 52v-4M20 30h-4" stroke="rgba(255,255,255,0.4)" />
+      <circle cx="38" cy="30" r="18" fill="none" stroke="rgb(var(--acc2-rgb) / 0.6)" />
+      <circle cx="38" cy="30" r="6" fill="rgb(var(--acc-rgb) / 0.6)" />
+      <rect x="56" y="24" width="14" height="12" rx="2" fill="none" stroke="rgb(var(--ink-rgb) / 0.25)" />
+      <path d="M38 12v-4M38 52v-4M20 30h-4" stroke="rgb(var(--ink-rgb) / 0.4)" />
     </svg>);
   if (sku.includes("CARBON")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <rect x="14" y="22" width="10" height="20" fill="rgba(0,212,255,0.5)" rx="1" />
-      <rect x="14" y="14" width="10" height="6" fill="rgba(255,255,255,0.3)" rx="1" />
-      <rect x="56" y="22" width="10" height="20" fill="rgba(0,212,255,0.5)" rx="1" />
-      <rect x="56" y="14" width="10" height="6" fill="rgba(255,255,255,0.3)" rx="1" />
-      <line x1="24" y1="50" x2="56" y2="50" stroke="rgba(255,255,255,0.3)" />
+      <rect x="14" y="22" width="10" height="20" fill="rgb(var(--acc2-rgb) / 0.5)" rx="1" />
+      <rect x="14" y="14" width="10" height="6" fill="rgb(var(--ink-rgb) / 0.3)" rx="1" />
+      <rect x="56" y="22" width="10" height="20" fill="rgb(var(--acc2-rgb) / 0.5)" rx="1" />
+      <rect x="56" y="14" width="10" height="6" fill="rgb(var(--ink-rgb) / 0.3)" rx="1" />
+      <line x1="24" y1="50" x2="56" y2="50" stroke="rgb(var(--ink-rgb) / 0.3)" />
     </svg>);
   if (sku.includes("BELT")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <ellipse cx="40" cy="30" rx="28" ry="14" fill="none" stroke="rgba(79,140,255,0.6)" strokeWidth="3" />
-      <ellipse cx="40" cy="30" rx="22" ry="8" fill="none" stroke="rgba(0,212,255,0.4)" />
+      <ellipse cx="40" cy="30" rx="28" ry="14" fill="none" stroke="rgb(var(--acc-rgb) / 0.6)" strokeWidth="3" />
+      <ellipse cx="40" cy="30" rx="22" ry="8" fill="none" stroke="rgb(var(--acc2-rgb) / 0.4)" />
     </svg>);
   if (sku.includes("NTC")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <circle cx="30" cy="30" r="10" fill="rgba(79,140,255,0.4)" stroke="rgba(255,255,255,0.3)" />
-      <rect x="40" y="27" width="28" height="6" fill="none" stroke="rgba(255,255,255,0.3)" />
-      <line x1="42" y1="22" x2="68" y2="22" stroke="rgba(0,212,255,0.6)" />
-      <line x1="42" y1="38" x2="68" y2="38" stroke="rgba(0,212,255,0.6)" />
+      <circle cx="30" cy="30" r="10" fill="rgb(var(--acc-rgb) / 0.4)" stroke="rgb(var(--ink-rgb) / 0.3)" />
+      <rect x="40" y="27" width="28" height="6" fill="none" stroke="rgb(var(--ink-rgb) / 0.3)" />
+      <line x1="42" y1="22" x2="68" y2="22" stroke="rgb(var(--acc2-rgb) / 0.6)" />
+      <line x1="42" y1="38" x2="68" y2="38" stroke="rgb(var(--acc2-rgb) / 0.6)" />
     </svg>);
   if (sku.includes("LOCK") || sku.includes("DOOR")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <rect x="22" y="18" width="36" height="24" rx="3" fill="rgba(79,140,255,0.4)" stroke="rgba(255,255,255,0.3)" />
-      <circle cx="40" cy="30" r="5" fill="rgba(0,212,255,0.7)" />
-      <path d="M22 30h-6M58 30h6" stroke="rgba(255,255,255,0.3)" />
+      <rect x="22" y="18" width="36" height="24" rx="3" fill="rgb(var(--acc-rgb) / 0.4)" stroke="rgb(var(--ink-rgb) / 0.3)" />
+      <circle cx="40" cy="30" r="5" fill="rgb(var(--acc2-rgb) / 0.7)" />
+      <path d="M22 30h-6M58 30h6" stroke="rgb(var(--ink-rgb) / 0.3)" />
     </svg>);
   if (sku.includes("HEAT")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <path d="M10 30 Q18 18 26 30 T42 30 T58 30 T74 30" fill="none" stroke="rgba(255,122,60,0.7)" strokeWidth="2" />
-      <rect x="6" y="36" width="68" height="6" fill="rgba(255,255,255,0.2)" />
+      <path d="M10 30 Q18 18 26 30 T42 30 T58 30 T74 30" fill="none" stroke="rgb(var(--warn-rgb) / 0.7)" strokeWidth="2" />
+      <rect x="6" y="36" width="68" height="6" fill="rgb(var(--ink-rgb) / 0.2)" />
     </svg>);
   if (sku.includes("GASKET") || sku.includes("DAMP")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <circle cx="40" cy="30" r="22" fill="none" stroke="rgba(79,140,255,0.6)" strokeWidth="6" />
-      <circle cx="40" cy="30" r="22" fill="none" stroke="rgba(0,212,255,0.3)" strokeWidth="14" />
+      <circle cx="40" cy="30" r="22" fill="none" stroke="rgb(var(--acc-rgb) / 0.6)" strokeWidth="6" />
+      <circle cx="40" cy="30" r="22" fill="none" stroke="rgb(var(--acc2-rgb) / 0.3)" strokeWidth="14" />
     </svg>);
   if (sku.includes("VALVE") || sku.includes("HOSE")) return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <rect x="14" y="24" width="16" height="12" rx="2" fill="rgba(79,140,255,0.4)" />
-      <path d="M30 30 Q44 30 50 22 Q56 14 66 14" fill="none" stroke="rgba(0,212,255,0.6)" strokeWidth="3" />
-      <circle cx="66" cy="14" r="3" fill="rgba(255,255,255,0.3)" />
+      <rect x="14" y="24" width="16" height="12" rx="2" fill="rgb(var(--acc-rgb) / 0.4)" />
+      <path d="M30 30 Q44 30 50 22 Q56 14 66 14" fill="none" stroke="rgb(var(--acc2-rgb) / 0.6)" strokeWidth="3" />
+      <circle cx="66" cy="14" r="3" fill="rgb(var(--ink-rgb) / 0.3)" />
     </svg>);
   // Default: generic gear
   return (
     <svg viewBox="0 0 80 60" width="100%" height="100%">
-      <circle cx="40" cy="30" r="14" fill="none" stroke="rgba(79,140,255,0.5)" strokeWidth="2" />
-      <circle cx="40" cy="30" r="5" fill="rgba(0,212,255,0.5)" />
+      <circle cx="40" cy="30" r="14" fill="none" stroke="rgb(var(--acc-rgb) / 0.5)" strokeWidth="2" />
+      <circle cx="40" cy="30" r="5" fill="rgb(var(--acc2-rgb) / 0.5)" />
     </svg>
   );
 }
@@ -846,7 +852,7 @@ function CodeVisual({ code }: { code: CodeItem }) {
     <div className="code-visual">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--muted)" }}>{code.brand}</div>
+          <div className="mono" style={{ fontSize: 11, letterSpacing: "0.1em", textTransform: "uppercase", color: "var(--mute)" }}>{code.brand}</div>
           <div style={{ fontSize: 30, fontWeight: 500, letterSpacing: "-0.02em", marginTop: 2 }}>{code.id}</div>
           <div style={{ color: "var(--text-2)", marginTop: 4 }}>{code.desc}</div>
         </div>
@@ -855,49 +861,49 @@ function CodeVisual({ code }: { code: CodeItem }) {
         </div>
       </div>
 
-      <svg viewBox="0 0 380 220" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--border)", background: "#070b18" }}>
+      <svg viewBox="0 0 380 220" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--line)", background: "var(--wm-tank)" }}>
         <defs>
           <linearGradient id="water" x1="0" x2="0" y1="0" y2="1">
-            <stop offset="0" stopColor="#00d4ff" stopOpacity="0.7" />
-            <stop offset="1" stopColor="#4f8cff" stopOpacity="0.5" />
+            <stop offset="0" stopColor="var(--wm-hot)" stopOpacity="0.7" />
+            <stop offset="1" stopColor="var(--acc)" stopOpacity="0.5" />
           </linearGradient>
           <clipPath id="drumClip"><circle cx="160" cy="110" r="70" /></clipPath>
         </defs>
-        <circle cx="160" cy="110" r="74" fill="#0d1326" stroke="rgba(255,255,255,0.10)" />
+        <circle cx="160" cy="110" r="74" fill="var(--wm-cab-1)" stroke="var(--wm-edge)" />
         <g clipPath="url(#drumClip)">
           <rect x="86" y="80" width="148" height="80" fill="url(#water)">
             <animate attributeName="y" values="120;80;80" dur="3.4s" repeatCount="indefinite" />
           </rect>
           {[0, 1, 2, 3].map(i => (
-            <circle key={i} cx={120 + i * 15} cy={140} r="2.5" fill="rgba(255,255,255,0.5)">
+            <circle key={i} cx={120 + i * 15} cy={140} r="2.5" fill="var(--wm-bubble)">
               <animate attributeName="cy" values="160;90;160" dur={`${3 + i * 0.5}s`} begin={`${i * 0.3}s`} repeatCount="indefinite" />
               <animate attributeName="opacity" values="0;1;0" dur={`${3 + i * 0.5}s`} begin={`${i * 0.3}s`} repeatCount="indefinite" />
             </circle>
           ))}
         </g>
-        <circle cx="160" cy="110" r="70" fill="none" stroke="rgba(0,212,255,0.4)" strokeDasharray="2 3" />
+        <circle cx="160" cy="110" r="70" fill="none" stroke="var(--wm-hot)" strokeOpacity="0.5" strokeDasharray="2 3" />
 
-        <path d="M226 130 Q280 130 280 170 Q280 200 320 200" fill="none" stroke="rgba(255,99,99,0.6)" strokeWidth="3" strokeLinecap="round" />
-        <path d="M226 130 Q280 130 280 170 Q280 200 320 200" fill="none" stroke="rgba(255,99,99,1)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 8">
+        <path d="M226 130 Q280 130 280 170 Q280 200 320 200" fill="none" stroke="var(--danger)" strokeOpacity="0.6" strokeWidth="3" strokeLinecap="round" />
+        <path d="M226 130 Q280 130 280 170 Q280 200 320 200" fill="none" stroke="var(--danger)" strokeWidth="3" strokeLinecap="round" strokeDasharray="6 8">
           <animate attributeName="stroke-dashoffset" from="0" to="-14" dur="1.5s" repeatCount="indefinite" />
         </path>
         <g transform="translate(280 200)">
-          <circle r="12" fill="#1a0f0f" stroke="#ff6363" strokeWidth="1.5" />
-          <line x1="-5" y1="-5" x2="5" y2="5" stroke="#ff6363" strokeWidth="2" />
-          <line x1="-5" y1="5" x2="5" y2="-5" stroke="#ff6363" strokeWidth="2" />
+          <circle r="12" fill="var(--wm-cab-1)" stroke="var(--danger)" strokeWidth="1.5" />
+          <line x1="-5" y1="-5" x2="5" y2="5" stroke="var(--danger)" strokeWidth="2" />
+          <line x1="-5" y1="5" x2="5" y2="-5" stroke="var(--danger)" strokeWidth="2" />
         </g>
-        <text x="280" y="226" textAnchor="middle" fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="#ff6363">BLOK</text>
-        <text x="160" y="40" textAnchor="middle" fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="rgba(255,255,255,0.55)">TROMMEL</text>
-        <text x="160" y="200" textAnchor="middle" fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="rgba(0,212,255,0.7)">water blijft staan</text>
+        <text x="262" y="204" textAnchor="end" fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="var(--danger)">BLOK</text>
+        <text x="160" y="26" textAnchor="middle" fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="var(--mute)">TROMMEL</text>
+        <text x="160" y="200" textAnchor="middle" fontFamily="var(--font-geist-mono), monospace" fontSize="10" fill="var(--wm-hot)">water blijft staan</text>
       </svg>
 
       <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
         <div className="card" style={{ padding: "12px 14px" }}>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Vermoedelijk onderdeel</div>
+          <div className="mono" style={{ fontSize: 10.5, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Vermoedelijk onderdeel</div>
           <div style={{ fontWeight: 500, marginTop: 2 }}>{code.part}</div>
         </div>
         <div className="card" style={{ padding: "12px 14px" }}>
-          <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Reparatieduur</div>
+          <div className="mono" style={{ fontSize: 10.5, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Reparatieduur</div>
           <div style={{ fontWeight: 500, marginTop: 2 }}>~ 15 min</div>
         </div>
       </div>
@@ -925,7 +931,7 @@ function CodeExplorer({ codes }: { codes: CodeItem[] }) {
             <div className="code-search">
               <Icon name="search" size={14} className="dim" />
               <input aria-label="Zoek een foutcode, merk of symptoom" placeholder="Zoek code, merk, symptoom…" value={q} onChange={(e) => setQ(e.target.value)} />
-              <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>{filtered.length}/{codes.length}</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>{filtered.length}/{codes.length}</span>
             </div>
             <div style={{ flex: 1, overflow: "auto", maxHeight: 480 }}>
               {filtered.map(c => (
@@ -952,7 +958,7 @@ function CodeExplorer({ codes }: { codes: CodeItem[] }) {
 function FeatureRow({ icon, title, desc }: { icon: IconName; title: string; desc: string }) {
   return (
     <div className="card" style={{ display: "flex", gap: 14, padding: "18px 20px" }}>
-      <div style={{ width: 38, height: 38, borderRadius: 9, background: "rgba(79,140,255,0.10)", border: "1px solid var(--border-ac)", display: "grid", placeItems: "center", color: "var(--acc-2)", flexShrink: 0 }}>
+      <div style={{ width: 38, height: 38, borderRadius: 9, background: "rgb(var(--acc-rgb) / 0.10)", border: "1px solid var(--line-ac)", display: "grid", placeItems: "center", color: "var(--acc-2)", flexShrink: 0 }}>
         <Icon name={icon} size={18} />
       </div>
       <div>
@@ -988,11 +994,11 @@ function Predictive() {
           <div className="card card-hi">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 18, gap: 12 }}>
               <div>
-                <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Voorbeeld · fictieve machine</div>
+                <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase" }}>Voorbeeld · fictieve machine</div>
                 <div style={{ fontWeight: 500, fontSize: 17 }}>Bosch, geïnstalleerd in 2018</div>
               </div>
               <div style={{ textAlign: "right" }}>
-                <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>HEALTH SCORE</div>
+                <div className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>HEALTH SCORE</div>
                 <div style={{ fontSize: 24, fontWeight: 500, color: "var(--warn)" }}>62/100</div>
               </div>
             </div>
@@ -1010,7 +1016,7 @@ function Predictive() {
                 </div>
               ))}
             </div>
-            <div style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--border)", display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
+            <div style={{ marginTop: 20, paddingTop: 18, borderTop: "1px solid var(--line)", display: "flex", flexWrap: "wrap", gap: 12, justifyContent: "space-between", alignItems: "center" }}>
               <div className="muted" style={{ fontSize: 12.5 }}>
                 Voorbeeldweergave met fictieve gegevens, geen meting van een echte machine.
               </div>
@@ -1063,10 +1069,10 @@ function Impact() {
         <div className="impact-grid" style={{ marginTop: 36 }}>
           <div className="impact-card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(52,211,153,0.10)", border: "1px solid rgba(52,211,153,0.3)", display: "grid", placeItems: "center", color: "#34d399" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgb(var(--ok-rgb) / 0.10)", border: "1px solid rgb(var(--ok-rgb) / 0.3)", display: "grid", placeItems: "center", color: "var(--ok)" }}>
                 <Icon name="leaf" size={18} />
               </div>
-              <span className="pill" style={{ borderColor: "rgba(52,211,153,0.3)", color: "#34d399", background: "rgba(52,211,153,0.06)" }}>EU-cijfer</span>
+              <span className="pill" style={{ borderColor: "rgb(var(--ok-rgb) / 0.3)", color: "var(--ok)", background: "rgb(var(--ok-rgb) / 0.06)" }}>EU-cijfer</span>
             </div>
             <div className="impact-n mono" style={{ marginTop: 18 }}>261 Mt</div>
             <div className="impact-l">CO&#8322;-equivalent per jaar onnodig uitgestoten in de EU</div>
@@ -1075,7 +1081,7 @@ function Impact() {
 
           <div className="impact-card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(79,140,255,0.10)", border: "1px solid var(--border-ac)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgb(var(--acc-rgb) / 0.10)", border: "1px solid var(--line-ac)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
                 <Icon name="chart" size={18} />
               </div>
               <span className="pill pill-acc">EU-cijfer</span>
@@ -1087,10 +1093,10 @@ function Impact() {
 
           <div className="impact-card">
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgba(245,182,67,0.10)", border: "1px solid rgba(245,182,67,0.3)", display: "grid", placeItems: "center", color: "#f5b643" }}>
+              <div style={{ width: 36, height: 36, borderRadius: 9, background: "rgb(var(--warn-rgb) / 0.10)", border: "1px solid rgb(var(--warn-rgb) / 0.3)", display: "grid", placeItems: "center", color: "var(--warn)" }}>
                 <Icon name="repeat" size={18} />
               </div>
-              <span className="pill" style={{ borderColor: "rgba(245,182,67,0.3)", color: "#f5b643", background: "rgba(245,182,67,0.06)" }}>Onze catalogus</span>
+              <span className="pill" style={{ borderColor: "rgb(var(--warn-rgb) / 0.3)", color: "var(--warn)", background: "rgb(var(--warn-rgb) / 0.06)" }}>Onze catalogus</span>
             </div>
             <div className="impact-n mono" style={{ marginTop: 18 }}>{formatCount(STATS.guides)}</div>
             <div className="impact-l">Reparatiegidsen die je zelf kunt volgen</div>
@@ -1144,7 +1150,7 @@ function MonteurPro() {
               counts and no chart or fee. It is now a plainly labelled example of
               what the dashboard shows. */}
           <div className="card" style={{ padding: 0, overflow: "hidden", background: "var(--surf-1)" }}>
-            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--border)", flexWrap: "wrap" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 16px", borderBottom: "1px solid var(--line)", flexWrap: "wrap" }}>
               <div className="pill pill-acc">Voorbeeld</div>
               <div className="muted" style={{ fontSize: 12 }}>Voorbeeldweergave met fictieve gegevens</div>
             </div>
@@ -1156,23 +1162,23 @@ function MonteurPro() {
                   { l: "Klanten", v: "38" },
                   { l: "Facturen", v: "7" },
                 ].map(s => (
-                  <div key={s.l} style={{ padding: "12px 14px", border: "1px solid var(--border)", borderRadius: 10, minWidth: 0 }}>
-                    <div className="mono" style={{ fontSize: 10.5, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{s.l}</div>
+                  <div key={s.l} style={{ padding: "12px 14px", border: "1px solid var(--line)", borderRadius: 10, minWidth: 0 }}>
+                    <div className="mono" style={{ fontSize: 10.5, color: "var(--mute)", letterSpacing: "0.06em", textTransform: "uppercase" }}>{s.l}</div>
                     <div style={{ fontSize: 20, fontWeight: 500, marginTop: 4, letterSpacing: "-0.02em" }}>{s.v}</div>
                   </div>
                 ))}
               </div>
 
-              <div style={{ border: "1px solid var(--border)", borderRadius: 10, overflow: "hidden" }}>
-                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--border)", fontSize: 11, color: "var(--muted)", letterSpacing: "0.06em", textTransform: "uppercase" }} className="mono">
+              <div style={{ border: "1px solid var(--line)", borderRadius: 10, overflow: "hidden" }}>
+                <div style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "10px 14px", borderBottom: "1px solid var(--line)", fontSize: 11, color: "var(--mute)", letterSpacing: "0.06em", textTransform: "uppercase" }} className="mono">
                   <div>Klant · machine</div><div>Status</div><div>Foutcode</div>
                 </div>
                 {[
-                  { c: "Klant A · Bosch", st: "In behandeling", dot: "#f5b643", diag: "E18" },
-                  { c: "Klant B · Miele", st: "Onderdeel besteld", dot: "#4f8cff", diag: "F11" },
-                  { c: "Klant C · Samsung", st: "Afgerond", dot: "#34d399", diag: "dE" },
+                  { c: "Klant A · Bosch", st: "In behandeling", dot: "var(--warn)", diag: "E18" },
+                  { c: "Klant B · Miele", st: "Onderdeel besteld", dot: "var(--acc)", diag: "F11" },
+                  { c: "Klant C · Samsung", st: "Afgerond", dot: "var(--ok)", diag: "dE" },
                 ].map((j, i) => (
-                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "12px 14px", borderBottom: i < 2 ? "1px solid var(--border)" : "0", alignItems: "center", fontSize: 13 }}>
+                  <div key={i} style={{ display: "grid", gridTemplateColumns: "1fr auto auto", gap: 12, padding: "12px 14px", borderBottom: i < 2 ? "1px solid var(--line)" : "0", alignItems: "center", fontSize: 13 }}>
                     <div style={{ minWidth: 0, overflowWrap: "anywhere" }}>{j.c}</div>
                     <div style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-2)" }}>
                       <span style={{ width: 6, height: 6, borderRadius: 3, background: j.dot }}></span>{j.st}

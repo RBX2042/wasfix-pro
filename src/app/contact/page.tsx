@@ -3,12 +3,15 @@ import { COMPANY, realOrNull, PENDING_REGISTRATION, SUPPORT_RESPONSE_WORKDAYS } 
 import { contactEmail, contactEmailText } from "@/lib/contact-email";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Contact",
-  description: "Contact met WasFix Pro: mail voor vragen over een bestelling, onderdeel of diagnose, en de bedrijfsgegevens zodra de inschrijving rond is.",
-  alternates: { canonical: "/contact" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Contact"),
+  // True in both states of the page: with the company details configured it prints them, without it says they follow
+  // after registration, so the snippet promises neither the details nor an address, only what the page always has.
+  description: pageDescription(`Contact met WasFix Pro voor vragen over een bestelling, een onderdeel of een diagnose. We reageren binnen ${SUPPORT_RESPONSE_WORKDAYS} werkdagen.`),
+  path: "/contact",
+});
 
 // ?onderwerp=monteur-demo is linked from the homepage monteur block ("Vraag een demo aan").
 const SUBJECTS: Record<string, string> = {

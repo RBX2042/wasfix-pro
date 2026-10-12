@@ -126,7 +126,7 @@ export function MonteurProfileForm({ values }: { values: ProfileValues }) {
         <p className="text-sm text-destructive" role="alert">{state.error}</p>
       )}
       {state?.saved && (
-        <p className="text-sm text-emerald-600" role="status">Opgeslagen. Je kunt nu facturen maken vanaf je werkorders.</p>
+        <p className="text-sm text-success" role="status">Opgeslagen. Je kunt nu facturen maken vanaf je werkorders.</p>
       )}
 
       <Button type="submit" disabled={pending}>{pending ? "Opslaan…" : "Gegevens opslaan"}</Button>

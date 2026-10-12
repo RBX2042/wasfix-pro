@@ -4,6 +4,8 @@ import type { NextConfig } from "next";
 import bundleAnalyzer from "@next/bundle-analyzer";
 import { cspFromEnv, cspHeaderName } from "./src/lib/csp";
 import { alternateHost, checkAppUrl, siteUrl } from "./src/lib/site-url";
+import { HTML_LIMITED_BOT_UA_RE } from "next/dist/shared/lib/router/utils/html-bots";
+import { isNonProductionDeployment, privateHeaderSources, variantHeaderRules } from "./src/lib/seo";
 
 const withBundleAnalyzer = bundleAnalyzer({
   enabled: process.env.ANALYZE === "true",
@@ -102,6 +104,14 @@ const nextConfig: NextConfig = {
     unoptimized: process.env.NODE_ENV === "development",
   },
   poweredByHeader: false,
+  // SEO (D23): the clients that get a dynamic page's title, description, canonical and robots tag inside <head>
+  // instead of streamed into <body> after it. Next's own list (link-preview bots, Bingbot, Applebot, Google's
+  // inspection tool) PLUS Googlebot, which Next leaves out on the assumption that it renders the page and finds the
+  // tags again. Measured here: a Chromium with a Googlebot user agent leaves the title, canonical and og:* in <body>
+  // on /contact, /onderdelen, /diagnose, /gidsen, and Google documents the canonical and the robots tag for <head>.
+  // The price is a crawler's response waiting for generateMetadata() to resolve; ordinary visitors still get the
+  // streamed form. Kept as "default list + Googlebot" so a Next upgrade that extends its list is not lost.
+  htmlLimitedBots: new RegExp(`${HTML_LIMITED_BOT_UA_RE.source}|Googlebot`, "i"),
   compress: true,
   reactStrictMode: true,
   typescript: { ignoreBuildErrors: false },
@@ -147,6 +157,25 @@ const nextConfig: NextConfig = {
         source: "/_next/static/(.*)",
         headers: [{ key: "Cache-Control", value: "public, max-age=31536000, immutable" }],
       },
+      // SEO (src/lib/seo.ts): the private and transactional paths carry noindex as a header as well. robots.txt
+      // disallows them; this header and the page's own robots tag are the backstop for a crawler that fetches
+      // anyway, and a header also covers a redirect to the sign-in page.
+      ...privateHeaderSources().map((source) => ({
+        source,
+        headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
+      })),
+      // Crawlable pages that must not be indexed, as a header too (src/lib/seo.ts variantHeaderRules): the filter
+      // variants of the list pages, the return form with a token, the QR landing pages. Before the preview rule,
+      // which must win.
+      ...variantHeaderRules().map(({ source, has, robots }) => ({
+        source,
+        ...(has ? { has } : {}),
+        headers: [{ key: "X-Robots-Tag", value: robots }],
+      })),
+      // A Vercel preview or development deployment is never indexed (robots.txt says the same).
+      ...(isNonProductionDeployment()
+        ? [{ source: "/(.*)", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }] }]
+        : []),
     ];
   },
   async redirects() {
@@ -159,6 +188,11 @@ const nextConfig: NextConfig = {
       { source: "/voor-monteurs", destination: "/monteur", permanent: true },
       { source: "/login", destination: "/inloggen", permanent: true },
       { source: "/register", destination: "/registreren", permanent: true },
+      // SEO: a brand's repair page has ONE address, /<slug>-wasmachine-reparatie (the middleware serves it from
+      // /reparatie/<slug>). The internal path used to answer 200 as a second copy.
+      { source: "/reparatie/:merk", destination: "/:merk-wasmachine-reparatie", permanent: true },
+      // Browsers and some crawlers ask for /favicon.ico whatever the page says; the icon is the generated /icon.
+      { source: "/favicon.ico", destination: "/icon", permanent: false },
     ];
   },
 };

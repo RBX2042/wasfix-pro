@@ -11,6 +11,8 @@ export const metadata = {
   // rendered: for an unknown URL that is the internal route /_not-found, so every 404 declared
   // https://<site>/_not-found as its canonical address. A 404 has none.
   alternates: {},
+  // No robots entry on purpose: Next adds <meta name="robots" content="noindex"> to every not-found response itself,
+  // and a second tag from here made the page carry two (scripts/qa-seo.ts checks the 404 has exactly one noindex).
   openGraph: { title: "Pagina niet gevonden", siteName: "WasFix Pro", locale: "nl_NL", type: "website" },
 };
 
@@ -54,7 +56,7 @@ export default function NotFound() {
                 style={{ textDecoration: "none", color: "inherit", cursor: "pointer" }}
               >
                 <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 6 }}>
-                  <span style={{ width: 28, height: 28, borderRadius: 7, background: "rgba(79,140,255,0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
+                  <span style={{ width: 28, height: 28, borderRadius: 7, background: "rgb(var(--acc-rgb) / 0.1)", display: "grid", placeItems: "center", color: "var(--acc-2)" }}>
                     <Icon name={l.icon} size={14} />
                   </span>
                   <div className="step-title" style={{ fontSize: 14 }}>{l.title}</div>

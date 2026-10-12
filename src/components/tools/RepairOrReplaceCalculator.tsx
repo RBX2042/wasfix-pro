@@ -109,11 +109,17 @@ export default function RepairOrReplaceCalculator() {
   if (result && step === 2) {
     const isRepair = result.recommendation === "REPAIR";
     const isBorderline = result.recommendation === "BORDERLINE";
-    const verdictColor = isRepair ? "emerald" : isBorderline ? "amber" : "red";
+    // Complete class names on purpose: Tailwind only generates a class it can read in the source, and the
+    // earlier border-${colour}-500 template produced none of the amber and red variants.
+    const verdict = isRepair
+      ? { card: "border-success/40 bg-success/10", bar: "bg-success" }
+      : isBorderline
+        ? { card: "border-warning/40 bg-warning/10", bar: "bg-warning" }
+        : { card: "border-destructive/40 bg-destructive/10", bar: "bg-destructive" };
 
     return (
       <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-5">
-        <Card className={`border-2 border-${verdictColor}-500/40 bg-${verdictColor}-50 dark:bg-${verdictColor}-950/30`}>
+        <Card className={`border-2 ${verdict.card}`}>
           <CardContent className="p-6 text-center">
             <div className="text-5xl mb-2">{isRepair ? "🔧" : isBorderline ? "⚖️" : "🛒"}</div>
             <h3 className="font-heading text-xl font-bold mb-1">
@@ -137,7 +143,7 @@ export default function RepairOrReplaceCalculator() {
                   initial={{ width: 0 }}
                   animate={{ width: `${result.score}%` }}
                   transition={{ duration: 1, ease: "easeOut" }}
-                  className={`h-full rounded-full ${isRepair ? "bg-emerald-500" : isBorderline ? "bg-amber-500" : "bg-red-500"}`}
+                  className={`h-full rounded-full ${verdict.bar}`}
                 />
               </div>
               <p className="text-xs text-muted-foreground mt-1">Score: {result.score}/100</p>
@@ -145,12 +151,12 @@ export default function RepairOrReplaceCalculator() {
           </CardContent>
         </Card>
 
-        <Card className="border-emerald-500/30 bg-emerald-50 dark:bg-emerald-950/30">
+        <Card className="border-success/30 bg-success/10">
           <CardContent className="p-4 flex items-center gap-3">
-            <Leaf className="h-6 w-6 text-emerald-600 shrink-0" />
+            <Leaf className="h-6 w-6 text-success shrink-0" />
             <div>
-              <p className="font-semibold text-sm text-emerald-900 dark:text-emerald-100">Milieu-impact</p>
-              <p className="text-xs text-emerald-800 dark:text-emerald-200">
+              <p className="font-semibold text-sm text-foreground">Milieu-impact</p>
+              <p className="text-xs text-muted-foreground">
                 Repareren stelt naar schatting {result.co2Saved} kg CO₂ uit. Dat is de schatting op basis van ±300 kg
                 voor het produceren van een nieuwe machine, verdeeld over de jaren die je erbij wint — geen meting van
                 jouw machine.

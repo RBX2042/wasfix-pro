@@ -25,7 +25,12 @@
     "qa:csp": "tsx scripts/qa-csp.ts",
     "qa:platform": "tsx scripts/qa-platform.ts",
     "qa:preflight": "tsx scripts/qa-preflight.ts",
-    "qa:deploy": "tsx scripts/qa-deploy.ts"
+    "qa:deploy": "tsx scripts/qa-deploy.ts",
+    "qa:theme": "tsx scripts/qa-theme.ts",
+    "qa:seo": "tsx scripts/qa-seo.ts",
+    "qa:indexnow": "tsx scripts/qa-indexnow.ts",
+    "seo:submit": "tsx scripts/seo-submit.ts",
+    "seo:submit:live": "tsx scripts/seo-submit.ts --live"
   },
   "dependencies": {
     "@clerk/nextjs": "^6.9.6",

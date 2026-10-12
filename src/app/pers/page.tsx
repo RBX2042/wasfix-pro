@@ -2,12 +2,14 @@ import { ContactEmail, contactEmailText } from "@/lib/contact-email";
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Pers & media kit",
-  description: "Logo's, founder bio, statistieken en persberichten van WasFix Pro. Voor journalisten en bloggers in tech, duurzaamheid en consumentenrechten.",
-  alternates: { canonical: "/pers" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Pers & media kit"),
+  // Says what the page holds (logos, catalogue figures, team bio, background); it used to name press releases.
+  description: pageDescription("Logo's, cijfers over de catalogus, teambio en achtergrond van WasFix Pro, voor journalisten en bloggers. Iets specifieks nodig? Mail ons."),
+  path: "/pers",
+});
 
 const CATALOG = catalogStats();
 
@@ -90,7 +92,7 @@ export default function PressPage() {
               </LogoCard>
               <LogoCard variant="light">
                 <BrandMark light />
-                <span style={{ fontWeight: 500, fontSize: 18, color: "#0b1224" }}>WasFix<span style={{ color: "#7b88a6", marginLeft: 4 }}>Pro</span></span>
+                <span style={{ fontWeight: 500, fontSize: 18, color: "#0b1224" }}>WasFix<span style={{ color: "#556382", marginLeft: 4 }}>Pro</span></span>
               </LogoCard>
               <LogoCard variant="mono">
                 <BrandMark mono />
@@ -155,7 +157,7 @@ export default function PressPage() {
           </section>
 
           {/* Contact */}
-          <div style={{ padding: 28, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 14, textAlign: "center" }}>
+          <div style={{ padding: 28, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 14, textAlign: "center" }}>
             <h2 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>Direct contact</h2>
             <p className="muted" style={{ marginBottom: 16, fontSize: 14 }}>
               Voor interviews, foto&apos;s, of background calls.
@@ -175,12 +177,15 @@ export default function PressPage() {
   );
 }
 
+// The logo tiles show the brand as it will be used on a dark and on a light surface, so their colours are the
+// brand's own and deliberately do NOT follow the visitor's theme (they are the one place in the app where a
+// literal colour is the content).
 function LogoCard({ variant, children }: { variant: "dark" | "light" | "mono"; children: React.ReactNode }) {
   const bg = variant === "dark" ? "linear-gradient(135deg, #060912, #1a1f3a)" : variant === "light" ? "#fafbfd" : "#fff";
   return (
-    <div style={{ aspectRatio: "16/9", background: bg, borderRadius: 10, border: "1px solid var(--border)", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: 16, position: "relative" }}>
+    <div style={{ aspectRatio: "16/9", background: bg, borderRadius: 10, border: "1px solid var(--line)", display: "flex", alignItems: "center", justifyContent: "center", gap: 12, padding: 16, position: "relative" }}>
       {children}
-      <span className="mono" style={{ position: "absolute", bottom: 8, right: 10, fontSize: 9, color: variant === "light" ? "#7b88a6" : "rgba(232,238,251,0.4)", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+      <span className="mono" style={{ position: "absolute", bottom: 8, right: 10, fontSize: 9, color: variant === "dark" ? "rgba(232,238,251,0.7)" : "#556382", letterSpacing: "0.08em", textTransform: "uppercase" }}>
         {variant}
       </span>
     </div>

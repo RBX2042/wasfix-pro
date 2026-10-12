@@ -105,7 +105,7 @@ export default async function WerkordersPage() {
       ) : (
         <div className="space-y-3">
           {orders.map((w) => (
-            <Card key={w.id} className={w.urgent && w.status !== "VOLTOOID" ? "border-red-500/40" : ""}>
+            <Card key={w.id} className={w.urgent && w.status !== "VOLTOOID" ? "border-destructive/40" : ""}>
               <CardContent className="p-5">
                 <div className="flex items-start gap-4 flex-wrap">
                   <div className="flex-1 min-w-0">

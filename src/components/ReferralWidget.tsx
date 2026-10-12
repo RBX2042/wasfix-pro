@@ -115,7 +115,7 @@ export function ReferralWidget({ userCode }: { userCode: string }) {
 function Stat({ label, value, highlight }: { label: string; value: string | number; highlight?: boolean }) {
   return (
     <div className="text-center">
-      <div className={`font-heading text-xl font-bold ${highlight ? "text-emerald-600" : ""}`}>{value}</div>
+      <div className={`font-heading text-xl font-bold ${highlight ? "text-success" : ""}`}>{value}</div>
       <div className="text-xs text-muted-foreground uppercase tracking-wide">{label}</div>
     </div>
   );

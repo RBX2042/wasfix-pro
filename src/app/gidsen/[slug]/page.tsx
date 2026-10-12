@@ -17,7 +17,8 @@ import { PLANS, formatPlanPrice } from "@/lib/plans";
 import { prisma } from "@/lib/prisma";
 import { isDatabaseConfigured } from "@/lib/env";
 import { logger } from "@/lib/logger";
-import { absoluteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { breadcrumbLd, ldJson } from "@/lib/json-ld";
 
 // Stays dynamic on purpose: what a visitor may read depends on their plan
 // (canReadPremiumGuide), so this page cannot be shared from a cache. The data reads
@@ -28,13 +29,13 @@ export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const guide = await dbGuide(slug);
-  if (!guide) return { title: "Gids niet gevonden" };
-  return {
-    title: `${guide.title}: stap-voor-stap reparatiegids`,
-    description: guide.summary,
-    alternates: { canonical: `/gidsen/${guide.slug}` },
-    openGraph: { title: guide.title, description: guide.summary, type: "article", images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
-  };
+  if (!guide) return { title: "Gids niet gevonden", robots: robotsMeta(false, true) };
+  return pageMetadata({
+    title: pageTitle(`${guide.title}: stap-voor-stap reparatiegids`, `${guide.title}: reparatiegids`, guide.title),
+    description: pageDescription(guide.summary, "Stap voor stap, met het gereedschap en een tijdsindicatie."),
+    path: `/gidsen/${guide.slug}`,
+    type: "article",
+  });
 }
 
 export default async function GuideDetailPage({ params }: { params: Promise<{ slug: string }> }) {
@@ -79,9 +80,8 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
     name: guide.title,
     description: guide.summary,
     totalTime: `PT${guide.timeMinutes}M`,
-    estimatedCost: parts.length
-      ? { "@type": "MonetaryAmount", currency: "EUR", value: parts.reduce((s, p) => s + p.priceEur, 0).toFixed(2) }
-      : undefined,
+    // No estimatedCost: it was the sum of every part listed beside the guide, a total the page does not show and
+    // parts that can be alternatives of each other. The parts themselves are listed as `supply` below.
     tool: tools.map((t) => ({ "@type": "HowToTool", name: t })),
     supply: parts.map((p) => ({ "@type": "HowToSupply", name: p.name, image: p.imageUrl ?? undefined })),
     step: steps.map((s) => ({
@@ -93,19 +93,12 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
     aggregateRating: aggregateRatingLd(stats),
   };
 
-  const breadcrumbLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Gidsen", item: absoluteUrl("/gidsen") },
-      { "@type": "ListItem", position: 2, name: guide.title, item: absoluteUrl(`/gidsen/${guide.slug}`) },
-    ],
-  };
+  const breadcrumb = breadcrumbLd([{ name: "Gidsen", path: "/gidsen" }, { name: guide.title }]);
 
   return (
     <MarketingLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(howToLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(howToLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumb) }} />
       <div className="container py-8 max-w-5xl">
         <nav className="text-sm text-muted-foreground mb-4">
           <Link href="/gidsen" className="hover:text-foreground">Gidsen</Link>
@@ -123,12 +116,12 @@ export default async function GuideDetailPage({ params }: { params: Promise<{ sl
         <p className="text-lg text-muted-foreground mt-3 max-w-2xl">{guide.summary}</p>
 
         {guide.warnings && (
-          <Card className="mt-6 border-amber-500/30 bg-amber-50 dark:bg-amber-950/30">
+          <Card className="mt-6 border-warning/30 bg-warning/10">
             <CardContent className="p-4 flex gap-3">
-              <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0 mt-0.5" />
+              <AlertTriangle className="h-5 w-5 text-warning shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-amber-900 dark:text-amber-100 mb-1">Veiligheidswaarschuwing</p>
-                <p className="text-sm text-amber-900 dark:text-amber-200">{guide.warnings}</p>
+                <p className="font-semibold text-foreground mb-1">Veiligheidswaarschuwing</p>
+                <p className="text-sm text-foreground">{guide.warnings}</p>
               </div>
             </CardContent>
           </Card>

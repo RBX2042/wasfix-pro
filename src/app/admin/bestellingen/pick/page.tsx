@@ -52,7 +52,7 @@ export default async function PickListPage() {
                     <td className="py-3 text-right text-lg font-bold tabular-nums">{r.quantity}</td>
                     <td className="py-3 pl-4 font-mono">{r.sku}</td>
                     <td className="py-3">{r.name}</td>
-                    <td className={`py-3 text-right tabular-nums ${r.onShelf < r.quantity ? "text-red-600 font-semibold" : ""}`}>{r.onShelf}</td>
+                    <td className={`py-3 text-right tabular-nums ${r.onShelf < r.quantity ? "text-destructive font-semibold" : ""}`}>{r.onShelf}</td>
                     <td className="py-3 pl-4 text-xs font-mono">{r.orders.map((o) => `#${orderRef(o.orderId)}${o.quantity > 1 ? ` (${o.quantity}×)` : ""}`).join(", ")}</td>
                   </tr>
                 ))}

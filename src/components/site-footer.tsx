@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { Sparkles } from "lucide-react";
 import { COMPANY, companyIdentityLine } from "@/lib/plans";
+import { ThemeToggle } from "./theme-toggle";
 
 export function SiteFooter() {
   // Only a real, registered identity is printed; "in oprichting" stays on the legal pages.
@@ -22,7 +23,7 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Product</h4>
+            <h2 className="font-semibold mb-3 text-sm">Product</h2>
             <ul className="text-sm text-muted-foreground">
               <li><Link href="/diagnose" className="hover:text-foreground inline-flex items-center min-h-11">AI Diagnose</Link></li>
               <li><Link href="/onderdelen" className="hover:text-foreground inline-flex items-center min-h-11">Onderdelen</Link></li>
@@ -33,7 +34,7 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Bedrijf</h4>
+            <h2 className="font-semibold mb-3 text-sm">Bedrijf</h2>
             <ul className="text-sm text-muted-foreground">
               <li><Link href="/prijzen" className="hover:text-foreground inline-flex items-center min-h-11">Prijzen</Link></li>
               <li><Link href="/monteur" className="hover:text-foreground inline-flex items-center min-h-11">Voor monteurs</Link></li>
@@ -43,7 +44,7 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Support</h4>
+            <h2 className="font-semibold mb-3 text-sm">Support</h2>
             <ul className="text-sm text-muted-foreground">
               <li><Link href="/help" className="hover:text-foreground inline-flex items-center min-h-11">Helpcentrum</Link></li>
               <li><Link href="/contact" className="hover:text-foreground inline-flex items-center min-h-11">Contact</Link></li>
@@ -59,6 +60,7 @@ export function SiteFooter() {
         <div className="mt-10 pt-6 border-t flex flex-col sm:flex-row justify-between items-center gap-2 text-xs text-muted-foreground">
           <p>© {new Date().getFullYear()} WasFix Pro{identity ? ` · ${identity}` : ""}. Alle rechten voorbehouden.</p>
           <p>Made with care in The Netherlands.</p>
+          <ThemeToggle variant="segmented" />
         </div>
       </div>
     </footer>

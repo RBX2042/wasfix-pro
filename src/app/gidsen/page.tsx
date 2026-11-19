@@ -7,14 +7,22 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import Link from "next/link";
 import { Clock, BookOpen, Wrench, Search, Crown } from "lucide-react";
+import { LIST_FILTER_PARAMS, listMetadata, pageDescription, pageTitle } from "@/lib/seo";
 
 // Not force-dynamic: the guide list is a tagged cache read. The page renders per request
 // only because it reads searchParams.
-export const metadata = {
-  title: "Reparatiegidsen: wasmachine zelf repareren",
-  description: "Stap-voor-stap gidsen om je wasmachine zelf te repareren, met gereedschap, tijdsindicatie en veiligheidswaarschuwingen.",
-  alternates: { canonical: "/gidsen" },
-};
+// ?q= and ?difficulty= give a different list: noindex,follow, no canonical (src/lib/seo.ts listMetadata).
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return listMetadata(
+    {
+      title: pageTitle("Reparatiegidsen: wasmachine zelf repareren"),
+      description: pageDescription("Stap-voor-stap gidsen om je wasmachine zelf te repareren, met gereedschap, tijdsindicatie en veiligheidswaarschuwingen."),
+      path: "/gidsen",
+    },
+    await searchParams,
+    LIST_FILTER_PARAMS["/gidsen"],
+  );
+}
 
 export default async function GidsenPage({ searchParams }: { searchParams: Promise<{ q?: string | string[]; difficulty?: string | string[] }> }) {
   const sp = await searchParams;
@@ -68,7 +76,7 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
                 </div>
                 <CardContent className="p-5">
                   <DifficultyBadge difficulty={g.difficulty} />
-                  <h3 className="font-heading text-lg font-semibold mt-2 line-clamp-2 group-hover:text-primary transition-colors">{g.title}</h3>
+                  <h2 className="font-heading text-lg font-semibold mt-2 line-clamp-2 group-hover:text-primary transition-colors">{g.title}</h2>
                   <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">{g.summary}</p>
                   <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {g.timeMinutes} min</span>

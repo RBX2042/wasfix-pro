@@ -139,7 +139,7 @@ export default async function EconomyPage({ searchParams }: { searchParams: Prom
         <p className="text-sm text-muted-foreground mb-3">
           {negatives} van {table.length} onderdelen verdienen niets of verliezen geld zonder korting, {negativesMax} met {maxDiscountPct}% plankorting (Bedrijf-plan); bij {unknown} is de inkoopprijs onbekend. {estimated} onderdelen rusten op een {MARGIN_ESTIMATE_LABEL} van de inkoopprijs.
         </p>
-        <div className="mb-3 rounded-md border bg-amber-50 dark:bg-amber-950/20 p-3 text-xs">
+        <div className="mb-3 rounded-md border bg-warning/10 p-3 text-xs">
           <p className="font-semibold mb-1">Aannames, geen feiten</p>
           <p>Betaalkosten {eur(ECONOMICS_ASSUMPTIONS.paymentFeeFixedEur)} per betaling + {ECONOMICS_ASSUMPTIONS.paymentFeePercent}%; vervoerder rekent ons {eur(ECONOMICS_ASSUMPTIONS.carrierCostEur)} per pakket; klant betaalt {eur(SHIPPING.rateEur)} verzending onder {eur(SHIPPING.freeFromEur)}. Pas deze waarden aan in src/app/admin/_lib/economics.ts zodra je je Stripe-tarief en het tarief van de vervoerder kent. Retouren, verpakking en eigen werk zitten er niet in.</p>
         </div>
@@ -158,13 +158,13 @@ export default async function EconomyPage({ searchParams }: { searchParams: Prom
                 <tr key={base.sku} className="border-t">
                   <td className="p-2"><span className="font-mono">{base.sku}</span><span className="block text-xs text-muted-foreground max-w-[22ch] truncate">{base.name}</span></td>
                   <td className="p-2 text-right">{eur(base.priceExVatEur)}</td>
-                  <td className="p-2 text-right">{base.costEur === null ? <Badge variant="warning">onbekend</Badge> : <>{eur(base.costEur)} <span className={`text-[10px] uppercase ${base.basis === "QUOTE" ? "text-emerald-600" : "text-amber-600"}`}>{BASIS_LABEL[base.basis]}</span></>}</td>
+                  <td className="p-2 text-right">{base.costEur === null ? <Badge variant="warning">onbekend</Badge> : <>{eur(base.costEur)} <span className={`text-[10px] uppercase ${base.basis === "QUOTE" ? "text-success" : "text-warning"}`}>{BASIS_LABEL[base.basis]}</span></>}</td>
                   <td className="p-2 text-right">{eur(base.paymentFeeEur)}</td>
                   <td className="p-2 text-right">{eur(base.shippingNetEur)}</td>
-                  <td className={`p-2 text-right font-semibold ${base.negative ? "text-red-600" : base.basis === "QUOTE" ? "" : "text-muted-foreground"}`}>
+                  <td className={`p-2 text-right font-semibold ${base.negative ? "text-destructive" : base.basis === "QUOTE" ? "" : "text-muted-foreground"}`}>
                     {base.contributionEur === null ? "-" : eur(base.contributionEur)}{base.negative && " ▼"}{base.basis === "ESTIMATE" && <span className="ml-1 text-[10px] uppercase font-normal">{MARGIN_ESTIMATE_LABEL}</span>}
                   </td>
-                  <td className={`p-2 text-right ${atMaxDiscount.negative ? "text-red-600 font-semibold" : "text-muted-foreground"}`}>{atMaxDiscount.contributionEur === null ? "-" : eur(atMaxDiscount.contributionEur)}{atMaxDiscount.negative && " ▼"}</td>
+                  <td className={`p-2 text-right ${atMaxDiscount.negative ? "text-destructive font-semibold" : "text-muted-foreground"}`}>{atMaxDiscount.contributionEur === null ? "-" : eur(atMaxDiscount.contributionEur)}{atMaxDiscount.negative && " ▼"}</td>
                 </tr>
               ))}
             </tbody>

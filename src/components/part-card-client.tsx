@@ -29,6 +29,8 @@ type PartCardProps = {
   showAddToCart?: boolean;
   /** Small label above the name, e.g. "Mogelijk nodig". */
   note?: string;
+  /** The level of the name's heading (see PartCard): the page outline must not skip a level. Same look either way. */
+  headingLevel?: 2 | 3;
 };
 
 /**
@@ -36,8 +38,9 @@ type PartCardProps = {
  * pass the part through <PartCard>, which strips it down to the public fields
  * before it crosses into this client component (and therefore into the HTML).
  */
-export function PartCardClient({ part, showAddToCart = true, note }: PartCardProps) {
+export function PartCardClient({ part, showAddToCart = true, note, headingLevel = 3 }: PartCardProps) {
   const add = useCart((s) => s.add);
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const availability = availabilityOf(part.stock);
 
   return (
@@ -51,12 +54,10 @@ export function PartCardClient({ part, showAddToCart = true, note }: PartCardPro
             sizes="(max-width: 640px) 200px, (max-width: 1024px) 250px, 300px"
             className="w-full h-36 sm:h-44 md:h-48"
           />
-          {/* accent-foreground on bg-accent is 4.27:1 in the light theme, under the
-              4.5:1 minimum for this 10px badge; white reaches 4.64:1. The dark theme
-              uses a lighter accent, where the dark accent-foreground is the readable
-              side, so keep it there. */}
+          {/* accent-foreground on accent is 4.5:1 or better in both themes (the tokens are chosen for it),
+              so the badge needs no colour override. */}
           {part.isOriginal && (
-            <Badge variant="accent" className="absolute top-2 left-2 text-[10px] text-white dark:text-accent-foreground">
+            <Badge variant="accent" className="absolute top-2 left-2 text-[10px]">
               Origineel
             </Badge>
           )}
@@ -68,10 +69,10 @@ export function PartCardClient({ part, showAddToCart = true, note }: PartCardPro
         </div>
         <CardContent className="p-3 sm:p-4">
           <Badge variant="outline" className="text-[10px] mb-1.5">{part.brand}</Badge>
-          {note && <p className="text-[11px] font-medium text-amber-700 dark:text-amber-400 mb-0.5">{note}</p>}
-          <h3 className="text-sm font-medium line-clamp-2 leading-snug min-h-[40px] group-hover:text-primary transition-colors break-words">
+          {note && <p className="text-[11px] font-medium text-warning mb-0.5">{note}</p>}
+          <Heading className="text-sm font-medium line-clamp-2 leading-snug min-h-[40px] group-hover:text-primary transition-colors break-words">
             {part.name}
-          </h3>
+          </Heading>
           {/* flex-wrap: on a 360px phone a card is ~158px wide, too narrow for "€ 12,00" and "Op voorraad" side by side; the label drops to its own line instead of being cut off. */}
           <div className="flex flex-wrap items-center justify-between mt-3 gap-x-2 gap-y-0.5">
             <span className="text-lg font-bold text-primary">{formatEur(part.priceEur)}</span>
@@ -79,9 +80,9 @@ export function PartCardClient({ part, showAddToCart = true, note }: PartCardPro
               {availability === "out" ? (
                 <><X className="h-3 w-3 text-destructive shrink-0" /> Niet op voorraad</>
               ) : availability === "low" ? (
-                <><CheckCircle2 className="h-3 w-3 text-amber-500 shrink-0" /> Beperkt</>
+                <><CheckCircle2 className="h-3 w-3 text-warning shrink-0" /> Beperkt</>
               ) : (
-                <><CheckCircle2 className="h-3 w-3 text-emerald-500 shrink-0" /> Op voorraad</>
+                <><CheckCircle2 className="h-3 w-3 text-success shrink-0" /> Op voorraad</>
               )}
             </span>
           </div>

@@ -1,32 +1,127 @@
 /* ─────────────────────────────────────────────────────────────────────────
-   WasFix Pro homepage — dark technical aesthetic
+   WasFix Pro redesign pages (home, diagnose, legal, blog, tools ...)
    Scoped under .wasfix-design so it doesn't leak into the rest of the app.
+
+   TWO PALETTES, one stylesheet (decision D22). The block right below is the LIGHT palette and is the
+   default; the block under "@media not print" further down is the DARK one (the look this page had
+   before the theme switch existed), applied when <html> carries .dark. Nothing below those two blocks
+   names a colour: rules and inline styles use these variables, and where a translucent mix is needed
+   they use the channel variables (--ink-rgb, --acc-rgb ...) as rgb(var(--acc-rgb) / 0.08).
+
+   The variable names that used to be --border and --muted are --line* and --mute: this scope sits
+   inside the app, whose theme tokens (globals.css, shadcn naming) already own --border and --muted as
+   HSL triples. Sharing the names made Tailwind's border-border / bg-muted resolve to an invalid colour
+   inside this scope.
+
+   Contrast: every text variable reaches 4.5:1 on every surface variable in both palettes (checked with
+   the WCAG formula, then by scripts/qa-theme.ts on the rendered pages). White text on the primary
+   button reaches 4.5:1 at both stops, in rest and hover state.
    ───────────────────────────────────────────────────────────────────────── */
 
 .wasfix-design {
-  --bg: #060912;
-  --bg-2: #0a0f1c;
-  --surf-1: #0e1424;
-  --surf-2: #131a2e;
-  --surf-3: #1a2240;
-  --border: rgba(255, 255, 255, 0.07);
-  --border-hi: rgba(255, 255, 255, 0.14);
-  --border-ac: rgba(79, 140, 255, 0.45);
+  /* surfaces */
+  --bg: #f6f8fc;
+  --bg-2: #edf1f9;
+  --surf: #ffffff;
+  --surf-1: #ffffff;
+  --surf-2: #f1f4fa;
+  --surf-3: #e4eaf6;
+  --panel-bg: #ffffff;
+  --card-bg: #ffffff;
+  --card-shadow: 0 1px 2px rgb(11 18 36 / 0.05), 0 12px 28px -18px rgb(11 18 36 / 0.22);
+  /* lines */
+  --line: rgb(11 18 36 / 0.12);
+  --line-hi: rgb(11 18 36 / 0.22);
+  --line-ac: rgb(33 82 209 / 0.40);
+  /* The edge of a form field (input, select, textarea). The hairlines above are decoration (1.2:1); a field's edge is what
+     identifies the control, so it must reach 3:1 against the surface it sits on (WCAG 1.4.11): 3.2 to 3.9:1 here. */
+  --field-line: #76829b;
 
-  --text: #e8eefb;
-  --text-2: #b6c0d8;
-  --muted: #7b88a6;
-  /* --dim is used for label text ("Populair vandaag") and for input placeholders,
-     not only for decoration. At #4f5a76 that text sat at 2.9:1 on --bg; this value
-     is 5.0:1 and still clearly the dimmest step of the four. */
-  --dim: #737f9e;
+  /* text */
+  --text: #0b1224;
+  --text-2: #38445f;
+  --mute: #506080;
+  /* --dim is used for label text ("Populair vandaag") and for input placeholders, not only for
+     decoration; it is the dimmest step of the four and still 4.5:1 on every surface. */
+  --dim: #556382;
 
-  --acc: #4f8cff;
-  --acc-2: #00d4ff;
-  --acc-glow: rgba(79, 140, 255, 0.35);
-  --ok: #34d399;
-  --warn: #f5b643;
-  --danger: #ff6363;
+  /* accents: --acc is the blue, --acc-2 the second accent (cyan in dark, deep cyan in light, where the
+     bright one would not be readable as text). */
+  --acc: #2152d1;
+  --acc-2: #0a6a8e;
+  --acc-glow: rgb(33 82 209 / 0.28);
+  --ok: #0b7048;
+  --warn: #955500;
+  --warn-2: #c26a00;
+  --danger: #c42828;
+  --danger-2: #d63a5a;
+  --acc-solid: #2150cc;
+  --on-acc: #ffffff;
+
+  /* channels, for translucent mixes: rgb(var(--acc-rgb) / 0.08) */
+  --ink-rgb: 11 18 36;
+  --acc-rgb: 33 82 209;
+  --acc2-rgb: 10 106 142;
+  --vio-rgb: 109 40 217;
+  --ok-rgb: 11 112 72;
+  --warn-rgb: 149 85 0;
+  --danger-rgb: 196 40 40;
+
+  /* the quiet fills: hover rows, pills, tracks */
+  --hair-1: rgb(11 18 36 / 0.035);
+  --hair-2: rgb(11 18 36 / 0.05);
+  --hair-3: rgb(11 18 36 / 0.09);
+
+  /* primary button */
+  --btn-from: #2c63e6;
+  --btn-to: #2150cc;
+  --btn-from-hi: #2759d6;
+  --btn-to-hi: #1c47b8;
+  --btn-ring: rgb(33 82 209 / 0.55);
+  --btn-bg: #ffffff;
+  --btn-bg-hi: #eef2fa;
+
+  /* page glow, grid, glass nav */
+  --glow-1: 0.12;
+  --glow-2: 0.08;
+  --glow-3: 0.06;
+  --grid-a: 0.05;
+  --nav-bg: rgb(246 248 252 / 0.82);
+
+  /* the washing-machine drawing on the home page (WasFixHome.tsx) */
+  --wm-cab-1: #ffffff;
+  --wm-cab-2: #f3f6fc;
+  --wm-cab-3: #e6ecf7;
+  --wm-panel-1: #e9eff9;
+  --wm-panel-2: #dde6f5;
+  --wm-glass-1: #cfe0f7;
+  --wm-glass-2: #9fbbe0;
+  --wm-glass-3: #6f90bf;
+  --wm-drum-1: #b6c9e6;
+  --wm-drum-2: #7f9ccb;
+  --wm-drum-3: #55709f;
+  --wm-seal-1: #cad6ea;
+  --wm-seal-2: #aebfda;
+  --wm-screen: #0e1a33;
+  --wm-screen-ink: #5be3ff;
+  --wm-edge: rgb(11 18 36 / 0.22);
+  --wm-edge-soft: rgb(11 18 36 / 0.10);
+  --wm-slot: #d3ddef;
+  --wm-btn: #cfd9ec;
+  --wm-dot: rgb(11 18 36 / 0.30);
+  --wm-hole: rgb(11 18 36 / 0.16);
+  --wm-shine: rgb(255 255 255 / 0.55);
+  --wm-foot: #98a8c4;
+  --wm-tag-bg: #ffffff;
+  --wm-tag-text: #0b1224;
+  --wm-hot: #0a6a8e;
+  --wm-hot-fill: rgb(10 106 142 / 0.12);
+  --wm-hot-idle: rgb(11 18 36 / 0.32);
+  --wm-warn-ring: #955500;
+  --wm-tank: #eaf1fb;
+  --wm-water-1: rgb(10 106 142 / 0.65);
+  --wm-water-2: rgb(33 82 209 / 0.50);
+  --wm-bubble: rgb(255 255 255 / 0.75);
 
   --sans: var(--font-geist), ui-sans-serif, system-ui, -apple-system, "Helvetica Neue", sans-serif;
   --mono: var(--font-geist-mono), ui-monospace, "SFMono-Regular", "JetBrains Mono", monospace;
@@ -46,6 +141,105 @@
   position: relative;
   overflow-x: hidden;
   min-height: 100vh;
+  color-scheme: light;
+}
+
+/* DARK palette: what this page looked like before the theme switch. Not applied to print. */
+@media not print {
+  .dark .wasfix-design {
+    color-scheme: dark;
+    --bg: #060912;
+    --bg-2: #0a0f1c;
+    --surf: #0e1424;
+    --surf-1: #0e1424;
+    --surf-2: #131a2e;
+    --surf-3: #1a2240;
+    --panel-bg: rgb(255 255 255 / 0.015);
+    --card-bg: linear-gradient(180deg, rgb(255 255 255 / 0.02), rgb(255 255 255 / 0.005));
+    --card-shadow: none;
+    --line: rgb(255 255 255 / 0.07);
+    --line-hi: rgb(255 255 255 / 0.14);
+    --line-ac: rgb(79 140 255 / 0.45);
+    --field-line: #6b7894; /* 3.5 to 4.5:1 on the dark surfaces */
+
+    --text: #e8eefb;
+    --text-2: #b6c0d8;
+    /* lifted from #7b88a6 / #737f9e: those were 4.4 and 3.9:1 on the lightest surface (--surf-3) */
+    --mute: #8d99b6;
+    --dim: #8490af;
+
+    --acc: #4f8cff;
+    --acc-2: #00d4ff;
+    --acc-glow: rgb(79 140 255 / 0.35);
+    --ok: #34d399;
+    --warn: #f5b643;
+    --warn-2: #ff9a3c;
+    --danger: #ff6363;
+    --danger-2: #ff3d6e;
+    --acc-solid: #2a5fd0;
+    --on-acc: #ffffff;
+
+    --ink-rgb: 255 255 255;
+    --acc-rgb: 79 140 255;
+    --acc2-rgb: 0 212 255;
+    --vio-rgb: 124 58 237;
+    --ok-rgb: 52 211 153;
+    --warn-rgb: 245 182 67;
+    --danger-rgb: 255 99 99;
+
+    --hair-1: rgb(255 255 255 / 0.03);
+    --hair-2: rgb(255 255 255 / 0.05);
+    --hair-3: rgb(255 255 255 / 0.07);
+
+    /* #5d97ff -> #3b7aff under white text was 2.9:1 at the top; these are the same blue, a step deeper */
+    --btn-from: #3470e8;
+    --btn-to: #2a5fd0;
+    --btn-from-hi: #2f68de;
+    --btn-to-hi: #2556c2;
+    --btn-ring: rgb(79 140 255 / 0.5);
+    --btn-bg: #131a2e;
+    --btn-bg-hi: #1a2240;
+
+    --glow-1: 0.18;
+    --glow-2: 0.10;
+    --glow-3: 0.10;
+    --grid-a: 0.025;
+    --nav-bg: rgb(6 9 18 / 0.7);
+
+    --wm-cab-1: #1c2540;
+    --wm-cab-2: #141a30;
+    --wm-cab-3: #0f1426;
+    --wm-panel-1: #1d2748;
+    --wm-panel-2: #161e3a;
+    --wm-glass-1: #1c2747;
+    --wm-glass-2: #0a0f1f;
+    --wm-glass-3: #040712;
+    --wm-drum-1: #1f2a4a;
+    --wm-drum-2: #0d1326;
+    --wm-drum-3: #070a18;
+    --wm-seal-1: #2a3559;
+    --wm-seal-2: #161d36;
+    --wm-screen: #040712;
+    --wm-screen-ink: #00d4ff;
+    --wm-edge: rgb(255 255 255 / 0.10);
+    --wm-edge-soft: rgb(255 255 255 / 0.05);
+    --wm-slot: #08101e;
+    --wm-btn: #10172c;
+    --wm-dot: rgb(255 255 255 / 0.35);
+    --wm-hole: rgb(255 255 255 / 0.10);
+    --wm-shine: rgb(255 255 255 / 0.06);
+    --wm-foot: #0a0f1c;
+    --wm-tag-bg: #0b1224;
+    --wm-tag-text: #e8eefb;
+    --wm-hot: #00d4ff;
+    --wm-hot-fill: rgb(0 212 255 / 0.10);
+    --wm-hot-idle: rgb(255 255 255 / 0.18);
+    --wm-warn-ring: #f5b643;
+    --wm-tank: #070b18;
+    --wm-water-1: rgb(0 212 255 / 0.7);
+    --wm-water-2: rgb(79 140 255 / 0.5);
+    --wm-bubble: rgb(255 255 255 / 0.5);
+  }
 }
 
 .wasfix-design * { box-sizing: border-box; }
@@ -55,16 +249,16 @@
 .wasfix-design .app-bg {
   position: fixed; inset: 0; z-index: 0; pointer-events: none;
   background:
-    radial-gradient(1200px 600px at 70% -10%, rgba(79,140,255,0.18), transparent 60%),
-    radial-gradient(900px 600px at 0% 0%, rgba(0,212,255,0.10), transparent 50%),
-    radial-gradient(1000px 700px at 100% 100%, rgba(124,58,237,0.10), transparent 55%),
+    radial-gradient(1200px 600px at 70% -10%, rgb(var(--acc-rgb) / var(--glow-1)), transparent 60%),
+    radial-gradient(900px 600px at 0% 0%, rgb(var(--acc2-rgb) / var(--glow-2)), transparent 50%),
+    radial-gradient(1000px 700px at 100% 100%, rgb(var(--vio-rgb) / var(--glow-3)), transparent 55%),
     var(--bg);
 }
 .wasfix-design .app-bg::after {
   content: ""; position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    linear-gradient(rgb(var(--ink-rgb) / var(--grid-a)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--ink-rgb) / var(--grid-a)) 1px, transparent 1px);
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 1200px 800px at 50% 30%, #000 30%, transparent 70%);
   opacity: 0.7;
@@ -78,8 +272,8 @@
   position: sticky; top: 0; z-index: 50;
   backdrop-filter: blur(20px) saturate(160%);
   -webkit-backdrop-filter: blur(20px) saturate(160%);
-  background: rgba(6, 9, 18, 0.7);
-  border-bottom: 1px solid var(--border);
+  background: var(--nav-bg);
+  border-bottom: 1px solid var(--line);
 }
 .wasfix-design .nav-inner {
   display: flex; align-items: center; justify-content: space-between;
@@ -89,9 +283,9 @@
 .wasfix-design .brand-mark {
   width: 28px; height: 28px; border-radius: 7px;
   background: linear-gradient(135deg, var(--acc), var(--acc-2));
-  box-shadow: 0 0 24px var(--acc-glow), inset 0 1px 0 rgba(255,255,255,0.3);
+  box-shadow: 0 0 24px var(--acc-glow), inset 0 1px 0 rgb(255 255 255 / 0.3);
   display: grid; place-items: center;
-  color: #fff;
+  color: var(--on-acc);
 }
 .wasfix-design .brand-name { font-size: 15px; }
 .wasfix-design .brand-name b { font-weight: 600; }
@@ -101,13 +295,33 @@
 
 .wasfix-design .nav-links { display: flex; gap: 4px; }
 .wasfix-design .nav-link {
-  font-size: 13.5px; color: var(--text-2); padding: 8px 12px; border-radius: 8px;
+  font-size: 13.5px; color: var(--text-2); padding: 8px 12px; border-radius: 8px; white-space: nowrap;
   transition: color .15s, background .15s;
 }
-.wasfix-design .nav-link:hover { color: var(--text); background: rgba(255,255,255,0.04); }
+.wasfix-design .nav-link:hover { color: var(--text); background: var(--hair-2); }
 .wasfix-design .nav-cta { display: flex; gap: 10px; align-items: center; }
 
-@media (max-width: 880px) {
+/* Tablet widths. The theme toggle (44 px) made the row too wide below ~1050 px: the home page's six links
+   wrapped to two lines and "Start gratis" ran past the screen at 896-960 px. Under 1180 px the links, gaps and
+   buttons are tightened (home page, six links: everything fits from 916 px; the shared nav, five links, from
+   884 px), and the links leave the first row a little earlier than they did (880 -> 940 px, headroom for the wider
+   signed-in account controls). scripts/qa-theme.ts measures the header at 768, 900, 960, 1024, 1100 and 1180 px. */
+@media (max-width: 1180px) {
+  .wasfix-design .nav-link { font-size: 13px; padding: 8px 6px; }
+  .wasfix-design .nav-links { gap: 0; }
+  .wasfix-design .nav-cta { gap: 4px; }
+  .wasfix-design .nav-cta .btn-sm { padding: 6px 9px; }
+}
+/* 768-940 px: the links no longer fit beside the controls and the bottom bar only starts below 768 px, so for those
+   widths they used to be gone with no menu at all. They now sit on a second row of the nav, under the brand and the
+   controls (a sticky nav 44 px taller, only in this band). Below 768 px the bottom bar carries the navigation. */
+@media (min-width: 768px) and (max-width: 940px) {
+  .wasfix-design .nav-inner { flex-wrap: wrap; height: auto; }
+  .wasfix-design .nav-inner > .brand, .wasfix-design .nav-inner > .nav-cta { min-height: 64px; }
+  .wasfix-design .nav-cta { order: 2; }
+  .wasfix-design .nav-links { order: 3; flex: 1 0 100%; justify-content: center; border-top: 1px solid var(--line); }
+}
+@media (max-width: 767px) {
   .wasfix-design .nav-links { display: none; }
 }
 
@@ -136,58 +350,59 @@
 .wasfix-design .btn {
   display: inline-flex; align-items: center; gap: 8px;
   padding: 10px 16px; border-radius: 10px; font-size: 13.5px; font-weight: 500;
-  border: 1px solid var(--border-hi); background: var(--surf-2); color: var(--text);
+  border: 1px solid var(--line-hi); background: var(--btn-bg); color: var(--text);
   cursor: pointer; transition: all .15s; white-space: nowrap;
   text-decoration: none;
 }
-.wasfix-design .btn:hover { background: var(--surf-3); border-color: rgba(255,255,255,0.22); }
+.wasfix-design .btn:hover { background: var(--btn-bg-hi); border-color: var(--line-hi); }
 
 .wasfix-design .btn-primary {
-  background: linear-gradient(180deg, #5d97ff, #3b7aff);
+  background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
   border-color: transparent;
-  color: #fff;
+  color: var(--on-acc);
   box-shadow:
-    0 1px 0 rgba(255,255,255,0.25) inset,
-    0 0 0 1px rgba(79,140,255,0.5),
+    0 1px 0 rgb(255 255 255 / 0.25) inset,
+    0 0 0 1px var(--btn-ring),
     0 10px 24px -10px var(--acc-glow);
 }
 .wasfix-design .btn-primary:hover {
-  background: linear-gradient(180deg, #6ea4ff, #4a85ff);
+  background: linear-gradient(180deg, var(--btn-from-hi), var(--btn-to-hi));
   box-shadow:
-    0 1px 0 rgba(255,255,255,0.3) inset,
-    0 0 0 1px rgba(79,140,255,0.65),
+    0 1px 0 rgb(255 255 255 / 0.3) inset,
+    0 0 0 1px var(--btn-ring),
     0 14px 32px -10px var(--acc-glow);
 }
 
-.wasfix-design .btn-ghost { background: transparent; border-color: var(--border); }
+.wasfix-design .btn-ghost { background: transparent; border-color: var(--line); }
 .wasfix-design .btn-sm { padding: 6px 10px; font-size: 12px; border-radius: 7px; }
 .wasfix-design .btn-lg { padding: 14px 22px; font-size: 14.5px; border-radius: 12px; }
 
 .wasfix-design .pill {
   display: inline-flex; align-items: center; gap: 6px;
   padding: 5px 10px; border-radius: 999px; font-size: 12px;
-  border: 1px solid var(--border-hi);
-  background: rgba(255,255,255,0.03);
+  border: 1px solid var(--line-hi);
+  background: var(--hair-1);
   color: var(--text-2);
   font-weight: 500;
 }
 .wasfix-design .pill-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); box-shadow: 0 0 8px var(--ok); }
 .wasfix-design .pill-mono { font-family: var(--mono); font-size: 11.5px; letter-spacing: -0.01em; }
-.wasfix-design .pill-acc { color: var(--acc-2); border-color: var(--border-ac); background: rgba(79,140,255,0.08); }
+.wasfix-design .pill-acc { color: var(--acc-2); border-color: var(--line-ac); background: rgb(var(--acc-rgb) / 0.08); }
 
 .wasfix-design .card {
-  border: 1px solid var(--border);
-  background: linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.005));
+  border: 1px solid var(--line);
+  background: var(--card-bg);
+  box-shadow: var(--card-shadow);
   border-radius: var(--r-lg);
   padding: 24px;
   position: relative;
   overflow: hidden;
 }
-.wasfix-design .card-hi { border-color: var(--border-hi); background: var(--surf-1); }
+.wasfix-design .card-hi { border-color: var(--line-hi); background: var(--surf-1); }
 
 .wasfix-design .card-glow::before {
   content: ""; position: absolute; inset: 0;
-  background: radial-gradient(400px 200px at 50% 0%, rgba(79,140,255,0.10), transparent 70%);
+  background: radial-gradient(400px 200px at 50% 0%, rgb(var(--acc-rgb) / 0.10), transparent 70%);
   pointer-events: none;
 }
 
@@ -239,31 +454,31 @@
 }
 
 .wasfix-design .mono { font-family: var(--mono); }
-.wasfix-design .muted { color: var(--muted); }
+.wasfix-design .muted { color: var(--mute); }
 .wasfix-design .dim   { color: var(--dim); }
 
-.wasfix-design .hr { height: 1px; background: var(--border); border: 0; margin: 0; }
+.wasfix-design .hr { height: 1px; background: var(--line); border: 0; margin: 0; }
 
 .wasfix-design .stat-strip {
   display: grid; grid-template-columns: repeat(4, 1fr);
-  border: 1px solid var(--border); border-radius: var(--r-md);
-  background: rgba(255,255,255,0.015);
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--panel-bg);
   overflow: hidden;
 }
 .wasfix-design .stat {
   padding: 18px 22px;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--line);
 }
 .wasfix-design .stat:last-child { border-right: 0; }
 .wasfix-design .stat-n {
   font-size: 26px; font-weight: 500; letter-spacing: -0.02em;
   font-feature-settings: "tnum";
 }
-.wasfix-design .stat-l { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.wasfix-design .stat-l { font-size: 12px; color: var(--mute); margin-top: 2px; }
 @media (max-width: 760px) {
   .wasfix-design .stat-strip { grid-template-columns: repeat(2, 1fr); }
-  .wasfix-design .stat { border-right: 0; border-bottom: 1px solid var(--border); }
-  .wasfix-design .stat:nth-child(odd) { border-right: 1px solid var(--border); }
+  .wasfix-design .stat { border-right: 0; border-bottom: 1px solid var(--line); }
+  .wasfix-design .stat:nth-child(odd) { border-right: 1px solid var(--line); }
   .wasfix-design .stat:nth-last-child(-n+2) { border-bottom: 0; }
 }
 
@@ -279,24 +494,24 @@
 .wasfix-design .hero-popular {
   display: flex; flex-wrap: wrap; gap: 8px; margin-top: 22px;
   align-items: center;
-  font-size: 12px; color: var(--muted);
+  font-size: 12px; color: var(--mute);
 }
 .wasfix-design .hero-popular-tag {
   font-family: var(--mono); font-size: 11.5px;
   padding: 4px 9px; border-radius: 6px;
-  border: 1px solid var(--border); background: rgba(255,255,255,0.02);
+  border: 1px solid var(--line); background: var(--panel-bg);
   color: var(--text-2);
   cursor: pointer; transition: all .15s;
   text-decoration: none;
 }
-.wasfix-design .hero-popular-tag:hover { border-color: var(--border-ac); color: var(--acc-2); }
+.wasfix-design .hero-popular-tag:hover { border-color: var(--line-ac); color: var(--acc-2); }
 
 .wasfix-design .machine-wrap {
   position: relative;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--r-xl);
   background:
-    radial-gradient(600px 400px at 60% 30%, rgba(79,140,255,0.08), transparent 60%),
+    radial-gradient(600px 400px at 60% 30%, rgb(var(--acc-rgb) / 0.08), transparent 60%),
     linear-gradient(180deg, var(--surf-1), var(--bg-2));
   padding: 28px 28px 24px;
   overflow: hidden;
@@ -304,8 +519,8 @@
 .wasfix-design .machine-wrap::before {
   content: ""; position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.025) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.025) 1px, transparent 1px);
+    linear-gradient(rgb(var(--ink-rgb) / var(--grid-a)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--ink-rgb) / var(--grid-a)) 1px, transparent 1px);
   background-size: 24px 24px;
   mask-image: radial-gradient(circle at 50% 40%, #000 0%, transparent 70%);
   pointer-events: none;
@@ -322,7 +537,7 @@
 @media (max-width: 980px) { .wasfix-design .diagnose-grid { grid-template-columns: 1fr; } }
 
 .wasfix-design .chat {
-  border: 1px solid var(--border-hi);
+  border: 1px solid var(--line-hi);
   background: var(--surf-1);
   border-radius: var(--r-lg);
   display: flex; flex-direction: column;
@@ -331,7 +546,7 @@
 }
 .wasfix-design .chat-hd {
   display: flex; align-items: center; gap: 10px;
-  padding: 14px 18px; border-bottom: 1px solid var(--border);
+  padding: 14px 18px; border-bottom: 1px solid var(--line);
   font-size: 12.5px; color: var(--text-2);
 }
 .wasfix-design .chat-body {
@@ -343,8 +558,8 @@
 .wasfix-design .msg-user { align-self: flex-end; flex-direction: row-reverse; }
 .wasfix-design .msg-avatar {
   width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
-  background: linear-gradient(135deg, var(--acc), var(--acc-2));
-  display: grid; place-items: center; color: #fff; font-size: 11px; font-weight: 600;
+  background: linear-gradient(135deg, var(--btn-from), var(--btn-to));
+  display: grid; place-items: center; color: var(--on-acc); font-size: 11px; font-weight: 600;
   box-shadow: 0 0 14px var(--acc-glow);
 }
 .wasfix-design .msg-user .msg-avatar { background: var(--surf-3); color: var(--text-2); box-shadow: none; }
@@ -353,16 +568,16 @@
   padding: 10px 14px;
   border-radius: 10px;
   background: var(--surf-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
 }
-.wasfix-design .msg-user .msg-body { background: rgba(79,140,255,0.1); border-color: var(--border-ac); }
+.wasfix-design .msg-user .msg-body { background: rgb(var(--acc-rgb) / 0.1); border-color: var(--line-ac); }
 .wasfix-design .msg-body code {
   font-family: var(--mono); font-size: 12.5px;
-  background: rgba(255,255,255,0.06); padding: 1px 5px; border-radius: 4px;
+  background: var(--hair-3); padding: 1px 5px; border-radius: 4px;
 }
 
 .wasfix-design .chat-input {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
   padding: 12px 14px;
   display: flex; gap: 10px; align-items: center;
 }
@@ -381,7 +596,7 @@
 
 .wasfix-design .typing { display: inline-flex; gap: 3px; align-items: center; }
 .wasfix-design .typing span {
-  width: 4px; height: 4px; border-radius: 50%; background: var(--muted);
+  width: 4px; height: 4px; border-radius: 50%; background: var(--mute);
   animation: wasfix-typing 1.2s infinite ease-in-out;
 }
 .wasfix-design .typing span:nth-child(2) { animation-delay: 0.15s; }
@@ -392,7 +607,7 @@
 }
 
 .wasfix-design .diag-result {
-  border: 1px solid var(--border-hi);
+  border: 1px solid var(--line-hi);
   border-radius: var(--r-lg);
   background: var(--surf-1);
   padding: 20px;
@@ -403,7 +618,7 @@
 .wasfix-design .prob-bar { display: flex; align-items: center; gap: 10px; font-size: 13px; }
 .wasfix-design .prob-bar-track {
   flex: 1; height: 6px; border-radius: 3px;
-  background: rgba(255,255,255,0.06); overflow: hidden;
+  background: var(--hair-3); overflow: hidden;
 }
 .wasfix-design .prob-bar-fill {
   height: 100%;
@@ -423,8 +638,8 @@
 .wasfix-design .step-card p { color: var(--text-2); font-size: 14px; line-height: 1.55; margin: 0; }
 .wasfix-design .step-icon {
   width: 36px; height: 36px; border-radius: 9px;
-  background: rgba(79,140,255,0.10);
-  border: 1px solid var(--border-ac);
+  background: rgb(var(--acc-rgb) / 0.10);
+  border: 1px solid var(--line-ac);
   display: grid; place-items: center;
   color: var(--acc-2);
   margin-bottom: 20px;
@@ -441,7 +656,7 @@
 .wasfix-design .part-name, .wasfix-design .part-tag { overflow-wrap: anywhere; }
 @media (max-width: 480px) { .wasfix-design .part-card { padding: 12px; } }
 .wasfix-design .part-card {
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surf-1);
   padding: 18px;
@@ -452,7 +667,7 @@
   color: inherit;
 }
 .wasfix-design .part-card:hover {
-  border-color: var(--border-ac);
+  border-color: var(--line-ac);
   background: var(--surf-2);
   transform: translateY(-2px);
 }
@@ -460,15 +675,15 @@
   aspect-ratio: 1.4;
   border-radius: 8px;
   background:
-    radial-gradient(circle at 30% 30%, rgba(79,140,255,0.15), transparent 60%),
+    radial-gradient(circle at 30% 30%, rgb(var(--acc-rgb) / 0.15), transparent 60%),
     var(--bg-2);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   display: grid; place-items: center;
   color: var(--text-2);
 }
 .wasfix-design .part-meta { display: flex; justify-content: space-between; align-items: end; }
 .wasfix-design .part-name { font-size: 13.5px; font-weight: 500; color: var(--text); }
-.wasfix-design .part-tag { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.wasfix-design .part-tag { font-family: var(--mono); font-size: 11px; color: var(--mute); }
 .wasfix-design .part-price { font-size: 15px; font-weight: 500; color: var(--text); }
 
 .wasfix-design .codes-grid {
@@ -476,7 +691,7 @@
 }
 @media (max-width: 880px) { .wasfix-design .codes-grid { grid-template-columns: 1fr; } }
 .wasfix-design .code-list {
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surf-1);
   overflow: hidden;
@@ -484,7 +699,7 @@
 }
 .wasfix-design .code-search {
   padding: 12px 14px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
   display: flex; align-items: center; gap: 10px;
 }
 .wasfix-design .code-search input {
@@ -502,22 +717,22 @@
   display: grid; grid-template-columns: 80px 1fr auto;
   align-items: center; gap: 12px;
   padding: 12px 16px;
-  border-bottom: 1px solid var(--border);
+  border-bottom: 1px solid var(--line);
   cursor: pointer;
   transition: background .12s;
 }
 .wasfix-design .code-row:last-child { border-bottom: 0; }
-.wasfix-design .code-row:hover { background: rgba(255,255,255,0.03); }
-.wasfix-design .code-row.active { background: rgba(79,140,255,0.08); }
+.wasfix-design .code-row:hover { background: var(--hair-1); }
+.wasfix-design .code-row.active { background: rgb(var(--acc-rgb) / 0.08); }
 .wasfix-design .code-row .code-id { font-family: var(--mono); font-size: 12.5px; color: var(--acc-2); }
 .wasfix-design .code-row .code-desc { font-size: 13px; color: var(--text); }
-.wasfix-design .code-row .code-brand { font-family: var(--mono); font-size: 11px; color: var(--muted); }
+.wasfix-design .code-row .code-brand { font-family: var(--mono); font-size: 11px; color: var(--mute); }
 
 .wasfix-design .code-visual {
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background:
-    radial-gradient(400px 300px at 50% 30%, rgba(79,140,255,0.08), transparent 60%),
+    radial-gradient(400px 300px at 50% 30%, rgb(var(--acc-rgb) / 0.08), transparent 60%),
     var(--surf-1);
   padding: 24px;
   display: flex; flex-direction: column; gap: 14px;
@@ -532,15 +747,15 @@
 .wasfix-design .health-bar-wrap { display: flex; flex-direction: column; gap: 12px; }
 .wasfix-design .health-row { display: grid; grid-template-columns: 160px 1fr 60px; gap: 14px; align-items: center; font-size: 13px; }
 .wasfix-design .health-track {
-  height: 8px; border-radius: 4px; background: rgba(255,255,255,0.05);
+  height: 8px; border-radius: 4px; background: var(--hair-3);
   overflow: hidden; position: relative;
 }
 .wasfix-design .health-fill { height: 100%; border-radius: 4px; transition: width 0.8s cubic-bezier(.2,.7,.2,1); }
-.wasfix-design .health-ok    { background: linear-gradient(90deg, #34d399, #00d4ff); }
-.wasfix-design .health-warn  { background: linear-gradient(90deg, #f5b643, #ff9a3c); }
-.wasfix-design .health-danger{ background: linear-gradient(90deg, #ff6363, #ff3d6e); }
+.wasfix-design .health-ok    { background: linear-gradient(90deg, var(--ok), var(--acc-2)); }
+.wasfix-design .health-warn  { background: linear-gradient(90deg, var(--warn), var(--warn-2)); }
+.wasfix-design .health-danger{ background: linear-gradient(90deg, var(--danger), var(--danger-2)); }
 .wasfix-design .health-pct { text-align: right; font-family: var(--mono); font-size: 12px; color: var(--text-2); }
-.wasfix-design .health-eta { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+.wasfix-design .health-eta { font-family: var(--mono); font-size: 11.5px; color: var(--mute); }
 
 .wasfix-design .impact-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
@@ -548,13 +763,13 @@
 @media (max-width: 880px) { .wasfix-design .impact-grid { grid-template-columns: 1fr; } }
 .wasfix-design .impact-card {
   padding: 24px;
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   border-radius: var(--r-md);
   background: var(--surf-1);
 }
 .wasfix-design .impact-n { font-size: 36px; font-weight: 500; letter-spacing: -0.025em; font-feature-settings: "tnum"; }
 .wasfix-design .impact-l { font-size: 13.5px; color: var(--text-2); margin-top: 6px; }
-.wasfix-design .impact-sub { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.wasfix-design .impact-sub { font-size: 12px; color: var(--mute); margin-top: 4px; }
 
 .wasfix-design .pricing-grid {
   display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px;
@@ -563,36 +778,36 @@
 .wasfix-design .price-card {
   padding: 28px;
   border-radius: var(--r-lg);
-  border: 1px solid var(--border);
+  border: 1px solid var(--line);
   background: var(--surf-1);
   display: flex; flex-direction: column; gap: 18px;
   position: relative;
 }
 .wasfix-design .price-card.featured {
-  border-color: var(--border-ac);
+  border-color: var(--line-ac);
   background:
-    radial-gradient(400px 300px at 50% 0%, rgba(79,140,255,0.12), transparent 60%),
+    radial-gradient(400px 300px at 50% 0%, rgb(var(--acc-rgb) / 0.12), transparent 60%),
     var(--surf-1);
   box-shadow: 0 24px 60px -20px var(--acc-glow);
 }
 .wasfix-design .price-tag {
   position: absolute; top: -12px; left: 24px;
   padding: 4px 10px; border-radius: 999px;
-  background: linear-gradient(180deg, #5d97ff, #3b7aff);
-  color: #fff; font-size: 11px; font-weight: 600;
+  background: linear-gradient(180deg, var(--btn-from), var(--btn-to));
+  color: var(--on-acc); font-size: 11px; font-weight: 600;
   letter-spacing: 0.02em;
   box-shadow: 0 8px 20px -6px var(--acc-glow);
 }
-.wasfix-design .price-name { font-size: 13.5px; color: var(--muted); font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
+.wasfix-design .price-name { font-size: 13.5px; color: var(--mute); font-family: var(--mono); letter-spacing: 0.04em; text-transform: uppercase; }
 .wasfix-design .price-n { display: flex; align-items: baseline; gap: 6px; }
 .wasfix-design .price-n b { font-size: 38px; font-weight: 500; letter-spacing: -0.025em; }
-.wasfix-design .price-n span { color: var(--muted); font-size: 13px; }
+.wasfix-design .price-n span { color: var(--mute); font-size: 13px; }
 .wasfix-design .price-feats { list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px; }
 .wasfix-design .price-feats li { font-size: 13.5px; color: var(--text-2); display: flex; gap: 10px; align-items: flex-start; }
 .wasfix-design .price-feats li svg { flex-shrink: 0; margin-top: 3px; color: var(--acc-2); }
 
 .wasfix-design .footer {
-  border-top: 1px solid var(--border);
+  border-top: 1px solid var(--line);
   padding: 60px 0 40px;
   background: var(--bg-2);
   margin-top: 80px;
@@ -605,14 +820,14 @@
    columns plus the 32px gap were 10px wider than the screen and the right column was cut off. */
 .wasfix-design .footer-grid > * { min-width: 0; }
 @media (max-width: 400px) { .wasfix-design .footer-grid { gap: 24px 16px; } }
-.wasfix-design .foot-h { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--muted); font-family: var(--mono); margin-bottom: 12px; }
+.wasfix-design .foot-h { font-size: 12.5px; text-transform: uppercase; letter-spacing: 0.08em; color: var(--mute); font-family: var(--mono); margin-bottom: 12px; }
 .wasfix-design .foot-l { display: flex; flex-direction: column; gap: 6px; font-size: 13.5px; color: var(--text-2); }
 .wasfix-design .foot-l a:hover { color: var(--text); }
 
 .wasfix-design .foot-bottom {
-  margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--border);
+  margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--line);
   display: flex; justify-content: space-between; align-items: center;
-  font-size: 12.5px; color: var(--muted);
+  font-size: 12.5px; color: var(--mute);
 }
 
 .wasfix-design .row-scroll { overflow: hidden; mask-image: linear-gradient(90deg, transparent, #000 8%, #000 92%, transparent); }
@@ -626,10 +841,10 @@
 }
 
 .wasfix-design .cta-block {
-  border: 1px solid var(--border-hi);
+  border: 1px solid var(--line-hi);
   border-radius: var(--r-xl);
   background:
-    radial-gradient(600px 300px at 50% 0%, rgba(79,140,255,0.18), transparent 60%),
+    radial-gradient(600px 300px at 50% 0%, rgb(var(--acc-rgb) / 0.18), transparent 60%),
     var(--surf-1);
   padding: 56px;
   text-align: center;
@@ -639,8 +854,8 @@
 .wasfix-design .cta-block::before {
   content: ""; position: absolute; inset: 0;
   background-image:
-    linear-gradient(rgba(255,255,255,0.02) 1px, transparent 1px),
-    linear-gradient(90deg, rgba(255,255,255,0.02) 1px, transparent 1px);
+    linear-gradient(rgb(var(--ink-rgb) / var(--grid-a)) 1px, transparent 1px),
+    linear-gradient(90deg, rgb(var(--ink-rgb) / var(--grid-a)) 1px, transparent 1px);
   background-size: 32px 32px;
   mask-image: radial-gradient(circle at 50% 0%, #000, transparent 70%);
 }
@@ -648,15 +863,15 @@
 
 .wasfix-design .brand-strip {
   display: grid; grid-template-columns: repeat(6, 1fr); gap: 0;
-  border: 1px solid var(--border); border-radius: var(--r-md);
-  background: rgba(255,255,255,0.015);
+  border: 1px solid var(--line); border-radius: var(--r-md);
+  background: var(--panel-bg);
   overflow: hidden;
 }
 .wasfix-design .brand-strip > div {
   padding: 22px 16px;
-  border-right: 1px solid var(--border);
+  border-right: 1px solid var(--line);
   text-align: center;
-  color: var(--muted);
+  color: var(--mute);
   font-size: 14px;
   font-weight: 500;
   letter-spacing: -0.01em;
@@ -719,4 +934,51 @@
 .wasfix-design .monteur-grid > * { min-width: 0; }
 @media (max-width: 880px) {
   .wasfix-design .monteur-grid { grid-template-columns: minmax(0, 1fr) !important; gap: 28px !important; }
+}
+
+/* ── Theme toggle (components/theme-toggle.tsx) in this palette ───────────────
+   The control reads --tt-* variables (globals.css); here they point at this palette so it looks like
+   the buttons around it: the accent solid for the chosen option, this palette's lines and focus colour. */
+.wasfix-design .theme-toggle {
+  --tt-fg: var(--text);
+  --tt-muted: var(--text-2);
+  --tt-surface: var(--surf-1);
+  --tt-hover: var(--hair-3);
+  --tt-line: var(--line-hi);
+  --tt-ring: var(--acc-2);
+  --tt-on: var(--acc-solid);
+  --tt-on-fg: var(--on-acc);
+}
+/* On a phone this nav has no room for a 44px icon (it already shrinks the wordmark and the buttons to fit);
+   the toggle is in the bottom bar (below 768px) and in the footer, on every page. */
+@media (max-width: 620px) {
+  .wasfix-design .nav-cta .theme-toggle { display: none; }
+}
+
+/* Placeholders are text: the palette's dimmest text colour, not the browser's grey. */
+.wasfix-design input::placeholder, .wasfix-design textarea::placeholder { color: var(--dim); opacity: 1; }
+
+/* The bottom bar on a phone (components/MobileBottomNav.tsx) is rendered by the root layout, outside this scope, so it cannot
+   read the variables above. On these pages it takes this palette's colours (surface, hairline, text, accent) written out
+   once per palette here; scripts/qa-theme.ts (part i) compares them with the variables of the scope on /diagnose, so a change
+   to the palette that forgets this block fails there. Without :has() the bar keeps the app's own colours. */
+@supports selector(:has(*)) {
+  html:has(.wasfix-design) .mobile-bottom-nav {
+    --mbn-bg: rgb(246 248 252 / 0.94);
+    --mbn-border: rgb(11 18 36 / 0.12);
+    --mbn-fg: #38445f;
+    --mbn-active: #2152d1;
+    --mbn-badge-bg: #2150cc;
+    --mbn-badge-fg: #ffffff;
+  }
+  @media not print {
+    html.dark:has(.wasfix-design) .mobile-bottom-nav {
+      --mbn-bg: rgb(6 9 18 / 0.94);
+      --mbn-border: rgb(255 255 255 / 0.07);
+      --mbn-fg: #b6c0d8;
+      --mbn-active: #4f8cff;
+      --mbn-badge-bg: #2a5fd0;
+      --mbn-badge-fg: #ffffff;
+    }
+  }
 }

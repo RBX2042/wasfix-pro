@@ -21,19 +21,22 @@ export default function DiagnosisRadarChart({ causes }: Props) {
           <Radar
             name="Waarschijnlijkheid"
             dataKey="probability"
-            stroke="#1a6b6b"
-            fill="#1a6b6b"
+            stroke="hsl(var(--primary))"
+            fill="hsl(var(--primary))"
             fillOpacity={0.35}
             strokeWidth={2}
           />
           <Tooltip
             formatter={(value) => [`${value}%`, "Kans"]}
             contentStyle={{
-              backgroundColor: "hsl(var(--card))",
-              border: "1px solid hsl(var(--border))",
+              backgroundColor: "hsl(var(--popover))",
+              color: "hsl(var(--popover-foreground))",
+              border: "1px solid hsl(var(--input))",
               borderRadius: "0.5rem",
               fontSize: "0.85rem",
             }}
+            labelStyle={{ color: "hsl(var(--popover-foreground))" }}
+            itemStyle={{ color: "hsl(var(--popover-foreground))" }}
           />
         </RadarChart>
       </ResponsiveContainer>

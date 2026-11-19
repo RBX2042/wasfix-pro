@@ -46,7 +46,7 @@ describing something that never shipped.
 Every path below has a `page.tsx` under `src/app`. Bracketed segments are dynamic.
 
 ### Public marketing & catalogue
-- `/` — homepage (dark theme, SVG hero, counts from `catalogStats()`)
+- `/` — homepage (light by default, dark through the theme switch (D22); SVG hero, counts from `catalogStats()`)
 - `/diagnose` — AI diagnose chat
 - `/foutcodes` · `/foutcodes/[code]` — error-code index and detail
 - `/gidsen` · `/gidsen/[slug]` — repair guides (premium guides show 2 steps)
@@ -142,6 +142,7 @@ There is **no `/api/contact`.** `/contact` is a page with a `mailto:` link.
 ### Webhooks
 - `POST /api/stripe/webhook` — idempotent via the `StripeEvent` table
 - `POST /api/webhooks/clerk` — Svix-verified
+- `POST /api/webhooks/resend` — Svix-verified (`RESEND_WEBHOOK_SECRET`; no unsigned mode): an opt-out through Resend's own link (`contact.updated`) or a spam complaint (`email.complained`) sets `unsubscribedAt` in our table (D20)
 
 ## Database (Prisma)
 
@@ -254,6 +255,7 @@ monteur-invoicing.ts monteur invoices and per-monteur number series
 api-auth.ts          B2B API key verification
 ratelimit.ts         Upstash REST or in-memory; clientIp() trusts x-vercel-forwarded-for only on Vercel
 csp.ts · site-url.ts Content-Security-Policy built from the env (Clerk host from the publishable key); NEXT_PUBLIC_APP_URL checks
+seo.ts · seo-text.ts · json-ld.ts  SEO rules in one place (D23): titles, descriptions, canonical, Open Graph, indexability, the private paths, the X-Robots-Tag rules next.config.ts turns into headers; structured data builders that take only what the page shows
 notify.ts            owner notifications (Slack, Discord, e-mail), the one module that tells the owner anything
 monitoring.ts        cool-down + cap in front of notify for server errors (used by src/instrumentation.ts); renders logger.error payloads from an allow-list of fields
 referrals.ts         click → signup → conversion attribution
@@ -262,7 +264,7 @@ analytics.ts · predictive.ts · logger.ts · visitor.ts · utils.ts
 ```
 
 `src/middleware.ts` (repo root of `src/`, **not** in `lib/`) does the brand-page
-SEO rewrite and mounts `clerkMiddleware` when Clerk is configured. `src/instrumentation.ts` (Next's instrumentation
+SEO rewrite and mounts `clerkMiddleware` when Clerk is configured; its matcher skips static file types, `.txt` and `.xml` included (robots.txt, sitemap.xml and the IndexNow key file reach a crawler untouched, D24). `src/instrumentation.ts` (Next's instrumentation
 hook) installs the error reporting: exceptions that escape a request and every `logger.error` reach the owner through
 `notify.ts`, with a cool-down per error signature and a cap per hour; unhandled promise rejections are logged. It runs
 in the Node.js runtime only.
@@ -285,7 +287,7 @@ lives in Vercel, not in the repo — see BLOCKED.md for the current state.
 | Owner channel | `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `ORDER_NOTIFY_EMAIL` / `COMPANY_EMAIL` + Resend | the owner is told nothing (logged once) |
 | Scheduled jobs | `CRON_SECRET` | every `/api/cron/*` route answers 503 |
 | Gemini | `GEMINI_API_KEY` | labelled keyword fallback |
-| Resend | `RESEND_API_KEY`, `RESEND_AUDIENCE_ID` | e-mail is a no-op; subscribers still stored. With both set, confirmations, opt-outs and erasures are recorded in our table first and the audience contact follows (best effort); a failed audience update is reported to the owner once per address and direction per instance |
+| Resend | `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_WEBHOOK_SECRET` | e-mail is a no-op; subscribers still stored. With both set, confirmations, opt-outs and erasures are recorded in our table first and the audience contact follows (best effort); a failed audience update is reported to the owner once per address and direction per instance. Without `RESEND_WEBHOOK_SECRET`, `POST /api/webhooks/resend` refuses every delivery (503), so an opt-out made at Resend stays a subscriber in our table (the preflight warns when the audience is set without it) |
 | Upstash | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | in-memory limiter, per instance; warned once in production |
 | Google Search Console | `GSC_OAUTH_*`, `GSC_REFRESH_TOKEN` | `/admin/analytics` shows no search data |
 | KvK | `KVK_API_KEY` | `/api/monteur/kvk-lookup` returns a mock company |
@@ -325,7 +327,7 @@ wasfix-pro/
 │   ├── app/                  App Router: pages + api/
 │   ├── components/
 │   │   ├── ui/               Radix/shadcn primitives
-│   │   ├── redesign/         dark-theme homepage components
+│   │   ├── redesign/         homepage and shared page components (two palettes, light and dark: wasfix-design.css)
 │   │   ├── 3d/               HeroScene — installed, imported nowhere
 │   │   └── …                 cart, nav, forms
 │   ├── data/                 static JSON catalogue
@@ -349,10 +351,11 @@ wasfix-pro/
 - `npm run db:setup` — migrations + seed; `db:migrate:deploy` / `db:migrate:status` over `DIRECT_URL`
 - `npm run db:smoke`, `money:smoke`, `smoke` — database, money and HTTP checks
 - `npm run preflight` — go-live check (see `BLOCKED.md`)
-- The `scripts/qa-*.ts` suites (orders, notify, checkout, stripe, plans, admin, diagnose, storefront, csp, platform, preflight):
+- The `scripts/qa-*.ts` suites (orders, notify, checkout, stripe, plans, admin, diagnose, storefront, csp, platform, preflight, deploy, theme, seo, indexnow):
   what each proves and how to run it is in `QA_CHECKLIST.md`; CI runs them (`.github/workflows/ci.yml`).
 - CI: lint + typecheck + informational `npm audit` → build; and a Postgres job with the suites (each on its own database copied
-  from a template), a Chromium CSP probe, a production build with the HTTP smoke, and the checkout/storefront suites against it.
+  from a template, the IndexNow tooling among them), a Chromium CSP probe, a production build with the HTTP smoke, and against it the SEO crawl, the
+  checkout/storefront suites, the CSP on real pages and the theme suite (Chromium).
 
 There is no unit-test runner and no `npm test`; the scripts above are the safety net. They ran against a real Postgres and
 nagemaakte Stripe, Slack and Resend servers, never against the real vendors. Treat any document claiming a test count as

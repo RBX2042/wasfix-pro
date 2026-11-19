@@ -25,7 +25,7 @@ export function CopyButton({ value, label }: { value: string; label: string }) {
       aria-label={`Kopieer ${label}`}
       className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-md border text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
-      {copied ? <Check className="h-4 w-4 text-emerald-600" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
+      {copied ? <Check className="h-4 w-4 text-success" aria-hidden /> : <Copy className="h-4 w-4" aria-hidden />}
       <span className="sr-only" role="status">{copied ? `${label} gekopieerd` : ""}</span>
     </button>
   );

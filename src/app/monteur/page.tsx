@@ -2,14 +2,19 @@ import Link from "next/link";
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { Icon } from "@/components/redesign/SharedLayout";
 import { siteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
 // The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
 const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
-export const metadata = {
-  title: "Voor monteurs — De pro-tool voor wasmachine-reparatie · WasFix Pro",
-  description: "AI-diagnose, klanten-CRM, werkorders met factuur, B2B API en 10% korting op onderdelen. De tool die nooit meer een verkeerd onderdeel bestelt.",
-};
+// The title brought its own " · WasFix Pro" (the template added a second one) and the description promised a tool
+// that "nooit meer een verkeerd onderdeel bestelt": an absolute claim for an AI indication. Both are plainer now, and so is
+// the h1, which carried the same sentence (a claim cut from the snippet must not stay in the heading the snippet is built from).
+export const metadata = pageMetadata({
+  title: pageTitle("Voor monteurs: AI-diagnose, CRM en werkorders"),
+  description: pageDescription("AI-diagnose, klanten-CRM, werkorders met factuur, B2B API en korting op onderdelen voor zelfstandige monteurs en reparatiebedrijven."),
+  path: "/monteur",
+});
 
 // Deze lijst verkocht een witlabel-portal, voorrang bij voorraadgebrek, een
 // bulkminimum van 5 stuks en omzet-analytics. Niets daarvan bestaat: er is geen
@@ -56,8 +61,8 @@ export default function MonteurLandingPage() {
             <Icon name="bolt" size={12} /> Voor wasmachine-monteurs en reparatiebedrijven
           </div>
           <h1 className="h-display" style={{ fontSize: "clamp(36px, 5.5vw, 64px)", marginBottom: 18 }}>
-            De pro-tool die nooit meer<br />
-            een <em>verkeerd onderdeel</em> bestelt.
+            De pro-tool die je helpt<br />
+            het <em>juiste onderdeel</em> te vinden.
           </h1>
           <p className="lead" style={{ maxWidth: 720, marginBottom: 28 }}>
             AI-diagnose vóór je in de auto stapt. Klanten-CRM. B2B API. 10% korting op onderdelen. Voor zelfstandige monteurs en reparatie-bedrijven.
@@ -123,8 +128,8 @@ export default function MonteurLandingPage() {
           <p className="lead" style={{ marginBottom: 24 }}>
             REST API voor diagnose, onderdelen-lookup en foutcodes. Elk systeem dat JSON over HTTPS kan spreken kan koppelen. 1.000 calls per maand inbegrepen bij Monteur Pro.
           </p>
-          <div style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 24 }}>
-            <div className="mono" style={{ fontSize: 12, color: "var(--muted)", marginBottom: 10, letterSpacing: "0.08em" }}>POST /api/v1/diagnose</div>
+          <div style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 12, padding: 24 }}>
+            <div className="mono" style={{ fontSize: 12, color: "var(--mute)", marginBottom: 10, letterSpacing: "0.08em" }}>POST /api/v1/diagnose</div>
             <pre className="mono" style={{ fontSize: 13, color: "var(--text-2)", overflowX: "auto", lineHeight: 1.6, margin: 0 }}>
 {`curl -X POST ${SITE}/api/v1/diagnose \\
   -H "Authorization: Bearer YOUR_API_KEY" \\
@@ -176,7 +181,7 @@ export default function MonteurLandingPage() {
               { q: "Krijg ik training of onboarding?", a: "Er is geen vaste onboarding-call of videosupport. Heb je een vraag, dan helpen we je per e-mail via de contactpagina, en de reparatiegidsen en de foutcode-database zijn voor iedereen te raadplegen." },
               { q: "Is de data van mijn klanten veilig?", a: "Je klantgegevens staan in een Europese database van onze hostingpartner, die versleutelt at-rest, en al het verkeer gaat over TLS. Elke monteur ziet uitsluitend zijn eigen klanten en werkorders — dat is afgedwongen in de query, niet alleen in de UI. We hebben geen ISO 27001-certificering; als je daar een leverancierseis voor hebt, zeg het en we sturen je wat we wél kunnen aantonen. Jij bent eigenaar van je klantdata en kunt die altijd exporteren." },
             ].map((f, i) => (
-              <details key={i} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 10, padding: "16px 18px" }}>
+              <details key={i} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 10, padding: "16px 18px" }}>
                 <summary style={{ cursor: "pointer", fontWeight: 500, listStyle: "none", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
                   {f.q}
                   <Icon name="chevron" size={14} className="dim" />
@@ -189,7 +194,7 @@ export default function MonteurLandingPage() {
       </section>
 
       <section className="section" style={{ paddingTop: 0 }}>
-        <div className="container" style={{ textAlign: "center", padding: "48px 24px", background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16 }}>
+        <div className="container" style={{ textAlign: "center", padding: "48px 24px", background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 16 }}>
           <h2 className="h-section" style={{ marginBottom: 12 }}>Klaar om <em>tijd</em> te besparen?</h2>
           <p className="lead" style={{ marginBottom: 24, maxWidth: 560, margin: "0 auto 24px" }}>
             Start vandaag met je 14-dagen gratis proef. Maandelijks opzegbaar.

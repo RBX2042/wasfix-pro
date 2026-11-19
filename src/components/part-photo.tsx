@@ -49,7 +49,7 @@ export function PartPhoto({
       >
         <ImageOff className="h-8 w-8 opacity-50" aria-hidden="true" />
         <span className="text-xs font-medium">Foto volgt</span>
-        <span className="text-[11px] opacity-70">{categoryLabel(category)}</span>
+        <span className="text-[11px]">{categoryLabel(category)}</span>
       </div>
     );
   }

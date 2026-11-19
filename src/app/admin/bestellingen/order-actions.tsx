@@ -68,7 +68,7 @@ export function ResendMailForm({ orderId, kind }: { orderId: string; kind: Resen
 /** For a paid order that never got its invoice (company details were incomplete when it was paid). */
 export function IssueInvoiceForm({ orderId }: { orderId: string }) {
   return (
-    <ActionForm action={issueInvoiceAction} className="rounded-md border border-amber-500/60 bg-amber-50 dark:bg-amber-950/30 p-3 space-y-2">
+    <ActionForm action={issueInvoiceAction} className="rounded-md border border-warning/60 bg-warning/10 p-3 space-y-2">
       <input type="hidden" name="orderId" value={orderId} />
       <p className="text-sm">Deze bestelling is betaald maar heeft nog geen factuur. De factuur krijgt de datum van vandaag.</p>
       <Submit>Factuur aanmaken</Submit>
@@ -139,7 +139,7 @@ export function CancelForm({ orderId, status, consequences }: { orderId: string;
         <input type="hidden" name="orderId" value={orderId} />
         {/* The status the owner is looking at: the cancellation is refused when the order has moved on since. */}
         <input type="hidden" name="expectedStatus" value={status} />
-        <div className="rounded-md bg-amber-50 dark:bg-amber-950/30 p-3 text-sm">
+        <div className="rounded-md bg-warning/10 p-3 text-sm">
           <p className="font-medium mb-1">Wat er gebeurt:</p>
           <ul className="list-disc pl-5 space-y-0.5">{consequences.map((c) => <li key={c}>{c}</li>)}</ul>
         </div>

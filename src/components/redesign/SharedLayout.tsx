@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useCart, cartCount } from "@/components/cart-provider";
 import { CartDrawer } from "@/components/cart-drawer";
 import { AuthButtons } from "@/components/auth-buttons";
+import { ThemeToggle } from "@/components/theme-toggle";
 import "@/app/wasfix-design.css";
 import { FOOTER_CODES, FOOTER_PARTS, FOOTER_BRAND_REPAIR, FOOTER_COMPARE, FOOTER_TOOLS } from "./footer-links";
 
@@ -77,6 +78,7 @@ export function WasFixNav() {
           <Link className="nav-link" href="/prijzen">Prijzen</Link>
         </div>
         <div className="nav-cta">
+          <ThemeToggle />
           <button
             className="btn btn-ghost btn-sm"
             onClick={() => setOpen(true)}
@@ -87,11 +89,11 @@ export function WasFixNav() {
             {count > 0 && (
               <span style={{
                 position: "absolute", top: -4, right: -4,
-                background: "linear-gradient(180deg, #5d97ff, #3b7aff)",
-                color: "#fff", fontSize: 10, fontWeight: 600,
+                background: "linear-gradient(180deg, var(--btn-from), var(--btn-to))",
+                color: "var(--on-acc)", fontSize: 10, fontWeight: 600,
                 minWidth: 16, height: 16, borderRadius: 8,
                 display: "grid", placeItems: "center", padding: "0 4px",
-                boxShadow: "0 0 12px rgba(79,140,255,0.6)",
+                boxShadow: "0 0 12px var(--acc-glow)",
               }}>{count}</span>
             )}
           </button>
@@ -180,7 +182,7 @@ export function WasFixFooter() {
         </div>
 
         {/* Top foutcodes — sterke interne linking voor SEO */}
-        <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--border)" }}>
+        <div style={{ marginTop: 32, paddingTop: 24, borderTop: "1px solid var(--line)" }}>
           <div className="foot-h" style={{ marginBottom: 12 }}>Top foutcodes</div>
           <div style={{ display: "flex", flexWrap: "wrap", gap: 8 }}>
             {FOOTER_CODES.map(({ brand, codes }) =>
@@ -233,6 +235,7 @@ export function WasFixFooter() {
 
         <div className="foot-bottom" style={{ marginTop: 32, flexWrap: "wrap", gap: 8 }}>
           <div>© {new Date().getFullYear()} WasFix Pro · Made with care in The Netherlands. <Link href="/contact" style={{ textDecoration: "underline" }}>Bedrijfsgegevens</Link></div>
+          <ThemeToggle variant="segmented" />
         </div>
       </div>
     </footer>

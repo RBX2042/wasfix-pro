@@ -2,12 +2,13 @@ import { ContactEmail, contactEmailText } from "@/lib/contact-email";
 import { LegalPage } from "@/components/redesign/LegalPage";
 import { COMPANY, realOrNull, SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plans";
 import Link from "next/link";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Retourvoorwaarden",
-  description: "Hoe je een onderdeel retour stuurt naar WasFix Pro — 30 dagen bedenktijd.",
-  alternates: { canonical: "/retourvoorwaarden" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Retourvoorwaarden"),
+  description: pageDescription("Hoe je een onderdeel retour stuurt naar WasFix Pro — 30 dagen bedenktijd.", "Wat het kost en wanneer je geld terugkrijgt."),
+  path: "/retourvoorwaarden",
+});
 
 export default function RetourPage() {
   // Het retouradres liep buiten realOrNull() om en drukte daardoor het stand-in
@@ -54,13 +55,13 @@ export default function RetourPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 12, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
-            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Situatie</th>
-            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Kosten retour</th>
+            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Situatie</th>
+            <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Kosten retour</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Bedenktijd / verkeerd besteld</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Voor jouw rekening</td></tr>
-          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Defect / verkeerd geleverd door ons</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)" }}>Gratis (de verzendkosten zijn voor ons; je krijgt de instructies per e-mail)</td></tr>
+          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>Bedenktijd / verkeerd besteld</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>Voor jouw rekening</td></tr>
+          <tr><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>Defect / verkeerd geleverd door ons</td><td style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)" }}>Gratis (de verzendkosten zijn voor ons; je krijgt de instructies per e-mail)</td></tr>
           <tr><td style={{ padding: "10px 12px" }}>Garantieclaim binnen periode</td><td style={{ padding: "10px 12px" }}>Gratis</td></tr>
         </tbody>
       </table>
@@ -75,7 +76,7 @@ export default function RetourPage() {
       <p>
         Je hoeft het niet te gebruiken (een mail volstaat), maar als je liever het wettelijk modelformulier invult:
       </p>
-      <pre style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.6, color: "var(--text-2)", overflowX: "auto", margin: "12px 0" }}>
+      <pre style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "14px 16px", fontSize: 12.5, lineHeight: 1.6, color: "var(--text-2)", overflowX: "auto", margin: "12px 0" }}>
 {`Aan: ${COMPANY.name}
 ${address ? `   ${address}\n` : ""}   ${contactEmailText()}
 
@@ -96,7 +97,7 @@ Handtekening: ___________  Datum: ___________
 
       <h2>7. Retouradres</h2>
       {address ? (
-        <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+        <p style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "14px 16px" }}>
           {COMPANY.name}<br />
           T.a.v. Retouren (RMA-nummer op buitenkant)<br />
           {street}<br />
@@ -104,7 +105,7 @@ Handtekening: ___________  Datum: ___________
           {COMPANY.country}
         </p>
       ) : (
-        <p style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 16px" }}>
+        <p style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 10, padding: "14px 16px" }}>
           Het retouradres staat in de e-mail met je RMA-nummer. Stuur nog niets terug voordat je die hebt: {COMPANY.tradeName} is nog in oprichting en het vestigingsadres staat daarom nog niet op deze pagina.
         </p>
       )}

@@ -24,7 +24,7 @@ export default async function MonteurKlantenPage() {
         <Card>
           <CardContent className="p-12 text-center">
             <Users className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
-            <h2 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h2>
+            <h1 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h1>
             <p className="text-muted-foreground mb-4">Klantbeheer is beschikbaar voor Monteur Pro abonnees.</p>
             <Button asChild><Link href="/prijzen">Bekijk Monteur Pro</Link></Button>
           </CardContent>
@@ -81,7 +81,7 @@ export default async function MonteurKlantenPage() {
               <CardContent className="p-5">
                 <div className="flex items-start justify-between mb-3 gap-2">
                   <div className="min-w-0">
-                    <h3 className="font-heading font-semibold truncate">{c.name}</h3>
+                    <h2 className="font-heading font-semibold truncate">{c.name}</h2>
                     <p className="text-xs text-muted-foreground">
                       {c._count.workOrders} {c._count.workOrders === 1 ? "werkorder" : "werkorders"}
                     </p>

@@ -46,7 +46,7 @@ export default async function ApiKeysPage() {
     return (
       <DashboardLayout role={user.role}>
         <div className="border rounded-lg p-12 text-center bg-gradient-to-br from-primary/5 to-accent/5">
-          <h2 className="font-heading text-xl font-bold mb-3">API toegang vereist Monteur Pro</h2>
+          <h1 className="font-heading text-xl font-bold mb-3">API toegang vereist Monteur Pro</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
             De B2B REST API is beschikbaar vanaf Monteur Pro (€29/mnd excl. btw) — {num(getPlan("MONTEUR_PRO").apiCallsPerMonth)} calls per maand inbegrepen.
           </p>
@@ -69,7 +69,7 @@ export default async function ApiKeysPage() {
         </div>
 
         {!allowance && (
-          <div role="alert" className="border border-amber-500/50 bg-amber-50 dark:bg-amber-950/30 rounded-lg p-4 text-sm">
+          <div role="alert" className="border border-warning/50 bg-warning/10 rounded-lg p-4 text-sm">
             <p className="font-medium">Je keys zijn uitgeschakeld.</p>
             <p className="text-muted-foreground mt-1">
               Je huidige plan ({planName}) bevat geen API. Zolang dat zo is, antwoorden je keys met HTTP 402. Je kunt ze hieronder nog wel intrekken.{" "}

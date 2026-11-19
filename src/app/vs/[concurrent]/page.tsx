@@ -4,6 +4,7 @@ import Link from "next/link";
 import comparisonsData from "@/data/comparisons.json";
 import { correctCopy } from "@/app/help/_corrections";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
 
 type Comparison = {
   slug: string;
@@ -48,18 +49,14 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ concurrent: string }> }) {
   const { concurrent } = await params;
   const c = comparisons.find((x) => x.slug === concurrent);
-  if (!c) return { title: "Vergelijking niet gevonden" };
-  return {
-    title: `WasFix Pro vs ${c.competitor} — eerlijke vergelijking`,
-    description: `${c.tagline} ${c.intro.slice(0, 110)}`,
-    alternates: { canonical: `/vs/${c.slug}` },
-    openGraph: {
-      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
-      title: `WasFix Pro vs ${c.competitor}`,
-      description: c.tagline,
-      type: "article",
-    },
-  };
+  if (!c) return { title: "Vergelijking niet gevonden", robots: robotsMeta(false, true) };
+  return pageMetadata({
+    title: pageTitle(`WasFix Pro vs ${c.competitor} — eerlijke vergelijking`, `WasFix Pro vs ${c.competitor}`),
+    // Tagline and the start of the intro, both printed on the page; cut at a word boundary (it used to cut mid-word).
+    description: pageDescription(`${c.tagline} ${c.intro}`),
+    path: `/vs/${c.slug}`,
+    type: "article",
+  });
 }
 
 export default async function VsPage({ params }: { params: Promise<{ concurrent: string }> }) {
@@ -100,22 +97,22 @@ export default async function VsPage({ params }: { params: Promise<{ concurrent:
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13, minWidth: 600 }}>
                 <thead>
                   <tr style={{ background: "var(--surf-2)" }}>
-                    <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>Onderwerp</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", fontWeight: 500, color: "var(--acc-2)" }}>WasFix Pro</th>
-                    <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>{c.competitor}</th>
+                    <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 500 }}>Onderwerp</th>
+                    <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 500, color: "var(--acc-2)" }}>WasFix Pro</th>
+                    <th style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)", fontWeight: 500 }}>{c.competitor}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {c.winsTable.map((row, i) => (
                     <tr key={i}>
-                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", color: "var(--text)", fontWeight: 500 }}>
+                      <td style={{ padding: "12px", borderBottom: "1px solid var(--line)", color: "var(--text)", fontWeight: 500 }}>
                         {row.topic}
                       </td>
-                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", color: "var(--text-2)", background: row.winner === "us" ? "rgba(60,200,140,0.06)" : "transparent" }}>
+                      <td style={{ padding: "12px", borderBottom: "1px solid var(--line)", color: "var(--text-2)", background: row.winner === "us" ? "rgb(var(--ok-rgb) / 0.06)" : "transparent" }}>
                         {row.winner === "us" && <span style={{ color: "var(--ok)", marginRight: 6 }}>✓</span>}
                         {row.us}
                       </td>
-                      <td style={{ padding: "12px", borderBottom: "1px solid var(--border)", color: "var(--text-2)", background: row.winner === "them" ? "rgba(60,200,140,0.06)" : "transparent" }}>
+                      <td style={{ padding: "12px", borderBottom: "1px solid var(--line)", color: "var(--text-2)", background: row.winner === "them" ? "rgb(var(--ok-rgb) / 0.06)" : "transparent" }}>
                         {row.winner === "them" && <span style={{ color: "var(--ok)", marginRight: 6 }}>✓</span>}
                         {row.them}
                       </td>
@@ -146,7 +143,7 @@ export default async function VsPage({ params }: { params: Promise<{ concurrent:
           </section>
 
           {/* Verdict */}
-          <div style={{ padding: 24, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 12, marginBottom: 24 }}>
+          <div style={{ padding: 24, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 12, marginBottom: 24 }}>
             <div className="eyebrow" style={{ marginBottom: 8 }}>Ons oordeel</div>
             <p style={{ color: "var(--text)", lineHeight: 1.7, fontSize: 15, margin: 0 }}>{c.verdict}</p>
           </div>
@@ -171,13 +168,13 @@ function ScoreCard({ label, value, highlight }: { label: string; value: number; 
     <div
       style={{
         padding: "20px 16px",
-        background: highlight ? "linear-gradient(135deg, rgba(79,140,255,0.12), rgba(0,212,255,0.08))" : "var(--surf-2)",
-        border: highlight ? "1px solid var(--acc-2)" : "1px solid var(--border)",
+        background: highlight ? "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.12), rgb(var(--acc2-rgb) / 0.08))" : "var(--surf-2)",
+        border: highlight ? "1px solid var(--acc-2)" : "1px solid var(--line)",
         borderRadius: 12,
         textAlign: "center",
       }}
     >
-      <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+      <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
       <div style={{ fontSize: 36, fontWeight: 300, color: highlight ? "var(--acc-2)" : "var(--text)", letterSpacing: "-0.03em" }}>{value}</div>
     </div>
   );

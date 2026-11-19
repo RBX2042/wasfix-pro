@@ -1,9 +1,10 @@
 import WasFixHome from "@/components/redesign/WasFixHome";
 import { dbParts, dbErrorCodes, dbStats } from "@/lib/static-db";
-import { formatEur } from "@/lib/utils";
-import { SHIPPING } from "@/lib/plans";
-import { catalogStats, formatCount } from "@/lib/catalog-stats";
-import { absoluteUrl } from "@/lib/site-url";
+import { PLANS } from "@/lib/plans";
+import { catalogStats } from "@/lib/catalog-stats";
+import { publicCompany } from "@/lib/company";
+import { pageMetadata, pageTitle } from "@/lib/seo";
+import { ldJson, organizationLd, websiteLd } from "@/lib/json-ld";
 
 // Cached instead of force-dynamic: nothing on this page is per visitor (the cart
 // and the account menu are client-side), so every ad click used to cost a function
@@ -12,30 +13,17 @@ import { absoluteUrl } from "@/lib/site-url";
 // otherwise it is at most 60 seconds old.
 export const revalidate = 60;
 
-export const metadata = {
-  // absolute: the root template would append " · WasFix Pro" to a title that
+export const metadata = pageMetadata({
+  // pageTitle returns this as an absolute title: the root template would append " · WasFix Pro" to a title that
   // already starts with the name.
-  title: { absolute: "WasFix Pro — AI wasmachine diagnose en onderdelen" },
-  alternates: { canonical: "/" },
+  title: pageTitle("WasFix Pro — AI wasmachine diagnose en onderdelen"),
+  path: "/",
   // Geen "gemiddeld €140 bespaard": dat bedrag is nooit gemeten. Een
   // besparingsclaim moet onderbouwd kunnen worden (art. 6:193c BW), en wat een
   // reparatie in een concreet geval scheelt rekent de calculator uit.
   description:
     "Foto of foutcode → een eerste AI-diagnose, het waarschijnlijke onderdeel en stap-voor-stap reparatie. Een indicatie, geen zekerheid. Geen voorrijkosten.",
-  openGraph: {
-    title: "WasFix Pro — AI wasmachine diagnose",
-    description: "Eerste AI-diagnose van je wasmachine, het waarschijnlijke onderdeel en stap-voor-stap reparatie.",
-    url: absoluteUrl("/"),
-    siteName: "WasFix Pro",
-    locale: "nl_NL",
-    type: "website",
-  },
-  twitter: {
-    card: "summary_large_image",
-    title: "WasFix Pro — AI wasmachine diagnose",
-    description: "Eerste AI-diagnose van je wasmachine, het waarschijnlijke onderdeel en stap-voor-stap reparatie.",
-  },
-};
+});
 
 export default async function HomePage() {
   // Headline numbers from the live catalogue (database when there is one).
@@ -65,51 +53,25 @@ export default async function HomePage() {
     url: `/foutcodes/${encodeURIComponent(ec.machine.brand)}-${encodeURIComponent(ec.code)}`,
   }));
 
+  // Organization and WebSite are built from what is configured (src/lib/json-ld.ts): the postal address, KvK, VAT
+  // number and e-mail appear only when publicCompany() has them, never as a bare country or a stand-in.
+  // No FAQPage (decision D23): the five questions were not on the page, and two answers promised more than the
+  // terms do ("gratis retour" in every case, "onderdelen blijven 10 jaar beschikbaar" as if it were our promise).
   const jsonLd = [
-    {
-      "@context": "https://schema.org",
-      "@type": "Organization",
+    organizationLd(publicCompany(), {
       name: "WasFix Pro",
-      url: absoluteUrl("/"),
-      logo: absoluteUrl("/icon"),
-      description: "AI-gestuurde wasmachine diagnose en originele onderdelen, voor consumenten en monteurs.",
-      address: { "@type": "PostalAddress", addressCountry: "NL" },
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "WebSite",
-      name: "WasFix Pro",
-      url: absoluteUrl("/"),
-      potentialAction: {
-        "@type": "SearchAction",
-        target: absoluteUrl("/foutcodes?q={search_term_string}"),
-        "query-input": "required name=search_term_string",
-      },
-    },
+      description: "AI-gestuurde wasmachine diagnose en onderdelen, voor consumenten en monteurs.",
+    }),
+    // /foutcodes?q= is a working results page (scripts/qa-seo.ts opens it), so the SearchAction is true.
+    websiteLd({ name: "WasFix Pro", searchPath: "/foutcodes?q={search_term_string}" }),
     {
       "@context": "https://schema.org",
       "@type": "SoftwareApplication",
       name: "WasFix Pro",
       applicationCategory: "UtilitiesApplication",
       operatingSystem: "Web",
-      offers: { "@type": "Offer", price: "0", priceCurrency: "EUR" },
-    },
-    // FAQ schema for homepage — answers Google searches directly
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: [
-        { "@type": "Question", name: "Werkt WasFix Pro voor mijn wasmachine?",
-          acceptedAnswer: { "@type": "Answer", text: `Ja, we ondersteunen alle grote merken: Miele, Bosch, Siemens, Samsung, LG, AEG, Electrolux, Whirlpool, Beko en Indesit. De database bevat ${formatCount(STATS.errorCodes)} foutcodes en ${formatCount(STATS.guides)} reparatiegidsen.` } },
-        { "@type": "Question", name: "Hoeveel kost een diagnose?",
-          acceptedAnswer: { "@type": "Answer", text: "De eerste 3 diagnoses per maand zijn gratis. Voor onbeperkte diagnoses + voordelen: Particulier €4,99/mnd incl. btw of Monteur Pro €29/mnd excl. btw." } },
-        { "@type": "Question", name: "Is mijn wasmachine nog te repareren of moet ik een nieuwe kopen?",
-          acceptedAnswer: { "@type": "Answer", text: "Gebruik onze gratis Repareren-of-Vervangen tool. We berekenen op basis van leeftijd, kosten en levensduur of repareren nog rendabel is. EU Right-to-Repair: onderdelen blijven 10 jaar beschikbaar." } },
-        { "@type": "Question", name: "Hoe snel komt mijn onderdeel?",
-          acceptedAnswer: { "@type": "Answer", text: `We verzenden op werkdagen en je krijgt een track & trace-code zodra je bestelling is verzonden. Verzending kost ${formatEur(SHIPPING.rateEur)} en is gratis vanaf ${formatEur(SHIPPING.freeFromEur)} (verzending binnen Nederland).` } },
-        { "@type": "Question", name: "Geld terug als de diagnose niet klopt?",
-          acceptedAnswer: { "@type": "Answer", text: "30 dagen retourrecht — ook als achteraf blijkt dat het toch een ander onderdeel was. Gratis retour bij defect of fout van onze kant." } },
-      ],
+      // The free plan, nothing more: the paid plans and their prices are on /prijzen.
+      offers: { "@type": "Offer", price: "0", priceCurrency: "EUR", description: `Gratis abonnement: ${PLANS.FREE.diagnosesPerMonth} AI-diagnoses per maand` },
     },
     // NOTE: no AggregateRating/Review markup here. Ratings may only be published
     // once they are backed by verifiable customer reviews (schema.org policy +
@@ -121,7 +83,7 @@ export default async function HomePage() {
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       <WasFixHome
         parts={partItems}

@@ -1,11 +1,12 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { WarrantyCheckClient } from "./client";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Garantie-check wasmachine",
-  description: "Check je fabrieksgarantie + EU Right-to-Repair rechten. Vul merk, model en aankoopdatum in — krijg een complete garantie-timeline.",
-  alternates: { canonical: "/tools/garantie-check" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Garantie-check wasmachine"),
+  description: pageDescription("Check je fabrieksgarantie + EU Right-to-Repair rechten. Vul merk, model en aankoopdatum in — krijg een complete garantie-timeline."),
+  path: "/tools/garantie-check",
+});
 
 export default function WarrantyCheckPage() {
   return (

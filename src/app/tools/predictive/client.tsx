@@ -65,14 +65,14 @@ export function PredictiveClient() {
       <div>
         {/* Overall health */}
         <div style={{
-          background: overall > 70 ? "rgba(60,200,140,0.08)" : overall > 40 ? "rgba(255,170,0,0.08)" : "rgba(255,80,80,0.08)",
+          background: overall > 70 ? "rgb(var(--ok-rgb) / 0.08)" : overall > 40 ? "rgb(var(--warn-rgb) / 0.08)" : "rgb(var(--danger-rgb) / 0.08)",
           border: `1px solid ${overall > 70 ? "var(--ok)" : overall > 40 ? "var(--warn)" : "var(--danger)"}`,
           borderRadius: 12,
           padding: 24,
           marginBottom: 24,
           textAlign: "center",
         }}>
-          <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+          <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
             Algemene health-score
           </div>
           <div style={{ fontSize: 56, fontWeight: 300, color: overall > 70 ? "var(--ok)" : overall > 40 ? "var(--warn)" : "var(--danger)", letterSpacing: "-0.03em", lineHeight: 1 }}>
@@ -88,7 +88,7 @@ export function PredictiveClient() {
           {result.map((r) => {
             const color = r.healthPct > 70 ? "var(--ok)" : r.healthPct > 40 ? "var(--warn)" : "var(--danger)";
             return (
-              <div key={r.category} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 10, padding: "14px 18px" }}>
+              <div key={r.category} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 10, padding: "14px 18px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 8, gap: 12 }}>
                   <div style={{ fontWeight: 500, fontSize: 14 }}>{r.label}</div>
                   <div style={{ fontSize: 16, fontWeight: 500, color, fontVariantNumeric: "tabular-nums" }}>{r.healthPct}%</div>
@@ -108,7 +108,7 @@ export function PredictiveClient() {
         </div>
 
         {/* Top-3 preventive bundle */}
-        <div style={{ background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
+        <div style={{ background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 14, padding: 24, marginBottom: 24 }}>
           <div className="eyebrow" style={{ marginBottom: 8 }}>Preventief bestel-pakket</div>
           <h3 style={{ fontSize: 18, fontWeight: 500, marginBottom: 8 }}>Top 3 onderdelen om eerst aan te pakken</h3>
           <ol style={{ paddingLeft: 22, color: "var(--text-2)", lineHeight: 1.7, fontSize: 14, marginBottom: 16 }}>
@@ -128,7 +128,7 @@ export function PredictiveClient() {
           </div>
         </div>
 
-        <div style={{ padding: 18, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.6 }}>
+        <div style={{ padding: 18, background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 10, fontSize: 12.5, color: "var(--text-2)", lineHeight: 1.6 }}>
           <strong style={{ color: "var(--text)" }}>Hoe komen we aan deze score?</strong><br />
           We combineren je merk en de leeftijd van je machine met de gebruikelijke levensduur per onderdeelcategorie. Dat zijn vuistregels uit de praktijk, geen metingen aan jouw machine en geen eigen onderzoek: zie het als een indicatie van waar slijtage het eerst opduikt. Sommige machines gaan jaren langer mee, andere korter.
         </div>
@@ -137,7 +137,7 @@ export function PredictiveClient() {
   }
 
   return (
-    <form onSubmit={calculate} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 28 }}>
+    <form onSubmit={calculate} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 28 }}>
       <div style={{ display: "grid", gap: 16 }}>
         <div>
           <label style={{ display: "block", fontSize: 13, fontWeight: 500, marginBottom: 6 }}>
@@ -182,7 +182,7 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
   background: "var(--surf-2)",
-  border: "1px solid var(--border)",
+  border: "1px solid var(--field-line)",
   borderRadius: 8,
   color: "var(--text)",
   fontSize: 14,

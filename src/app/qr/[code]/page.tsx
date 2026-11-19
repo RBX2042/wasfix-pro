@@ -1,14 +1,16 @@
 import { WasFixShell, Icon } from "@/components/redesign/SharedLayout";
 import Link from "next/link";
+import { pageTitle, robotsMeta } from "@/lib/seo";
 
 export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   return {
-    title: `Machine ${code} · WasFix Pro`,
+    // The root template adds the brand once (a title that brought its own made it "· WasFix Pro · WasFix Pro").
+    title: pageTitle(`Machine ${code}`),
     description: `Scan-resultaat voor wasmachine QR-code ${code}.`,
-    robots: "noindex", // Per-machine pages — don't index
+    robots: robotsMeta(false, true), // Per-machine pages — don't index
   };
 }
 
@@ -56,7 +58,7 @@ export default async function QRScanPage({ params }: { params: Promise<{ code: s
             </Link>
           </div>
 
-          <div style={{ padding: 18, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12, fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
+          <div style={{ padding: 18, background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 12, fontSize: 13, color: "var(--text-2)", lineHeight: 1.6 }}>
             <strong style={{ color: "var(--text)" }}>Tip:</strong> log in om deze QR-sticker te koppelen aan je machine in /dashboard/wasmachines. Dan zie je je reparatiegeschiedenis + krijg je preventieve onderhoudsmeldingen.
           </div>
 

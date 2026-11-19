@@ -46,7 +46,7 @@ export default async function PackingSlipPage({ params }: { params: Promise<{ id
           <PrintButton />
         </div>
         {!shippable && (
-          <div role="alert" className="mb-4 rounded-lg border-2 border-red-600 bg-red-50 p-4 text-red-800 font-semibold print:border-red-600">
+          <div role="alert" className="mb-4 rounded-lg border-2 border-destructive bg-destructive/10 p-4 text-destructive font-semibold print:border-destructive">
             {order.status === "CANCELLED" ? "GEANNULEERD" : "NIET BETAALD"}: deze bestelling staat op &ldquo;{statusLabel}&rdquo;. Niet inpakken en niet verzenden.
           </div>
         )}
@@ -69,7 +69,7 @@ export default async function PackingSlipPage({ params }: { params: Promise<{ id
               <p>{a.country}</p>
               {order.phone && <p className="text-sm text-muted-foreground mt-1">Tel. {order.phone}</p>}
             </address>
-            {order.customerNote && <p className="mt-3 border-l-4 border-amber-400 pl-3 text-sm"><span className="font-semibold">Opmerking klant:</span> {order.customerNote}</p>}
+            {order.customerNote && <p className="mt-3 border-l-4 border-warning pl-3 text-sm"><span className="font-semibold">Opmerking klant:</span> {order.customerNote}</p>}
           </section>
 
           <table className="w-full text-sm mt-4">

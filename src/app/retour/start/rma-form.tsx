@@ -60,7 +60,7 @@ export function RmaForm({ initialOrder = "", token = "" }: { initialOrder?: stri
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 28 }}>
+    <form onSubmit={handleSubmit} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 28 }}>
       <div style={{ display: "grid", gap: 16 }}>
         <Field label="Bestelnummer of factuurnummer" name="orderId" required defaultValue={initialOrder} placeholder="Bijv. 7K3F9QXA of 2026-00012" help="Het bestelnummer (8 tekens, na het #-teken) staat in je bevestigingsmail en op je bestelpagina; het factuurnummer op je factuur. Gebruik het e-mailadres waarmee je hebt besteld." />
         {token && <input type="hidden" name="token" value={token} />}
@@ -123,12 +123,13 @@ const inputStyle: React.CSSProperties = {
   width: "100%",
   padding: "10px 12px",
   background: "var(--surf-2)",
-  border: "1px solid var(--border)",
+  border: "1px solid var(--field-line)",
   borderRadius: 8,
   color: "var(--text)",
   fontSize: 14,
   fontFamily: "inherit",
-  outline: "none",
+  // No `outline: "none"` here: an inline outline beats every :focus-visible rule of the stylesheet, and a field without a
+  // focus ring cannot be followed by a keyboard user. The browser's own ring shows (scripts/qa-theme.ts part j checks it).
 };
 
 function Field({ label, name, required, type = "text", placeholder, help, defaultValue }: {

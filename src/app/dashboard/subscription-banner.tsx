@@ -41,25 +41,25 @@ export function SubscriptionBanner({ notice, supportEmail = null }: { notice: Ba
     }
   }
 
-  let tone = "border-amber-500/50 bg-amber-50 text-amber-950 dark:bg-amber-950/30 dark:text-amber-100";
+  let tone = "border-warning/50 bg-warning/10 text-foreground";
   let text: string;
   let action: string | null = "Betaalmethode bijwerken";
 
   switch (notice.kind) {
     case "past_due":
       if (notice.lapsed) {
-        tone = "border-rose-500/50 bg-rose-50 text-rose-950 dark:bg-rose-950/30 dark:text-rose-100";
+        tone = "border-destructive/50 bg-destructive/10 text-foreground";
         text = `De betaling voor je ${notice.planName}-abonnement is niet gelukt en de uitstelperiode is voorbij. Je valt daarom terug op Gratis. Werk je betaalmethode bij om ${notice.planName} te herstellen.`;
       } else {
         text = `De laatste betaling voor je ${notice.planName}-abonnement is niet gelukt. Werk je betaalmethode bij${notice.graceEndsAt ? ` vóór ${fmt(notice.graceEndsAt)}` : ""}, anders valt je abonnement terug op Gratis.`;
       }
       break;
     case "payment_required":
-      tone = "border-rose-500/50 bg-rose-50 text-rose-950 dark:bg-rose-950/30 dark:text-rose-100";
+      tone = "border-destructive/50 bg-destructive/10 text-foreground";
       text = `Je ${notice.planName}-abonnement staat open voor betaling en is niet actief. Werk je betaalmethode bij en reken de openstaande factuur af om het te herstellen.`;
       break;
     case "ending":
-      tone = "border-sky-500/50 bg-sky-50 text-sky-950 dark:bg-sky-950/30 dark:text-sky-100";
+      tone = "border-info/50 bg-info/10 text-foreground";
       text = `Je ${notice.planName}-abonnement is opgezegd en loopt af op ${fmt(notice.endsAt)}. Tot die dag houd je alle voordelen; daarna val je terug op Gratis.`;
       action = "Beheer abonnement";
       break;

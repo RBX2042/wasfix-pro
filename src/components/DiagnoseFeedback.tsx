@@ -33,14 +33,14 @@ export function DiagnoseFeedback({ diagnoseId }: { diagnoseId?: string }) {
 
   if (submitted) {
     return (
-      <div style={{ padding: 14, background: "rgba(60,200,140,0.06)", border: "1px solid var(--ok)", borderRadius: 10, textAlign: "center", fontSize: 13 }}>
+      <div style={{ padding: 14, background: "rgb(var(--ok-rgb) / 0.08)", border: "1px solid var(--ok)", borderRadius: 10, textAlign: "center", fontSize: 13 }}>
         🙏 Bedankt voor je feedback — je helpt onze AI beter te worden.
       </div>
     );
   }
 
   return (
-    <div style={{ padding: 16, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 10 }}>
+    <div style={{ padding: 16, background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 10 }}>
       <div style={{ fontSize: 13, fontWeight: 500, marginBottom: 12 }}>
         Was deze diagnose nuttig?
       </div>
@@ -50,8 +50,8 @@ export function DiagnoseFeedback({ diagnoseId }: { diagnoseId?: string }) {
           onClick={() => submit("up")}
           aria-label="Diagnose was nuttig"
           style={{
-            background: rating === "up" ? "rgba(60,200,140,0.15)" : "transparent",
-            border: `1px solid ${rating === "up" ? "var(--ok)" : "var(--border)"}`,
+            background: rating === "up" ? "rgb(var(--ok-rgb) / 0.15)" : "transparent",
+            border: `1px solid ${rating === "up" ? "var(--ok)" : "var(--line)"}`,
             borderRadius: 8,
             padding: "8px 16px",
             cursor: "pointer",
@@ -65,8 +65,8 @@ export function DiagnoseFeedback({ diagnoseId }: { diagnoseId?: string }) {
           onClick={() => submit("down")}
           aria-label="Diagnose was niet nuttig"
           style={{
-            background: rating === "down" ? "rgba(255,80,80,0.15)" : "transparent",
-            border: `1px solid ${rating === "down" ? "var(--danger)" : "var(--border)"}`,
+            background: rating === "down" ? "rgb(var(--danger-rgb) / 0.15)" : "transparent",
+            border: `1px solid ${rating === "down" ? "var(--danger)" : "var(--line)"}`,
             borderRadius: 8,
             padding: "8px 16px",
             cursor: "pointer",
@@ -89,7 +89,7 @@ export function DiagnoseFeedback({ diagnoseId }: { diagnoseId?: string }) {
               width: "100%",
               padding: "10px 12px",
               background: "var(--surf)",
-              border: "1px solid var(--border)",
+              border: "1px solid var(--line)",
               borderRadius: 8,
               color: "var(--text)",
               fontSize: 13,

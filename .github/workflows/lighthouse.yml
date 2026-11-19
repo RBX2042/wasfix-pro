@@ -1,9 +1,26 @@
-name: Lighthouse CI
+name: Lighthouse (by hand)
+
+# By hand only (decision D25). Lab numbers (performance, accessibility, best practices, SEO) for six pages of a DEPLOYED
+# site, as Lighthouse measures them on a GitHub runner: not field data, and not what Google ranks on. It used to run every
+# Monday against https://wasfix.nl while nothing was deployed there; GitHub had already disabled that schedule for
+# inactivity. Run it after a deploy. Nothing is submitted anywhere. This workflow has not been run on GitHub: where it was
+# written there is no network to GitHub or to the site; it was parsed, and its address step was run locally.
 
 on:
-  schedule:
-    - cron: "0 6 * * 1" # Every Monday at 06:00 UTC
   workflow_dispatch:
+    inputs:
+      origin:
+        description: "Site address, e.g. https://wasfix.nl (https, no path). Empty = the repository variable PUBLIC_SITE_URL."
+        type: string
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: lighthouse
+  cancel-in-progress: false
 
 jobs:
   lighthouse:
@@ -11,23 +28,47 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
+      - name: Which site
+        id: site
+        env:
+          # Inputs and variables reach the shell through the environment, never pasted into the script text.
+          INPUT_ORIGIN: ${{ inputs.origin }}
+          VAR_PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+        run: |
+          origin="${INPUT_ORIGIN:-$VAR_PUBLIC_SITE_URL}"
+          origin="${origin%/}"
+          if [ -z "$origin" ]; then
+            echo "::error::Geen adres: vul 'origin' in bij Run workflow (bijvoorbeeld https://wasfix.nl), of zet de repository-variabele PUBLIC_SITE_URL (Settings, Secrets and variables, Actions, Variables). Er is niets gemeten."
+            exit 1
+          fi
+          if ! printf '%s' "$origin" | grep -Eq '^https://[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'; then
+            echo "::error::'$origin' is geen https-adres zonder pad of poort (verwacht bijvoorbeeld https://wasfix.nl). Er is niets gemeten."
+            exit 1
+          fi
+          echo "origin=$origin" >> "$GITHUB_OUTPUT"
+          echo "Lighthouse voor $origin (labmetingen op een GitHub-runner)" >> "$GITHUB_STEP_SUMMARY"
+      # The checkout is what brings lighthouserc.json (Chrome's --no-sandbox, the warn-level category thresholds, the PWA
+      # category off): lhci reads it from the working directory. Read only; nothing is pushed.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
       - name: Install Lighthouse CI
         run: npm install -g @lhci/cli@latest
-      - name: Run Lighthouse on production
-        run: |
-          lhci collect --url=https://wasfix.nl \
-                       --url=https://wasfix.nl/diagnose \
-                       --url=https://wasfix.nl/foutcodes/Bosch-E18 \
-                       --url=https://wasfix.nl/gidsen/koolborstels-motor-vervangen \
-                       --url=https://wasfix.nl/onderdelen/WF-FILTER-09 \
-                       --url=https://wasfix.nl/prijzen
-          lhci assert --preset=lighthouse:recommended
+      - name: Run Lighthouse on the site
         env:
+          SITE: ${{ steps.site.outputs.origin }}
           LHCI_GITHUB_APP_TOKEN: ${{ secrets.LHCI_GITHUB_APP_TOKEN }}
+        run: |
+          lhci collect --url="$SITE" \
+                       --url="$SITE/diagnose" \
+                       --url="$SITE/foutcodes/Bosch-E18" \
+                       --url="$SITE/gidsen/koolborstels-motor-vervangen" \
+                       --url="$SITE/onderdelen/WF-FILTER-09" \
+                       --url="$SITE/prijzen"
+          lhci assert --preset=lighthouse:recommended
       - uses: actions/upload-artifact@v4
         if: always()
         with:

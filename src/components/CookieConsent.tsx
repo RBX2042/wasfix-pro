@@ -50,12 +50,14 @@ const BTN: React.CSSProperties = {
   minWidth: 0,
   minHeight: 44,
   borderRadius: 8,
-  padding: "0 10px",
+  padding: "6px 10px",
   cursor: "pointer",
   fontFamily: "inherit",
   fontSize: 13.5,
   fontWeight: 500,
-  whiteSpace: "nowrap",
+  // Wrap, do not clip: "Mijn keuze opslaan" is wider than a third of a 375 px screen.
+  whiteSpace: "normal",
+  lineHeight: 1.25,
 };
 
 export function CookieConsent() {
@@ -104,25 +106,26 @@ export function CookieConsent() {
         zIndex: 9999,
         maxHeight: "70vh",
         overflowY: "auto",
-        background: "rgba(11, 14, 28, 0.98)",
-        borderTop: "1px solid rgba(255,255,255,0.14)",
+        // Theme tokens, not literals: the banner is on every first visit, in both themes.
+        background: "hsl(var(--popover))",
+        borderTop: "1px solid hsl(var(--input))",
         padding: "10px 14px calc(10px + env(safe-area-inset-bottom))",
-        color: "#e8eefb",
-        boxShadow: "0 -8px 30px -12px rgba(0,0,0,0.6)",
+        color: "hsl(var(--popover-foreground))",
+        boxShadow: "0 -8px 30px -12px hsl(0 0% 0% / 0.35)",
         fontFamily: "var(--font-geist), system-ui, -apple-system, sans-serif",
         fontSize: 12.5,
         lineHeight: 1.45,
       }}
     >
       <div style={{ maxWidth: 760, margin: "0 auto" }}>
-        <p id="consent-desc" style={{ margin: "0 0 8px", color: "rgba(232,238,251,0.8)", fontSize: 12.5 }}>
-          <span id="consent-title" style={{ fontWeight: 600, color: "#fff" }}>Cookies. </span>
+        <p id="consent-desc" style={{ margin: "0 0 8px", color: "hsl(var(--muted-foreground))", fontSize: 12.5 }}>
+          <span id="consent-title" style={{ fontWeight: 600, color: "hsl(var(--foreground))" }}>Cookies. </span>
           Functionele cookies zijn nodig; analytics alleen met jouw toestemming.{" "}
-          <Link href="/cookies" style={{ color: "#7eb3ff", textDecoration: "underline" }}>Meer info</Link>
+          <Link href="/cookies" style={{ color: "hsl(var(--primary))", textDecoration: "underline" }}>Meer info</Link>
         </p>
 
         {expanded && (
-          <div style={{ background: "rgba(255,255,255,0.04)", border: "1px solid rgba(255,255,255,0.08)", borderRadius: 10, padding: "6px 12px", marginBottom: 10 }}>
+          <div style={{ background: "hsl(var(--muted))", border: "1px solid hsl(var(--border))", borderRadius: 10, padding: "6px 12px", marginBottom: 10 }}>
             <label style={{ display: "flex", alignItems: "flex-start", gap: 10, padding: "8px 0", opacity: 0.7 }}>
               <input type="checkbox" checked disabled style={{ marginTop: 2, width: 18, height: 18 }} />
               <span>
@@ -157,27 +160,27 @@ export function CookieConsent() {
         <div style={{ display: "flex", gap: 8 }}>
           <button
             onClick={acceptAll}
-            style={{ ...BTN, background: "linear-gradient(180deg, #5d97ff, #3b7aff)", color: "#fff", border: "1px solid rgba(79,140,255,0.6)" }}
+            style={{ ...BTN, background: "hsl(var(--primary))", color: "hsl(var(--primary-foreground))", border: "1px solid hsl(var(--primary))" }}
           >
             Alles accepteren
           </button>
           <button
             onClick={rejectAll}
-            style={{ ...BTN, background: "rgba(255,255,255,0.08)", color: "#fff", border: "1px solid rgba(255,255,255,0.35)" }}
+            style={{ ...BTN, background: "hsl(var(--secondary))", color: "hsl(var(--secondary-foreground))", border: "1px solid hsl(var(--input))" }}
           >
             Alleen functioneel
           </button>
           {expanded ? (
             <button
               onClick={saveChoices}
-              style={{ ...BTN, background: "transparent", color: "#9cc4ff", border: "1px solid rgba(126,179,255,0.5)" }}
+              style={{ ...BTN, background: "transparent", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary))" }}
             >
               Mijn keuze opslaan
             </button>
           ) : (
             <button
               onClick={() => setExpanded(true)}
-              style={{ ...BTN, flex: "0 0 auto", background: "transparent", color: "rgba(232,238,251,0.85)", border: "1px solid transparent", textDecoration: "underline" }}
+              style={{ ...BTN, flex: "0 0 auto", background: "transparent", color: "hsl(var(--foreground))", border: "1px solid transparent", textDecoration: "underline" }}
             >
               Aanpassen
             </button>

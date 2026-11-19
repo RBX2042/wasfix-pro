@@ -5,6 +5,7 @@ import citiesData from "@/data/cities.json";
 import { catalogStats, formatCount } from "@/lib/catalog-stats";
 import { dbStats } from "@/lib/static-db";
 import { FOOTER_CODES } from "@/components/redesign/footer-links";
+import { indexability, pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
 
 type City = { slug: string; name: string; province: string; population: number };
 const cities = citiesData as City[];
@@ -20,23 +21,18 @@ export const revalidate = 3600;
 export async function generateMetadata({ params }: { params: Promise<{ stad: string }> }) {
   const { stad } = await params;
   const city = cities.find((c) => c.slug === stad);
-  if (!city) return { title: "Stad niet gevonden", robots: { index: false } };
-  return {
-    title: `Wasmachine kapot in ${city.name}? Gratis AI-diagnose`,
-    description: `Wasmachine kapot in ${city.name}? Krijg een gratis AI-diagnose, vind het juiste onderdeel en repareer zelf, of neem de diagnose mee naar je eigen reparateur.`,
-    alternates: { canonical: `/wasmachine-kapot/${city.slug}` },
+  if (!city) return { title: "Stad niet gevonden", robots: robotsMeta(false, true) };
+  return pageMetadata({
+    title: pageTitle(`Wasmachine kapot in ${city.name}? Gratis AI-diagnose`, `Wasmachine kapot in ${city.name}?`),
+    description: pageDescription(`Wasmachine kapot in ${city.name}? Krijg een gratis AI-diagnose, vind het juiste onderdeel en repareer zelf, of neem de diagnose mee naar je eigen reparateur.`),
+    path: `/wasmachine-kapot/${city.slug}`,
     // noindex until each city has content that is its own. The 51 pages were one template
     // (after swapping name, province and population there are 3 distinct bodies), and the
     // title claimed a local service the body denies ("geen eigen monteursnetwerk"). That is
-    // a doorway-page pattern. follow stays on so the links on the page still count.
-    robots: { index: false, follow: true },
-    openGraph: {
-      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
-      title: `Wasmachine reparatie ${city.name}`,
-      description: `Online diagnose en onderdelenwinkel, ook voor inwoners van ${city.name}.`,
-      type: "website",
-    },
-  };
+    // a doorway-page pattern. follow stays on so the links on the page still count. The rule
+    // is src/lib/seo.ts indexability(); the sitemap asks the same function.
+    noindex: !indexability({ kind: "city" }).index,
+  });
 }
 
 export default async function CityPage({ params }: { params: Promise<{ stad: string }> }) {
@@ -109,7 +105,7 @@ export default async function CityPage({ params }: { params: Promise<{ stad: str
               erkenning of keurmerk claimen dat je niet hebt staat op de zwarte
               lijst van bijlage I bij de Richtlijn oneerlijke handelspraktijken
               (art. 6:193g BW), dus staat er nu wat we wél doen. */}
-          <div style={{ padding: 24, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12 }}>
+          <div style={{ padding: 24, background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 12 }}>
             <h2 style={{ fontSize: 20, fontWeight: 500, marginBottom: 10 }}>
               Liever een monteur in {city.name}?
             </h2>
@@ -128,8 +124,8 @@ export default async function CityPage({ params }: { params: Promise<{ stad: str
 
 function Stat({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 10, padding: 14 }}>
-      <div className="mono" style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
+    <div style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 10, padding: 14 }}>
+      <div className="mono" style={{ fontSize: 10, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>{label}</div>
       <div style={{ fontWeight: 500, fontSize: 16 }}>{value}</div>
     </div>
   );

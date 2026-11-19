@@ -605,7 +605,10 @@ async function main() {
     check(rRandom.status === 415, "200 random bytes labelled image/png are rejected (415), not diagnosed", `random bytes: ${rRandom.status}`);
     const rNoModel = await photoReq(jpeg, "203.0.113.21");
     const bNoModel = await rNoModel.json();
-    check(rNoModel.status === 503 && /foto kon niet worden beoordeeld/i.test(bNoModel.error) && !/E18|Bosch|78/.test(JSON.stringify(bNoModel)), "A real photo without a model: 503 'foto kon niet worden beoordeeld', no invented Bosch E18", `no-model photo: ${rNoModel.status} ${JSON.stringify(bNoModel).slice(0, 160)}`);
+    // The old route's canned answer was "Bosch E18, 78%". apiError adds the response time (`timestamp`, an ISO string), whose
+    // milliseconds contain "78" in about 2% of runs; it is left out of the search, and 78 must stand alone, as in "78%".
+    const { timestamp: _noModelTime, ...noModelContent } = bNoModel as Record<string, unknown>;
+    check(rNoModel.status === 503 && /foto kon niet worden beoordeeld/i.test(bNoModel.error) && !/E18|Bosch|\b78\b/.test(JSON.stringify(noModelContent)), "A real photo without a model: 503 'foto kon niet worden beoordeeld', no invented Bosch E18", `no-model photo: ${rNoModel.status} ${JSON.stringify(bNoModel).slice(0, 240)}`);
     check((await usedOf("diagnose", anonKey("203.0.113.21"))) === 0 && (await usedOf("diagnose-calls", anonKey("203.0.113.21"))) === 0, "...and costs no quota", "photo without a model consumed quota");
     const big = Buffer.concat([jpeg, Buffer.alloc(core.MAX_IMAGE_BYTES, 1)]);
     const rBig = await photoReq(big, "203.0.113.22");

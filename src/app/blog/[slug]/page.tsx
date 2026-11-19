@@ -3,7 +3,8 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import postsData from "@/data/blog-posts.json";
 import { correctCopy } from "@/app/help/_corrections";
-import { absoluteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { articleLd as buildArticleLd, ldJson } from "@/lib/json-ld";
 
 type Post = { slug: string; category: string; title: string; summary: string; readTime: number; publishedAt: string; heroEmoji: string; content: string };
 const posts = (postsData as Post[]).map((p) => ({ ...p, title: correctCopy(p.title), summary: correctCopy(p.summary), content: correctCopy(p.content) }));
@@ -15,19 +16,15 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }) {
   const { slug } = await params;
   const post = posts.find((p) => p.slug === slug);
-  if (!post) return { title: "Artikel niet gevonden" };
-  return {
-    title: `${post.title} · Blog`,
-    description: post.summary,
-    alternates: { canonical: `/blog/${post.slug}` },
-    openGraph: {
-      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
-      title: post.title,
-      description: post.summary,
-      type: "article",
-      publishedTime: post.publishedAt,
-    },
-  };
+  if (!post) return { title: "Artikel niet gevonden", robots: robotsMeta(false, true) };
+  return pageMetadata({
+    title: pageTitle(`${post.title} · Blog`, post.title),
+    description: pageDescription(post.summary, "Een artikel van WasFix Pro over wasmachines repareren en onderhouden."),
+    path: `/blog/${post.slug}`,
+    type: "article",
+    // The page prints this date under the title.
+    publishedTime: post.publishedAt,
+  });
 }
 
 // Same minimal renderer as help/[slug]
@@ -97,13 +94,13 @@ function renderMarkdown(md: string) {
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
               <thead>
                 <tr style={{ background: "var(--surf-2)" }}>
-                  {headers.map((h, hi) => <th key={hi} style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>{renderInline(h)}</th>)}
+                  {headers.map((h, hi) => <th key={hi} style={{ padding: "10px 12px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>{renderInline(h)}</th>)}
                 </tr>
               </thead>
               <tbody>
                 {bodyRows.map((row, ri) => (
                   <tr key={ri}>
-                    {row.map((c, ci) => <td key={ci} style={{ padding: "10px 12px", borderBottom: "1px solid var(--border)", color: "var(--text-2)" }}>{renderInline(c)}</td>)}
+                    {row.map((c, ci) => <td key={ci} style={{ padding: "10px 12px", borderBottom: "1px solid var(--line)", color: "var(--text-2)" }}>{renderInline(c)}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -141,28 +138,22 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
 
   const related = posts.filter((p) => p.slug !== slug).slice(0, 3);
 
-  const articleLd = {
-    "@context": "https://schema.org",
-    "@type": "Article",
+  // The page prints the date under the title; author and publisher are the organisation (no invented person).
+  const articleLd = buildArticleLd({
     headline: post.title,
     description: post.summary,
-    articleSection: post.category,
+    path: `/blog/${post.slug}`,
+    section: post.category,
     datePublished: post.publishedAt,
-    author: { "@type": "Organization", name: "WasFix Pro" },
-    publisher: {
-      "@type": "Organization",
-      name: "WasFix Pro",
-      logo: { "@type": "ImageObject", url: absoluteUrl("/icon") },
-    },
-  };
+  });
 
   return (
     <WasFixShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(articleLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(articleLd) }} />
       <section className="section" style={{ paddingTop: 56 }}>
         <div className="container" style={{ maxWidth: 800 }}>
-          <nav style={{ fontSize: 13, color: "var(--muted)", marginBottom: 16 }}>
-            <Link href="/blog" style={{ color: "var(--muted)" }}>Blog</Link>
+          <nav style={{ fontSize: 13, color: "var(--mute)", marginBottom: 16 }}>
+            <Link href="/blog" style={{ color: "var(--mute)" }}>Blog</Link>
             <span style={{ margin: "0 6px" }}>›</span>
             <span style={{ color: "var(--text-2)" }}>{post.category}</span>
           </nav>
@@ -180,7 +171,7 @@ export default async function BlogPostPage({ params }: { params: Promise<{ slug:
           </h1>
           <p className="lead" style={{ marginBottom: 36 }}>{post.summary}</p>
 
-          <article style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: "28px 32px" }}>
+          <article style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: "28px 32px" }}>
             {renderMarkdown(post.content)}
           </article>
 

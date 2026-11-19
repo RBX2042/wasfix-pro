@@ -3,15 +3,16 @@ import Link from "next/link";
 import { PLAN_API_HOURLY_BURST, PLAN_API_MONTHLY_CALLS } from "@/lib/api-auth";
 import { PLANS, type PlanId } from "@/lib/plans";
 import { siteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
 // The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
 const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
-export const metadata = {
-  title: "API Documentatie — Public REST API · WasFix Pro",
-  description: "REST API voor diagnose, onderdelen-lookup en foutcode-lookup. Voor monteurs en eigen integraties. Inclusief limieten per plan.",
-  alternates: { canonical: "/api-docs" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("API-documentatie voor diagnose en onderdelen"),
+  description: pageDescription("REST API voor diagnose, onderdelen-lookup en foutcode-lookup. Voor monteurs en eigen integraties. Inclusief limieten per plan."),
+  path: "/api-docs",
+});
 
 // The limits are the constants the API enforces (src/lib/api-auth.ts), not
 // numbers typed here: a page that promised 1.000 calls per hour while the code
@@ -141,7 +142,7 @@ export default function ApiDocsPage() {
             <h2 className="h-section" style={{ fontSize: 22, marginBottom: 16 }}>
               Quick start
             </h2>
-            <div style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 12, padding: 18 }}>
+            <div style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 12, padding: 18 }}>
               <pre className="mono" style={{ fontSize: 12.5, color: "var(--text-2)", overflowX: "auto", lineHeight: 1.7, margin: 0 }}>
 {`# 1. Get your API key
 #    → /dashboard/api-keys (Monteur Pro of Bedrijf)
@@ -179,7 +180,7 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
               <li><strong style={{ color: "var(--text)" }}>Custom header</strong>: <code className="mono" style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>X-API-Key: wf_live_XXXX</code></li>
               <li><strong style={{ color: "var(--text)" }}>Query parameter</strong> (alleen voor browser-test): <code className="mono" style={{ background: "var(--surf-2)", padding: "1px 6px", borderRadius: 3 }}>?api_key=wf_live_XXXX</code></li>
             </ol>
-            <div style={{ marginTop: 16, padding: 14, background: "rgba(255,170,0,0.06)", border: "1px solid var(--warn)", borderRadius: 8 }}>
+            <div style={{ marginTop: 16, padding: 14, background: "rgb(var(--warn-rgb) / 0.06)", border: "1px solid var(--warn)", borderRadius: 8 }}>
               <div style={{ fontWeight: 500, fontSize: 13, marginBottom: 4 }}>⚠ Bewaar je API key veilig</div>
               <div style={{ color: "var(--text-2)", fontSize: 12.5, lineHeight: 1.55 }}>
                 Geen versie in git commits. Geen client-side JavaScript. Gebruik environment variables in je backend.
@@ -194,11 +195,11 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
             </h2>
             <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
               {ENDPOINTS.map((ep, i) => (
-                <article key={i} style={{ background: "var(--surf)", border: "1px solid var(--border)", borderRadius: 12, padding: 22 }}>
+                <article key={i} style={{ background: "var(--surf)", border: "1px solid var(--line)", borderRadius: 12, padding: 22 }}>
                   <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 10, flexWrap: "wrap" }}>
                     <span className="mono" style={{
                       padding: "3px 9px",
-                      background: ep.method === "GET" ? "rgba(60,200,140,0.12)" : "rgba(79,140,255,0.12)",
+                      background: ep.method === "GET" ? "rgb(var(--ok-rgb) / 0.12)" : "rgb(var(--acc-rgb) / 0.12)",
                       color: ep.method === "GET" ? "var(--ok)" : "var(--acc-2)",
                       borderRadius: 5,
                       fontSize: 11,
@@ -215,11 +216,11 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
 
                   {ep.body !== "n/a (GET)" && ep.body !== "n/a" && (
                     <>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Request body</div>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Request body</div>
                       <pre className="mono" style={{ fontSize: 11.5, color: "var(--text-2)", background: "var(--surf-2)", padding: 12, borderRadius: 8, overflowX: "auto", marginBottom: 12, lineHeight: 1.55 }}>{ep.body}</pre>
                     </>
                   )}
-                  <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Response 200</div>
+                  <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>Response 200</div>
                   <pre className="mono" style={{ fontSize: 11.5, color: "var(--text-2)", background: "var(--surf-2)", padding: 12, borderRadius: 8, overflowX: "auto", margin: 0, lineHeight: 1.55 }}>{ep.response}</pre>
                 </article>
               ))}
@@ -238,17 +239,17 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
               <thead>
                 <tr style={{ background: "var(--surf-2)" }}>
-                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Plan</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Calls per maand</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Calls per uur (alle endpoints samen)</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Plan</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Calls per maand</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Calls per uur (alle endpoints samen)</th>
                 </tr>
               </thead>
               <tbody>
                 {LIMITS.map((l) => (
                   <tr key={l.name}>
-                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontWeight: 500 }}>{l.name}</td>
-                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", color: "var(--text-2)" }}>{nl(l.monthly)}</td>
-                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", color: "var(--text-2)" }}>{nl(l.hourly)}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", fontWeight: 500 }}>{l.name}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--text-2)" }}>{nl(l.monthly)}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--text-2)" }}>{nl(l.hourly)}</td>
                   </tr>
                 ))}
               </tbody>
@@ -266,8 +267,8 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
             <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13.5 }}>
               <thead>
                 <tr style={{ background: "var(--surf-2)" }}>
-                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Status</th>
-                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Betekenis</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Status</th>
+                  <th style={{ padding: "10px 14px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Betekenis</th>
                 </tr>
               </thead>
               <tbody>
@@ -283,8 +284,8 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
                   ["502", "Upstream service unavailable (bv. Gemini API)"],
                 ].map(([code, meaning]) => (
                   <tr key={code}>
-                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", fontWeight: 500 }} className="mono">{code}</td>
-                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--border)", color: "var(--text-2)" }}>{meaning}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", fontWeight: 500 }} className="mono">{code}</td>
+                    <td style={{ padding: "10px 14px", borderBottom: "1px solid var(--line)", color: "var(--text-2)" }}>{meaning}</td>
                   </tr>
                 ))}
               </tbody>
@@ -292,7 +293,7 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
           </section>
 
           {/* CTA */}
-          <div style={{ padding: 28, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 14, textAlign: "center" }}>
+          <div style={{ padding: 28, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 14, textAlign: "center" }}>
             <h2 style={{ fontSize: 20, fontWeight: 500, marginBottom: 8 }}>Klaar om te integreren?</h2>
             <p className="muted" style={{ marginBottom: 18, fontSize: 13.5 }}>
               Monteur Pro €29/mnd excl. btw — {nl(LIMITS[0].monthly)} calls per maand inbegrepen. Bedrijf €199/mnd excl. btw — {nl(LIMITS[1].monthly)} calls per maand. Is je maandtegoed op, dan antwoordt de API met HTTP 429 tot de periode is verlopen; er is geen betaald bijkopen. Meer nodig? Neem contact op.
@@ -310,7 +311,7 @@ curl -X POST -H "Authorization: Bearer wf_live_YOUR_KEY" \\
 
 function Meta({ label, value }: { label: string; value: string }) {
   return (
-    <div style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 6, padding: "4px 10px", fontSize: 11.5 }}>
+    <div style={{ background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 6, padding: "4px 10px", fontSize: 11.5 }}>
       <span className="muted" style={{ marginRight: 6 }}>{label}:</span>
       <span style={{ fontWeight: 500 }}>{value}</span>
     </div>

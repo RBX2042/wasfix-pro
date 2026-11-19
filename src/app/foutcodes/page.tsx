@@ -8,16 +8,24 @@ import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Search, AlertCircle, ChevronRight } from "lucide-react";
 import { formatCount } from "@/lib/catalog-stats";
+import { LIST_FILTER_PARAMS, listMetadata, pageDescription, pageTitle } from "@/lib/seo";
 
 // Not force-dynamic: the reads are tagged cache entries. The page renders per request
 // only because it reads searchParams.
 
-export const metadata = {
-  title: "Foutcodes database: alle wasmachine fouten",
-  description:
-    "Zoek de foutcode van je wasmachine (Bosch, Miele, Samsung, LG, AEG en meer) en lees de mogelijke oorzaken en wat je eraan kunt doen.",
-  alternates: { canonical: "/foutcodes" },
-};
+// The unfiltered list is the page. ?q=, ?brand= and ?n= give a different list: noindex,follow, no canonical
+// (src/lib/seo.ts listMetadata); utm_* and the like keep the self-canonical without the query string.
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return listMetadata(
+    {
+      title: pageTitle("Foutcodes database: alle wasmachine fouten"),
+      description: pageDescription("Zoek de foutcode van je wasmachine (Bosch, Miele, Samsung, LG, AEG en meer) en lees de mogelijke oorzaken en wat je eraan kunt doen."),
+      path: "/foutcodes",
+    },
+    await searchParams,
+    LIST_FILTER_PARAMS["/foutcodes"],
+  );
+}
 
 const PAGE_SIZE = 50;
 const MAX_SHOWN = 400;
@@ -98,7 +106,7 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
           95px of horizontal scroll. */}
       <div className="container py-6 md:py-8 grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
         <aside className="min-w-0">
-          <h3 className="font-semibold mb-2 hidden lg:block">Filter op merk</h3>
+          <h2 className="font-semibold mb-2 hidden lg:block">Filter op merk</h2>
           <details className="lg:hidden rounded-md border">
             <summary className="min-h-11 px-3 flex items-center cursor-pointer font-medium text-sm">
               Filter op merk{brand ? `: ${brand}` : ""}
@@ -132,7 +140,7 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
                         <SeverityBadge severity={ec.severity} />
                         {ec.diyFriendly && <Badge variant="success" className="text-[10px]">Zelf oplosbaar</Badge>}
                       </div>
-                      <h3 className="font-heading font-semibold group-hover:text-primary transition-colors">{ec.title}</h3>
+                      <h2 className="font-heading font-semibold group-hover:text-primary transition-colors">{ec.title}</h2>
                       <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{ec.description}</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" aria-hidden="true" />

@@ -73,11 +73,11 @@ const PAGE_CSS = `
 @media (max-width: 980px) { .wasfix-design .diagnose-grid { grid-template-columns: minmax(0, 1fr); } }
 .wasfix-design .chat-input .dz-input { font-size: 16px; min-height: 44px; }
 .wasfix-design .dz-tap { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
-.wasfix-design .dz-part { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--surf-2); border: 1px solid var(--border); border-radius: 8px; }
+.wasfix-design .dz-part { display: flex; flex-direction: column; gap: 10px; padding: 12px; background: var(--surf-2); border: 1px solid var(--line); border-radius: 8px; }
 .wasfix-design .dz-part-actions { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: space-between; }
 .wasfix-design .dz-add { min-height: 44px; padding: 8px 14px; font-size: 13px; }
-.wasfix-design .dz-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--border); color: var(--text-2); }
-.wasfix-design .dz-chip-warn { border-color: rgba(255,170,60,0.5); color: var(--warn); }
+.wasfix-design .dz-chip { display: inline-flex; align-items: center; gap: 6px; padding: 3px 9px; border-radius: 999px; font-size: 11.5px; border: 1px solid var(--line); color: var(--text-2); }
+.wasfix-design .dz-chip-warn { border-color: rgb(var(--warn-rgb) / 0.5); color: var(--warn); }
 .wasfix-design .msg-body { min-width: 0; overflow-wrap: anywhere; }
 `;
 
@@ -400,13 +400,13 @@ export function DiagnoseDark() {
             {quotaReached && (
               <div style={{
                 margin: "0 12px 12px", padding: "14px 16px", borderRadius: 12,
-                border: "1px solid rgba(79,140,255,0.35)",
-                background: "linear-gradient(135deg, rgba(79,140,255,0.10), rgba(0,212,255,0.06))",
+                border: "1px solid rgb(var(--acc-rgb) / 0.35)",
+                background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.10), rgb(var(--acc2-rgb) / 0.06))",
               }}>
                 <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 4 }}>
                   Je gratis diagnoses zijn op
                 </div>
-                <div style={{ fontSize: 12.5, color: "var(--muted)", lineHeight: 1.5, marginBottom: 12 }}>
+                <div style={{ fontSize: 12.5, color: "var(--mute)", lineHeight: 1.5, marginBottom: 12 }}>
                   {quotaReached === "anon"
                     ? "Maak een gratis account om je diagnoses te bewaren, of ga onbeperkt met Particulier."
                     : "Met Particulier stel je onbeperkt vragen, inclusief alle premium reparatiegidsen."}
@@ -466,7 +466,7 @@ export function DiagnoseDark() {
           {/* Result side */}
           <div className="diag-result" ref={resultRef}>
             {!hasResult && messages.length === 0 && (
-              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)" }}>
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--mute)" }}>
                 <Icon name="sparkle" size={32} className="dim" />
                 <p style={{ fontSize: 14, marginTop: 16, lineHeight: 1.55 }}>
                   Begin met chatten. Zodra er genoeg informatie is zie je hier:
@@ -481,7 +481,7 @@ export function DiagnoseDark() {
             )}
 
             {!hasResult && messages.length > 0 && (
-              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--muted)" }}>
+              <div style={{ textAlign: "center", padding: "40px 20px", color: "var(--mute)" }}>
                 {loading || photoBusy ? (
                   <>
                     <span className="typing"><span /><span /><span /></span>
@@ -497,7 +497,7 @@ export function DiagnoseDark() {
               <>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12, flexWrap: "wrap" }}>
                   <div style={{ minWidth: 0, flex: "1 1 200px" }}>
-                    <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--muted)", textTransform: "uppercase" }}>
+                    <div className="mono" style={{ fontSize: 11, letterSpacing: "0.08em", color: "var(--mute)", textTransform: "uppercase" }}>
                       {mode === "fallback" ? "Uit de foutcodedatabase" : "Waarschijnlijke oorzaak"}
                     </div>
                     <div style={{ fontWeight: 500, fontSize: 16, marginTop: 2, overflowWrap: "anywhere" }}>{diagnosis.mainCause}</div>
@@ -509,7 +509,7 @@ export function DiagnoseDark() {
                   </div>
                   {mode !== "fallback" && typeof diagnosis.confidence === "number" && (
                     <div style={{ textAlign: "right" }}>
-                      <div className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>INSCHATTING AI</div>
+                      <div className="mono" style={{ fontSize: 11, color: "var(--mute)" }}>INSCHATTING AI</div>
                       <div style={{ fontSize: 22, fontWeight: 500 }}>{diagnosis.confidence}%</div>
                       <div className="muted" style={{ fontSize: 11 }}>geen meting</div>
                     </div>
@@ -524,7 +524,7 @@ export function DiagnoseDark() {
 
                 {diagnosis.alternativeCauses?.length > 0 && (
                   <div>
-                    <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
+                    <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 8 }}>
                       {mode === "fallback" ? "Mogelijke oorzaken" : "Alternatieve oorzaken"}
                     </div>
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -539,7 +539,7 @@ export function DiagnoseDark() {
                 )}
 
                 {diagnosis.recommendedAction && (
-                  <div style={{ padding: 14, background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 10 }}>
+                  <div style={{ padding: 14, background: "rgb(var(--acc-rgb) / 0.06)", border: "1px solid var(--line-ac)", borderRadius: 10 }}>
                     <div className="mono" style={{ fontSize: 11, color: "var(--acc-2)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 6 }}>
                       {mode === "fallback" ? "Toelichting" : "Voorgestelde eerste stap"}
                     </div>
@@ -551,7 +551,7 @@ export function DiagnoseDark() {
 
             {parts.length > 0 && (
               <div>
-                <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+                <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
                   Onderdelen die je mogelijk nodig hebt
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
@@ -584,7 +584,7 @@ export function DiagnoseDark() {
 
             {guides.length > 0 && (
               <div>
-                <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+                <div className="mono" style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
                   Reparatiegidsen
                 </div>
                 <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
@@ -592,7 +592,7 @@ export function DiagnoseDark() {
                     <Link
                       key={g.id}
                       href={`/gidsen/${g.slug}`}
-                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 12px", minHeight: 44, background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 8, color: "var(--text)" }}
+                      style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 10, padding: "10px 12px", minHeight: 44, background: "var(--surf-2)", border: "1px solid var(--line)", borderRadius: 8, color: "var(--text)" }}
                     >
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontWeight: 500, fontSize: 13, overflowWrap: "anywhere" }}>{g.title}</div>

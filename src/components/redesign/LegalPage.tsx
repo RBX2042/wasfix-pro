@@ -54,8 +54,8 @@ export function LegalPage({
         .legal-content a:hover { color: var(--acc); }
         .legal-content strong { color: var(--text); font-weight: 500; }
         .legal-content .callout {
-          background: rgba(79,140,255,0.06);
-          border: 1px solid var(--border-ac);
+          background: rgb(var(--acc-rgb) / 0.06);
+          border: 1px solid var(--line-ac);
           border-radius: 10px;
           padding: 14px 16px;
           margin: 16px 0;

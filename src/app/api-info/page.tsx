@@ -7,11 +7,17 @@ import { PLAN_API_HOURLY_BURST, PLAN_API_MONTHLY_CALLS } from "@/lib/api-auth";
 import { PLANS, formatPlanPrice } from "@/lib/plans";
 import { apiAccountDailyCalls } from "@/lib/ai-guard";
 import { siteUrl } from "@/lib/site-url";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
 // The docs show the real address of this deployment (NEXT_PUBLIC_APP_URL), not a literal host.
 const SITE = siteUrl() ?? "https://JOUW-DOMEIN";
 
-export const metadata = { title: "API toegang" };
+// It had no description of its own and inherited the site-wide sentence, which /over inherited too.
+export const metadata = pageMetadata({
+  title: pageTitle("API-toegang voor monteurs en bedrijven"),
+  description: pageDescription("Foutcodes, onderdelen en een AI-indicatie van de storing in je eigen applicatie of werkflow: een sleutel per account en duidelijke limieten per abonnement."),
+  path: "/api-info",
+});
 
 const nl = (n: number) => new Intl.NumberFormat("nl-NL").format(n);
 
@@ -37,7 +43,7 @@ export default function ApiPage() {
           <Card>
             <CardContent className="p-5">
               <Zap className="h-5 w-5 text-primary mb-2" />
-              <h3 className="font-heading font-semibold mb-1">AI-diagnose</h3>
+              <h2 className="font-heading font-semibold mb-1">AI-diagnose</h2>
               <p className="text-sm text-muted-foreground">
                 De diagnose duurt zolang het AI-model erover doet; reken op enkele seconden en bouw een time-out in. Het antwoord is een indicatie, geen garantie.
               </p>
@@ -46,14 +52,14 @@ export default function ApiPage() {
           <Card>
             <CardContent className="p-5">
               <Shield className="h-5 w-5 text-primary mb-2" />
-              <h3 className="font-heading font-semibold mb-1">Sleutel per account</h3>
+              <h2 className="font-heading font-semibold mb-1">Sleutel per account</h2>
               <p className="text-sm text-muted-foreground">Bearer-sleutel over HTTPS. Je maakt en trekt sleutels in via je account. Een aanroep die mislukt telt niet mee voor je bundel.</p>
             </CardContent>
           </Card>
           <Card>
             <CardContent className="p-5">
               <BarChart className="h-5 w-5 text-primary mb-2" />
-              <h3 className="font-heading font-semibold mb-1">Duidelijke limieten</h3>
+              <h2 className="font-heading font-semibold mb-1">Duidelijke limieten</h2>
               <p className="text-sm text-muted-foreground">
                 Monteur Pro: {nl(PLAN_API_MONTHLY_CALLS.MONTEUR_PRO)} aanroepen per maand, maximaal {nl(PLAN_API_HOURLY_BURST.MONTEUR_PRO)} per uur.
                 Bedrijf: {nl(PLAN_API_MONTHLY_CALLS.BEDRIJF)} per maand, maximaal {nl(PLAN_API_HOURLY_BURST.BEDRIJF)} per uur.
@@ -64,7 +70,7 @@ export default function ApiPage() {
           <Card>
             <CardContent className="p-5">
               <Code className="h-5 w-5 text-primary mb-2" />
-              <h3 className="font-heading font-semibold mb-1">REST en JSON</h3>
+              <h2 className="font-heading font-semibold mb-1">REST en JSON</h2>
               <p className="text-sm text-muted-foreground">Gewone HTTP-aanroepen met JSON. Er zijn geen SDK&apos;s of OpenAPI-bestand; de velden staan hieronder.</p>
             </CardContent>
           </Card>

@@ -77,7 +77,7 @@ export function ReviewForm({
               onClick={() => setRating(n)}
               aria-label={`${n} ${n === 1 ? "ster" : "sterren"}`}
               className="text-2xl leading-none"
-              style={{ color: n <= rating ? "#f5b643" : "#cbd5e1" }}
+              style={{ color: n <= rating ? "hsl(var(--warning))" : "hsl(var(--input))" }}
             >
               ★
             </button>

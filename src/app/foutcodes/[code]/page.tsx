@@ -7,11 +7,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { PartCard } from "@/components/part-card";
 import { pickArr } from "@/lib/utils";
-import { clipAtWord } from "@/lib/seo-text";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { breadcrumbLd, ldJson } from "@/lib/json-ld";
 import { TrustStrip } from "@/components/trust-strip";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, BookOpen, Sparkles, ChevronRight, Wrench, UserRound } from "lucide-react";
-import { absoluteUrl } from "@/lib/site-url";
 
 // ISR instead of force-dynamic: these 329 pages are the Google entry points and
 // nothing on them depends on the visitor. The catalogue reads underneath are tagged
@@ -38,31 +38,24 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
   const decoded = safeDecode(code);
-  if (decoded === null) return { title: "Foutcode niet gevonden", robots: { index: false } };
+  if (decoded === null) return { title: "Foutcode niet gevonden", robots: robotsMeta(false, true) };
   const [brand, ec] = splitSlug(decoded);
   const errorCode = await dbErrorCode(brand, ec);
   if (!errorCode) {
-    return { title: `${brand} ${ec} foutcode`, robots: { index: false } };
+    return { title: `${brand} ${ec} foutcode`, robots: robotsMeta(false, true) };
   }
-  // No manual " | WasFix Pro": the root title template adds the site name (561 titles
-  // ended "· WasFix Pro · WasFix Pro"). Description cut at a word boundary, not mid-word
-  // plus "...".
-  const title = `${brand} ${ec} foutcode: ${errorCode.title}`;
-  const description = clipAtWord(`${brand} wasmachine toont ${ec}? ${errorCode.description}`, 155);
-  return {
-    title,
-    description,
-    keywords: [
-      `${brand} ${ec}`,
-      `${brand} wasmachine ${ec}`,
-      `foutcode ${ec} oplossen`,
-      `${brand} ${ec} betekenis`,
-      "wasmachine storing",
-      "wasmachine reparatie",
-    ],
-    openGraph: { title, description, type: "article", images: [{ url: "/opengraph-image", width: 1200, height: 630 }] },
-    alternates: { canonical: `/foutcodes/${encodeURIComponent(brand)}-${encodeURIComponent(ec)}` },
-  };
+  const b = errorCode.machine.brand;
+  const c = errorCode.code;
+  // No manual " | WasFix Pro": the root title template adds the site name exactly once. The meaning goes in the
+  // title as far as it fits 60 characters; a long meaning drops first the word "foutcode", then itself (the
+  // description and the h1 carry it). The description is the meaning plus, when that is short, one plain sentence
+  // about what the page offers. Both are cut at a word boundary (src/lib/seo.ts).
+  const title = pageTitle(`${b} ${c} foutcode: ${errorCode.title}`, `${b} ${c}: ${errorCode.title}`, `${b} ${c} foutcode`);
+  const description = pageDescription(
+    `${b} wasmachine toont ${c}? ${errorCode.description}`,
+    "Mogelijke oorzaken, of je het zelf kunt oplossen en welke onderdelen erbij horen.",
+  );
+  return pageMetadata({ title, description, path: `/foutcodes/${encodeURIComponent(b)}-${encodeURIComponent(c)}`, type: "article" });
 }
 
 export default async function ErrorCodeDetailPage({ params }: { params: Promise<{ code: string }> }) {
@@ -109,46 +102,17 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
     publisher: { "@type": "Organization", name: "WasFix Pro" },
   };
 
-  // FAQPage schema — Google shows rich FAQ results
-  const faqLd = {
-    "@context": "https://schema.org",
-    "@type": "FAQPage",
-    mainEntity: [
-      {
-        "@type": "Question",
-        name: `Wat betekent ${errorCode.machine.brand} foutcode ${errorCode.code}?`,
-        acceptedAnswer: { "@type": "Answer", text: `${errorCode.title}. ${errorCode.description}` },
-      },
-      ...(causes.length > 0 ? [{
-        "@type": "Question",
-        name: `Wat zijn de oorzaken van foutcode ${errorCode.code} op een ${errorCode.machine.brand}?`,
-        acceptedAnswer: { "@type": "Answer", text: `De meest voorkomende oorzaken zijn: ${causes.join("; ")}.` },
-      }] : []),
-      {
-        "@type": "Question",
-        name: `Kan ik foutcode ${errorCode.code} zelf oplossen?`,
-        acceptedAnswer: { "@type": "Answer", text: errorCode.diyFriendly
-          ? `Ja, foutcode ${errorCode.code} is in veel gevallen zelf op te lossen. Bekijk de aanbevolen reparatiegids voor stap-voor-stap instructies.`
-          : `Nee, foutcode ${errorCode.code} vereist meestal een professionele monteur omdat het meestal een elektronisch of complex mechanisch probleem betreft.` },
-      },
-    ],
-  };
+  // No FAQPage block (decision D23): its questions and answers were generated for the markup and are not printed
+  // on the page, which Google's FAQ guidelines require. The page's own text (meaning, causes, DIY or monteur)
+  // is what the TechArticle describes.
 
-  const breadcrumbLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Foutcodes", item: absoluteUrl("/foutcodes") },
-      { "@type": "ListItem", position: 2, name: errorCode.machine.brand, item: absoluteUrl(`/merken/${encodeURIComponent(errorCode.machine.brand)}`) },
-      { "@type": "ListItem", position: 3, name: errorCode.code },
-    ],
-  };
+  // The trail the page prints (Foutcodes / Brand Code); the brand step the markup used to add was not shown.
+  const breadcrumb = breadcrumbLd([{ name: "Foutcodes", path: "/foutcodes" }, { name: `${errorCode.machine.brand} ${errorCode.code}` }]);
 
   return (
     <MarketingLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumb) }} />
       <div className="container py-8 max-w-5xl">
         <nav className="text-sm text-muted-foreground mb-4">
           <Link href="/foutcodes" className="hover:text-foreground">Foutcodes</Link>
@@ -192,7 +156,7 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
             <Card>
               <CardContent className="p-6">
                 <h2 className="font-heading text-xl font-semibold mb-4 flex items-center gap-2">
-                  <AlertTriangle className="h-5 w-5 text-amber-500" /> Mogelijke oorzaken
+                  <AlertTriangle className="h-5 w-5 text-warning" /> Mogelijke oorzaken
                 </h2>
                 <ul className="space-y-2.5">
                   {causes.map((c, i) => (
@@ -206,10 +170,10 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
             </Card>
 
             {!errorCode.diyFriendly && (
-              <Card className="border-amber-500/40">
+              <Card className="border-warning/40">
                 <CardContent className="p-6">
                   <h2 className="font-heading text-xl font-semibold mb-3 flex items-center gap-2">
-                    <UserRound className="h-5 w-5 text-amber-600" /> Hiervoor is meestal een monteur nodig
+                    <UserRound className="h-5 w-5 text-warning" /> Hiervoor is meestal een monteur nodig
                   </h2>
                   <p className="text-sm text-muted-foreground mb-3">
                     Deze storing zit vaak in elektronica, de motor of een onderdeel waar je aan de netspanning komt. Repareer je zelf, zet dan eerst de stekker eruit en sluit het water af.
@@ -312,7 +276,7 @@ export default async function ErrorCodeDetailPage({ params }: { params: Promise<
                   <div className="flex justify-between">
                     <dt className="text-muted-foreground">DIY?</dt>
                     <dd className="font-medium flex items-center gap-1">
-                      {errorCode.diyFriendly ? <><CheckCircle2 className="h-3 w-3 text-emerald-500" /> Ja</> : "Monteur"}
+                      {errorCode.diyFriendly ? <><CheckCircle2 className="h-3 w-3 text-success" /> Ja</> : "Monteur"}
                     </dd>
                   </div>
                 </dl>

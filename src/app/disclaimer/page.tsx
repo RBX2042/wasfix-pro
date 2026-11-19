@@ -1,11 +1,12 @@
 import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "DIY Disclaimer",
-  description: "Veiligheidsinstructies en disclaimer voor zelf-reparatie van wasmachines.",
-  alternates: { canonical: "/disclaimer" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("DIY-disclaimer voor zelf repareren"),
+  description: pageDescription("Veiligheidsinstructies en disclaimer voor zelf-reparatie van wasmachines."),
+  path: "/disclaimer",
+});
 
 export default function DisclaimerPage() {
   return (
@@ -14,7 +15,7 @@ export default function DisclaimerPage() {
         Onze reparatiegidsen, AI-diagnose en YouTube-content zijn bedoeld om je te helpen je wasmachine zelf te repareren. Dit kan veel geld en tijd besparen — maar het brengt ook risico&apos;s met zich mee. Lees onderstaande veiligheidsinstructies <strong>altijd</strong> vóór je begint.
       </p>
 
-      <div className="callout" style={{ background: "rgba(255,160,0,0.06)", borderColor: "var(--warn)" }}>
+      <div className="callout" style={{ background: "rgb(var(--warn-rgb) / 0.06)", borderColor: "var(--warn)" }}>
         <strong>⚠️ Veiligheid eerst.</strong> Wasmachines werken op 230V netspanning en bevatten water. Bij verkeerd gebruik kan dit leiden tot elektrocutie, brand, waterschade of letsel. <strong>Twijfel je? Bel een vakman.</strong>
       </div>
 
@@ -80,7 +81,7 @@ export default function DisclaimerPage() {
         <li><strong>Forse waterlekkage:</strong> hoofdkraan water dicht (vaak in de meterkast)</li>
       </ul>
 
-      <p style={{ marginTop: 32, padding: "14px 16px", background: "rgba(79,140,255,0.06)", border: "1px solid var(--border-ac)", borderRadius: 10 }}>
+      <p style={{ marginTop: 32, padding: "14px 16px", background: "rgb(var(--acc-rgb) / 0.06)", border: "1px solid var(--line-ac)", borderRadius: 10 }}>
         <strong>Onthoud:</strong> veel wasmachinestoringen — een verstopt filter, een versleten pomp, een kapot deurslot — zijn goed te doen door iemand met basis-technisch inzicht. Zodra het om netspanning, de motor of de besturingsmodule gaat, is een monteur bellen de verstandige keuze. Wij bemiddelen niet in monteurs en houden geen netwerk van vakmensen bij; die keuze is aan jou.
       </p>
     </LegalPage>

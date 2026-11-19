@@ -63,8 +63,11 @@ jobs:
   database:
     name: Schema + seed + QA suites + smoke (Postgres)
     runs-on: ubuntu-latest
-    # ~5 min build + ~3 min suites + ~2 min browser install; 30 leaves room for a cold runner.
-    timeout-minutes: 30
+    # Measured in a local replay of this job on 4 shared cores (2026-11-19): migrate, seed and the two smokes 30 s, the offline suites
+    # 4 min 50 s, qa-migration and qa-csp 20 s, the build 1 min 20 s, qa-seo 50 s, qa-indexnow 5 s, checkout + storefront + credit
+    # note 1 min 10 s, qa-csp live 30 s, qa-theme 3 min 50 s: about 13.5 min, plus npm ci and the browser install. A 2-core runner
+    # can take about twice that, and qa-seo may wait up to 150 s twice for a deleted test row (D25), so 45 leaves room.
+    timeout-minutes: 45
     needs: lint-typecheck
     services:
       postgres:
@@ -118,9 +121,10 @@ jobs:
         run: npm run money:smoke
 
       - name: Install Chromium (needed before the offline suites, because qa-platform runs its service-worker test in it)
-        # 1.56.1 is the version these scripts were developed against.
+        # 1.63.0 is the version every browser suite was last run against (a local replay of this job, 2026-11-19; D22 item 4,
+        # D25 item 7). They were written against 1.56.1, which could not be run there (no browser of that version).
         run: |
-          npm install --no-save playwright@1.56.1
+          npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
 
       # Every suite below gets its OWN database, copied from a freshly migrated
@@ -157,6 +161,9 @@ jobs:
           suite platform  env QA_REQUIRE_BROWSER=1 npx tsx scripts/qa-platform.ts  || status=1
           suite preflight npx tsx scripts/qa-preflight.ts                          || status=1
           echo "::group::deploy"; npx tsx scripts/qa-deploy.ts || status=1; echo "::endgroup::"  # bundle D: the deploy pipeline (scripts/deploy, deploy.yml) with a fake vercel; no database, so not through suite()
+          # D24: the IndexNow tooling (key file, payload, batches, every refusal, retries, a redirect never followed, hostile sitemaps) against
+          # local fake servers; no database, no network. Its half that needs the production server runs further down.
+          echo "::group::indexnow"; npx tsx scripts/qa-indexnow.ts || status=1; echo "::endgroup::"
           # fix round: the credit note as a document (data half; the HTTP half runs against the server below)
           # and privacy (erasure through both doors, data export, guest orders, newsletter double opt-in).
           # qa-privacy stubs "server-only" itself, so it runs without the react-server condition.
@@ -191,6 +198,25 @@ jobs:
       - name: HTTP smoke test (production build, database)
         run: npm run smoke
 
+      # D23 and D24, before the suites below: qa-checkout creates and deletes catalogue parts, and both of these read the
+      # catalogue through the sitemap. qa-seo crawls the sitemap and a sample of every dynamic family as a crawler would (the
+      # whole sitemap with QA_SEO_FULL=1); no database of its own. D25: headings are strict (one h1, first, no skipped level;
+      # there is no opt-out to set), and it first opens its crawler sample in the Chromium installed above, both themes, before
+      # every crawler fetches the same pages; QA_REQUIRE_SERVER=1 makes a missing browser a failure, not a skip.
+      - name: SEO readiness against the production server
+        env:
+          QA_BASE_URL: http://localhost:3000
+          QA_REQUIRE_SERVER: "1"
+        run: npx tsx scripts/qa-seo.ts
+
+      # The same suite as the offline run above, now with the server half: the IndexNow key file is served as plain text, robots.txt
+      # does not shut it out, the middleware does not touch it, and the tool reads and filters the real sitemap (nothing is sent anywhere).
+      - name: IndexNow key file and the real sitemap against the production server
+        env:
+          QA_BASE_URL: http://localhost:3000
+          QA_REQUIRE_SERVER: "1"
+        run: npx tsx scripts/qa-indexnow.ts
+
       # The two suites that talk to the running server. It is a production build,
       # so the caller is an anonymous guest (demo auth does not exist there).
       # They share the server's database, which is why they come after the
@@ -216,6 +242,16 @@ jobs:
           QA_REQUIRE_BROWSER: "1"
           QA_BASE_URL: http://localhost:3000
         run: npx tsx scripts/qa-csp.ts
+
+      # D22: light by default, the switch to dark, every page legible in both themes at phone, tablet and desktop widths, form-field edges,
+      # focus rings, overlays, a junk stored theme and blocked web storage. Last, because its document check writes a user, a part, an order,
+      # an invoice and a credit note of year 2999 into this job's throw-away database and deletes them again. QA_DEMO_URL is unset, so
+      # the pages behind the login and the packing slip, pick list and work-order invoice print SKIPPED lines (they need a DEMO_MODE server).
+      - name: Theme in both modes against the production server
+        env:
+          QA_REQUIRE_BROWSER: "1"
+          QA_BASE_URL: http://localhost:3000
+        run: npx tsx scripts/qa-theme.ts
 
       - name: Server log
         if: failure()

@@ -1,11 +1,12 @@
 import { WasFixShell } from "@/components/redesign/SharedLayout";
 import { QrStickerClient } from "./client";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "QR sticker generator — voor je wasmachine",
-  description: "Genereer een QR-sticker voor op je wasmachine. Scan om snel naar diagnose, onderdelen en gidsen voor jouw specifieke machine.",
-  alternates: { canonical: "/tools/qr-sticker" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("QR-sticker generator voor je wasmachine"),
+  description: pageDescription("Genereer een QR-sticker voor op je wasmachine. Scan om snel naar diagnose, onderdelen en gidsen voor jouw specifieke machine."),
+  path: "/tools/qr-sticker",
+});
 
 export default function QrStickerPage() {
   return (

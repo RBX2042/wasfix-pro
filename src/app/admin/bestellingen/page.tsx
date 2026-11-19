@@ -72,10 +72,10 @@ export default async function AdminOrdersPage({ searchParams }: { searchParams: 
           <h1 className="font-heading text-2xl font-bold">Bestellingen</h1>
           <p className="text-sm text-muted-foreground">
             {counts["te-verzenden"]} te verzenden · {counts["te-betalen"]} wachten op betaling
-            {counts.overdue > 0 && <span className="text-red-600 font-medium"> ({counts.overdue} te laat)</span>}
-            {counts.shipLate > 0 && <span className="text-amber-600 font-medium"> · {counts.shipLate} betaald en al meer dan 2 dagen niet verzonden</span>}
+            {counts.overdue > 0 && <span className="text-destructive font-medium"> ({counts.overdue} te laat)</span>}
+            {counts.shipLate > 0 && <span className="text-warning font-medium"> · {counts.shipLate} betaald en al meer dan 2 dagen niet verzonden</span>}
             {counts["zonder-factuur"] > 0 && (
-              <span className="text-red-600 font-medium"> · <Link className="underline" href={href("zonder-factuur", "", 1)}>{counts["zonder-factuur"]} betaald zonder factuur</Link></span>
+              <span className="text-destructive font-medium"> · <Link className="underline" href={href("zonder-factuur", "", 1)}>{counts["zonder-factuur"]} betaald zonder factuur</Link></span>
             )}
           </p>
         </div>
@@ -177,7 +177,7 @@ function OrderCard({ order: o, now }: { order: OrderRow; now: Date }) {
       : "Er wordt een creditnota uitgegeven. Betaal het bedrag zelf per bank terug; dit systeem verstuurt geen geld.";
 
   return (
-    <Card className={overdue ? "border-red-500/50" : ""} data-order={o.id}>
+    <Card className={overdue ? "border-destructive/50" : ""} data-order={o.id}>
       <CardContent className="p-4 space-y-3 min-w-0">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div className="min-w-0 space-y-1">
@@ -214,7 +214,7 @@ function OrderCard({ order: o, now }: { order: OrderRow; now: Date }) {
               <p>{addr.country}</p>
             </address>
             <p className="mt-1 break-words"><a className="underline" href={`mailto:${o.email}`}>{o.email}</a>{o.phone && <> · <a className="underline" href={`tel:${o.phone}`}>{o.phone}</a></>}</p>
-            {o.customerNote && <p className="mt-2 rounded-md bg-amber-50 dark:bg-amber-950/30 p-2 text-sm break-words"><span className="font-medium">Opmerking klant:</span> {o.customerNote}</p>}
+            {o.customerNote && <p className="mt-2 rounded-md bg-warning/10 p-2 text-sm break-words"><span className="font-medium">Opmerking klant:</span> {o.customerNote}</p>}
             {o.vatNumber && <p className="mt-1 text-xs text-muted-foreground">Btw-nummer klant: {o.vatNumber}</p>}
           </div>
 

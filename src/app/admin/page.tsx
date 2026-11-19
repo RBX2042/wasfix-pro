@@ -185,7 +185,7 @@ export default async function AdminPage() {
             ))}
           </div>
           <div className="flex justify-between text-[10px] text-muted-foreground mt-1"><span>{perDay[0]?.date.slice(5)}</span><span>vandaag</span></div>
-          <p className="text-[11px] text-muted-foreground mt-1">Donker = betaald, licht = geplaatst.</p>
+          <p className="text-[11px] text-muted-foreground mt-1">Volle kleur = betaald, gedempte kleur = geplaatst.</p>
         </CardContent>
       </Card>
 
@@ -222,7 +222,7 @@ export default async function AdminPage() {
             />
           </div>
           {margin && margin.estimated.lines + margin.unknownLines > 0 && (
-            <p className="text-xs text-amber-600 mt-4">
+            <p className="text-xs text-warning mt-4">
               {margin.estimated.lines} orderregels hebben alleen een geschatte inkoopprijs en {margin.unknownLines} geen. Zet echte inkoopprijzen met herkomst &ldquo;offerte&rdquo; bij{" "}
               <Link href="/admin/onderdelen" className="underline">onderdelen</Link>. Per onderdeel zie je de winst op{" "}
               <Link href="/admin/economie" className="underline">Economie en btw</Link>.
@@ -253,7 +253,7 @@ export default async function AdminPage() {
           <CardContent className="p-6">
             <h2 className="font-heading text-lg font-semibold mb-1">Omzet (30 dagen)</h2>
             <p className="text-xs text-muted-foreground mb-3">Omzet incl. btw per factuurdatum van betaalde bestellingen, min creditnota&apos;s (zelfde cijfers als het kaartje &ldquo;Omzet incl. btw&rdquo;). De lijn telt facturen.{noInvoice.count > 0 && (
-                <> <Link href="/admin/bestellingen?view=zonder-factuur" className="text-amber-700 underline">{noInvoice.count} betaalde bestelling{noInvoice.count === 1 ? "" : "en"} ({formatEur(noInvoice.grossEur)}) heeft nog geen factuur</Link> en staat dus niet in deze grafiek.</>
+                <> <Link href="/admin/bestellingen?view=zonder-factuur" className="text-warning underline">{noInvoice.count} betaalde bestelling{noInvoice.count === 1 ? "" : "en"} ({formatEur(noInvoice.grossEur)}) heeft nog geen factuur</Link> en staat dus niet in deze grafiek.</>
               )}</p>
             <RevenueChart data={days} />
           </CardContent>
@@ -337,7 +337,7 @@ function MoneyStat({ label, value, hint, accent }: { label: string; value: strin
 function WorkCard({ href, label, value, sub, urgent }: { href: string; label: string; value: number; sub?: string; urgent?: boolean }) {
   return (
     <Link href={href}>
-      <Card className={`hover:border-primary transition-colors h-full ${urgent ? "border-amber-500/60" : ""}`}>
+      <Card className={`hover:border-primary transition-colors h-full ${urgent ? "border-warning/60" : ""}`}>
         <CardContent className="p-4">
           <p className="text-sm text-muted-foreground">{label}</p>
           <p className="font-heading text-3xl font-bold tabular-nums">{value}</p>

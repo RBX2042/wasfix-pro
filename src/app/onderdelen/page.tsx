@@ -13,17 +13,25 @@ import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { Search } from "lucide-react";
+import { LIST_FILTER_PARAMS, listMetadata, pageDescription, pageTitle } from "@/lib/seo";
 
 // No `dynamic = "force-dynamic"`: the catalogue reads below come from the tagged
 // data cache. The page itself is rendered per request only because it reads
 // searchParams (filters live in the URL).
 
-export const metadata = {
-  title: "Wasmachine onderdelen kopen",
-  description:
-    "Reserveonderdelen voor wasmachines van Bosch, Miele, Samsung, LG, AEG en meer: pompen, deursloten, lagers, moederborden en meer. Zoek op naam, SKU, merk of modelnummer.",
-  alternates: { canonical: "/onderdelen" },
-};
+// The unfiltered catalogue is the page. A search, a category, a brand, a sort order or a longer list is a
+// variant: noindex,follow, no canonical (src/lib/seo.ts listMetadata). The description was 168 characters.
+export async function generateMetadata({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
+  return listMetadata(
+    {
+      title: pageTitle("Wasmachine onderdelen kopen"),
+      description: pageDescription("Reserveonderdelen voor wasmachines van Bosch, Miele, Samsung, LG, AEG en meer: pompen, deursloten, lagers en moederborden. Zoek op naam, SKU, merk of modelnummer."),
+      path: "/onderdelen",
+    },
+    await searchParams,
+    LIST_FILTER_PARAMS["/onderdelen"],
+  );
+}
 
 const PAGE_SIZE = 24;
 const MAX_SHOWN = 480;
@@ -67,7 +75,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
   const FilterLinks = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="font-semibold mb-2">Categorieën</h3>
+        <h2 className="font-semibold mb-2">Categorieën</h2>
         <div className="space-y-0.5">
           <Link
             href={href(base, { cat: undefined, n: undefined })}
@@ -88,7 +96,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
         </div>
       </div>
       <div>
-        <h3 className="font-semibold mb-2">Merk</h3>
+        <h2 className="font-semibold mb-2">Merk</h2>
         <div className="space-y-0.5">
           {brands.map((b) => (
             <Link
@@ -211,7 +219,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
             <>
               <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                 {parts.map((p) => (
-                  <PartCard key={p.id} part={p} />
+                  <PartCard key={p.id} part={p} headingLevel={2} />
                 ))}
               </div>
               {parts.length < total && parts.length < MAX_SHOWN && (

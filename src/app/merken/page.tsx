@@ -3,16 +3,16 @@ import { dbMachines } from "@/lib/static-db";
 import { Card, CardContent } from "@/components/ui/card";
 import Link from "next/link";
 import { FOOTER_BRAND_REPAIR } from "@/components/redesign/footer-links";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
 // Cached (tagged catalogue reads) instead of force-dynamic; nothing here is per visitor.
 export const revalidate = 60;
 
-export const metadata = {
-  title: "Wasmachine merken en modellen",
-  description:
-    "Alle merken en modellen in de WasFix-catalogus: kies je merk voor de foutcodes, reparatiegidsen en onderdelen die bij jouw wasmachine horen.",
-  alternates: { canonical: "/merken" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Wasmachine merken en modellen"),
+  description: pageDescription("Alle merken en modellen in de WasFix-catalogus: kies je merk voor de foutcodes, reparatiegidsen en onderdelen die bij jouw wasmachine horen."),
+  path: "/merken",
+});
 
 export default async function MerkenPage() {
   const machines = await dbMachines();
@@ -47,7 +47,7 @@ export default async function MerkenPage() {
                   <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-3">
                     <span className="font-heading font-bold text-xl text-primary">{brand[0]}</span>
                   </div>
-                  <h3 className="font-heading text-lg font-semibold group-hover:text-primary transition-colors">{brand}</h3>
+                  <h2 className="font-heading text-lg font-semibold group-hover:text-primary transition-colors">{brand}</h2>
                   <p className="text-xs text-muted-foreground mt-1">{models.length} {models.length === 1 ? "model" : "modellen"}</p>
                 </CardContent>
               </Card>

@@ -60,6 +60,8 @@ Omgevingsvariabelen: kopieer `.env.example` naar `.env.local`; elke variabele st
 | `npm run smoke` | HTTP-controle tegen `BASE_URL` (standaard localhost:3000) |
 | `npm run preflight` | controle vóór en na de livegang, zie [BLOCKED.md](BLOCKED.md) stap 10 |
 | `npm run qa:csp` · `qa:platform` · `qa:preflight` | controles van de Content-Security-Policy, het platform en het preflight-script |
+| `npm run qa:theme` · `qa:seo` · `qa:indexnow` | thema (licht standaard, schakelaar, contrast in beide thema's op één pagina per sjabloon), SEO (de site gelezen zoals een zoekmachine) en de IndexNow-tooling; `qa:theme` en `qa:seo` hebben een productieserver nodig (`QA_BASE_URL`), zie Thema, SEO en Indexeren |
+| `npm run seo:submit` · `seo:submit:live` | IndexNow: droogloop (leest de sitemap, verstuurt niets) of echte indiening; zie Indexeren |
 | `npx tsx scripts/make-admin.ts <e-mail>` | een e-mailadres beheerder maken (gebruikt `DIRECT_URL`, anders `DATABASE_URL`) |
 | `npm run db:studio` | Prisma Studio |
 
@@ -114,6 +116,105 @@ gebeuren.
 | Data | Statische catalogus, of persistent met `DATABASE_URL` | De database is verplicht |
 
 Elke koppeling gaat aan zodra zijn variabele bestaat; `.env.example` noemt ze allemaal.
+
+## Thema
+
+**Licht is de standaard en is er altijd; donker is een schakelaar** (besluit D22 in [DECISIONS.md](DECISIONS.md)).
+Een eerste bezoek zonder opgeslagen keuze is licht, ook als het besturingssysteem donker is: `defaultTheme="light"`
+in `src/app/layout.tsx`. "Systeem" (volg het apparaat) is een derde, bewuste keuze. De schakelaar is
+`src/components/theme-toggle.tsx` (Licht, Donker, Systeem; toetsenbord, 44 px, focusring) en staat in de kop van
+elke pagina, in het mobiele menu, in de balk onderaan op een telefoon, in de voet en op `/inloggen` en
+`/registreren`. De keuze staat in `localStorage` onder de sleutel `theme` (functioneel, geen toestemming nodig;
+`/cookies` noemt hem), wordt door een klein script in `<head>` (`EARLY_THEME_SCRIPT` in
+`src/components/theme-colors.ts`, door de provider ingevoegd) op `<html>` gezet voordat `<body>` bestaat, dus vóór elke
+paint, en daarna nog eens door het inline script van `next-themes`; ze blijft staan bij herladen en navigeren. Geen flits:
+onderdeel `b2` van de test controleert op vier pagina's dat `.dark` er staat voordat `<body>` bestaat (zonder dat script
+kon Chromium na het laden van de stylesheet een lege lichte pagina tonen, in 5 van 30 keer laden van `/diagnose`). Facturen, creditfacturen, pakbonnen en de sticker
+printen altijd wit met donkere inkt, ook in donker: de donkere tokens gelden niet voor print.
+
+**Een component themen: tokens, geen hex.** Kleuren komen uit `src/app/globals.css` (HSL-tripels per thema,
+beide sets door `scripts/qa-theme.ts` op WCAG-contrast gemeten) en worden gebruikt via Tailwind (`bg-card`,
+`text-muted-foreground`, `border-input`, statuskleuren `text-success`, `bg-warning/10`, `text-destructive`,
+`bg-overlay`, `bg-code`) of `hsl(var(--token))`. De redesign-pagina's (`.wasfix-design`, `wasfix-design.css`) hebben
+een eigen licht en donker palet met variabelen (`--surf-1`, `--text`, `--acc`, ...) en kanalen voor doorzichtige
+mengsels (`rgb(var(--acc-rgb) / 0.08)`). Een kleurliteraal in een component is bijna altijd een fout; de
+uitzonderingen (de logo's op `/pers`, de printsticker, de standalone foutpagina) staan met reden in de bron. 3D en
+grafieken lezen de tokens (`src/components/3d/use-scene-palette.ts`, `hsl(var(--primary))` in recharts).
+`<meta name="theme-color">` volgt de gekozen stand zodra de pagina geladen is, ook na elke navigatie binnen de site
+(Next zet bij elke route-wissel de waarden van de server terug; een waarnemer op `<head>` zet de gekozen kleur weer
+neer); vóór hydratatie en zonder JavaScript volgt de browserbalk de voorkeur van het apparaat (dat kan een
+class-gebaseerde schakelaar niet anders). Op tabletbreedte (640 tot 1180 px) past de kop binnen het scherm: de
+marketingkop staat in één regel en schakelt onder 1120 px naar het menu, de navigatie van de redesign-pagina's zet haar
+links tussen 768 en 940 px op een tweede regel onder de kop (onder 768 px is de balk onderaan de navigatie); `scripts/qa-theme.ts` meet
+dat op 640, 768, 900, 960, 1024, 1100 en 1180 px, licht en donker, en dat de andere pagina's vanuit de kop bereikbaar
+blijven. Op een telefoon (320 tot 480 px) blijft het geopende menu binnen de marges: de kleurkeuze staat onder het
+woord "Thema" en gebruikt de hele breedte, en onder 400 px verdwijnen de pictogrammen van de drie keuzes (de woorden
+blijven); de test meet het geopende menu, de voetschakelaars en het paneel van de balk onderaan.
+Formuliervelden hebben een rand van minstens 3:1 tegen hun ondergrond (`--field-line` in het redesign-palet,
+`--input` in de app-tokens); alleen de zoek- en chatvelden in een eigen balk (`.chat-input`, `.code-search`) hebben
+geen eigen rand en steunen op die balk en op hun knop. Elk veld toont een focusring (geen inline `outline: none`; de test
+focust elk veld en meet het).
+
+**Wat de schakelaar niet mag breken.** Een opgeslagen thema dat de app zelf nooit schrijft (`" dark"`, `"dark light"`: een
+handmatig bewerkte of beschadigde waarde) wordt vóór het laden verwijderd door een klein inline script boven de provider in
+`src/app/layout.tsx` (`STORED_THEME_GUARD_SCRIPT`, `src/components/theme-colors.ts`): `next-themes` zet de ruwe tekst met
+`classList.add()` op `<html>`, en dat gooit bij een spatie, waarna elke pagina "Er is iets misgegaan" zei, bij elke
+volgende keer opnieuw. Een browser die webopslag weigert (sitegegevens geblokkeerd) laat de site licht en bruikbaar: de
+exit-intent-aanbieding (`ExitIntentModal`) toont zich dan niet in plaats van te crashen. Beide worden door onderdeel `k`
+van `scripts/qa-theme.ts` gemeten.
+
+**De 404 van een onbekend onderdeel, artikel of bestelling** (oorzaak uitgezocht, zie D22, niet opnieuw onderzoeken). Een
+onbekende slug op een dynamische route (`/onderdelen/<sku>`, `/blog/<slug>`, `/foutcodes/<code>`, `/bestelling/<id>`, ...)
+roept in de pagina `notFound()` aan. De server-render van React kent geen error boundaries, dus Next 15.5 antwoordt met een
+lege schil: `<html id="__next_error__">`, in `<head>` de metadata van de 404 (met `color-scheme: light`), een lege `<body>`
+(status 404 en noindex kloppen), en de browser bouwt het hele document met React op. De inline scripts van
+`src/app/layout.tsx` draaien daar niet (een `<script>` die React in de browser maakt, wordt nooit uitgevoerd). Een adres
+zonder route (`/dit-bestaat-niet`) heeft dat niet: dat wordt op de server gerenderd. Nagaan: `curl -s
+localhost:3000/onderdelen/bestaat-niet | head -c 200` toont `<html id="__next_error__">`. Gevolg was, voor wie Donker had
+gekozen, bij elke keer laden een wit frame (het lege canvas van de schil, ook bij een donker besturingssysteem) en vaak een
+crèmekleurig frame (de stylesheet kwam binnen voordat er een klasse op `<html>` stond), en "Er is iets misgegaan" bij een
+ongeldige opgeslagen keuze. Wat Next wél in die schil zet, is de HTML die tijdens de mislukte render met
+`useServerInsertedHTML` is aangemeld; daarom zet `src/components/theme-provider.tsx` `EARLY_THEME_SCRIPT` zo in `<head>`
+(van elke pagina, de schil inbegrepen). Daarna: geen wit en geen crème frame meer (0 van 25 keer laden). Onderdelen `b4`
+(vanaf een pagina in hetzelfde thema, met `location.href`, elk frame na de navigatie) en `k` van de test meten het. Wat
+blijft: zonder JavaScript is die 404 een lege witte pagina, en geldt nergens een opgeslagen keuze.
+
+Controle: `npm run qa:theme` (`npx tsx scripts/qa-theme.ts`) draait zonder server de token-, palet-, bedradings- en
+SVG-id-controles en voert het `<head>`-themascript uit tegen een nagebootst document (zonder browser). Met `QA_BASE_URL` (een productieserver) komen de browsercontroles erbij, in de omvang van
+CI op **12 pagina's, één per sjabloon**: home, de onderdelenlijst, één onderdeelpagina, `/diagnose`, de foutcodelijst, één
+foutcodepagina, `/prijzen`, `/merken`, `/blog`, `/contact`, `/privacy` (de enige juridische pagina) en de 404 van een adres
+zonder route. Op die 12: eerste bezoek licht bij een donker besturingssysteem, de schakelaar (kop en voet op 1280 px, balk
+onderaan en mobiel menu op 375 px), geen console- of hydratatiefouten, de contrastsweep van elke zichtbare tekst (ook tekst
+en placeholder van velden) in licht én donker op 375 en 1280 px, niet zijwaarts scrollen op 375 px (donker) en op 640, 768,
+900, 960, 1024, 1100 en 1180 px (beide thema's), en geen id twee keer. Elk op een eigen vaste lijst: geen flits bij Donker
+(home, onderdelenlijst, onderdeelpagina, diagnose: `.dark` voordat `<body>` bestaat), `theme-color` (home, met navigaties), het geopende mobiele menu op 320,
+360, 375, 414, 479, 480 en 768 px (`/onderdelen`; de voetschakelaar ook op `/diagnose`), randen en focusring van
+formuliervelden (11 pagina's, 1280 px), de overlays (cookiebanner, zoekvenster, winkelmand, toast, exit-intent, balk
+onderaan), zeven ongeldige opgeslagen keuzes (home, `/onderdelen`, een onbekend onderdeel) en geblokkeerde webopslag
+(9 pagina's), de 404 van een onbekend onderdeel en een onbekende bestelling bij vijf combinaties van opgeslagen keuze en
+besturingssysteem, telkens na een volledige navigatie vanaf `/privacy` (elk frame op het scherm), en de losse
+foutpagina. Met `DATABASE_URL` ook de factuur en de creditfactuur, geprint met donker ingesteld. `QA_THEME_FULL=1` zet er
+28 pagina's bij (40: gidsen en een gids, een merkpagina, de zes overige juridische pagina's, `/right-to-repair`, de vier tools, `/over`, `/help`,
+`/pers`, `/api-docs`, `/api-info`, `/monteur`, inloggen en registreren, `/upgrade`, `/checkout`, `/retour/start`, een
+vergelijking, een merk-reparatiepagina en een stadspagina), 6 pagina's bij de veldcontrole (17) en 6 routes bij de
+404-controle (8). Alleen met `QA_DEMO_URL` (een server met `DEMO_MODE=true`): dashboard, admin, bestellingen en monteur
+(schakelaar, contrast op 1280 px), 12 privépagina's op 375 px in donker (zijwaarts scrollen), en pakbon, picklijst en
+werkorderfactuur geprint. **Wat de test niet zegt:** dat elke pagina van de site leesbaar is. Er zijn ruim 530 openbare
+adressen (alle foutcodes, onderdelen, gidsen, steden, ...); de test opent er één per sjabloon en gaat ervan uit dat de
+andere pagina's van dat sjabloon dezelfde kleuren gebruiken. Pagina's buiten de lijst, andere breedtes, pictogrammen en
+randen (behalve die van formuliervelden) worden niet op contrast gemeten.
+**`DATABASE_URL` moet een wegwerp- of testdatabase zijn, nooit productie:** de documentcontrole maakt daar een
+gebruiker, een onderdeel, een bestelling, een factuur en een creditfactuur (jaar 2999) aan, en met de demoserver een
+werkorder en eventueel een monteurprofiel, en verwijdert ze aan het eind weer.
+`QA_REQUIRE_BROWSER=1` maakt een overgeslagen deel een fout. Duur op een productiebuild (4 gedeelde kernen, Chromium van
+Playwright 1.63): CI-omvang ongeveer 4 minuten, `QA_THEME_FULL=1` zonder demoserver ongeveer 7 minuten (gemeten terwijl andere
+taken dezelfde kernen gebruikten). De sweep begint op de home pas als het voorbeeldgesprek is uitgespeeld, en een foto telt alleen
+als de scrollpositie tijdens de foto niet veranderde (zie D22, punt 5 van de laatste aanvulling). De aantallen van een volledige run
+zijn alleen vergelijkbaar op een verse kopie van de catalogus: `/gidsen` toont "keer bekeken" pas bij een gids die geopend is.
+Alleen Chromium wordt gedraaid. Op `http://localhost` haalt de test de ene CSP-richtlijn `upgrade-insecure-requests` uit
+document-antwoorden (anders zet Chromium elke subresource om naar https en faalt hij); `scripts/qa-csp.ts` blijft de
+test die het beleid zelf beoordeelt. Niet gecontroleerd (zie D22): Clerk's eigen inlog- en gebruikersmenu in donker,
+Safari en Firefox, en hoe een echte telefoon de browserbalk kleurt.
 
 ## Naar productie
 
@@ -281,8 +382,36 @@ Dubbele opt-in en een werkende, gratis afmelding (`src/lib/newsletter.ts`; Telec
   **onze** afmeldlink als merge-veld (zie `DECISIONS.md` D20): `GET /api/newsletter/afmeldlinks` (ingelogd als beheerder)
   geeft een CSV `email,afmeldlink` van alle abonnees om als contact-eigenschap in de audience te laden. Laad die CSV
   **vóór elke broadcast opnieuw** (het is een momentopname: wie zich daarna bevestigde heeft anders geen link) en laat
-  Resends **eigen** afmeldlink altijd in het sjabloon staan als vangnet. Een afmelding via die eigen link komt **niet** in
-  onze tabel terecht (bekend gat: die lezer telt hier nog mee; of Resend hem zelf niet meer aanschrijft is niet gecontroleerd).
+  Resends **eigen** afmeldlink altijd in het sjabloon staan als vangnet. Een afmelding via die eigen link (en een
+  spamklacht) komt in onze tabel via de webhook hieronder; zonder die webhook niet (dan telt die lezer hier nog mee).
+- **Resend-webhook** (`POST /api/webhooks/resend`, `src/lib/resend-webhook.ts`). Maak in Resend (Webhooks) een endpoint
+  `https://<domein>/api/webhooks/resend` met de gebeurtenissen **`contact.updated`** en **`email.complained`**, en zet het
+  Signing secret (`whsec_…`) in `RESEND_WEBHOOK_SECRET`; deploy opnieuw. Elke levering wordt gecontroleerd volgens Svix
+  (de headers `svix-id`, `svix-timestamp`, `svix-signature`; HMAC-SHA256 over de ruwe body, hoogstens 5 minuten oud of
+  vooruit); zonder (geldig) geheim weigert de route alles met 503, ook lokaal, en een handtekening die niet klopt krijgt
+  400. `contact.updated` met `unsubscribed: true` zet `unsubscribedAt` via hetzelfde pad als onze eigen afmeldlink (de
+  eerste tijd blijft staan; geen PATCH terug naar Resend, die zou een nieuwe `contact.updated` opleveren);
+  `email.complained` meldt elk vermeld adres af dat in onze tabel staat en zet daarna (na het antwoord) het contact op
+  `unsubscribed`, met dezelfde melding aan jou als dat mislukt. Let op: dat geldt voor **elk** adres in `data.to`, niet
+  alleen voor wie klaagde (de gebeurtenis zegt niet wie), en voor een klacht over **elke** mail via je Resend-account:
+  wie een orderbevestiging als spam markeert, is ook van de nieuwsbrief af (bewust de kant van het bezwaar; de mails van
+  de app zelf en een broadcast hebben elk één ontvanger). `unsubscribed: false` meldt **nooit** iemand aan
+  (toestemming komt alleen uit onze dubbele opt-in; onze eigen bevestiging veroorzaakt precies die gebeurtenis); elk
+  ander type en een onbekend adres: 200, niets verandert, hetzelfde antwoord. Kan de tabel niet worden geschreven, dan
+  500, zodat Resend opnieuw levert. Adressen komen nooit in een logregel. Alleen leveringen met een ongeldige
+  handtekening tellen voor de limiet (30 per afzender per uur); zonder geheim telt elke POST zo, het antwoord blijft 503
+  maar de foutregel stopt na 30 per afzender per uur. Een body boven 256 KiB krijgt 413; de route leest nooit verder dan
+  die grens, ook zonder `Content-Length`. Dat begrenst alleen de route zelf: omdat de middleware ook dit pad afhandelt,
+  ontvangt `next start` eerst het hele verzoek (en bewaart daarvan hoogstens 10 MB per kopie, in twee kopieën: een voor
+  de middleware en een voor de route) voordat de route het ziet; op Vercel geldt eerst de verzoeklimiet van het platform
+  (niet vanaf hier geprobeerd). `npm run preflight` waarschuwt als `RESEND_AUDIENCE_ID` is ingesteld zonder
+  `RESEND_WEBHOOK_SECRET`. **Niet vanaf hier gecontroleerd:** de vorm van de gebeurtenissen komt uit
+  de documentatie van Resend (geen echte levering gezien), en dat Resends eigen afmeldlink een `contact.updated` met
+  `unsubscribed: true` oplevert. Controleer het na het instellen zelf: stuur een broadcast naar een eigen proefadres, meld
+  dat af via Resends link en kijk of de rij in `NewsletterSubscriber` een `unsubscribedAt` krijgt (en of de levering in
+  Resend met 200 is beantwoord). Kijk daarna af en toe op de webhookpagina in Resend: een geheim dat niet klopt of een
+  gebeurtenis in een onverwachte vorm geeft bij elke poging 400, en volgens de Svix-documentatie wordt een endpoint dat
+  dagenlang blijft falen uitgeschakeld, waarna ook geldige afmeldingen wegblijven (niet voor Resend gecontroleerd).
 - Het aantal abonnees op `/admin/aanvragen` telt `confirmedAt` gezet én `unsubscribedAt` leeg; daarnaast staat de link naar
   de CSV met afmeldlinks. Accountverwijdering wist de rij en zet daarna het Resend-contact op `unsubscribed` (best effort,
   na het antwoord, nooit een reden om de verwijdering te laten mislukken; het contact zelf blijft bij Resend staan, gevlagd).
@@ -290,7 +419,7 @@ Dubbele opt-in en een werkende, gratis afmelding (`src/lib/newsletter.ts`; Telec
   maakt ze en `sendMail`/`sendRaw` geven ze ongewijzigd door aan de Resend-SDK (sectie 5b van de test ziet ze in wat
   de SDK verstuurt). Dat Resend het veld `headers` ook werkelijk op de mail zet, en of een mailprogramma er zijn eigen
   afmeldknop van maakt, is niet vanaf hier gecontroleerd; de link in de mailtekst werkt altijd.
-- Test: `scripts/qa-privacy.ts` sectie 1 (verwijdering), 5 en 5b (lokale Resend-stand-in via `RESEND_BASE_URL`, dezelfde override als de SDK).
+- Test: `scripts/qa-privacy.ts` sectie 1 (verwijdering), 5 en 5b (lokale Resend-stand-in via `RESEND_BASE_URL`, dezelfde override als de SDK), 5c (de webhook: leveringen ondertekend met het pakket `standardwebhooks`, dat de Svix-methode implementeert).
 
 ## Routes (selectie)
 
@@ -303,12 +432,165 @@ Dubbele opt-in en een werkende, gratis afmelding (`src/lib/newsletter.ts`; Telec
 | `/dashboard/*` `/monteur/*` `/admin/*` | Beveiligd (Clerk) of demo-admin |
 | `/api/v1/*` | B2B REST API (Bearer `wf_live_…`, docs op `/api-docs`) |
 
+## SEO
+
+Zoekmachines krijgen alleen wat waar is, en alles wat niet bij hen hoort blijft buiten beeld. De regels staan op één plek,
+`src/lib/seo.ts` (titels, beschrijvingen, canonical, Open Graph, de lijst privépaden, de indexeerbaarheidsregel) en
+`src/lib/json-ld.ts` (structured data); `DECISIONS.md` D23 legt het waarom vast.
+
+- **Geautomatiseerd.** Elke publieke pagina bouwt zijn metadata met `pageMetadata()`: een eigen titel (hooguit 60 tekens
+  inclusief het merk, dat de template precies één keer toevoegt), een eigen beschrijving van 70 tot 160 tekens, een
+  canonical naar zichzelf zonder query string, en een volledige set Open Graph- en Twitter-tags. De sitemap vraagt
+  dezelfde `indexability()`-functie als de pagina's, dus ze kunnen elkaar niet tegenspreken. `/robots.txt`, de
+  `X-Robots-Tag`-header (`next.config.ts`) en de robots-tag in een `layout.tsx` per privégebied komen uit één lijst,
+  `PRIVATE_PATH_PREFIXES`. Gefilterde varianten van een lijstpagina (`?q=`, `?cat=`, `?brand=`, `?sort=`, `?n=`,
+  `?difficulty=`) zijn `noindex, follow` zonder canonical, en krijgen dezelfde `noindex` ook als `X-Robots-Tag`-header
+  (`variantHeaderRules()`, ook voor `/retour/start?t=` en `/qr/*`), zodat het signaal niet afhangt van hoe de HTML wordt
+  afgeleverd; tracking-parameters (`?utm_*`, `?ref=`) worden niet geblokkeerd en wijzen via de canonical naar het schone
+  adres. Een Vercel-preview of -development krijgt `Disallow: /` en `X-Robots-Tag: noindex, nofollow`. `robots.txt` heeft
+  geen `Allow: /`-regel (toegestaan is de standaard; vóór de Disallow-regels laat hij een parser die de eerste treffer
+  neemt elk privépad als open lezen). De gegenereerde afbeeldingen zonder hash in het adres (`/opengraph-image`, `/icon`,
+  `/apple-icon`, `/icons/*`) krijgen één dag cache in plaats van het jaar `immutable` van `next/og` (`IMAGE_CACHE_CONTROL`).
+  De bestanden in `public/` die geen pagina zijn (`/leadmagnets/*`: de cheatsheet die je voor een e-mailadres krijgt)
+  krijgen `X-Robots-Tag: noindex`, want een bestand kan geen robots-tag dragen (`STATIC_NOINDEX_SOURCES`); het
+  IndexNow-sleutelbestand blijft gewoon leesbaar. `/offline.html` (de offline-pagina van de oude service worker, die niets
+  meer serveerde of linkte) is verwijderd en antwoordt nu 404 met `noindex` (D25). De middleware slaat `.txt` en `.xml` over,
+  zodat `robots.txt`, `sitemap.xml` en dat sleutelbestand bij een crawler aankomen zoals ze zijn. `lastmod` staat in de
+  sitemap alleen bij blogposts (de publicatiedatum die de post toont); een gids heeft alleen het moment waarop hij is
+  geïmporteerd, geen wijzigingsdatum, en krijgt dus geen `lastmod`.
+- **Koppen.** Elke pagina heeft precies één `h1`, als eerste kop, en slaat geen niveau over (`h1` meteen naar `h3` mag niet).
+  De voettekst en de kaarten op lijstpagina's gebruiken `h2`; `PartCard` heeft `headingLevel` (standaard 3, 2 in een raster
+  direct onder de `h1`). Het uiterlijk hangt aan de `className`, niet aan het niveau. `qa-seo` is hier streng, zonder uitzondering.
+- **Taal.** Eén taal (nl-NL) op één domein: `<html lang="nl">`, `og:locale` `nl_NL`, en bewust geen `hreflang` (dat heeft pas
+  zin met een tweede taal die ernaar terugverwijst). Komt er een tweede taal, voeg dan wederzijdse `alternates.languages` en
+  `x-default` toe in `pageMetadata()` (D25).
+- **Crawlers krijgen de metadata in `<head>`.** Een dynamische pagina (leest `searchParams`) laat Next de titel, beschrijving,
+  canonical en robots-tag voor een onbekende client naar `<body>` streamen. Next zet Googlebot niet op de lijst die dit
+  blokkerend krijgt; `next.config.ts` (`htmlLimitedBots`) voegt hem toe aan Next's eigen lijst. Gewone bezoekers houden de
+  gestreamde vorm. Bij een Next-upgrade: `qa-seo` faalt (`crawler-gets-metadata-in-head`) als een crawler hem weer in `<body>` krijgt.
+  Ook als een browser de pagina's eerst heeft laten renderen en cachen: `qa-seo` opent zijn steekproef eerst in Chromium (licht en
+  donker, zoals `qa-theme`) en haalt dezelfde pagina's daarna als elke crawler op (`crawler-after-browser-*`). Gemeten op Next
+  15.5.27 komt de metadata ook dan in `<head>`: een ISR-pagina wordt altijd statisch gerenderd, wie hem ook aanvraagt. Eén run
+  tijdens de integratie faalde hier eens (9 van 153). Nagespeeld gaf dit hetzelfde beeld: een testonderdeel (`QA-THEME-…`) dat een
+  andere suite rechtstreeks in de database had gemaakt en weer verwijderd, terwijl de sitemap het nog noemde; de oude crawlersectie
+  nam "het eerste onderdeel uit de sitemap", zag eerst 200 (nog in de cache) en later 404, en telde dat als misplaatste metadata. Of
+  die ene run precies zo faalde, is niet meer na te gaan (zijn server en logs zijn weg, D25). Nu heet een
+  antwoord dat geen 200 is `crawler-gets-200`, komen de steekproef en de bewust aangebrachte gebreken uit de vaste catalogus, en
+  wacht `qa-seo` bij een 404 die de sitemap of een link nog noemt tot een verse kopie hem niet meer noemt (een NOTE), hooguit
+  150 s (twee cachevensters van 60 s plus marge); noemt hij hem dan nog, dan faalt het (D25). De sitemap wordt hooguit elke 60 s
+  opnieuw gemaakt, het venster van de catalogus (`CATALOG_REVALIDATE_SECONDS`), niet elk uur.
+- **Structured data.** Alleen wat de pagina zelf toont. Product + Offer (prijs en voorraad uit de database, verzendkosten
+  zoals de voorwaarden ze noemen), BreadcrumbList (het kruimelpad dat op de pagina staat), HowTo, Article, Organization
+  en WebSite uit `publicCompany()` (een niet-ingesteld gegeven ontbreekt; geen halfaf adres). Er is bewust geen builder voor
+  `AggregateRating`/`Review` buiten `src/lib/reviews.ts` (alleen goedgekeurde, zichtbare reviews) en geen voor `FAQPage`
+  (alleen voor vragen die de pagina zelf toont). Elk script-blok gaat door `ldJson()`, dat `</script>` in een waarde onschadelijk maakt.
+- **Verificatie.** Optioneel: `GOOGLE_SITE_VERIFICATION` en `BING_SITE_VERIFICATION` (alleen het token) zetten de
+  tags `google-site-verification` en `msvalidate.01`; leeg of ongeldig is geen tag. Gelezen tijdens de build, dus opnieuw deployen.
+- **Controle.** `scripts/qa-seo.ts` leest een draaiende **productie**server zoals een crawler: robots.txt (de privépaden
+  geblokkeerd en niets dat een pagina nodig heeft), de hele sitemap (200, geen noindex, canonical = het adres zelf,
+  geen privépad), alle vaste pagina's en een vaste steekproef van elke dynamische familie (de eerste 3 en elke 12e;
+  `QA_SEO_FULL=1` doet alles, `QA_SEO_SEED=n` schuift het venster), per pagina titel/beschrijving/canonical/h1/Open Graph/
+  afbeeldingen/structured data tegen de zichtbare tekst, de interne links, de pagina's die niet in de index horen
+  (checkout, account, beheer, bestelpagina's, steden, merken zonder catalogus, filtervarianten), het 404-gedrag, de
+  doorverwijzingen, de manifest-iconen (bestandsgrootte = opgegeven grootte), de metadata per crawler (Googlebot in vier
+  vormen, Bingbot, Applebot, de link-preview-bots, ook nadat een browser de pagina's eerst opende), de koppen (één `h1`, geen
+  overgeslagen niveau; de privépagina's, die geen crawler bereikt, gelezen uit de broncode), `lastmod` (alleen blogposts,
+  hun publicatiedatum) en zeventien opzettelijke gebreken die elk door de
+  bijbehorende controle gevonden moeten worden. Zonder server draaien de helper- en bronchecks en de omgevingschecks (robots.ts en
+  `next.config.ts` met `VERCEL_ENV` leeg, `production`, `preview`, `development`). Aanroep:
+  `QA_BASE_URL=http://localhost:3000 npm run qa:seo` (Chromium nodig voor het browser-eerst-deel; zonder Chromium staat er een
+  SKIPPED-regel, met `QA_REQUIRE_SERVER=1` of `QA_REQUIRE_BROWSER=1` is dat een fout). Zet je `CITY_PAGES_INDEXABLE` om (steden-pagina's met eigen
+  tekst), zet dan ook `EXPECT_CITY_PAGES_INDEXABLE` bovenin `scripts/qa-seo.ts` om (de check
+  `city-switch-agrees-with-the-expectation` zegt het als je het vergeet) en link de steden-pagina's ergens vandaan: nu linkt
+  niets naar ze, dus in de sitemap zouden het wezen zijn (`sitemap-page-is-linked-from-somewhere` faalt dan voor alle 51).
+- **Een pagina toevoegen.** Publiek en te indexeren: zet de route in `SITEMAP_STATIC_PATHS` (vast) of laat de sitemap hem uit de
+  gegevens halen (dynamisch), en geef de pagina `export const metadata = pageMetadata({ title: pageTitle("…"), description:
+  pageDescription("…"), path: "/…" })` (dynamisch: `generateMetadata`, met meerdere titelkandidaten van informatief naar kort).
+  Privé of transactioneel: zet het pad in `PRIVATE_PATH_PREFIXES` en voeg een `layout.tsx` met `robotsMeta(false, false)` toe
+  (kopieer `src/app/admin/layout.tsx`). `qa-seo` faalt op een pagina die in geen van beide lijsten staat.
+- **Wat alleen de host kan.** DNS, de www/kaal-doorverwijzing aan de rand, het doorverwijzen van het `*.vercel.app`-adres, het
+  indienen van de sitemap en het verifiëren van het domein bij Google en Bing: zie [BLOCKED.md](BLOCKED.md) stap 2 en 14.
+  Hier is niets ingediend en niets gerankt; er is geen netwerk naar die diensten.
+- **Audits met de hand (na de livegang).** De workflows *SEO audit (by hand)* en *Lighthouse (by hand)* (Actions, *Run workflow*)
+  draaien alleen als jij ze start, nooit op een schema: de site staat nog nergens live. Ze vragen om een adres (`origin`, anders
+  de repository-variabele `PUBLIC_SITE_URL`, anders stoppen ze met een duidelijke melding) en lezen alleen. *SEO audit* draait
+  `scripts/qa-seo.ts` tegen dat adres (met *full*: de hele sitemap) en daarna de preflight-groep `zoekmachines` met `--url`;
+  start hem vanaf de branch die live staat, want `qa-seo` vergelijkt de site met de broncode. Ze zijn hier niet op GitHub gedraaid.
+
+### Indexeren
+
+"Vraag alles aan bij de zoekmachines" bestaat niet als één knop. Dit is wat er is, wat er niet is en in welke volgorde jij het doet
+(besluit D24 in [DECISIONS.md](DECISIONS.md); dezelfde stappen als afvinklijst in [BLOCKED.md](BLOCKED.md), stap 14).
+
+**Eerlijk vooraf.**
+
+- Vanuit deze code is **niets ingediend** bij Google, Bing of IndexNow en niets gerankt: er is geen netwerk naar die diensten
+  en de site staat nergens live. Er is gereedschap, getest tegen lokale nepservers. De eerste echte indiening is die van jou.
+- **Google** heeft geen interface om gewone pagina's in bulk aan te melden. De Indexing API is alleen voor vacatures
+  (`JobPosting`) en livestreams, niet voor deze pagina's. De weg is: het domein verifiëren in Search Console, de sitemap
+  indienen en voor een paar sleutelpagina's met de hand URL-inspectie (URL Inspection, "Indexering aanvragen") gebruiken.
+  **Bing Webmaster Tools** kan een geverifieerde Search Console-property importeren.
+- **IndexNow** meldt een lijst URL's aan Bing, Yandex, Seznam, Naver, Yep en andere deelnemers, niet aan Google (hoogstens
+  10.000 URL's per verzoek). Het is een melding dat de pagina's er zijn, geen garantie dat ze worden opgenomen en niets over ranking.
+- De **sitemap-ping** van Google en van Bing bestaat niet meer. Er is dus niets dat de sitemap "pingt"; `--ping-sitemap-only`
+  legt dat alleen uit en verstuurt niets.
+- Alleen **indexeerbare** URL's gaan mee. De lijst is die van `/sitemap.xml` (die dezelfde `indexability()` vraagt als de
+  pagina's); het script laat daarna zelf nog alles vallen wat op een ander adres staat, een query-string of #-deel heeft,
+  onder een privépad valt, op een noindex-familie staat (de stadspagina's `/wasmachine-kapot/*` en `/qr/*`, dezelfde regels als de
+  `X-Robots-Tag` in `next.config.ts`) of een technisch bestand is (sleutelbestand, robots.txt, sitemap). Wat wegvalt wordt geteld
+  en getoond. Een pagina die alleen via zijn eigen metadata noindex is, buiten die families, kent het script niet: de sitemap
+  noemt er geen en `qa-seo` controleert dat tegen de draaiende site.
+
+**De volgorde, na de livegang.**
+
+1. **Search Console:** verifieer het domein, het liefst als *domeinproperty* met een DNS-TXT-record (dat dekt www, kaal, http en
+   https in één keer en blijft staan). Wil je de meta-tag: zet `GOOGLE_SITE_VERIFICATION` (alleen het token) in Production en
+   deploy opnieuw.
+2. **Sitemap:** dien `https://<domein>/sitemap.xml` in onder Sitemaps.
+3. **Met de hand:** vraag in URL-inspectie indexering aan voor de startpagina en de vijf belangrijkste pagina's (het aantal per dag
+   is beperkt). Meer dan een handvol is niet de bedoeling; de sitemap doet de rest.
+4. **Bing Webmaster Tools:** importeer de site uit Search Console, of verifieer met een DNS-record of `BING_SITE_VERIFICATION`, en
+   dien dezelfde sitemap in.
+5. **IndexNow:** draai eerst de droogloop, dan pas live. Zonder vinkje is de workflow *SEO submit (IndexNow)* (Actions, *Run
+   workflow*) een droogloop, net als `npm run seo:submit -- --origin https://<domein>`: ze lezen de sitemap en tonen de aantallen, de
+   eerste en laatste vijf URL's en het batchplan, en versturen niets. Ze zeggen ook of een live run zou doorgaan. Daarna *live* aanvinken
+   (alleen vanaf `main`), of lokaal met `--live` (`npm run seo:submit:live -- --origin https://<domein>`). Een live run weigert (exitcode 1, niets verstuurd) tenzij het adres een https-domein is
+   (geen localhost, IP-adres, `*.vercel.app` of poort) en `https://<domein>/<sleutel>.txt` de sleutel toont. Een lijst die niet te
+   lezen of leeg is (een lege sitemap, alleen URL's van een ander adres) is exitcode 2, ook in een droogloop: er is dan niets te
+   versturen. Meld daarna alleen wat nieuw, gewijzigd of verwijderd is (`--urls-file`); dezelfde lijst elke dag sturen is niet
+   waar IndexNow voor is. De tool onthoudt niets en draait nergens op een schema.
+6. **Wat je niet doet:** niets indienen voordat de winkel zijn bedrijfsgegevens heeft en de pagina's niet meer "volgt na
+   inschrijving" zeggen, tenzij je die tekst wilt laten indexeren; nooit een staging- of preview-URL indienen; geen
+   "index alles"-diensten die de Indexing API voor andere pagina's gebruiken.
+
+**De sleutel.** `public/<sleutel>.txt` bevat alleen de sleutel (32 hex-tekens, zonder newline) en staat in de repository. Dat is
+zo bedoeld: het protocol laat de zoekmachine de sleutel van de site zelf lezen, dus hij is geen geheim. Het script leest
+`INDEXNOW_KEY`, anders het ene bestand in `public/` waarvan de inhoud zijn eigen naam is; bij nul of meerdere weigert het.
+Het toont de sleutel nooit (alleen de lengte) en het antwoord van een zoekmachine hooguit 300 tekens.
+
+**Afsluitcodes.** 0 klaar (droogloop, of live en elke batch aangenomen); 1 niet uitgevoerd of geweigerd, niets verstuurd; 2 de
+URL-lijst was niet te lezen (sitemap onbereikbaar, doorverwezen, ongeldig of leeg); 3 live en minstens één batch niet aangenomen.
+Bij 429 en serverfouten wacht het script en probeert het hoogstens drie keer opnieuw.
+
+**Controle.** `npm run qa:indexnow` (`npx tsx scripts/qa-indexnow.ts`; geen netwerk, geen database) bewijst de payload, de batches van 10.000, de
+weigeringen en de herhaalpogingen tegen een nep-site en een nepzoekmachine; met `QA_BASE_URL=http://localhost:3000` (een
+productiebuild) leest hij ook het sleutelbestand en de echte sitemap. `npm run preflight -- --env-file … --url https://<domein>`
+heeft een groep `zoekmachines`: robots.txt noemt de sitemap op het publieke adres en sluit niet alles uit, de sitemap is geldig en
+niet leeg, de startpagina heeft geen noindex en een canonical naar het publieke adres, het sleutelbestand antwoordt, en een
+ingestelde verificatietag staat echt in de pagina. Niet ingestelde verificatietokens zijn een waarschuwing, geen blokkade: een
+DNS-TXT-record is een volwaardig alternatief.
+
 ## CI
 
 `.github/workflows/ci.yml`: lint + typecheck (met een informatieve `npm audit`) -> build, en een Postgres-job die
 migreert en seedt, `db:smoke` en `money:smoke` draait, de QA-suites die geen server nodig hebben elk op een eigen
 database (gekopieerd van een verse template, omdat ze testrijen achterlaten en `qa-admin` een schone catalogus
-verwacht), de CSP-controle in Chromium, een productiebuild met de HTTP-smoke, de checkout- en storefront-suites
-tegen die server en de CSP op de echte pagina's. Buiten CI gelaten: de browsersuites die een demo-dev-server
-nodig hebben (`qa-checkout-ui`, `qa-plans-ui`, `qa-storefront-browser`) en `qa-seed`/`qa-migration`, die
-scratch-databases maken. Dit workflow is hier niet op GitHub gedraaid; de stappen zijn lokaal nagelopen.
+verwacht), de IndexNow-tooling (`qa-indexnow`, tegen nepservers), de CSP-controle in Chromium, een productiebuild met de
+HTTP-smoke, daarna tegen die server `qa-seo` (de site gelezen zoals een crawler) en het serverdeel van `qa-indexnow`
+(sleutelbestand en echte sitemap), de checkout- en storefront-suites, de CSP op de echte pagina's en tot slot `qa-theme`
+(licht standaard, de schakelaar, contrast in beide thema's op de 12 pagina's van de lijst onder Thema, in Chromium). `qa-seo` staat vóór de checkout-suite en
+`qa-theme` erna: de checkout-suite maakt en verwijdert catalogusonderdelen die `qa-seo` via de sitemap leest, en de
+documentcontrole van `qa-theme` schrijft tijdelijk een bestelling van het jaar 2999. Buiten CI gelaten: de browsersuites die een demo-dev-server
+nodig hebben (`qa-checkout-ui`, `qa-plans-ui`, `qa-storefront-browser`) en `qa-seed`, dat een scratch-database maakt
+(`qa-migration` doet dat ook en draait wél in CI: de migraties op een gevulde database). Dit workflow is hier niet op GitHub
+gedraaid; de stappen zijn lokaal nagelopen (de hele job "database" en lint + typecheck, met dezelfde env en vlaggen).

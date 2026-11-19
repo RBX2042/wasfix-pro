@@ -3,8 +3,9 @@ import { Canvas, useFrame } from "@react-three/fiber";
 import { OrbitControls, Box, Cylinder, Torus, ContactShadows } from "@react-three/drei";
 import { useRef, Suspense } from "react";
 import * as THREE from "three";
+import { useScenePalette, type ScenePalette } from "./use-scene-palette";
 
-function PartShape({ category }: { category: string }) {
+function PartShape({ category, palette }: { category: string; palette: ScenePalette }) {
   const meshRef = useRef<THREE.Group>(null);
 
   useFrame((state) => {
@@ -14,8 +15,11 @@ function PartShape({ category }: { category: string }) {
   });
 
   const materialProps = { metalness: 0.7, roughness: 0.3 };
-  const color = "#1a6b6b";
-  const accent = "#c94b2a";
+  // Colours come from the theme tokens (use-scene-palette.ts): the part is teal and rust in both themes, and its
+  // grey components are lifted in the dark theme so they do not disappear into the backdrop.
+  const color = palette.primary;
+  const accent = palette.accent;
+  const g = palette.grey;
 
   switch (category) {
     case "PUMP":
@@ -28,7 +32,7 @@ function PartShape({ category }: { category: string }) {
             <meshStandardMaterial color={accent} {...materialProps} />
           </Cylinder>
           <Cylinder args={[0.12, 0.12, 0.5, 8]} position={[0, 0.42, 0]}>
-            <meshStandardMaterial color="#444" {...materialProps} />
+            <meshStandardMaterial color={g(27)} {...materialProps} />
           </Cylinder>
         </group>
       );
@@ -36,10 +40,10 @@ function PartShape({ category }: { category: string }) {
       return (
         <group ref={meshRef}>
           <Torus args={[0.65, 0.1, 12, 48]}>
-            <meshStandardMaterial color="#222" metalness={0.4} roughness={0.7} />
+            <meshStandardMaterial color={g(13)} metalness={0.4} roughness={0.7} />
           </Torus>
           <Torus args={[0.65, 0.06, 8, 48]}>
-            <meshStandardMaterial color="#444" metalness={0.4} roughness={0.6} />
+            <meshStandardMaterial color={g(27)} metalness={0.4} roughness={0.6} />
           </Torus>
         </group>
       );
@@ -64,10 +68,10 @@ function PartShape({ category }: { category: string }) {
       return (
         <group ref={meshRef}>
           <Torus args={[0.7, 0.1, 16, 32]}>
-            <meshStandardMaterial color="#1a1a2e" metalness={0.85} roughness={0.15} />
+            <meshStandardMaterial color={g(13)} metalness={0.85} roughness={0.15} />
           </Torus>
           <Cylinder args={[0.6, 0.6, 0.04, 32]} rotation={[Math.PI / 2, 0, 0]}>
-            <meshPhysicalMaterial color="#4fc3f7" transmission={0.6} thickness={0.5} opacity={0.5} transparent />
+            <meshPhysicalMaterial color={palette.info} transmission={0.6} thickness={0.5} opacity={0.5} transparent />
           </Cylinder>
         </group>
       );
@@ -78,13 +82,13 @@ function PartShape({ category }: { category: string }) {
             <meshStandardMaterial color={color} {...materialProps} />
           </Cylinder>
           <Cylinder args={[0.55, 0.55, 0.1, 24]} position={[0, 0.4, 0]}>
-            <meshStandardMaterial color="#222" metalness={0.6} roughness={0.4} />
+            <meshStandardMaterial color={g(13)} metalness={0.6} roughness={0.4} />
           </Cylinder>
           <Cylinder args={[0.55, 0.55, 0.1, 24]} position={[0, -0.4, 0]}>
-            <meshStandardMaterial color="#222" metalness={0.6} roughness={0.4} />
+            <meshStandardMaterial color={g(13)} metalness={0.6} roughness={0.4} />
           </Cylinder>
           <Cylinder args={[0.08, 0.08, 1.0, 8]}>
-            <meshStandardMaterial color="#777" metalness={0.95} roughness={0.05} />
+            <meshStandardMaterial color={g(47)} metalness={0.95} roughness={0.05} />
           </Cylinder>
         </group>
       );
@@ -95,10 +99,10 @@ function PartShape({ category }: { category: string }) {
             <meshStandardMaterial color={accent} {...materialProps} />
           </Box>
           <Cylinder args={[0.12, 0.12, 0.4, 8]} position={[0.4, 0, 0]} rotation={[0, 0, Math.PI / 2]}>
-            <meshStandardMaterial color="#999" metalness={0.85} />
+            <meshStandardMaterial color={g(60)} metalness={0.85} />
           </Cylinder>
           <Cylinder args={[0.12, 0.12, 0.4, 8]} position={[0, -0.32, 0]}>
-            <meshStandardMaterial color="#999" metalness={0.85} />
+            <meshStandardMaterial color={g(60)} metalness={0.85} />
           </Cylinder>
         </group>
       );
@@ -106,10 +110,10 @@ function PartShape({ category }: { category: string }) {
       return (
         <group ref={meshRef}>
           <Torus args={[0.5, 0.18, 16, 32]}>
-            <meshStandardMaterial color="#888" metalness={0.95} roughness={0.05} />
+            <meshStandardMaterial color={g(53)} metalness={0.95} roughness={0.05} />
           </Torus>
           <Cylinder args={[0.32, 0.32, 0.18, 24]} rotation={[Math.PI / 2, 0, 0]}>
-            <meshStandardMaterial color="#444" metalness={0.85} roughness={0.15} />
+            <meshStandardMaterial color={g(27)} metalness={0.85} roughness={0.15} />
           </Cylinder>
         </group>
       );
@@ -128,11 +132,11 @@ function PartShape({ category }: { category: string }) {
       return (
         <group ref={meshRef}>
           <Box args={[1, 0.06, 0.7]}>
-            <meshStandardMaterial color="#0a4a2a" metalness={0.4} roughness={0.6} />
+            <meshStandardMaterial color={palette.success} metalness={0.4} roughness={0.6} />
           </Box>
           {Array.from({ length: 6 }).map((_, i) => (
             <Box key={i} args={[0.08, 0.08, 0.08]} position={[(i % 3) * 0.25 - 0.25, 0.07, Math.floor(i / 3) * 0.2 - 0.1]}>
-              <meshStandardMaterial color={i % 2 === 0 ? "#000" : "#444"} metalness={0.5} />
+              <meshStandardMaterial color={i % 2 === 0 ? g(0) : g(27)} metalness={0.5} />
             </Box>
           ))}
         </group>
@@ -141,7 +145,7 @@ function PartShape({ category }: { category: string }) {
       return (
         <group ref={meshRef}>
           <Torus args={[0.5, 0.12, 12, 24]}>
-            <meshStandardMaterial color="#222" metalness={0.3} roughness={0.7} />
+            <meshStandardMaterial color={g(13)} metalness={0.3} roughness={0.7} />
           </Torus>
         </group>
       );
@@ -157,14 +161,15 @@ function PartShape({ category }: { category: string }) {
 }
 
 export default function PartViewer3D({ category = "OTHER" }: { category?: string }) {
+  const palette = useScenePalette();
   return (
     <div className="w-full h-72 md:h-96 bg-gradient-to-br from-muted to-muted/50 rounded-xl overflow-hidden border">
       <Canvas camera={{ position: [0, 0, 3], fov: 50 }} dpr={[1, 2]}>
         <ambientLight intensity={0.6} />
         <directionalLight position={[5, 5, 5]} intensity={1} />
-        <directionalLight position={[-5, -5, -5]} intensity={0.3} color="#c94b2a" />
+        <directionalLight position={[-5, -5, -5]} intensity={0.3} color={palette.accent} />
         <Suspense fallback={null}>
-          <PartShape category={category} />
+          <PartShape category={category} palette={palette} />
           <ContactShadows position={[0, -1, 0]} opacity={0.4} scale={4} blur={2} />
           {/* No <Environment/>: drei fetches its HDRI from raw.githack.com,
               which our own CSP connect-src blocks. The fetch threw, <Suspense>

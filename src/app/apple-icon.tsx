@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import { IMAGE_CACHE_CONTROL } from "@/lib/seo";
 
 export const size = { width: 180, height: 180 };
 export const contentType = "image/png";
@@ -23,6 +24,7 @@ export default function AppleIcon() {
         </svg>
       </div>
     ),
-    { ...size },
+    // The manifest and the Organization logo name /apple-icon without the content hash: one day, not the default year.
+    { ...size, headers: { "Cache-Control": IMAGE_CACHE_CONTROL } },
   );
 }

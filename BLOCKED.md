@@ -282,16 +282,35 @@ geslaagd is; anders slaat hij over en zegt wat te doen: bij rood CI herstellen, 
   broadcast. De CSV is een momentopname: wie zich ná de vorige import heeft bevestigd, heeft anders een lege
   eigenschap en dus geen link van ons in die nieuwsbrief. Laat daarom **altijd ook Resends eigen afmeldlink** in het
   sjabloon staan als vangnet voor een contact zonder (of met een lege) eigenschap: een nieuwsbrief zonder werkende
-  afmeldlink is verboden (Telecommunicatiewet art. 11.7 lid 6). Bekend gat: een afmelding via Resends eigen link komt
-  **niet** in onze tabel terecht; vergelijk na een verzending de audience met de tabel (of Resend zo'n contact zelf
-  niet meer aanschrijft is niet vanaf hier gecontroleerd). Krijg je de melding "Afmelding niet doorgegeven aan Resend"
+  afmeldlink is verboden (Telecommunicatiewet art. 11.7 lid 6). **Webhook (nodig zodra je een audience gebruikt):** een
+  afmelding via Resends eigen link of een spamklacht komt alleen via de webhook in onze tabel. Maak in Resend (Webhooks)
+  een endpoint `https://<jouw domein>/api/webhooks/resend` met de gebeurtenissen `contact.updated` en
+  `email.complained`, zet het Signing secret (`whsec_…`) in `RESEND_WEBHOOK_SECRET` en **deploy opnieuw**. Zonder dat
+  geheim weigert de route elke levering (503) en blijft zo'n lezer bij ons abonnee; `npm run preflight` waarschuwt
+  daarvoor. Een `contact.updated` met `unsubscribed: false` meldt nooit iemand aan (alleen onze dubbele opt-in doet dat).
+  **Niet vanaf hier gecontroleerd** (geen Resend-account, geen netwerk): de vorm van de gebeurtenissen (overgenomen uit de
+  Resend-documentatie) en of Resends eigen link werkelijk een `contact.updated` met `unsubscribed: true` stuurt. Test het
+  na het instellen: broadcast naar een eigen proefadres, afmelden via Resends link, en controleer dat die rij in
+  `NewsletterSubscriber` een `unsubscribedAt` krijgt en dat Resend de levering als geslaagd (200) toont. **Kijk daarna
+  af en toe op de webhookpagina in Resend:** een geheim dat niet klopt of een gebeurtenis in een onverwachte vorm geeft
+  bij elke poging 400 (geen geheim: 503), en volgens de Svix-documentatie wordt een endpoint dat dagenlang blijft
+  falen uitgeschakeld, waarna ook geldige afmeldingen wegblijven (niet voor Resend gecontroleerd); controleer dus ook
+  of het endpoint daar nog actief is. Een spamklacht (`email.complained`) meldt **elk** adres in die mail af dat in
+  onze tabel staat, ook bij een klacht over een orderbevestiging (zie `DECISIONS.md` D20). Gebruik je in Resend
+  onderwerpen (topics) voor voorkeuren, dan is niet nagegaan of een afmelding voor één onderwerp de vlag
+  `unsubscribed` zet; alleen die vlag wordt gelezen. Krijg je de melding "Afmelding niet doorgegeven aan Resend"
   of "Aanmelding niet doorgegeven aan Resend", zet dat contact dan zelf op unsubscribed respectievelijk in de audience
   vóór de volgende broadcast (de melding noemt de rij-id, niet het adres; ze komt één keer per adres en richting
-  **per serverinstantie**, op Vercel dus mogelijk vaker voor hetzelfde adres). Staat er `http_404_then_http_404` in
-  een "Aanmelding niet doorgegeven"-melding, dan klopt `RESEND_AUDIENCE_ID` vrijwel zeker niet (meer): controleer die
-  eerst. Dat is je **enige** signaal daarvoor: een afmelding krijgt van Resend dezelfde 404 als voor een contact dat
-  niet in de audience staat en meldt daarom niets; bevestig na het zetten of wijzigen van `RESEND_AUDIENCE_ID` dus
-  zelf één proefadres en kijk of er géén melding komt. **Verander je `CRON_SECRET`** (de sleutel waarmee de
+  **per serverinstantie**, op Vercel dus mogelijk vaker voor hetzelfde adres). Herstel een contact uit een "Aanmelding
+  niet doorgegeven"-melding bij Resend **vóór de volgende CSV-import**: `contact.updated` beschrijft (volgens de
+  documentatie van Resend) het hele contact na elke wijziging, dus elke wijziging van een contact dat daar nog op
+  unsubscribed staat (ook een import, als die zo'n gebeurtenis geeft; niet nagegaan) komt via de webhook als afmelding
+  in onze tabel, ook voor iemand die zich net via onze dubbele opt-in heeft aangemeld (zie `DECISIONS.md` D20). Staat
+  er `http_404_then_http_404` in een "Aanmelding niet doorgegeven"-melding, dan klopt `RESEND_AUDIENCE_ID` vrijwel
+  zeker niet (meer): controleer die eerst. Dat is je **enige** signaal daarvoor: een afmelding krijgt van Resend
+  dezelfde 404 als voor een contact dat niet in de audience staat en meldt daarom niets; bevestig na het zetten of
+  wijzigen van `RESEND_AUDIENCE_ID` dus zelf één proefadres en kijk of er géén melding komt. **Verander je
+  `CRON_SECRET`** (de sleutel waarmee de
   afmeldlinks zijn ondertekend), dan werkt geen eerder verstuurde afmeldlink van ons meer (de pagina verwijst dan naar
   het contactadres; Resends eigen link in het sjabloon blijft werken): exporteer de CSV opnieuw en importeer hem vóór
   de volgende broadcast. Een accountverwijdering wist de rij in onze tabel en zet daarna het Resend-contact op
@@ -467,6 +486,41 @@ is verstandig; reken er dan op dat die factuur blijft staan.
 Draai `npm run preflight -- --env-file … --live-checks --url https://<domein>` opnieuw na de deploy. Kijk de
 eerste week elke dag in je meldingenkanaal, in `/admin/bestellingen` (openstaande bankoverschrijvingen) en in de
 Stripe-gebeurtenissen. Dien de sitemap in bij Google Search Console.
+
+**Zoekmachines (D23, alleen jij kunt dit).** Er is vanuit de code niets ingediend en niets gerankt: er is geen netwerk naar
+Google of Bing, en de site staat nergens live. Na de livegang: (1) draai `QA_BASE_URL=https://<domein> npx tsx scripts/qa-seo.ts`
+(`QA_SEO_FULL=1` voor elke pagina); (2) verifieer het domein in Google Search Console en Bing Webmaster Tools, het liefst met een
+DNS-record; wil je de meta-tag, zet dan `GOOGLE_SITE_VERIFICATION` en/of `BING_SITE_VERIFICATION` (alleen het token) in
+Production en deploy opnieuw; (3) dien `https://<domein>/sitemap.xml` in bij allebei (Bing kan het uit Search Console
+overnemen); (4) controleer of de www/kaal-doorverwijzing werkt (stap 2: beide namen op het project) en verwijs `*.vercel.app` door in
+Vercel, anders zijn er twee adressen voor dezelfde pagina's (de canonical wijst wel naar `NEXT_PUBLIC_APP_URL`). Preview-deploys
+op Vercel krijgen zelf `noindex` en `Disallow: /`. In Search Console staan de pagina's die bewust `noindex` zijn (steden, merken
+zonder catalogus, gefilterde lijsten) straks onder "Uitgesloten door noindex-tag": dat is gewenst.
+
+**Indexeren aanvragen (D24, alleen jij kunt dit).** "Alles aanvragen" bestaat niet als één knop, en er is vanuit de code **niets
+ingediend**: geen netwerk naar Google, Bing of IndexNow, en de site staat nergens live. De volledige uitleg staat in README, paragraaf
+Indexeren. De volgorde, na de livegang en pas als de bedrijfsgegevens zijn ingevuld en de pagina's niet meer "volgt na inschrijving"
+zeggen (anders laat je die tekst indexeren):
+
+1. Google Search Console: voeg het domein toe als *domeinproperty* en verifieer met het DNS-TXT-record dat Google toont (voorkeur), of zet
+   `GOOGLE_SITE_VERIFICATION` (alleen het token) in Production en deploy opnieuw. De preflight waarschuwt zolang een token niet is
+   ingesteld; heb je via DNS geverifieerd, dan mag je die waarschuwing negeren.
+2. Search Console, Sitemaps: dien `https://<domein>/sitemap.xml` in. Controleer na een dag of de status "Geslaagd" is.
+3. Search Console, URL-inspectie: vraag per stuk indexering aan voor de startpagina en de vijf belangrijkste pagina's (er is een beperkt aantal per
+   dag). Google heeft hiervoor geen bulk-interface; de Indexing API is alleen voor vacatures en livestreams.
+4. Bing Webmaster Tools: importeer de site uit Search Console, of verifieer met een DNS-record of `BING_SITE_VERIFICATION`, en dien dezelfde
+   sitemap in.
+5. IndexNow (Bing, Yandex, Seznam, Naver, Yep en andere deelnemers; Google niet): draai in GitHub, Actions, *SEO submit (IndexNow)* eerst zonder
+   vinkje (droogloop: leest de sitemap, versturen niets, zegt of live zou doorgaan) en dan met *live* (alleen vanaf `main`). Het sleutelbestand
+   `public/<sleutel>.txt` staat al in de repository en is openbaar bedoeld; het moet na de deploy op `https://<domein>/<sleutel>.txt` staan, anders
+   weigert het script. Lokaal kan hetzelfde met `npx tsx scripts/seo-submit.ts --origin https://<domein>` en `--live`. Doe dit voor wat
+   nieuw of gewijzigd is, niet elke dag dezelfde lijst.
+6. Niet doen: indienen voor de livegang, een staging- of preview-adres indienen (het script weigert localhost en `*.vercel.app`), of de sitemap
+   "pingen": die ping-adressen van Google en Bing bestaan niet meer.
+
+Daarna: `npm run preflight -- --env-file … --url https://<domein>` laat in de groep `zoekmachines` zien of robots.txt, de sitemap, de
+startpagina (geen noindex, canonical), het sleutelbestand en de verificatietags kloppen. Dat leest alleen; het meldt niets aan een
+zoekmachine.
 
 ## 3. Naslag
 

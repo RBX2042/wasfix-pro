@@ -3,6 +3,7 @@ import { SignIn } from "@clerk/nextjs";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Sparkles } from "lucide-react";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { CLERK_ENABLED } from "@/lib/clerk-flag";
 import { isDemoMode } from "@/lib/demo-mode";
 import { env } from "@/lib/env";
@@ -12,12 +13,16 @@ export const metadata = { title: "Inloggen" };
 
 function Brand() {
   return (
-    <Link href="/" className="flex items-center gap-2 font-heading font-bold text-xl mb-8">
-      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
-        <Sparkles className="h-4 w-4" />
-      </span>
-      WasFix<span className="text-accent">Pro</span>
-    </Link>
+    <>
+      {/* This page has no header, so the theme switch sits in the corner. */}
+      <div className="fixed right-4 top-4 z-10"><ThemeToggle /></div>
+      <Link href="/" className="flex items-center gap-2 font-heading font-bold text-xl mb-8">
+        <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground">
+          <Sparkles className="h-4 w-4" />
+        </span>
+        WasFix<span className="text-accent">Pro</span>
+      </Link>
+    </>
   );
 }
 

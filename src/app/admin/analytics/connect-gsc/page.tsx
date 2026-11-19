@@ -41,7 +41,7 @@ export default async function ConnectGscPage() {
             <ul className="space-y-2 text-sm">
               {checks.map((c) => (
                 <li key={c.name} className="flex items-center gap-2">
-                  {c.ok ? <CheckCircle2 className="h-4 w-4 text-emerald-500" /> : <XCircle className="h-4 w-4 text-destructive" />}
+                  {c.ok ? <CheckCircle2 className="h-4 w-4 text-success" /> : <XCircle className="h-4 w-4 text-destructive" />}
                   <code className="font-mono text-xs bg-muted px-1.5 py-0.5 rounded">{c.name}</code>
                   <span className="text-muted-foreground">{c.ok ? "ingesteld" : "ontbreekt"}</span>
                 </li>
@@ -53,7 +53,7 @@ export default async function ConnectGscPage() {
         <Card>
           <CardContent className="p-6">
             <h2 className="font-heading text-lg font-semibold mb-2">Koppelen in 5 stappen</h2>
-            <p className="mb-4 rounded-md border border-amber-500/40 bg-amber-50 dark:bg-amber-950/20 p-3 text-sm">
+            <p className="mb-4 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
               Let op: deze koppeling is nog niet gebouwd. Er is geen code die iets uit Search Console ophaalt, dus ook met alle variabelen ingesteld verschijnt er niets in de beheerpagina. Bekijk je zoekwoorden voorlopig in Search Console zelf.
             </p>
             <ol className="list-decimal pl-5 space-y-2 text-sm text-muted-foreground">

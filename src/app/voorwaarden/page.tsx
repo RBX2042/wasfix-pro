@@ -4,12 +4,13 @@ import { formatEur } from "@/lib/utils";
 import { SHIPPING, COMPANY, PLANS, realOrNull, SUPPORT_RESPONSE_WORKDAYS, COMPLAINT_RESOLUTION_DAYS } from "@/lib/plans";
 import { PAID_DAILY_CALLS } from "@/lib/diagnose-core";
 import Link from "next/link";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Algemene voorwaarden",
-  description: "Algemene voorwaarden van WasFix Pro voor diensten, onderdelen-verkoop en abonnementen.",
-  alternates: { canonical: "/voorwaarden" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Algemene voorwaarden"),
+  description: pageDescription("Algemene voorwaarden van WasFix Pro voor diensten, onderdelen-verkoop en abonnementen."),
+  path: "/voorwaarden",
+});
 
 export default function VoorwaardenPage() {
   const kvk = realOrNull(COMPANY.kvk);
@@ -182,7 +183,7 @@ export default function VoorwaardenPage() {
               <li>De Nederlandse tekst van deze voorwaarden is leidend boven eventuele vertalingen.</li>
             </ul>
 
-            <p style={{ marginTop: 36, fontSize: 12, color: "var(--muted)", borderTop: "1px solid var(--border)", paddingTop: 18 }}>
+            <p style={{ marginTop: 36, fontSize: 12, color: "var(--mute)", borderTop: "1px solid var(--line)", paddingTop: 18 }}>
               Deze voorwaarden zijn opgesteld in overeenstemming met de Nederlandse Wet en de Algemene Verordening Gegevensbescherming (AVG). Een eerdere versie blijft van toepassing op overeenkomsten die vóór de wijziging zijn gesloten.
             </p>
           </div>

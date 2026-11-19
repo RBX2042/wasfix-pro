@@ -36,9 +36,9 @@ export function AnalyticsDashboard({ counts, topCodes, hasDb }: { counts: Record
         </div>
       </div>
 
-      <div className="rounded-lg border border-amber-500/40 bg-amber-50 dark:bg-amber-950/30 p-4" data-testid="analytics-notice">
-        <p className="font-semibold text-sm text-amber-900 dark:text-amber-100">Bezoekers, paginaweergaven, herkomst en zoekwoorden staan hier niet.</p>
-        <p className="text-sm text-amber-800 dark:text-amber-200 mt-1">
+      <div className="rounded-lg border border-warning/40 bg-warning/10 p-4" data-testid="analytics-notice">
+        <p className="font-semibold text-sm text-foreground">Bezoekers, paginaweergaven, herkomst en zoekwoorden staan hier niet.</p>
+        <p className="text-sm text-foreground mt-1">
           Er is geen koppeling met PostHog of Search Console gebouwd, dus deze pagina kan ze niet tonen, ook niet als een sleutel is ingesteld.
           Verkeer in de browser wordt bovendien alleen gemeten na toestemming van de bezoeker en is dus onvolledig. Wat hieronder staat komt uit de database.
         </p>
@@ -57,7 +57,7 @@ export function AnalyticsDashboard({ counts, topCodes, hasDb }: { counts: Record
           <p className="text-xs text-muted-foreground">Periode: laatste {LABEL[period]}. &ldquo;Betaald&rdquo; is de huidige status (betaald, verzonden of afgeleverd) van bestellingen die in die periode zijn geplaatst.</p>
 
           <div className="border rounded-lg p-5">
-            <h3 className="font-semibold mb-1">Meest gediagnosticeerde foutcodes</h3>
+            <h2 className="font-semibold mb-1">Meest gediagnosticeerde foutcodes</h2>
             <p className="text-xs text-muted-foreground mb-3">Laatste 90 dagen, maximaal 2000 diagnoses</p>
             {topCodes.length === 0 ? (
               <div className="text-sm text-muted-foreground py-6 text-center border border-dashed rounded-md">Geen diagnoses met een foutcode in deze periode.</div>

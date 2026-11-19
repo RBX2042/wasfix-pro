@@ -57,7 +57,7 @@ export default async function MyMachinesPage() {
                 <div className="flex items-start justify-between">
                   <div>
                     <Badge variant="outline" className="mb-2">{s.machine.brand}</Badge>
-                    <h3 className="font-heading font-semibold">{s.nickname ?? s.machine.model}</h3>
+                    <h2 className="font-heading font-semibold">{s.nickname ?? s.machine.model}</h2>
                     <p className="text-sm text-muted-foreground mt-1">{s.machine.brand} {s.machine.model}</p>
                     <p className="text-xs text-muted-foreground mt-1">{s.machine._count.errorCodes} foutcodes beschikbaar</p>
                   </div>

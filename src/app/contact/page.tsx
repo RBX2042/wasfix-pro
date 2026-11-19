@@ -3,12 +3,15 @@ import { COMPANY, realOrNull, PENDING_REGISTRATION, SUPPORT_RESPONSE_WORKDAYS } 
 import { contactEmail, contactEmailText } from "@/lib/contact-email";
 import { Card, CardContent } from "@/components/ui/card";
 import { Mail, Phone, MapPin, Clock } from "lucide-react";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Contact",
-  description: "Contact met WasFix Pro: mail voor vragen over een bestelling, onderdeel of diagnose, en de bedrijfsgegevens zodra de inschrijving rond is.",
-  alternates: { canonical: "/contact" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Contact"),
+  // True in both states of the page: with the company details configured it prints them, without it says they follow
+  // after registration, so the snippet promises neither the details nor an address, only what the page always has.
+  description: pageDescription(`Contact met WasFix Pro voor vragen over een bestelling, een onderdeel of een diagnose. We reageren binnen ${SUPPORT_RESPONSE_WORKDAYS} werkdagen.`),
+  path: "/contact",
+});
 
 // ?onderwerp=monteur-demo is linked from the homepage monteur block ("Vraag een demo aan").
 const SUBJECTS: Record<string, string> = {
@@ -46,7 +49,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
               <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">
                 <Mail className="h-5 w-5" />
               </div>
-              <h3 className="font-heading font-semibold mb-1">E-mail</h3>
+              <h2 className="font-heading font-semibold mb-1">E-mail</h2>
               {mailto ? (
                 <a href={mailto} className="text-primary hover:underline text-sm inline-flex items-center min-h-11 break-all">{email}</a>
               ) : (
@@ -61,7 +64,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
               <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">
                 <Phone className="h-5 w-5" />
               </div>
-              <h3 className="font-heading font-semibold mb-1">Telefoon</h3>
+              <h2 className="font-heading font-semibold mb-1">Telefoon</h2>
               {phone ? (
                 <>
                   <p className="text-sm">{phone}</p>
@@ -80,7 +83,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
               <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">
                 <MapPin className="h-5 w-5" />
               </div>
-              <h3 className="font-heading font-semibold mb-1">Hoofdkantoor</h3>
+              <h2 className="font-heading font-semibold mb-1">Hoofdkantoor</h2>
               {street && postalCode ? (
                 <p className="text-sm">{street}<br />{postalCode} {COMPANY.city}<br />{COMPANY.country}</p>
               ) : (
@@ -96,7 +99,7 @@ export default async function ContactPage({ searchParams }: { searchParams: Prom
               <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">
                 <Clock className="h-5 w-5" />
               </div>
-              <h3 className="font-heading font-semibold mb-1">Reactietijd</h3>
+              <h2 className="font-heading font-semibold mb-1">Reactietijd</h2>
               <p className="text-sm text-muted-foreground">
                 We beantwoorden mail binnen {SUPPORT_RESPONSE_WORKDAYS} werkdagen. Over een bestelling? Vermeld je bestelnummer.
               </p>

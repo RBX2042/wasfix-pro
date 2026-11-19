@@ -2,12 +2,13 @@ import { COMPLAINT_RESOLUTION_DAYS, SUPPORT_RESPONSE_WORKDAYS } from "@/lib/plan
 import { ContactEmail } from "@/lib/contact-email";
 import { LegalPage } from "@/components/redesign/LegalPage";
 import Link from "next/link";
+import { pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
 
-export const metadata = {
-  title: "Klachtenprocedure",
-  description: "Hoe dien je een klacht in bij WasFix Pro — procedure, termijnen en welke stappen je daarna nog hebt.",
-  alternates: { canonical: "/klachten" },
-};
+export const metadata = pageMetadata({
+  title: pageTitle("Klachtenprocedure"),
+  description: pageDescription("Hoe dien je een klacht in bij WasFix Pro — procedure, termijnen en welke stappen je daarna nog hebt."),
+  path: "/klachten",
+});
 
 export default function KlachtenPage() {
   return (

@@ -32,7 +32,7 @@ export function ImportPanel() {
     <details className="mb-4 rounded-lg border p-4">
       <summary className="cursor-pointer font-medium select-none">CSV importeren of exporteren</summary>
       <div className="mt-4 space-y-4">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-sm text-muted-foreground [overflow-wrap:anywhere]">
           Download de huidige catalogus, vul prijzen, inkoop en voorraad aan in Excel en laad het bestand terug.
           Regels die niet in het bestand staan worden niet aangeraakt, een lege cel laat de waarde zoals hij is, en je ziet eerst een voorbeeld.
           Kolommen: <code>sku;name;brand;category;price;cost;costSource;stock;supplier</code>. <code>stock</code> is het aantal dat je nog kunt VERKOPEN en overschrijft de voorraad: tel je de plank, trek er dan de stuks van af die al verkocht maar nog niet verzonden zijn (zie kolom &ldquo;Gereserveerd&rdquo;), anders verkoop je ze dubbel.
@@ -46,9 +46,9 @@ export function ImportPanel() {
           </label>
           <Submit variant="outline">Voorbeeld bekijken</Submit>
         </form>
-        {preview?.ok && preview.preview?.notice && <p role="status" className="text-sm text-amber-700 dark:text-amber-400">{preview.preview.notice}</p>}
+        {preview?.ok && preview.preview?.notice && <p role="status" className="text-sm text-warning">{preview.preview.notice}</p>}
         {preview && !preview.ok && <p role="alert" className="text-sm text-destructive">{preview.error}</p>}
-        {applied?.ok && <p role="status" className="text-sm text-emerald-700 dark:text-emerald-400">{applied.message}</p>}
+        {applied?.ok && <p role="status" className="text-sm text-success">{applied.message}</p>}
 
         {showPreview && p && (
           <div className="space-y-3">
@@ -62,7 +62,7 @@ export function ImportPanel() {
                 <thead className="bg-muted text-left"><tr><th className="p-2">Regel</th><th className="p-2">SKU</th><th className="p-2">Wat</th><th className="p-2">Details</th></tr></thead>
                 <tbody>
                   {p.rows.map((r) => (
-                    <tr key={`${r.line}-${r.sku}`} className={`border-t align-top ${r.action === "error" ? "bg-red-50 dark:bg-red-950/20" : r.action === "create" ? "bg-emerald-50 dark:bg-emerald-950/20" : ""}`}>
+                    <tr key={`${r.line}-${r.sku}`} className={`border-t align-top ${r.action === "error" ? "bg-destructive/10" : r.action === "create" ? "bg-success/10" : ""}`}>
                       <td className="p-2 tabular-nums">{r.line}</td>
                       <td className="p-2 font-mono">{r.sku || "(leeg)"}</td>
                       <td className="p-2 font-medium">{ACTION_LABEL[r.action]}</td>

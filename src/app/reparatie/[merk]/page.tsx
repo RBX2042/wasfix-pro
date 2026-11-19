@@ -4,15 +4,18 @@ import Link from "next/link";
 import brandsData from "@/data/brands.json";
 import { dbErrorCodes, dbParts } from "@/lib/static-db";
 import { absoluteUrl } from "@/lib/site-url";
+import { coveredBrands, indexability, pageDescription, pageMetadata, pageTitle } from "@/lib/seo";
+import { ldJson } from "@/lib/json-ld";
 
 /**
  * Does the catalogue hold anything for this brand? Five brands in brands.json
  * (Zanussi, Hotpoint, Candy, Haier, Panasonic) have editorial copy but no
  * machines, codes or parts, so their pages are thin by definition and are not
- * indexed.
+ * indexed. The rule is src/lib/seo.ts indexability(), the same one the sitemap asks.
  */
-async function hasCatalogCoverage(brand: string): Promise<boolean> {
-  return (await dbErrorCodes({})).some((ec) => ec.machine.brand === brand);
+async function isIndexable(brand: string): Promise<boolean> {
+  const covered = coveredBrands(await dbErrorCodes({}));
+  return indexability({ kind: "brandRepair", brand, covered }).index;
 }
 
 type BrandPage = {
@@ -40,22 +43,16 @@ export const revalidate = 300;
 export async function generateMetadata({ params }: { params: Promise<{ merk: string }> }) {
   const { merk } = await params;
   const brand = brands.find((b) => b.slug === merk);
-  if (!brand) return { title: "Merk niet gevonden" };
-  const covered = await hasCatalogCoverage(brand.brand);
-  return {
-    title: `${brand.brand} wasmachine reparatie — diagnose + onderdelen`,
+  if (!brand) return { title: "Merk niet gevonden", robots: { index: false, follow: true } };
+  return pageMetadata({
+    title: pageTitle(`${brand.brand} wasmachine reparatie — diagnose + onderdelen`, `${brand.brand} wasmachine reparatie`),
+    description: pageDescription(`${brand.brand} wasmachine kapot of foutcode? Gratis diagnose, reparatiegidsen en originele onderdelen. ${brand.tagline}.`),
+    // The page lives at /<slug>-wasmachine-reparatie (middleware rewrite); /reparatie/<slug> redirects there.
+    path: `/${brand.slug}-wasmachine-reparatie`,
     // A brand we carry no codes or parts for is a thin page by definition.
     // Keep it reachable for someone who lands on it, keep it out of the index.
-    robots: covered ? undefined : { index: false, follow: true },
-    description: `${brand.brand} wasmachine kapot of foutcode? Gratis diagnose, reparatiegidsen en originele onderdelen. ${brand.tagline}.`,
-    alternates: { canonical: `/${brand.slug}-wasmachine-reparatie` },
-    openGraph: {
-      images: [{ url: "/opengraph-image", width: 1200, height: 630 }],
-      title: `${brand.brand} wasmachine reparatie`,
-      description: brand.tagline,
-      type: "website",
-    },
-  };
+    noindex: !(await isIndexable(brand.brand)),
+  });
 }
 
 export default async function BrandRepairPage({ params }: { params: Promise<{ merk: string }> }) {
@@ -75,34 +72,23 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
   const allParts = await dbParts({ where: { minStock: 1 }, take: 200 });
   const brandParts = allParts.filter((p) => p.brand === brand.brand || (brand.brand === "Bosch" && p.brand === "Siemens")).slice(0, 6);
 
+  // One Service block, and no FAQPage (decision D23): its questions ("Hoe lang gaat een X wasmachine mee?" with a
+  // 10-15 year answer nothing here backs) were written for the markup and are not on the page. The service is the
+  // diagnosis the page offers; WasFix does not repair machines itself, so the serviceType no longer says so.
   const jsonLd = [
     {
       "@context": "https://schema.org",
       "@type": "Service",
-      serviceType: `${brand.brand} wasmachine reparatie`,
+      serviceType: `AI-diagnose voor ${brand.brand} wasmachines`,
       provider: { "@type": "Organization", name: "WasFix Pro", url: absoluteUrl("/") },
       areaServed: { "@type": "Country", name: "Nederland" },
       offers: { "@type": "Offer", price: "0", priceCurrency: "EUR", description: "Gratis AI-diagnose" },
-    },
-    {
-      "@context": "https://schema.org",
-      "@type": "FAQPage",
-      mainEntity: [
-        { "@type": "Question", name: `Hoe lang gaat een ${brand.brand} wasmachine mee?`,
-          acceptedAnswer: { "@type": "Answer", text: `Een ${brand.brand} wasmachine gaat gemiddeld 10-15 jaar mee bij normaal gebruik. Met goed onderhoud (maandelijks ontkalken, filter schoonmaken) kan dit naar 18+ jaar.` } },
-        { "@type": "Question", name: `Kan ik mijn ${brand.brand} zelf repareren?`,
-          acceptedAnswer: { "@type": "Answer", text: `De meeste ${brand.brand} reparaties zijn DIY-vriendelijk. ${brand.common.join(", ")} zijn de meest gangbare defecten, allemaal met onze stap-voor-stap gidsen te repareren in 30-90 minuten.` } },
-        ...(brandCodes.length > 0
-          ? [{ "@type": "Question", name: `Wat zijn veelvoorkomende ${brand.brand} foutcodes?`,
-              acceptedAnswer: { "@type": "Answer", text: `In onze database staan onder meer ${brandCodes.slice(0, 6).map((ec) => ec.code).join(", ")}. Bekijk per foutcode de oorzaak, de oplossing en de benodigde onderdelen.` } }]
-          : []),
-      ],
     },
   ];
 
   return (
     <WasFixShell>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }} />
       <section className="section" style={{ paddingTop: 56 }}>
         <div className="container" style={{ maxWidth: 920 }}>
           <div className="eyebrow">{brand.brand} reparatie</div>
@@ -194,7 +180,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
                     className="step-card"
                     style={{ textDecoration: "none", color: "inherit", display: "block" }}
                   >
-                    <div style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
+                    <div style={{ fontSize: 11, color: "var(--mute)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 4 }}>
                       {p.isOriginal ? "Origineel" : "Universeel"} · {p.brand}
                     </div>
                     <div style={{ fontWeight: 500, fontSize: 14, marginBottom: 6, lineHeight: 1.3 }}>{p.name}</div>
@@ -240,7 +226,7 @@ export default async function BrandRepairPage({ params }: { params: Promise<{ me
           </section>
 
           {/* CTA */}
-          <div style={{ padding: 32, background: "linear-gradient(135deg, rgba(79,140,255,0.08), rgba(0,212,255,0.04))", border: "1px solid var(--border-ac)", borderRadius: 16, textAlign: "center" }}>
+          <div style={{ padding: 32, background: "linear-gradient(135deg, rgb(var(--acc-rgb) / 0.08), rgb(var(--acc2-rgb) / 0.04))", border: "1px solid var(--line-ac)", borderRadius: 16, textAlign: "center" }}>
             <h2 style={{ fontSize: 24, fontWeight: 500, marginBottom: 10, letterSpacing: "-0.015em" }}>
               {brand.brand} kapot? Begin met gratis diagnose
             </h2>

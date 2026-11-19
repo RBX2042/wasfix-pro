@@ -11,13 +11,24 @@ type Hit = {
   score: number;
 };
 
+// Theme tokens (the modal lives in <body>, outside every page's palette scope, so it cannot use the
+// redesign variables; they were undefined here and the panel was transparent).
 const TYPE_LABEL: Record<Hit["type"], { label: string; color: string }> = {
-  foutcode: { label: "Foutcode", color: "var(--warn)" },
-  onderdeel: { label: "Onderdeel", color: "var(--acc-2)" },
-  gids: { label: "Gids", color: "var(--ok)" },
-  help: { label: "Help", color: "var(--muted)" },
-  blog: { label: "Blog", color: "var(--muted)" },
-  merk: { label: "Merk", color: "var(--acc)" },
+  foutcode: { label: "Foutcode", color: "hsl(var(--warning))" },
+  onderdeel: { label: "Onderdeel", color: "hsl(var(--primary))" },
+  gids: { label: "Gids", color: "hsl(var(--success))" },
+  help: { label: "Help", color: "hsl(var(--muted-foreground))" },
+  blog: { label: "Blog", color: "hsl(var(--muted-foreground))" },
+  merk: { label: "Merk", color: "hsl(var(--accent))" },
+};
+const KBD: React.CSSProperties = {
+  background: "hsl(var(--muted))",
+  border: "1px solid hsl(var(--border))",
+  borderRadius: 4,
+  padding: "2px 6px",
+  fontSize: 10,
+  color: "hsl(var(--muted-foreground))",
+  fontFamily: "var(--font-geist-mono), monospace",
 };
 
 // Site-wide search modal — opens via Cmd/Ctrl+K or click on nav search icon.
@@ -94,7 +105,7 @@ export function SearchModal() {
       onClick={() => setOpen(false)}
       style={{
         position: "fixed", inset: 0, zIndex: 9000,
-        background: "rgba(6, 9, 18, 0.7)",
+        background: "hsl(var(--overlay))",
         backdropFilter: "blur(8px)",
         display: "grid", placeItems: "start center",
         paddingTop: "10vh", paddingLeft: 16, paddingRight: 16,
@@ -104,16 +115,17 @@ export function SearchModal() {
         onClick={(e) => e.stopPropagation()}
         style={{
           width: "100%", maxWidth: 640,
-          background: "var(--surf)",
-          border: "1px solid var(--border)",
+          background: "hsl(var(--popover))",
+          color: "hsl(var(--popover-foreground))",
+          border: "1px solid hsl(var(--border))",
           borderRadius: 14,
-          boxShadow: "0 24px 60px -20px rgba(0,0,0,0.6)",
+          boxShadow: "0 24px 60px -20px hsl(0 0% 0% / 0.45)",
           overflow: "hidden",
         }}
       >
         {/* Input */}
-        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: "1px solid var(--border)" }}>
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--muted)" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
+        <div style={{ display: "flex", alignItems: "center", gap: 12, padding: "16px 20px", borderBottom: "1px solid hsl(var(--border))" }}>
+          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="hsl(var(--muted-foreground))" strokeWidth="1.75" strokeLinecap="round" strokeLinejoin="round">
             <circle cx="11" cy="11" r="7" />
             <path d="m21 21-4.3-4.3" />
           </svg>
@@ -128,27 +140,19 @@ export function SearchModal() {
               background: "transparent",
               border: 0,
               outline: "none",
-              color: "var(--text)",
+              color: "hsl(var(--popover-foreground))",
               fontSize: 15,
               fontFamily: "inherit",
             }}
           />
-          {loading && <span className="mono" style={{ fontSize: 11, color: "var(--muted)" }}>...</span>}
-          <kbd style={{
-            background: "var(--surf-2)",
-            border: "1px solid var(--border)",
-            borderRadius: 4,
-            padding: "2px 6px",
-            fontSize: 10,
-            color: "var(--muted)",
-            fontFamily: "var(--font-geist-mono), monospace",
-          }}>ESC</kbd>
+          {loading && <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", fontFamily: "var(--font-geist-mono), monospace" }}>...</span>}
+          <kbd style={KBD}>ESC</kbd>
         </div>
 
         {/* Results */}
         <div style={{ maxHeight: "60vh", overflowY: "auto" }}>
           {hits.length === 0 && q.length >= 2 && !loading && (
-            <div style={{ padding: 32, textAlign: "center", color: "var(--muted)", fontSize: 14 }}>
+            <div style={{ padding: 32, textAlign: "center", color: "hsl(var(--muted-foreground))", fontSize: 14 }}>
               Geen resultaten voor &ldquo;{q}&rdquo;
               <div style={{ marginTop: 8, fontSize: 12.5 }}>
                 Probeer een merk + foutcode (bv. &ldquo;bosch e18&rdquo;) of een onderdeel-type.
@@ -157,7 +161,7 @@ export function SearchModal() {
           )}
           {hits.length === 0 && q.length < 2 && (
             <div style={{ padding: 20 }}>
-              <div className="mono" style={{ fontSize: 11, color: "var(--muted)", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10 }}>
+              <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", letterSpacing: "0.08em", textTransform: "uppercase", marginBottom: 10, fontFamily: "var(--font-geist-mono), monospace" }}>
                 Snel naar
               </div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 6 }}>
@@ -169,7 +173,7 @@ export function SearchModal() {
                   { label: "Onderdelen-shop", url: "/onderdelen" },
                   { label: "Voor monteurs", url: "/monteur" },
                 ].map((s) => (
-                  <Link key={s.url} href={s.url} onClick={() => setOpen(false)} style={{ display: "block", padding: "8px 10px", borderRadius: 6, color: "var(--text-2)", textDecoration: "none", fontSize: 13 }}>
+                  <Link key={s.url} href={s.url} onClick={() => setOpen(false)} style={{ display: "block", padding: "8px 10px", borderRadius: 6, color: "hsl(var(--foreground))", textDecoration: "none", fontSize: 13 }}>
                     → {s.label}
                   </Link>
                 ))}
@@ -188,9 +192,9 @@ export function SearchModal() {
                 style={{
                   display: "flex", alignItems: "center", gap: 12,
                   padding: "12px 20px",
-                  background: active ? "rgba(79,140,255,0.08)" : "transparent",
-                  borderLeft: active ? "2px solid var(--acc-2)" : "2px solid transparent",
-                  color: "var(--text)",
+                  background: active ? "hsl(var(--primary) / 0.08)" : "transparent",
+                  borderLeft: active ? "2px solid hsl(var(--primary))" : "2px solid transparent",
+                  color: "hsl(var(--popover-foreground))",
                   textDecoration: "none",
                   cursor: "pointer",
                 }}
@@ -203,22 +207,22 @@ export function SearchModal() {
                   textTransform: "uppercase",
                   padding: "3px 8px",
                   borderRadius: 4,
-                  background: "var(--surf-2)",
+                  background: "hsl(var(--muted))",
                   color: meta.color,
-                  border: `1px solid ${meta.color}30`,
+                  border: "1px solid hsl(var(--border))",
                   minWidth: 70,
                   textAlign: "center",
                 }}>{meta.label}</span>
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ fontSize: 13.5, fontWeight: 500, marginBottom: 2, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{h.title}</div>
                   {h.subtitle && (
-                    <div className="muted" style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                    <div style={{ fontSize: 12, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis", color: "hsl(var(--muted-foreground))" }}>
                       {h.subtitle}
                     </div>
                   )}
                 </div>
                 {active && (
-                  <kbd style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 4, padding: "2px 6px", fontSize: 10, color: "var(--muted)", fontFamily: "var(--font-geist-mono), monospace" }}>↵</kbd>
+                  <kbd style={KBD}>↵</kbd>
                 )}
               </Link>
             );
@@ -226,10 +230,10 @@ export function SearchModal() {
         </div>
 
         {/* Footer */}
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderTop: "1px solid var(--border)", fontSize: 11, color: "var(--muted)" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "10px 20px", borderTop: "1px solid hsl(var(--border))", fontSize: 11, color: "hsl(var(--muted-foreground))" }}>
           <div style={{ display: "flex", gap: 16 }}>
-            <span><kbd style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 3, padding: "1px 5px", fontSize: 10, fontFamily: "var(--font-geist-mono), monospace" }}>↑↓</kbd> navigeer</span>
-            <span><kbd style={{ background: "var(--surf-2)", border: "1px solid var(--border)", borderRadius: 3, padding: "1px 5px", fontSize: 10, fontFamily: "var(--font-geist-mono), monospace" }}>↵</kbd> open</span>
+            <span><kbd style={KBD}>↑↓</kbd> navigeer</span>
+            <span><kbd style={KBD}>↵</kbd> open</span>
           </div>
           <span>{hits.length > 0 ? `${hits.length} resultaten` : ""}</span>
         </div>

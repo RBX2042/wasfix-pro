@@ -93,19 +93,19 @@ export default async function OrderDetailPage({
         <Headline status={status} fresh={fresh} awaitingTransfer={awaitingTransfer} awaitingCard={awaitingCard} />
 
         {awaitingTransfer && (
-          <section aria-labelledby="pay-heading" className="rounded-lg border-2 border-amber-500 bg-amber-50 dark:bg-amber-950/30 p-4 sm:p-6 mb-8">
+          <section aria-labelledby="pay-heading" className="rounded-lg border-2 border-warning bg-warning/10 p-4 sm:p-6 mb-8">
             <div className="flex items-start gap-3 mb-4">
-              <Landmark className="h-6 w-6 text-amber-600 shrink-0 mt-0.5" aria-hidden />
+              <Landmark className="h-6 w-6 text-warning shrink-0 mt-0.5" aria-hidden />
               <div className="min-w-0">
-                <h2 id="pay-heading" className="font-heading text-lg font-bold text-amber-900 dark:text-amber-100">
+                <h2 id="pay-heading" className="font-heading text-lg font-bold text-foreground">
                   Maak {formatEur(order.totalEur)} over om je bestelling te laten verzenden
                 </h2>
-                <p className="text-sm text-amber-900/90 dark:text-amber-200 mt-1">
+                <p className="text-sm text-foreground mt-1">
                   Je onderdelen zijn voor je gereserveerd, maar we verzenden pas als je betaling bij ons binnen is. Een overboeking staat er meestal binnen 1 tot 2 werkdagen.
                 </p>
               </div>
             </div>
-            <dl className="bg-white dark:bg-black/20 rounded-md p-3 sm:p-4 text-sm space-y-2.5">
+            <dl className="bg-card rounded-md p-3 sm:p-4 text-sm space-y-2.5">
               <PayRow label="Te betalen" value={formatEur(order.totalEur)} strong />
               {iban ? (
                 <>
@@ -131,8 +131,8 @@ export default async function OrderDetailPage({
         )}
 
         {status === "CANCELLED" && (
-          <div className="rounded-lg border bg-red-50 dark:bg-red-950/20 p-4 mb-6 text-sm flex items-start gap-3">
-            <XCircle className="h-5 w-5 text-red-600 shrink-0 mt-0.5" aria-hidden />
+          <div className="rounded-lg border bg-destructive/10 p-4 mb-6 text-sm flex items-start gap-3">
+            <XCircle className="h-5 w-5 text-destructive shrink-0 mt-0.5" aria-hidden />
             <p>
               Deze bestelling is geannuleerd.
               {creditNotes.length > 0
@@ -192,7 +192,7 @@ export default async function OrderDetailPage({
             <div className="border-t mt-5 pt-4 space-y-1 text-sm">
               <div className="flex justify-between"><span className="text-muted-foreground">Subtotaal</span><span>{formatEur(order.subtotalEur)}</span></div>
               {order.discountEur > 0 && (
-                <div className="flex justify-between text-emerald-600"><span>Ledenkorting</span><span>-{formatEur(order.discountEur)}</span></div>
+                <div className="flex justify-between text-success"><span>Ledenkorting</span><span>-{formatEur(order.discountEur)}</span></div>
               )}
               <div className="flex justify-between"><span className="text-muted-foreground">Verzending</span><span>{order.shippingEur === 0 ? "Gratis" : formatEur(order.shippingEur)}</span></div>
               <div className="flex justify-between font-bold text-base border-t pt-2 mt-2"><span>Totaal (incl. btw)</span><span>{formatEur(order.totalEur)}</span></div>
@@ -272,16 +272,16 @@ export default async function OrderDetailPage({
 function Headline({ status, fresh, awaitingTransfer, awaitingCard }: { status: OrderStatus; fresh: boolean; awaitingTransfer: boolean; awaitingCard: boolean }) {
   // The heading is what the state really is, taken from the database: a customer who has
   // just come back from the payment page must not be told "paid" before the webhook has said so.
-  let icon = <CheckCircle2 className="h-8 w-8 text-emerald-500 shrink-0" aria-hidden />;
+  let icon = <CheckCircle2 className="h-8 w-8 text-success shrink-0" aria-hidden />;
   let title = "Je bestelling";
   let body: string | null = null;
 
   if (awaitingTransfer) {
-    icon = <Landmark className="h-8 w-8 text-amber-500 shrink-0" aria-hidden />;
+    icon = <Landmark className="h-8 w-8 text-warning shrink-0" aria-hidden />;
     title = fresh ? "Bedankt voor je bestelling" : "Je bestelling wacht op je overschrijving";
     body = "Hieronder staat wat je moet overmaken.";
   } else if (awaitingCard) {
-    icon = <Loader2 className="h-8 w-8 text-amber-500 shrink-0" aria-hidden />;
+    icon = <Loader2 className="h-8 w-8 text-warning shrink-0" aria-hidden />;
     title = fresh ? "We verwerken je betaling" : "Deze bestelling is nog niet betaald";
     body = fresh
       ? "Zodra de betaling is bevestigd staat hier \"Betaald\". Je hoeft niets opnieuw te betalen."
@@ -294,7 +294,7 @@ function Headline({ status, fresh, awaitingTransfer, awaitingCard }: { status: O
   } else if (status === "DELIVERED") {
     title = "Je bestelling is afgeleverd";
   } else if (status === "CANCELLED") {
-    icon = <XCircle className="h-8 w-8 text-red-500 shrink-0" aria-hidden />;
+    icon = <XCircle className="h-8 w-8 text-destructive shrink-0" aria-hidden />;
     title = "Geannuleerde bestelling";
   }
 

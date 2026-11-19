@@ -1,31 +1,92 @@
-name: SEO audit
+name: SEO audit (by hand)
+
+# By hand only (decision D25). Reads a DEPLOYED site the way a search engine does, with the repository's own checks:
+#   1. scripts/qa-seo.ts with QA_BASE_URL set to the address: robots.txt, the whole sitemap, a crawl of every static page and
+#      a sample of each dynamic family (all of it with "full"), canonicals, noindex as tag and header, structured data
+#      against the printed page, headings, redirects, the manifest icons, and the metadata in <head> for nine crawlers
+#      (after the same pages were first opened in Chromium, so a browser is the first visitor).
+#   2. the preflight group "zoekmachines" with --url: robots.txt names the sitemap on the public address, the sitemap is
+#      valid and not empty, the home page is indexable with a canonical to that address, the IndexNow key file answers.
+# It replaces a weekly schedule against https://wasfix.nl that ran a third-party link crawler (linkinator) and
+# `|| true`, so it could never fail, while nothing was deployed there; GitHub had already disabled that schedule for
+# inactivity. Run it after a deploy, and before submitting the sitemap (README, "Indexeren").
+#
+# Run it from the branch that is deployed: qa-seo also reads the source tree (the lists of private paths, the page
+# routes, the seeded catalogue) and compares the site with it. Nothing is submitted anywhere and no secret is used.
+# This workflow has not been run on GitHub: where it was written there is no network to GitHub or to the site; it was
+# parsed, and its address step was run locally with good and bad inputs.
 
 on:
-  schedule:
-    - cron: "0 4 * * 0" # Every Sunday at 04:00 UTC
   workflow_dispatch:
+    inputs:
+      origin:
+        description: "Site address, e.g. https://wasfix.nl (https, no path). Empty = the repository variable PUBLIC_SITE_URL."
+        type: string
+        required: false
+        default: ""
+      full:
+        description: "Crawl every URL of the sitemap (QA_SEO_FULL=1) instead of every static page plus a sample of each family."
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  contents: read
+
+concurrency:
+  group: seo-audit
+  cancel-in-progress: false
 
 jobs:
-  seo:
-    name: Sitemap + broken-link check
+  audit:
+    name: qa-seo and the preflight group zoekmachines against the site
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
+      - name: Which site
+        id: site
+        env:
+          # Inputs and variables reach the shell through the environment, never pasted into the script text.
+          INPUT_ORIGIN: ${{ inputs.origin }}
+          VAR_PUBLIC_SITE_URL: ${{ vars.PUBLIC_SITE_URL }}
+        run: |
+          origin="${INPUT_ORIGIN:-$VAR_PUBLIC_SITE_URL}"
+          origin="${origin%/}"
+          if [ -z "$origin" ]; then
+            echo "::error::Geen adres: vul 'origin' in bij Run workflow (bijvoorbeeld https://wasfix.nl), of zet de repository-variabele PUBLIC_SITE_URL (Settings, Secrets and variables, Actions, Variables). Er is niets gecontroleerd."
+            exit 1
+          fi
+          if ! printf '%s' "$origin" | grep -Eq '^https://[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$'; then
+            echo "::error::'$origin' is geen https-adres zonder pad of poort (verwacht bijvoorbeeld https://wasfix.nl). Er is niets gecontroleerd."
+            exit 1
+          fi
+          echo "origin=$origin" >> "$GITHUB_OUTPUT"
+          echo "SEO-audit van $origin (alleen lezen; er wordt niets ingediend)" >> "$GITHUB_STEP_SUMMARY"
+      # Read only, and the token is not left in .git/config while npm ci and the repository's scripts run (as in lighthouse.yml).
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Install linkinator
-        run: npm install -g linkinator
-      - name: Check sitemap validity
+          cache: npm
+      - run: npm ci
+      - name: Install Chromium (qa-seo opens the pages in a browser before the crawlers fetch them)
+        # The same version CI uses.
         run: |
-          curl -sS https://wasfix.nl/sitemap.xml > sitemap.xml
-          # Basic XML validation
-          xmllint --noout sitemap.xml
-          # Count URLs
-          echo "URL count: $(grep -c '<url>' sitemap.xml)"
-      - name: Crawl for broken links
-        run: |
-          linkinator https://wasfix.nl --recurse --skip "linkedin\\.com|twitter\\.com|facebook\\.com" --timeout 10000 --concurrency 5 || true
-      - name: Validate robots.txt
-        run: |
-          curl -sS https://wasfix.nl/robots.txt | head -20
+          npm install --no-save playwright@1.63.0
+          npx playwright install --with-deps chromium
+      - name: qa-seo against the site
+        env:
+          QA_BASE_URL: ${{ steps.site.outputs.origin }}
+          QA_SITE_ORIGIN: ${{ steps.site.outputs.origin }}
+          QA_REQUIRE_SERVER: "1"
+          QA_SEO_FULL: ${{ inputs.full && '1' || '0' }}
+        run: npx tsx scripts/qa-seo.ts
+      - name: Preflight, group zoekmachines, against the site
+        # Also when qa-seo failed: the two read different things and both are worth seeing.
+        if: ${{ !cancelled() && steps.site.outcome == 'success' }}
+        env:
+          NEXT_PUBLIC_APP_URL: ${{ steps.site.outputs.origin }}
+          SITE: ${{ steps.site.outputs.origin }}
+        run: npm run preflight -- --only zoekmachines --url "$SITE"

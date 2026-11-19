@@ -4,6 +4,7 @@ import * as React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useCart, cartCount } from "@/components/cart-provider";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const ITEMS = [
   { href: "/", label: "Home", icon: "M3 12 12 3l9 9-1 1v8h-5v-6h-6v6H5v-8z" },
@@ -34,9 +35,8 @@ export function MobileBottomNav() {
         left: 0,
         right: 0,
         zIndex: 50,
-        // Colours come from --mbn-* below, not from literals: this bar sits under
-        // every page, and the hardcoded #0b0e1c left a black strip under every
-        // light page.
+        // Colours come from --mbn-* below (the theme tokens), not from literals: this bar sits
+        // under every page of both themes.
         background: "var(--mbn-bg)",
         backdropFilter: "saturate(140%) blur(16px)",
         WebkitBackdropFilter: "saturate(140%) blur(16px)",
@@ -57,13 +57,13 @@ export function MobileBottomNav() {
                 flexDirection: "column",
                 alignItems: "center",
                 gap: 4,
-                padding: "8px 12px",
+                padding: "8px 4px",
                 color: active ? "var(--mbn-active)" : "var(--mbn-fg)",
                 textDecoration: "none",
                 fontSize: 11,
                 fontWeight: 500,
                 letterSpacing: "0.02em",
-                minWidth: 56,
+                minWidth: 48,
                 minHeight: 44,
               }}
             >
@@ -82,14 +82,14 @@ export function MobileBottomNav() {
             flexDirection: "column",
             alignItems: "center",
             gap: 4,
-            padding: "8px 12px",
+            padding: "8px 4px",
             color: count > 0 ? "var(--mbn-active)" : "var(--mbn-fg)",
             background: "transparent",
             border: 0,
             fontSize: 11,
             fontWeight: 500,
             letterSpacing: "0.02em",
-            minWidth: 56,
+            minWidth: 48,
             minHeight: 44,
             cursor: "pointer",
             position: "relative",
@@ -105,7 +105,7 @@ export function MobileBottomNav() {
             <span style={{
               position: "absolute",
               top: 4, right: 8,
-              background: "var(--mbn-active)",
+              background: "var(--mbn-badge-bg)",
               color: "var(--mbn-badge-fg)",
               fontSize: 10,
               fontWeight: 600,
@@ -116,6 +116,9 @@ export function MobileBottomNav() {
             }}>{count}</span>
           )}
         </button>
+        {/* The sixth item: Licht / Donker / Systeem. This bar is the switch's home on a phone, where the headers
+            have no room for it; it opens upward. */}
+        <ThemeToggle label="Thema" placement="top-end" className="mbn-theme" />
       </div>
 
       <style>{`
@@ -124,18 +127,19 @@ export function MobileBottomNav() {
           --mbn-border: hsl(var(--border));
           --mbn-fg: hsl(var(--muted-foreground));
           --mbn-active: hsl(var(--primary));
+          --mbn-badge-bg: hsl(var(--primary));
           --mbn-badge-fg: hsl(var(--primary-foreground));
         }
-        /* The redesign pages carry their own always-dark palette in .wasfix-design,
-           independent of the app theme, so the bar has to follow that instead of the
-           light tokens. Browsers without :has() drop this rule and keep the tokens. */
-        body:has(.wasfix-design) .mobile-bottom-nav {
-          --mbn-bg: rgba(10, 15, 28, 0.92);
-          --mbn-border: rgba(255, 255, 255, 0.08);
-          --mbn-fg: #b6c0d8;
-          --mbn-active: #5d97ff;
-          --mbn-badge-fg: #fff;
+        /* On the redesign pages (home, diagnose, legal, blog, tools) wasfix-design.css overrides these six with that
+           palette's colours, so the bar matches the page behind it: this bar is rendered by the root layout, outside the
+           scope whose variables hold that palette. */
+        /* The toggle item looks like its neighbours: icon over a small label. */
+        .mobile-bottom-nav .mbn-theme .theme-toggle__trigger {
+          flex-direction: column; gap: 4px; width: auto; min-width: 48px; height: auto; min-height: 44px;
+          padding: 8px 4px; font-size: 11px; font-weight: 500; letter-spacing: 0.02em; color: var(--mbn-fg); border-radius: 0;
         }
+        .mobile-bottom-nav .mbn-theme .theme-toggle__trigger[aria-expanded="true"] { color: var(--mbn-active); background: transparent; }
+        .mobile-bottom-nav .mbn-theme .theme-toggle__panel { right: -4px; }
         @media (max-width: 767px) { .mobile-bottom-nav { display: block !important; } body { padding-bottom: 76px; } }
       `}</style>
     </nav>

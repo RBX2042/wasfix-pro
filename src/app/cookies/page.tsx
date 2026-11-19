@@ -50,15 +50,16 @@ export default function CookiesPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
-            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Naam</th>
-            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Doel</th>
-            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Bewaartermijn</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Naam</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Doel</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Bewaartermijn</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-consent</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Jouw keuze in de cookie-banner onthouden</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>365 dagen</td></tr>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-locale</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>De taalversie waarin je de site bekijkt (alleen zodra de meertalige site aanstaat)</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>365 dagen</td></tr>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-locale-suggested</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>Onthouden dat we je al hebben gevraagd of je de site liever in een andere taal leest</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>30 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}><code>wasfix-consent</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>Jouw keuze in de cookie-banner onthouden</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>365 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}><code>wasfix-locale</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>De taalversie waarin je de site bekijkt (alleen zodra de meertalige site aanstaat)</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>365 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}><code>wasfix-locale-suggested</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>Onthouden dat we je al hebben gevraagd of je de site liever in een andere taal leest</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>30 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}><code>theme</code> (localStorage)</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>Jouw keuze voor het kleurthema: licht, donker of volgens je apparaat. Zonder keuze is de site licht</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>Tot je het wist of wijzigt</td></tr>
           <tr><td style={{ padding: "8px 10px" }}><code>__clerk_*</code></td><td style={{ padding: "8px 10px" }}>Auth-sessie (Clerk)</td><td style={{ padding: "8px 10px" }}>Sessie / 30 dagen</td></tr>
         </tbody>
       </table>
@@ -87,13 +88,13 @@ export default function CookiesPage() {
       <table style={{ width: "100%", borderCollapse: "collapse", marginTop: 8, fontSize: 13 }}>
         <thead>
           <tr style={{ background: "var(--surf-2)" }}>
-            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Naam</th>
-            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Doel</th>
-            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--border)" }}>Bewaartermijn</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Naam</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Doel</th>
+            <th style={{ padding: "8px 10px", textAlign: "left", borderBottom: "1px solid var(--line)" }}>Bewaartermijn</th>
           </tr>
         </thead>
         <tbody>
-          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}><code>wasfix-ref</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>De doorverwijs-code van de link waarmee je binnenkwam, zodat degene die jou doorverwees krediet krijgt</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--border)" }}>30 dagen</td></tr>
+          <tr><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}><code>wasfix-ref</code></td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>De doorverwijs-code van de link waarmee je binnenkwam, zodat degene die jou doorverwees krediet krijgt</td><td style={{ padding: "8px 10px", borderBottom: "1px solid var(--line)" }}>30 dagen</td></tr>
           <tr><td style={{ padding: "8px 10px" }}><code>wasfix-vid</code></td><td style={{ padding: "8px 10px" }}>Anoniem bezoeker-id bij die doorverwijs-klik, zodat één klik niet dubbel telt. httpOnly: alleen onze server leest deze, JavaScript niet</td><td style={{ padding: "8px 10px" }}>30 dagen</td></tr>
         </tbody>
       </table>

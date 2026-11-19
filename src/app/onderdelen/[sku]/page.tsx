@@ -4,12 +4,12 @@ import { notFound } from "next/navigation";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { formatEur } from "@/lib/utils";
-import { SHIPPING, COMPANY, VAT_RATE, companyIdentityLine } from "@/lib/plans";
-import { env } from "@/lib/env";
+import { SHIPPING, COMPANY, VAT_RATE, companyIdentityLine, shippingFor } from "@/lib/plans";
 import { paymentMethodsLine } from "@/lib/storefront-facts";
 import { availabilityOf, categoryLabel } from "@/lib/part-categories";
 import { warrantyFor, formatWarranty } from "@/lib/warranty";
-import { clipAtWord } from "@/lib/seo-text";
+import { pageDescription, pageMetadata, pageTitle, robotsMeta } from "@/lib/seo";
+import { UNIVERSAL_BRAND, breadcrumbLd, ldJson, productLd as buildProductLd } from "@/lib/json-ld";
 import { CheckCircle2, Truck, ShieldCheck, RotateCcw, Package, CreditCard, Building2 } from "lucide-react";
 import { AddToCartButton } from "./add-to-cart-button";
 import Link from "next/link";
@@ -41,25 +41,20 @@ export function generateStaticParams() {
 export async function generateMetadata({ params }: { params: Promise<{ sku: string }> }) {
   const { sku } = await params;
   const part = await dbPartFull(sku);
-  if (!part) return { title: "Onderdeel niet gevonden", robots: { index: false } };
-  const title = `${part.name} (${part.sku})`;
-  const description = clipAtWord(
-    `${part.name}${part.brand === "Universeel" ? "" : ` van ${part.brand}`}${part.isOriginal ? ", origineel onderdeel" : ", universele vervanger"}. ${formatEur(part.priceEur)} incl. btw. Verzending binnen Nederland, 30 dagen bedenktijd.`,
-    155,
+  if (!part) return { title: "Onderdeel niet gevonden", robots: robotsMeta(false, true) };
+  // The SKU in the title when the whole title still fits; the name alone otherwise (src/lib/seo.ts).
+  const title = pageTitle(`${part.name} (${part.sku})`, part.name);
+  const description = pageDescription(
+    `${part.name}${part.brand === UNIVERSAL_BRAND ? "" : ` van ${part.brand}`}${part.isOriginal ? ", origineel onderdeel" : ", universele vervanger"}. ${formatEur(part.priceEur)} incl. btw. Verzending binnen Nederland, 30 dagen bedenktijd.`,
   );
-  return {
+  return pageMetadata({
     title,
     description,
-    alternates: { canonical: `/onderdelen/${part.sku}` },
-    openGraph: {
-      title,
-      description,
-      type: "website",
-      // A real photo, or the site-wide card. The placehold.co tiles are filtered out
-      // upstream (realImageUrl), so they are never advertised as the product picture.
-      images: part.imageUrl ? [part.imageUrl] : [{ url: "/opengraph-image", width: 1200, height: 630 }],
-    },
-  };
+    path: `/onderdelen/${encodeURIComponent(part.sku)}`,
+    // A real photo, or the site-wide card. The placehold.co tiles are filtered out
+    // upstream (realImageUrl), so they are never advertised as the product picture.
+    image: part.imageUrl ?? undefined,
+  });
 }
 
 export default async function PartDetailPage({ params }: { params: Promise<{ sku: string }> }) {
@@ -68,7 +63,6 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
 
   if (!part) notFound();
 
-  const SITE = env.APP_URL;
   const compatibleBrands = Array.from(new Set(part.machines.map((m) => m.machine.brand)));
   const relatedParts = await dbRelatedParts(part.category, part.id, 4);
 
@@ -85,60 +79,33 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
   // Seller identity only when it is real; a stand-in KvK number is never printed.
   const sellerLine = COMPANY.isPlaceholder ? null : companyIdentityLine();
 
-  // schema.org Product + Offer. Only claims the terms back: shipping rate and
-  // destination from SHIPPING, a 30-day return window with the customer paying the
-  // return (as /retourvoorwaarden says), no delivery-time promise (the terms call
-  // delivery time an indication), and an image only when it is a real photo.
-  const productLd = {
-    "@context": "https://schema.org",
-    "@type": "Product",
-    name: part.name,
-    image: part.imageUrl ? [part.imageUrl] : undefined,
-    description: part.description ?? `${part.name} — ${part.brand} wasmachine-onderdeel`,
+  // schema.org Product + Offer (src/lib/json-ld.ts). Only claims the page backs: price and stock from the
+  // database, the shipping a single unit is charged (free above the threshold, as the page says), a 30-day return
+  // window with the customer paying the return (as /retourvoorwaarden says), no delivery-time promise, an image
+  // only when it is a real photo, a rating only from stored reviews (none today).
+  const productLd = buildProductLd({
     sku: part.sku,
-    brand: { "@type": "Brand", name: part.brand },
-    category: categoryLabel(part.category),
-    offers: {
-      "@type": "Offer",
-      url: `${SITE}/onderdelen/${part.sku}`,
-      priceCurrency: "EUR",
-      price: part.priceEur.toFixed(2),
-      availability: availability === "out" ? "https://schema.org/OutOfStock" : "https://schema.org/InStock",
-      itemCondition: "https://schema.org/NewCondition",
-      seller: { "@type": "Organization", name: "WasFix Pro" },
-      shippingDetails: {
-        "@type": "OfferShippingDetails",
-        shippingRate: { "@type": "MonetaryAmount", value: SHIPPING.rateEur.toFixed(2), currency: "EUR" },
-        shippingDestination: { "@type": "DefinedRegion", addressCountry: "NL" },
-      },
-      hasMerchantReturnPolicy: {
-        "@type": "MerchantReturnPolicy",
-        applicableCountry: "NL",
-        returnPolicyCategory: "https://schema.org/MerchantReturnFiniteReturnWindow",
-        merchantReturnDays: 30,
-        returnMethod: "https://schema.org/ReturnByMail",
-        returnFees: "https://schema.org/ReturnFeesCustomerResponsibility",
-        merchantReturnLink: `${SITE}/retourvoorwaarden`,
-      },
-    },
+    name: part.name,
+    description: part.description ?? `${part.name} — ${part.brand} wasmachine-onderdeel`,
+    brand: part.brand,
+    categoryLabel: categoryLabel(part.category),
+    priceEur: part.priceEur,
+    inStock: availability !== "out",
+    imageUrl: part.imageUrl,
+    shippingEur: shippingFor(part.priceEur),
+    returnDays: 30,
     aggregateRating: aggregateRatingLd(stats),
     review: reviewsLd(reviews),
-  };
+  });
 
-  const breadcrumbLd = {
-    "@context": "https://schema.org",
-    "@type": "BreadcrumbList",
-    itemListElement: [
-      { "@type": "ListItem", position: 1, name: "Onderdelen", item: `${SITE}/onderdelen` },
-      { "@type": "ListItem", position: 2, name: part.brand, item: `${SITE}/onderdelen?brand=${encodeURIComponent(part.brand)}` },
-      { "@type": "ListItem", position: 3, name: part.name },
-    ],
-  };
+  // The trail the page prints below (Onderdelen / SKU): the brand step the markup used to add was a filtered
+  // list that is noindex, and the page showed no such step.
+  const breadcrumb = breadcrumbLd([{ name: "Onderdelen", path: "/onderdelen" }, { name: part.sku }]);
 
   return (
     <MarketingLayout>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(productLd) }} />
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(breadcrumbLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(productLd) }} />
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(breadcrumb) }} />
       <div className="container py-4 md:py-8">
         <nav className="text-sm text-muted-foreground mb-3 md:mb-6">
           <Link href="/onderdelen" className="hover:text-foreground inline-flex items-center min-h-11">Onderdelen</Link>
@@ -170,11 +137,11 @@ export default async function PartDetailPage({ params }: { params: Promise<{ sku
             {availability === "out" ? (
               <div className="text-destructive font-medium text-sm">Tijdelijk uitverkocht</div>
             ) : availability === "low" ? (
-              <div className="flex items-center gap-2 text-amber-700 dark:text-amber-400 font-medium text-sm">
+              <div className="flex items-center gap-2 text-warning font-medium text-sm">
                 <CheckCircle2 className="h-4 w-4" /> Beperkt voorradig (nog {part.stock} beschikbaar)
               </div>
             ) : (
-              <div className="flex items-center gap-2 text-emerald-700 dark:text-emerald-400 font-medium text-sm">
+              <div className="flex items-center gap-2 text-success font-medium text-sm">
                 <CheckCircle2 className="h-4 w-4" /> Op voorraad
               </div>
             )}

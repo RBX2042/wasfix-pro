@@ -8,7 +8,7 @@
  *
  * The origin is --origin, else NEXT_PUBLIC_APP_URL. The list is the sitemap's: <origin>/sitemap.xml (and, if it is an
  * index, its children). Each URL must be on the origin's host, without query or fragment, not under a private path, not
- * on a noindex family or file (the city pages, /qr/*, /leadmagnets/*, /offline.html: the same list next.config.ts sends a noindex
+ * on a noindex family or file (the city pages, /qr/*, /leadmagnets/*: the same list next.config.ts sends a noindex
  * header for) and not a technical file (scripts/lib/indexnow.ts filterUrls); what is dropped
  * is counted and shown. The key is INDEXNOW_KEY, else the one public/<key>.txt whose content is its own name.
  *

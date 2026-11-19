@@ -1,17 +1,20 @@
 "use client";
 import { Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Area, ComposedChart } from "recharts";
+import { useSvgIds } from "@/components/redesign/svg-ids";
 
 interface Props {
   data: Array<{ date: string; revenue: number; orders: number }>;
 }
 
 export default function RevenueChart({ data }: Props) {
+  // The gradient id is per chart (svg-ids.ts): a literal id would collide as soon as a page shows two charts.
+  const svg = useSvgIds();
   return (
     <div className="w-full h-64">
       <ResponsiveContainer width="100%" height="100%">
         <ComposedChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
           <defs>
-            <linearGradient id="revGradient" x1="0" y1="0" x2="0" y2="1">
+            <linearGradient id={svg.ref("revGradient")} x1="0" y1="0" x2="0" y2="1">
               <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
               <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
             </linearGradient>
@@ -34,7 +37,7 @@ export default function RevenueChart({ data }: Props) {
               return name === "revenue" ? [`€${num.toFixed(2)}`, "Omzet"] : [String(value), "Facturen"];
             }}
           />
-          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill="url(#revGradient)" />
+          <Area type="monotone" dataKey="revenue" stroke="hsl(var(--primary))" strokeWidth={2} fillOpacity={1} fill={svg.url("revGradient")} />
           <Line type="monotone" dataKey="orders" stroke="hsl(var(--accent))" strokeWidth={2} dot={{ r: 3, fill: "hsl(var(--accent))" }} />
         </ComposedChart>
       </ResponsiveContainer>

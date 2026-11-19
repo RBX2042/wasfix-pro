@@ -198,6 +198,8 @@ export const config = {
     // as it is. Through the middleware they would get the locale-hint cookie and, with NEXT_PUBLIC_FEATURE_I18N on, a redirect
     // to /<locale>/... (a 404: no locale routes exist) for a visitor whose country or language maps to another locale; and with
     // Clerk configured every crawler fetch of them would run clerkMiddleware for nothing (decision D24).
-    "/((?!_next/static|_next/image|favicon.ico|sw.js|offline.html|(?!api/).*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html|txt|xml)$).*)",
+    // offline.html is no longer named here: the file was deleted (decision D25; public/sw.js is a kill switch without a fetch
+    // handler, so nothing served it), and an .html path is excluded by the extension rule anyway.
+    "/((?!_next/static|_next/image|favicon.ico|sw.js|(?!api/).*\\.(?:png|jpg|jpeg|svg|gif|webp|ico|pdf|html|txt|xml)$).*)",
   ],
 };

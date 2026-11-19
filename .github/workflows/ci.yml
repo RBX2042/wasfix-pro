@@ -63,9 +63,11 @@ jobs:
   database:
     name: Schema + seed + QA suites + smoke (Postgres)
     runs-on: ubuntu-latest
-    # ~5 min build + ~3 min suites + ~2 min browser install + ~4 min for the theme, SEO and IndexNow suites (measured on 4 shared
-    # cores: qa-theme 2 min 15 s, qa-seo 40 s, qa-indexnow 10 s; a GitHub runner has 2 cores, so allow roughly double); 30 leaves room for a cold runner.
-    timeout-minutes: 30
+    # Measured in a local replay of this job on 4 shared cores (2026-11-19): migrate, seed and the two smokes 30 s, the offline suites
+    # 4 min 50 s, qa-migration and qa-csp 20 s, the build 1 min 20 s, qa-seo 50 s, qa-indexnow 5 s, checkout + storefront + credit
+    # note 1 min 10 s, qa-csp live 30 s, qa-theme 3 min 50 s: about 13.5 min, plus npm ci and the browser install. A 2-core runner
+    # can take about twice that, and qa-seo may wait up to 150 s twice for a deleted test row (D25), so 45 leaves room.
+    timeout-minutes: 45
     needs: lint-typecheck
     services:
       postgres:
@@ -119,9 +121,10 @@ jobs:
         run: npm run money:smoke
 
       - name: Install Chromium (needed before the offline suites, because qa-platform runs its service-worker test in it)
-        # 1.56.1 is the version these scripts were developed against.
+        # 1.63.0 is the version every browser suite was last run against (a local replay of this job, 2026-11-19; D22 item 4,
+        # D25 item 7). They were written against 1.56.1, which could not be run there (no browser of that version).
         run: |
-          npm install --no-save playwright@1.56.1
+          npm install --no-save playwright@1.63.0
           npx playwright install --with-deps chromium
 
       # Every suite below gets its OWN database, copied from a freshly migrated
@@ -197,7 +200,9 @@ jobs:
 
       # D23 and D24, before the suites below: qa-checkout creates and deletes catalogue parts, and both of these read the
       # catalogue through the sitemap. qa-seo crawls the sitemap and a sample of every dynamic family as a crawler would (the
-      # whole sitemap with QA_SEO_FULL=1) and needs nothing but the server; no browser, no database of its own.
+      # whole sitemap with QA_SEO_FULL=1); no database of its own. D25: headings are strict (one h1, first, no skipped level;
+      # there is no opt-out to set), and it first opens its crawler sample in the Chromium installed above, both themes, before
+      # every crawler fetches the same pages; QA_REQUIRE_SERVER=1 makes a missing browser a failure, not a skip.
       - name: SEO readiness against the production server
         env:
           QA_BASE_URL: http://localhost:3000

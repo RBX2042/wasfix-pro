@@ -47,7 +47,7 @@ export default async function MerkenPage() {
                   <div className="h-16 w-16 mx-auto rounded-full bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center mb-3">
                     <span className="font-heading font-bold text-xl text-primary">{brand[0]}</span>
                   </div>
-                  <h3 className="font-heading text-lg font-semibold group-hover:text-primary transition-colors">{brand}</h3>
+                  <h2 className="font-heading text-lg font-semibold group-hover:text-primary transition-colors">{brand}</h2>
                   <p className="text-xs text-muted-foreground mt-1">{models.length} {models.length === 1 ? "model" : "modellen"}</p>
                 </CardContent>
               </Card>

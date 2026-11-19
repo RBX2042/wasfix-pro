@@ -46,7 +46,7 @@ export default async function ApiKeysPage() {
     return (
       <DashboardLayout role={user.role}>
         <div className="border rounded-lg p-12 text-center bg-gradient-to-br from-primary/5 to-accent/5">
-          <h2 className="font-heading text-xl font-bold mb-3">API toegang vereist Monteur Pro</h2>
+          <h1 className="font-heading text-xl font-bold mb-3">API toegang vereist Monteur Pro</h1>
           <p className="text-muted-foreground mb-6 max-w-md mx-auto">
             De B2B REST API is beschikbaar vanaf Monteur Pro (€29/mnd excl. btw) — {num(getPlan("MONTEUR_PRO").apiCallsPerMonth)} calls per maand inbegrepen.
           </p>

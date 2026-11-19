@@ -142,6 +142,7 @@ There is **no `/api/contact`.** `/contact` is a page with a `mailto:` link.
 ### Webhooks
 - `POST /api/stripe/webhook` — idempotent via the `StripeEvent` table
 - `POST /api/webhooks/clerk` — Svix-verified
+- `POST /api/webhooks/resend` — Svix-verified (`RESEND_WEBHOOK_SECRET`; no unsigned mode): an opt-out through Resend's own link (`contact.updated`) or a spam complaint (`email.complained`) sets `unsubscribedAt` in our table (D20)
 
 ## Database (Prisma)
 
@@ -286,7 +287,7 @@ lives in Vercel, not in the repo — see BLOCKED.md for the current state.
 | Owner channel | `SLACK_WEBHOOK_URL`, `DISCORD_WEBHOOK_URL`, `ORDER_NOTIFY_EMAIL` / `COMPANY_EMAIL` + Resend | the owner is told nothing (logged once) |
 | Scheduled jobs | `CRON_SECRET` | every `/api/cron/*` route answers 503 |
 | Gemini | `GEMINI_API_KEY` | labelled keyword fallback |
-| Resend | `RESEND_API_KEY`, `RESEND_AUDIENCE_ID` | e-mail is a no-op; subscribers still stored. With both set, confirmations, opt-outs and erasures are recorded in our table first and the audience contact follows (best effort); a failed audience update is reported to the owner once per address and direction per instance |
+| Resend | `RESEND_API_KEY`, `RESEND_AUDIENCE_ID`, `RESEND_WEBHOOK_SECRET` | e-mail is a no-op; subscribers still stored. With both set, confirmations, opt-outs and erasures are recorded in our table first and the audience contact follows (best effort); a failed audience update is reported to the owner once per address and direction per instance. Without `RESEND_WEBHOOK_SECRET`, `POST /api/webhooks/resend` refuses every delivery (503), so an opt-out made at Resend stays a subscriber in our table (the preflight warns when the audience is set without it) |
 | Upstash | `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN` | in-memory limiter, per instance; warned once in production |
 | Google Search Console | `GSC_OAUTH_*`, `GSC_REFRESH_TOKEN` | `/admin/analytics` shows no search data |
 | KvK | `KVK_API_KEY` | `/api/monteur/kvk-lookup` returns a mock company |

@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import "@/app/wasfix-design.css";
 import { WasFixFooter } from "@/components/redesign/SharedLayout";
 import { ThemeToggle } from "@/components/theme-toggle";
+import { useSvgIds } from "@/components/redesign/svg-ids";
 import { PLANS, PLAN_ORDER, formatPlanPrice, planPriceSuffix } from "@/lib/plans";
 
 // Headline numbers come from the server (page.tsx reads the real catalogue) and
@@ -150,6 +151,8 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
 }) {
   const [hover, setHover] = React.useState<string | null>(null);
   const [drumAngle, setDrumAngle] = React.useState(0);
+  // This drawing is on the home page twice (hero and diagnosis demo): its gradient ids are per instance (svg-ids.ts).
+  const svg = useSvgIds();
 
   React.useEffect(() => {
     let raf = 0;
@@ -176,60 +179,60 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
       {/* Every colour here is a --wm-* variable of the active palette (src/app/wasfix-design.css): the machine is
           a white appliance in the light theme and the navy one it always was in the dark theme. */}
       <defs>
-        <linearGradient id="cabFill" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={svg.ref("cabFill")} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="var(--wm-cab-1)" />
           <stop offset="0.5" stopColor="var(--wm-cab-2)" />
           <stop offset="1" stopColor="var(--wm-cab-3)" />
         </linearGradient>
-        <linearGradient id="panelFill" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={svg.ref("panelFill")} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="var(--wm-panel-1)" />
           <stop offset="1" stopColor="var(--wm-panel-2)" />
         </linearGradient>
-        <radialGradient id="glassFill" cx="0.35" cy="0.35" r="0.7">
+        <radialGradient id={svg.ref("glassFill")} cx="0.35" cy="0.35" r="0.7">
           <stop offset="0" stopColor="var(--wm-glass-1)" stopOpacity="0.7" />
           <stop offset="0.6" stopColor="var(--wm-glass-2)" stopOpacity="0.9" />
           <stop offset="1" stopColor="var(--wm-glass-3)" stopOpacity="0.95" />
         </radialGradient>
-        <radialGradient id="drumFill" cx="0.5" cy="0.5" r="0.55">
+        <radialGradient id={svg.ref("drumFill")} cx="0.5" cy="0.5" r="0.55">
           <stop offset="0" stopColor="var(--wm-drum-1)" />
           <stop offset="0.7" stopColor="var(--wm-drum-2)" />
           <stop offset="1" stopColor="var(--wm-drum-3)" />
         </radialGradient>
-        <linearGradient id="seal" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={svg.ref("seal")} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="var(--wm-seal-1)" />
           <stop offset="1" stopColor="var(--wm-seal-2)" />
         </linearGradient>
-        <linearGradient id="hiLight" x1="0" x2="1" y1="0" y2="0">
+        <linearGradient id={svg.ref("hiLight")} x1="0" x2="1" y1="0" y2="0">
           <stop offset="0" stopColor="#ffffff" stopOpacity="0.10" />
           <stop offset="1" stopColor="#ffffff" stopOpacity="0" />
         </linearGradient>
-        <linearGradient id="accGrad" x1="0" x2="1">
+        <linearGradient id={svg.ref("accGrad")} x1="0" x2="1">
           <stop offset="0" stopColor="var(--acc)" />
           <stop offset="1" stopColor="var(--acc-2)" />
         </linearGradient>
-        <pattern id="drumHoles" x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
+        <pattern id={svg.ref("drumHoles")} x="0" y="0" width="14" height="14" patternUnits="userSpaceOnUse">
           <circle cx="7" cy="7" r="1.3" fill="var(--wm-hole)" />
         </pattern>
-        <linearGradient id="scanSweep" x1="0" x2="0" y1="0" y2="1">
+        <linearGradient id={svg.ref("scanSweep")} x1="0" x2="0" y1="0" y2="1">
           <stop offset="0" stopColor="var(--wm-hot)" stopOpacity="0" />
           <stop offset="0.4" stopColor="var(--wm-hot)" stopOpacity="0.7" />
           <stop offset="0.6" stopColor="var(--wm-hot)" stopOpacity="0.7" />
           <stop offset="1" stopColor="var(--wm-hot)" stopOpacity="0" />
         </linearGradient>
-        <clipPath id="scanClip">
+        <clipPath id={svg.ref("scanClip")}>
           <rect x="50" y="50" width="500" height="510" rx="22" />
         </clipPath>
       </defs>
 
-      <ellipse cx="300" cy="320" rx="280" ry="240" fill="url(#accGrad)" opacity="0.05" />
+      <ellipse cx="300" cy="320" rx="280" ry="240" fill={svg.url("accGrad")} opacity="0.05" />
       <rect x={CABINET.x} y={CABINET.y} width={CABINET.w} height={CABINET.h} rx={CABINET.r}
-        fill="url(#cabFill)" stroke="var(--wm-edge)" strokeWidth="1" />
+        fill={svg.url("cabFill")} stroke="var(--wm-edge)" strokeWidth="1" />
       <rect x={CABINET.x + 8} y={CABINET.y + 8} width={CABINET.w - 16} height={CABINET.h - 16} rx={CABINET.r - 6}
         fill="none" stroke="var(--wm-edge-soft)" strokeWidth="1" />
-      <rect x={CABINET.x + 4} y={CABINET.y + 4} width={CABINET.w - 8} height={120} rx={20} fill="url(#hiLight)" />
+      <rect x={CABINET.x + 4} y={CABINET.y + 4} width={CABINET.w - 8} height={120} rx={20} fill={svg.url("hiLight")} />
 
       <g transform="translate(70 72)">
-        <rect width="460" height="78" rx="12" fill="url(#panelFill)" stroke="var(--wm-edge-soft)" />
+        <rect width="460" height="78" rx="12" fill={svg.url("panelFill")} stroke="var(--wm-edge-soft)" />
         <rect x="16" y="14" width="148" height="50" rx="8" fill="var(--wm-screen)" stroke="var(--wm-hot)" strokeOpacity="0.4" />
         <text x="90" y="36" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="11" fill="var(--wm-screen-ink)" opacity="0.7" letterSpacing="0.12em">ERROR</text>
         <text x="90" y="56" textAnchor="middle" fontFamily="var(--font-geist-mono), ui-monospace, monospace" fontSize="20" fontWeight="500" fill="var(--wm-screen-ink)" letterSpacing="0.2em">{displayText}</text>
@@ -262,12 +265,12 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
       </g>
 
       <g>
-        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 14} fill="url(#seal)" stroke="var(--wm-edge)" strokeWidth="1" />
+        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 14} fill={svg.url("seal")} stroke="var(--wm-edge)" strokeWidth="1" />
         <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R + 7} fill="none" stroke="var(--wm-edge-soft)" strokeWidth="1" strokeDasharray="2 3" />
-        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R} fill="url(#glassFill)" stroke="var(--wm-edge)" strokeWidth="1" />
+        <circle cx={DOOR_CX} cy={DOOR_CY} r={DOOR_R} fill={svg.url("glassFill")} stroke="var(--wm-edge)" strokeWidth="1" />
         <g transform={`rotate(${drumAngle} ${DOOR_CX} ${DOOR_CY})`}>
-          <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R} fill="url(#drumFill)" />
-          <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R} fill="url(#drumHoles)" />
+          <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R} fill={svg.url("drumFill")} />
+          <circle cx={DOOR_CX} cy={DOOR_CY} r={DRUM_R} fill={svg.url("drumHoles")} />
           {[0, 120, 240].map((a) => (
             <g key={a} transform={`rotate(${a} ${DOOR_CX} ${DOOR_CY})`}>
               <rect x={DOOR_CX - 5} y={DOOR_CY - DRUM_R + 18} width="10" height="38" rx="3" fill="var(--wm-panel-2)" stroke="var(--wm-edge)" />
@@ -294,8 +297,8 @@ function WashingMachine({ activeId, onSelect, scanning = false, highlight = [], 
       <rect x="490" y="540" width="40" height="14" rx="2" fill="var(--wm-foot)" />
 
       {scanning && (
-        <g clipPath="url(#scanClip)">
-          <rect x="50" y="0" width="500" height="80" fill="url(#scanSweep)">
+        <g clipPath={svg.url("scanClip")}>
+          <rect x="50" y="0" width="500" height="80" fill={svg.url("scanSweep")}>
             <animate attributeName="y" values="50;560;50" dur="2.6s" repeatCount="indefinite" />
           </rect>
         </g>
@@ -848,6 +851,8 @@ function PartsCatalog({ parts }: { parts: PartItem[] }) {
 type CodeItem = { id: string; brand: string; desc: string; part: string; url: string };
 
 function CodeVisual({ code }: { code: CodeItem }) {
+  // Per-instance ids, like the washing machine above (svg-ids.ts): one drawing today, but a second one must not collide.
+  const svg = useSvgIds();
   return (
     <div className="code-visual">
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
@@ -863,15 +868,15 @@ function CodeVisual({ code }: { code: CodeItem }) {
 
       <svg viewBox="0 0 380 220" style={{ width: "100%", borderRadius: 8, border: "1px solid var(--line)", background: "var(--wm-tank)" }}>
         <defs>
-          <linearGradient id="water" x1="0" x2="0" y1="0" y2="1">
+          <linearGradient id={svg.ref("water")} x1="0" x2="0" y1="0" y2="1">
             <stop offset="0" stopColor="var(--wm-hot)" stopOpacity="0.7" />
             <stop offset="1" stopColor="var(--acc)" stopOpacity="0.5" />
           </linearGradient>
-          <clipPath id="drumClip"><circle cx="160" cy="110" r="70" /></clipPath>
+          <clipPath id={svg.ref("drumClip")}><circle cx="160" cy="110" r="70" /></clipPath>
         </defs>
         <circle cx="160" cy="110" r="74" fill="var(--wm-cab-1)" stroke="var(--wm-edge)" />
-        <g clipPath="url(#drumClip)">
-          <rect x="86" y="80" width="148" height="80" fill="url(#water)">
+        <g clipPath={svg.url("drumClip")}>
+          <rect x="86" y="80" width="148" height="80" fill={svg.url("water")}>
             <animate attributeName="y" values="120;80;80" dur="3.4s" repeatCount="indefinite" />
           </rect>
           {[0, 1, 2, 3].map(i => (

@@ -83,7 +83,7 @@ function ValueCard({ icon, title, text }: { icon: React.ReactNode; title: string
     <Card>
       <CardContent className="p-5">
         <div className="h-10 w-10 rounded-md bg-primary/10 flex items-center justify-center text-primary mb-2">{icon}</div>
-        <h3 className="font-heading font-semibold mb-1">{title}</h3>
+        <h2 className="font-heading font-semibold mb-1">{title}</h2>
         <p className="text-sm text-muted-foreground">{text}</p>
       </CardContent>
     </Card>

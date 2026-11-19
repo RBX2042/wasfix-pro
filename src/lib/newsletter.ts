@@ -25,7 +25,9 @@
  * token; compared with the FIRST opt-out timestamp, a repeated click keeps it); only a new sign-up can. An account
  * erasure (src/lib/erasure.ts) flags the contact the same way (forgetNewsletterContactAfterResponse). Nothing else in
  * the app sends marketing mail: the newsletters themselves are Resend Broadcasts sent by the owner, who must put our
- * link in each one.
+ * link in each one. An opt-out made AT Resend (its own unsubscribe link in a broadcast) or a spam complaint reaches our
+ * table through the signed Resend webhook (src/app/api/webhooks/resend/route.ts -> recordResendOptOut, the same table
+ * path as our own link); Resend saying a contact is subscribed again never subscribes anyone here.
  *
  * The confirmation link carries an HMAC-SHA256 token over the address and an expiry, keyed with a key derived
  * from CRON_SECRET (else CLERK_SECRET_KEY). No new environment variable (decision D10). Without
@@ -504,34 +506,90 @@ export type UnsubscribeResult =
   | { ok: false };
 
 /**
+ * A database error as a log payload without the address in it: a driver or validation message can quote the query's
+ * arguments, and the address must not reach the platform log or the owner's channels (the error sink of src/lib/logger.ts).
+ */
+function errorWithoutAddress(err: unknown, email: string): { name: string; code?: string; message: string; stack?: string } {
+  const scrub = (s: string) => s.split(email).join("<adres>");
+  const e = err instanceof Error ? err : new Error(String(err));
+  const code = (err as { code?: unknown })?.code;
+  return { name: e.name, ...(typeof code === "string" ? { code } : {}), message: scrub(e.message), ...(e.stack ? { stack: scrub(e.stack) } : {}) };
+}
+
+/**
+ * The table half of every opt-out (our own link, and an opt-out or complaint reported by Resend): set unsubscribedAt on the
+ * row for an already normalised address. Idempotent: only the first opt-out writes the timestamp (a race between two keeps
+ * the earlier one). An address without a row gets no row: an opt-out never stores an address again (a purged or erased one).
+ */
+async function recordOptOut(email: string): Promise<{ ok: true; status: "unsubscribed" | "already" | "unknown"; rowId: string | null } | { ok: false }> {
+  try {
+    const row = await prisma.newsletterSubscriber.findUnique({ where: { email }, select: { id: true } });
+    if (!row) return { ok: true, status: "unknown", rowId: null };
+    const res = await prisma.newsletterSubscriber.updateMany({ where: { email, unsubscribedAt: null }, data: { unsubscribedAt: new Date() } });
+    return { ok: true, status: res.count > 0 ? "unsubscribed" : "already", rowId: row.id };
+  } catch (err) {
+    logger.error("[newsletter] opt-out could not be stored", errorWithoutAddress(err, email));
+    return { ok: false };
+  }
+}
+
+/**
  * Record the opt-out for an address whose token verified. Our table is authoritative and is written first; the Resend
  * audience follows, best effort. Idempotent: the first unsubscribedAt is kept. An address without a row is answered like
  * any other (no enumeration) and gets no row: the token proves we once mailed it, not that it should be stored again.
  */
 export async function unsubscribeFromNewsletter(rawEmail: string): Promise<UnsubscribeResult> {
   const email = normalizeNewsletterEmail(rawEmail);
-  let status: "unsubscribed" | "already" | "unknown";
-  let rowId: string | null = null;
-  try {
-    const row = await prisma.newsletterSubscriber.findUnique({ where: { email }, select: { id: true, unsubscribedAt: true } });
-    if (!row) {
-      status = "unknown";
-    } else {
-      rowId = row.id;
-      // Only the first click writes the timestamp: a race between two clicks keeps the earlier one.
-      const res = await prisma.newsletterSubscriber.updateMany({ where: { email, unsubscribedAt: null }, data: { unsubscribedAt: new Date() } });
-      status = res.count > 0 ? "unsubscribed" : "already";
-    }
-  } catch (err) {
-    logger.error("[newsletter] opt-out could not be stored", err);
-    return { ok: false };
-  }
+  const recorded = await recordOptOut(email);
+  if (!recorded.ok) return { ok: false };
 
   // The audience follows, whether or not we have a row: the token proves we once mailed this address, and a 404 from
   // Resend ("not in the audience") is an answer, not a failure.
   const resend = await removeFromResendAudience(email);
-  if (resend.outcome === "failed") reportResendFailure("unsubscribe", email, resend.reason ?? "onbekend", rowId);
-  return { ok: true, status, resend: resend.outcome };
+  if (resend.outcome === "failed") reportResendFailure("unsubscribe", email, resend.reason ?? "onbekend", recorded.rowId);
+  return { ok: true, status: recorded.status, resend: resend.outcome };
+}
+
+// ─── Opt-outs reported by Resend (POST /api/webhooks/resend) ────────
+
+export type ResendReportedOptOut =
+  /** The contact's flag was set to unsubscribed AT Resend (its own unsubscribe link, the dashboard, an import): `contact.updated` with `unsubscribed: true`. */
+  | "resend_unsubscribe"
+  /** The recipient marked a mail as spam (`email.complained`): an objection to our mail, so an opt-out. */
+  | "spam_complaint";
+
+export type ResendOptOutResult =
+  /** "unsubscribed": set now. "already": was set before (kept, first timestamp). "unknown": no row for this address; nothing stored, nothing sent. */
+  | { ok: true; status: "unsubscribed" | "already" | "unknown" }
+  /** The table could not be written: the webhook answers 500 so Resend delivers the event again. */
+  | { ok: false };
+
+/**
+ * An opt-out that Resend reported, on the SAME table path as our own link (recordOptOut: first timestamp kept, no row for an
+ * unknown address, the stored timestamp is when WE recorded it). What differs is only the Resend half:
+ *   - resend_unsubscribe: no call back to Resend. The event says the contact IS flagged already, and a PATCH would make
+ *     Resend report another contact.updated, which would arrive here again.
+ *   - spam_complaint (an address with a row): the contact is flagged unsubscribed in the audience like after our own
+ *     opt-out (removeFromResendAudience, a failure reported to the owner once per address and direction per server
+ *     instance, shared with our own opt-out: reportResendFailure), but AFTER the response (next/server after()), so the
+ *     delivery is acknowledged without waiting up to RESEND_TIMEOUT_MS for Resend's API. The contact.updated that this
+ *     PATCH may cause comes back as resend_unsubscribe: "already", no further call, so there is no loop.
+ * Consent is never given here: a contact.updated with `unsubscribed: false` does not reach this function (only our double
+ * opt-in subscribes; see the route). The event's own time is not used: its exact meaning was not observed (DECISIONS D20).
+ */
+export async function recordResendOptOut(rawEmail: string, kind: ResendReportedOptOut): Promise<ResendOptOutResult> {
+  const email = normalizeNewsletterEmail(rawEmail);
+  if (!email.includes("@") || email.length > MAX_EMAIL_LENGTH) return { ok: true, status: "unknown" };
+  const recorded = await recordOptOut(email);
+  if (!recorded.ok) return { ok: false };
+  if (kind === "spam_complaint" && recorded.rowId) {
+    const rowId = recorded.rowId;
+    afterResponse(async () => {
+      const resend = await removeFromResendAudience(email);
+      if (resend.outcome === "failed") reportResendFailure("unsubscribe", email, resend.reason ?? "onbekend", rowId);
+    });
+  }
+  return { ok: true, status: recorded.status };
 }
 
 /**

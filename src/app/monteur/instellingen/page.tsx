@@ -23,7 +23,7 @@ export default async function MonteurSettingsPage() {
       <DashboardLayout role={user.role}>
         <Card>
           <CardContent className="p-12 text-center">
-            <h2 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h2>
+            <h1 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h1>
             <p className="text-muted-foreground mb-4">Facturen maken vanaf je werkorders hoort bij Monteur Pro.</p>
             <Button asChild><Link href="/upgrade?plan=MONTEUR_PRO">Bekijk Monteur Pro</Link></Button>
           </CardContent>

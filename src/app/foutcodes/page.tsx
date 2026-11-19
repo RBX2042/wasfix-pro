@@ -106,7 +106,7 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
           95px of horizontal scroll. */}
       <div className="container py-6 md:py-8 grid grid-cols-1 lg:grid-cols-[220px_minmax(0,1fr)] gap-6 lg:gap-8">
         <aside className="min-w-0">
-          <h3 className="font-semibold mb-2 hidden lg:block">Filter op merk</h3>
+          <h2 className="font-semibold mb-2 hidden lg:block">Filter op merk</h2>
           <details className="lg:hidden rounded-md border">
             <summary className="min-h-11 px-3 flex items-center cursor-pointer font-medium text-sm">
               Filter op merk{brand ? `: ${brand}` : ""}
@@ -140,7 +140,7 @@ export default async function FoutcodesPage({ searchParams }: { searchParams: Pr
                         <SeverityBadge severity={ec.severity} />
                         {ec.diyFriendly && <Badge variant="success" className="text-[10px]">Zelf oplosbaar</Badge>}
                       </div>
-                      <h3 className="font-heading font-semibold group-hover:text-primary transition-colors">{ec.title}</h3>
+                      <h2 className="font-heading font-semibold group-hover:text-primary transition-colors">{ec.title}</h2>
                       <p className="text-sm text-muted-foreground line-clamp-2 mt-1">{ec.description}</p>
                     </div>
                     <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0 mt-1" aria-hidden="true" />

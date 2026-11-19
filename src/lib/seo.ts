@@ -207,8 +207,12 @@ export type RobotsHeaderRule = {
  */
 const NON_BLANK = "[\\s\\S]*\\S[\\s\\S]*";
 
-/** Files in public/ that are crawlable but must not be indexed (see variantHeaderRules): /leadmagnets/* and the offline page. */
-export const STATIC_NOINDEX_SOURCES: readonly string[] = ["/leadmagnets/:path*", "/offline.html"];
+/**
+ * Files in public/ that are crawlable but must not be indexed (see variantHeaderRules): /leadmagnets/*. The offline page of the
+ * removed service worker (/offline.html) was here too; it was deleted (decision D25: nothing served or linked it), so its address
+ * now answers the site's 404 page, which carries its own noindex tag.
+ */
+export const STATIC_NOINDEX_SOURCES: readonly string[] = ["/leadmagnets/:path*"];
 
 /**
  * The same noindex that the pages put in a robots tag, as a response header. A header does not depend on how the
@@ -220,10 +224,9 @@ export const STATIC_NOINDEX_SOURCES: readonly string[] = ["/leadmagnets/:path*",
  *     (listMetadata above; one rule per parameter in LIST_FILTER_PARAMS, so the two cannot drift apart);
  *   - /retour/start with an order token (?t=): noindex, nofollow, the page can carry the customer's access token;
  *   - /qr/<code>: one page per sticker, noindex, follow (the crawler may follow its links, the page itself is no landing page);
- *   - the static documents in public/ that are handed out or served for the app, not offered as landing pages: the lead-magnet
- *     cheat sheet (an e-mail address buys the link, a search result would hand it out for nothing) and the offline page of the
- *     service worker. A file cannot carry a robots tag, so the header is the only signal there is. The IndexNow key file is a
- *     static file too and stays plain on purpose (the engine has to read it).
+ *   - the static documents in public/ that are handed out, not offered as landing pages: the lead-magnet cheat sheet (an e-mail
+ *     address buys the link, a search result would hand it out for nothing). A file cannot carry a robots tag, so the header is
+ *     the only signal there is. The IndexNow key file is a static file too and stays plain on purpose (the engine has to read it).
  */
 export function variantHeaderRules(): RobotsHeaderRule[] {
   const rules: RobotsHeaderRule[] = [];

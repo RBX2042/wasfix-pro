@@ -6,8 +6,174 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
 
 ---
 
+## 2026-11-19 — D25 SEO finish: the crawler failure reproduced (a test row deleted under a cached sitemap), strict headings, an honest lastmod, the offline page gone, audits by hand, no hreflang (bundle F1)
+
+- **1. The one crawler failure.** During the integration of PR #13 one run of `scripts/qa-seo.ts` failed
+  `crawler-gets-metadata-in-head` with 9 of 153, the first run after a `qa-theme` run against the same production server; the report
+  printed at most six failing subjects and the detail was not kept.
+  - **What was measured** (production build, CI-like environment, `VERCEL=1`, Next 15.5.27, React 19.2.5, on this machine):
+    (a) a cold server, 17 sample addresses x 4 crawler agents and a browser: static and ISR pages carry the metadata in `<head>` for
+    everybody, the dynamic pages stream it into `<body>` for the browser only; (b) ISR pages never rendered before (a part, an error
+    code, a brand page), requested FIRST by a browser agent (`x-nextjs-cache: MISS`), then by the crawlers: `<head>`; (c) ISR pages past
+    their 60 s window, opened in Chromium in light and dark (`STALE`, a regeneration triggered by the browser), then the crawlers:
+    `<head>`; (d) a full `qa-theme` run (both themes, its document check writing and deleting a part of year 2999) followed by `qa-seo`,
+    four times: on a fresh server, on one whose ISR and data cache files were aged by two hours (meant as a server that has run for
+    more than the sitemap's hour; that premise was wrong, the build regenerates the sitemap every 60 s, see the cause below), and with
+    both the committed and the working-tree `qa-theme`: all passed; (e) the 153 crawler fetches
+    repeated every few seconds during a `qa-theme` run (29 rounds, 4,437 fetches): no failure; (f) the database refusing connections:
+    stale ISR pages were served, the dynamic pages answered 200, the metadata stayed in `<head>`.
+  - **What Next does** (read in `node_modules/next`): the app-page handler takes `serveStreamingMetadata` from the requesting user agent
+    and `htmlLimitedBots`, but the ISR cache key is the path alone (`route-cache`, keyed by source route), and every ISR render (build,
+    on-demand, revalidation) is a static prerender (`prerenderToStream`) that waits for the whole tree, so the metadata is hoisted into
+    `<head>` whoever triggered it. A browser-rendered HTML with streamed metadata is therefore never cached for a crawler in this version.
+  - **Cause: reproduced; a test row, not a product defect.** (The first version of this entry said "not established"; the review
+    reproduced it, and it was reproduced again for this entry.) Other suites write catalogue parts straight into the database and
+    delete them again (`qa-theme`'s `QA-THEME-<ms>` for its document check, `qa-checkout`'s `QA-CHK-`); nothing revalidates the cache
+    when they do. The sitemap is regenerated at most every 60 s, not hourly as `src/app/sitemap.ts` claimed (its `revalidate = 3600`
+    is lowered by the catalogue reads under it, which the data cache holds for `CATALOG_REVALIDATE_SECONDS` = 60; the build table says
+    `/sitemap.xml 1m`, `prerender-manifest.json` `initialRevalidateSeconds: 60`), and a part's page is cached for 60 s. Recipe, on a
+    production build here: create a `QA-THEME-` part; once a request has regenerated the sitemap, it lists the part (after 5 to 80 s);
+    open the part's page once (`200 MISS`); delete the part; start the OLD `qa-seo` (HEAD's, from `git archive`) 42 s later. Result:
+    `crawler-gets-metadata-in-head: 9 of 153 failed`, all nine `/onderdelen/QA-THEME-1795090616508 (HTTP 404; not inside <head>:
+    canonical)`, six printed and then `... and 3 more`: the original signature, the only other failure being `/offline.html` (the old
+    test against the new build). Why: the old crawler sample took "the first part of the sitemap", and a `QA-` SKU sorts before `WF-`;
+    the early sections read that page while it was still cached (`200 HIT`), the crawler section fetched it again late in the run after
+    its 60 s window had run out (`STALE`, then `404`), and the old verdict filed any non-200 under misplaced metadata (a 404 page has no
+    canonical). Timing matters: started 30 s after the delete the old run passed (the page was still cached at the end), started 48 s
+    after it failed earlier and differently (19 failures, the page already 404 at the first read). Two more states were measured: a
+    sitemap regenerated AFTER the delete can still list the row, because it reads the catalogue from a data-cache entry filled while
+    the row existed; and `/onderdelen` (dynamic, default order by SKU, so `QA-` parts come first) links to a deleted part for about
+    60 s (measured 61 to 71 s with no other traffic). **Not knowable:** whether this is what happened in the integration run (its
+    server state and logs are gone). `qa-theme` itself never requests `/sitemap.xml`, so for its part to be listed a request from
+    elsewhere (another suite or agent against the same server) must have regenerated the sitemap from a catalogue read cached while the
+    part existed (during its life, or up to 60 s after the delete, as measured above); a `QA-CHK-` part fits the same way. No product change was made for it: a deleted row stays listed for at most about two windows (two minutes), which a search
+    engine that reads a sitemap a few times a day will not notice; and a delete through the product goes through the admin's
+    `deletePart`, which calls `revalidateCatalog()`, while the sitemap's cache entry carries the `catalog` tag (`prerender-manifest.json`,
+    `x-next-cache-tags`), so it should not linger at all (read from the source and the manifest, not measured).
+  - **Changed (the test).** The verdict is split: `crawler-gets-200` and `crawler-gets-metadata-in-head`
+    (judged on a 200 only); a non-200 is fetched again at once as a browser and the detail says whether the page itself answers that now
+    or only the crawler gets it. The sample's family pages come from the seeded catalogue (`src/data`), rows no suite creates or deletes.
+    Up to 20 failing subjects of a check are printed in full (was 6). A new section, `crawler-after-browser-*`, runs BEFORE anything
+    else in the suite requests a page: it opens the 17 sample addresses in Chromium in light and dark (OS dark, the `qa-theme` harness,
+    and lets the browser prefetch the linked pages), records which responses made the server render (`MISS`/`STALE`, documents and RSC
+    prefetches), then fetches the same addresses as all nine crawlers. `QA_REQUIRE_SERVER=1` (CI) makes a missing Chromium a failure.
+  - **Order: what is guaranteed now** (added after the review showed the first version still failed 16 checks, 17 in full mode, once
+    the sitemap listed a deleted `QA-THEME-` part whose page already answered 404). The defect proofs pick their part and error code
+    page from the seeded catalogue among the pages that answered 200 (`proofPage()`), not the first of the family. A URL the sitemap
+    lists that answers 404 or 410, and a link that points at one, are judged by reading fresh copies of the sitemap or of the linking
+    page every 5 s until the reference is gone, up to two catalogue windows plus 30 s (150 s, `DELETED_ROW_BOUND_MS`, derived from
+    `CATALOG_REVALIDATE_SECONDS`): gone in time is a NOTE (`deleted row: ...`), `sitemap-drops-a-deleted-row-within-its-window` or
+    `link-to-a-deleted-row-goes-within-its-window` passes and the URL is left out of the page checks and of the orphan check; still
+    there at the bound fails those checks and `sitemap-status-200` or `link-resolves` as before. So `qa-seo` gives the same verdict
+    whichever suite ran before it against the same server; it can take up to 150 s longer (twice, for the sitemap and for links) when
+    such a row is still remembered. **Not guaranteed:** rows created or deleted WHILE `qa-seo` runs (CI runs the suites one after
+    another), and a row another suite left behind (not deleted) is crawled as an ordinary page.
+  - **Proofs.** Served from an isolated project root with `htmlLimitedBots` set to Next's default list (Googlebot left out),
+    `crawler-after-browser-gets-metadata-in-head` and `crawler-gets-metadata-in-head` fail 33 of 153 each (all Googlebot rows on the
+    dynamic pages). The old sample rule picks `/onderdelen/QA-THEME-...` from a planted sitemap and fails
+    `helper-crawler-sample-ignores-rows-other-suites-create`; the old verdict reports a 404 under `crawler-gets-metadata-in-head`, the
+    original signature, and fails `helper-crawler-verdict-a-404-is-a-status-not-misplaced-metadata`. With the browser first, the server
+    rendered the home page, the brand page (both `STALE`), the part and the error code page (`MISS`, by the browser's prefetch) for the
+    browser, and all crawlers then got the metadata in `<head>`. Order, on a production build with the recipe above: the sitemap
+    listing a deleted part whose page already answers 404, the new `qa-seo` passes (sampled and full, a NOTE: "a fresh sitemap no longer
+    lists it 5 s later"); the same state with the deleted-row judgement and the seeded proof page switched off (an isolated copy) fails
+    16 checks, exactly the review's list (`sitemap-status-200`, `sitemap-no-noindex`, the page checks on the 404, `family-structured-
+    data-present`, `defect-is-caught-by-its-named-check` 3 of 17, `untouched-page-passes-the-checks-the-defects-trip`). `/onderdelen`
+    linking to a deleted part (held until the crawl by skipping the browser section in the copy; in the full suite the browser
+    section's page visits refreshed the catalogue read first): passes with a NOTE, and with the link judgement switched off fails
+    `link-resolves`. A sitemap entry and a link planted in every copy (an address that never existed) still fail after 150 s. Offline:
+    `helper-proof-page-is-a-seeded-row-that-answers-200`, `helper-deleted-row-is-excused-only-when-the-reference-goes` and
+    `helper-deleted-row-an-unreadable-copy-proves-nothing` (a fake clock).
+- **2. Headings.** A full crawl found 35 of the 533 sitemap pages (and `/checkout`, `/upgrade`, the filtered `/onderdelen?q=`) skipping
+  a level, from two causes: the footer's column titles were `h4` after content that ends at `h2` (all 26 guides, `/api-info`, `/contact`,
+  `/merken`, `/over`, the calculator, `/checkout`, `/upgrade`), and list pages put card titles (`h3`) straight under the `h1`
+  (`/api-info`, `/contact`, `/foutcodes`, `/gidsen`, `/merken`, `/onderdelen`, `/over`, `/prijzen`, the calculator). Now `h2`, the
+  `className` kept: Tailwind's preflight resets every heading's size and weight and `globals.css` gives `h1`-`h4` the same font, so the
+  look does not change (no `.step-card h3`, the one element rule that differs, was touched). `PartCard` takes `headingLevel` (default 3,
+  `/onderdelen` passes 2). Read from the source, not rendered: `/dashboard/wasmachines`, `/monteur/klanten` and `/monteur/werkorders`
+  had the same `h1` to `h3` card list and were changed the same way. After: 546 addresses (the sitemap plus 13 others), every one with
+  exactly one `h1`, first, and no skipped level. `heading-order` is strict, with no opt-out (`QA_SEO_STRICT_HEADINGS` is gone): nothing
+  justified one, and a planted `h1` to `h3` must be caught (`defect-is-caught-by-its-named-check`). Not covered: the private pages are
+  not crawled; `src/app/admin/analytics/client.tsx` (`h1` then `h3`) and `CardTitle` (always `h3`) on private pages are outside this bundle.
+  *Integration, same day:* the private pages are now read from the source (`source-private-page-heading-order`: every
+  `<DashboardLayout>` block that shows a heading has one `h1`, first, and skips no level, `CardTitle` counted as `h3`; a component of
+  `admin`, `dashboard` or `monteur` that renders the page's `h1` itself likewise). It failed 7 of 34 before the fix: the analytics `h3`
+  (now `h2`) and six gate branches whose only heading was an `h2` ("Monteur Pro vereist" on the monteur dashboard, instellingen,
+  klanten, onderdelen and werkorders, "API toegang vereist Monteur Pro" on `/dashboard/api-keys`; now `h1`, `className` kept). Source
+  order stands in for render order (true for these flat pages; nothing was rendered). Still not judged: a block with no heading at all
+  (the "Stel DATABASE_URL in" and "Geen toegang" notices have no `h1`). `CardTitle` keeps rendering an `h3` and got no `as` prop: no
+  file in `src/` renders `<CardTitle` today (grep), so there is nothing to fix; the check counts it as `h3` should one appear.
+- **3. lastmod.** Guides published `createdAt` as lastmod: an import timestamp (two imports, 6 guides within 5 ms on 27 April and 20
+  on the same millisecond on 26 May), not a modification date; `RepairGuide` has no other date. Dropped. Blog posts keep `publishedAt`,
+  the date the post prints. `qa-seo`: `sitemap-guides-carry-no-lastmod`, `sitemap-blog-lastmod-is-the-publication-date`, lastmod only
+  on the blog, and `source-sitemap-lastmod-only-from-a-publication-date`. Before 29 lastmod values, after 3. The source rule was a
+  regex that accepted any expression mentioning `publishedAt`, so `g.publishedAt ?? g.createdAt` passed it (review); it now accepts only
+  `<row>.publishedAt`, optionally in `new Date(...)`, and rejects `createdAt`, `updatedAt`, `Date.now` and `new Date()`, checked on
+  eight planted expressions (`source-lastmod-rule-catches-planted-fallbacks`; with the old rule it fails, and the old rule lets a
+  planted fallback in `sitemap.ts` through).
+- **3a. The sitemap's window.** `src/app/sitemap.ts` said `revalidate = 3600` ("regenerated at most hourly"); the build regenerates it
+  every 60 s (the review read `initialRevalidateSeconds: 60` in the build made with 3600; the catalogue reads under it are cached for
+  `CATALOG_REVALIDATE_SECONDS`, 60, and the lower value wins). Now `revalidate = 60` with a comment that says why; it changes nothing
+  with a database (the build here says `1m` and 60 again) and makes a sitemap read from `src/data` (no database) regenerate as often.
+  Segment config must be a literal, so `source-sitemap-window-is-the-catalogue-window` compares it with `CATALOG_REVALIDATE_SECONDS`
+  (fails with 3600).
+- **4. The offline page.** `public/offline.html` was orphaned: `public/sw.js` is a kill switch without a fetch handler, nothing linked
+  it, and it was dark-only. Deleted, with what existed only for it: the matcher entry in `src/middleware.ts` (an `.html` path is
+  excluded by the extension rule anyway), its entry in `STATIC_NOINDEX_SOURCES` (and so its `X-Robots-Tag` rule and the IndexNow
+  filter's single-file list, empty now; the mechanism stays), the expectations in `qa-seo` and `qa-indexnow` and the comments in
+  `seo-submit.ts` and `scripts/lib/indexnow.ts`. `scripts/fixtures/old-sw.js` stays (the historical worker `qa-platform` replays; its
+  `cache.addAll` swallows a missing file). Verified on the new build: `/offline.html` answers 404 with the site's not-found page,
+  `<meta name="robots" content="noindex">` and `no-store`, for a crawler and a browser; robots.txt is unchanged, the sitemap still
+  has 533 URLs and no lastmod outside the blog, and the IndexNow tool reads the same 533 from it and drops none.
+- **5. Audits by hand.** `.github/workflows/seo-audit.yml` (a weekly `linkinator` crawl of `https://wasfix.nl` ending in `|| true`) and
+  `lighthouse.yml` (weekly) ran against a site that is not deployed; GitHub had disabled both for inactivity. Both are now
+  `workflow_dispatch` only, `permissions: contents: read`, with an `origin` input (else the repository variable `PUBLIC_SITE_URL`, else
+  a clear error; https, no path or port; the input reaches the shell through the environment). `seo-audit` runs this repository's own
+  checks against that address: `scripts/qa-seo.ts` with `QA_BASE_URL` and `QA_SITE_ORIGIN` set to it (the script maps the sitemap's
+  origin to `QA_BASE_URL`, an identity here; Chromium installed for the browser-first section; `full` crawls the whole sitemap), then
+  the preflight group `zoekmachines` with `--url`. Lighthouse otherwise does what it did: the first version of this change dropped its
+  `actions/checkout` step by mistake, so `lhci` would no longer have read `lighthouserc.json` (Chrome's `--no-sandbox`, the warn-level
+  category thresholds, the PWA category off); the review caught it and the step is back (`persist-credentials: false`).
+  *Integration, same day:* `seo-audit`'s checkout now sets `persist-credentials: false` too (it runs `npm ci` and the repository's
+  scripts after it), and `source-audit-workflow-by-hand-and-read-only` holds both files to it: `workflow_dispatch` the only trigger,
+  `permissions: contents: read`, every checkout without persisted credentials (fails with the line removed, or with a `schedule` added).
+- **6. No hreflang, on purpose.** One language (nl-NL) on one domain: `<html lang="nl">`, `og:locale` `nl_NL`, no locale routes (the
+  i18n flag is off and its routes do not exist). An `hreflang` set needs at least two alternates that point at each other; a lone
+  self-reference says nothing. Add it when a second locale ships, as reciprocal `alternates.languages` in `pageMetadata()` plus
+  `x-default`, and extend `qa-seo` with it.
+- **7. Integration of F1, F2 and F3 (same day).** The three bundles were merged into one working tree and the reviews' open points
+  applied (item 2's private pages, item 5's `seo-audit` checkout, notes in D20 and D22). Found while integrating: `qa-theme` took its
+  part page as "the first link of `/onderdelen`", which lists by SKU, so a `QA-CHK-` or `QA-THEME-` row that another suite (or its own
+  previous run) had created and deleted could become the "product" page, also one of `b2`'s four flash pages, while the cached list
+  still linked it (in CI `qa-checkout` runs before `qa-theme`). It now takes the first SEEDED part (`src/data/parts.json`; on a clean
+  catalogue the same `WF-BEAR-01` as before), and S7 fails when `discover()` goes back to `first(...)` or the helper ignores the seeded
+  set. `qa-indexnow`'s live run against the real sitemap is judged against the sitemap that run itself read (its answers are recorded
+  and parsed again by the same reader); a difference from the suite's first read is a NOTE that names the differing URLs (the review's
+  one 278/279 failure had its detail cut at 400 characters, so its cause is unknown; a sitemap regenerated between the two reads would
+  explain it). Looking for that, the sitemap's guide ORDER turned out to move: `dbGuides()` lists by views, then `createdAt`, every
+  guide visit adds a view, and the next regeneration (every 60 s) reorders them; a proxy test caught two reads a few seconds apart
+  that differed in the order of the guides. The old comparison was order-sensitive, so a reorder alone fails it. `src/app/sitemap.ts`
+  now lists the guides in slug order (the other families already have a fixed order) and `qa-seo`'s `sitemap-guides-in-slug-order`
+  checks it (it failed on the build before the change: position 0 was `/gidsen/filter-reinigen`). `ci.yml` installs Playwright
+  1.63.0, the version every browser suite was last run against (1.56.1, the version they were written against, has no browser on
+  this machine and could not be run), and `seo-audit.yml` with it ("the same version CI uses";
+  `source-audit-workflow-uses-the-ci-playwright` fails when the two differ). The database job's timeout goes from 30 to 45
+  minutes: the replay's steps add up to about 13.5 minutes on 4 shared cores before `npm ci` and the browser install, and a 2-core
+  runner can take about twice that (the comment above the job lists the steps). Unused `eslint-disable` comments in `qa-seo` and
+  `qa-privacy` were removed (`eslint.config.mjs` turns `no-explicit-any` off, so `npx eslint --no-ignore` warned about them). The
+  README said `qa-migration` stays out of CI; it runs there. The CI job "database" and the job "lint-typecheck" were replayed locally
+  step by step with the workflow's env and flags (differences: the local Postgres role, a private dist dir and port, no `npm ci`, the
+  global Playwright 1.63), followed by `qa-theme` and `qa-seo` a second time in the opposite order.
+- **Not verified from here.** Neither workflow ran on GitHub (both were parsed with Python's yaml, and their address step was run
+  locally with empty, good and hostile inputs); no network to the site, GitHub, Google or Bing; nothing was submitted. The three private
+  pages were not rendered (they need a DEMO server), nor were the six gate branches and the analytics page changed at integration
+  (read from the source only). The failure's mechanism is reproduced; whether the integration run hit it that way is not knowable
+  (above). That `lhci` picks up `lighthouserc.json` from the checkout is its documented behaviour, not run here.
+
 ## 2026-10-12 — D24 Indexing is asked for through the sitemap (by hand) and IndexNow (by tool); there is no "index everything" call, and nothing has been submitted (bundle I)
 
+- **Partly replaced by D25 (2026-11-19):** `/offline.html` was deleted with its noindex rule, so the filter's single-file list below
+  ("today `/offline.html`") is empty now; the mechanism stays.
 - **The request.** "Vraag alles aan bij index": ask the search engines to index everything that should be indexed. What can honestly be
   built is a tool, a key file, a manual workflow, a preflight group and the owner's steps. What cannot is the act itself: from where this was
   built there is no network to Google, Bing, IndexNow, Vercel or GitHub, there are no accounts, and the site is not deployed anywhere. **Nothing
@@ -86,6 +252,9 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
 
 ## 2026-10-11 — D23 Search engines get what is true, and nothing that is not; what stays out stays out the same way everywhere (bundle S)
 
+- **Partly replaced by D25 (2026-11-19):** guides no longer carry a sitemap lastmod (it was an import timestamp; only blog posts do),
+  the skipped heading level is fixed and `heading-order` is strict with no opt-out, `/offline.html` is deleted (not noindexed), and the
+  crawler sections were made independent of the order the suites run in.
 - **Decision.** The SEO rules live in two modules and every page is built from them. `src/lib/seo.ts` (self-contained, so
   `next.config.ts` and `scripts/qa-seo.ts` import it): `pageTitle()` (the first candidate that fits 60 characters with
   the brand suffix the root template adds exactly once; else the first that fits alone, as an absolute title; else cut at a
@@ -341,7 +510,8 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
      after each photograph and measures again when they moved (up to 4 times; an element that never holds still is a failure,
      not a pass), every sweep waits until the page has stopped changing size and the chat demo has played its last message,
      and the judged counts are identical in every run (8802 elements, 1149 proven by gradient stops, 163 measured on pixels,
-     16 SVG labels that another element covers and that are named as not judged). A self-test (`d0`) moves the layout at the
+     16 SVG labels that another element covers and that are named as not judged; 2026-11-19: the chat wait never waited on a production
+     build and the 16 were false covers, see item 5 of the theme-finish bullet below). A self-test (`d0`) moves the layout at the
      exact moment of the photograph. Proof: with the box comparison removed it reports `#e6f1ff on #ffffff = 1.14:1`, the
      reviewer's false failure. After the fix the CI-sized run passed 7 of 7 on the first repaired build and once more on the
      final build (about 2 min each, the machine at load average 4 to 6); that is evidence, the deterministic proof is `d0`.
@@ -448,9 +618,11 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
      sees no violation (60/60), and the persistence checks of `qa-theme` (Donker survives a reload, `.dark` is on `<html>` before the first
      paint) could not pass if either script were blocked.
   7. *The switch does not disturb what a crawler reads.* A one-off crawl of 67 sitemap URLs as Googlebot and as a browser (134 fetches):
-     exactly one `<title>` and one `<h1>` per page, the guard script in `<body>` and ahead of next-themes' own script (none in `<head>`),
+     exactly one `<title>` and one `<h1>` per page, the guard script in `<body>` and ahead of next-themes' own script (none in `<head>`;
+     since 2026-11-19 the provider puts one theme script into `<head>` as well, see the last bullet of this decision),
      two `theme-color` tags per page, nothing about the theme in any JSON-LD block. (One duplicate-id finding, the washing-machine SVG
-     gradients `cabFill`, `panelFill`, `glassFill`, `drumFill` and `seal` twice on the home page, is the same at the last commit.)
+     gradients `cabFill`, `panelFill`, `glassFill`, `drumFill` and `seal` twice on the home page, is the same at the last commit.
+     Fixed 2026-11-19, see the last bullet of this decision.)
 - **Seen, not caused here (investigated at integration, not fixed).** An unknown slug on a dynamic route (`/onderdelen/NOPE`, `/blog/nope`,
   `/foutcodes/nope`, `/merken/nope`, `/vs/nope`, `/bestelling/xyz`) answers 404 with Next's client-rendered fallback shell
   (`<html id="__next_error__">`, no inline theme script, the "niet gevonden" title in `<head>`), whereas an unmatched URL
@@ -462,7 +634,9 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
   themed 404 after hydration with a short flash of the light shell before it. What would change it is not in our files: `dynamicParams = false`
   would route unknown slugs to the global 404 for the pages whose slugs come from static JSON (blog, vs, help), but it would break the catalogue
   pages (a part created in the admin after the build must render), and it would be a workaround for a framework behaviour, not a cause. Left
-  as it is; if Next fixes the shell in a later 15.x, the 404 checks of `qa-seo` stay as they are.
+  as it is; if Next fixes the shell in a later 15.x, the 404 checks of `qa-seo` stay as they are. (2026-11-19: the cause is pinned
+  down in Next's source, both light frames (the cream page background, and the shell's white canvas, which a first fix had missed) are
+  gone and a crash on the same page was found and fixed; see the last bullet of this decision.)
 - **Alternatives rejected.** "System" as the default (above). A floating toggle injected by the root layout (a fixed
   button over every page, and the layout's JSX is not this bundle's). A `useTheme()`-driven placeholder swap until
   mounted for the menu button (the icon is chosen by CSS from the class that the inline script already set, so server
@@ -472,6 +646,129 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
   `src/components/auth-providers.tsx` passes only `colorPrimary`); how a real phone paints its browser bar; Safari and
   Firefox (only Chromium ran). The PWA manifest reads `THEME_COLOR_LIGHT` since the SEO bundle's edit of
   `src/app/manifest.ts`; an installed app was not opened.
+- **2026-11-19 — Theme finish (bundle F2).** Four things, each with a check that fails without it (each break was run, seen to fail, restored).
+  1. *Duplicate SVG ids, fixed.* The washing machine of the home page is drawn twice (hero and diagnosis demo), and both copies declared ten
+     `<defs>` ids (`cabFill`, `panelFill`, `glassFill`, `drumFill`, `seal`, `hiLight`, `accGrad`, `drumHoles`, `scanSweep`, `scanClip`): invalid
+     HTML, and the ten `url(#...)` of the second drawing painted with the first drawing's elements. `src/components/redesign/svg-ids.ts`:
+     `useSvgIds()` gives each mounted drawing a prefix from React's `useId` (same on server and client), and `svgSafeId()` makes it url- and
+     selector-safe for every `useId` format (React 18 `:r1:`, 19.1 `«r1»`, 19.2 `_r_1_`): it starts with `svg`, every character outside
+     `[A-Za-z0-9_]` becomes `-<hex>-`, one-to-one. The same pattern for the error-code drawing (`water`, `drumClip`) and the admin revenue chart
+     (`revGradient`), one instance each today. Checks: `qa-theme` S5 (no literal id on a gradient, pattern, clip path, mask, filter, marker or
+     symbol anywhere in `src/`; `svgSafeId` gives 13 distinct, safe prefixes for 13 formats) and part `n` (every page of the list: no id twice in
+     the server's HTML and in the hydrated DOM, every `url(#...)` of an SVG points into its own drawing; 12 pages, 49 ids, 20 references;
+     *integration, same day:* 18 references since the demo wait works (item 5): the scan sweep's `url(#scanClip)` and `url(#scanSweep)` are drawn
+     only for about a second while the demo scans, so `n` no longer sees them, and S5 now also refuses any `url(#` in `src/` outside
+     `svg-ids.ts`, and a literal `clipPath="url(#scanClip)"` fails it).
+     Proofs: the unchanged build fails `n` ("cabFill x2 ... that id belongs to another drawing"); the hook with an empty prefix fails `n` the same
+     way; one literal `id="cabFill"` fails S5; one `fill="url(#cabFill)"` left literal fails `n` ("no element has that id"); `svgSafeId` as the
+     identity, and as a not one-to-one `:`→`_`, fail S5.
+  2. *The page-level 404: cause pinned down, both light frames gone, a crash fixed. Do not re-investigate.* Every unknown slug of a dynamic route
+     (`/onderdelen`, `/bestelling`, `/blog`, `/foutcodes`, `/gidsen`, `/merken`, `/vs`, `/wasmachine-kapot`: all eight answer this way) throws
+     `notFound()` in the page. React's server renderer has no error boundaries, so the throw reaches the top of the HTML render; Next 15.5.27
+     catches it and renders `getErrorRSCPayload()` (`node_modules/next/dist/server/app-render/app-render.js`): a hard-coded
+     `<html id="__next_error__"><head/><body/></html>` with the 404's metadata in `<head>` (status 404 and noindex are right), plus the main render's
+     data. The browser sees the id and does `createRoot().render()` instead of hydrating (`client/app-index.js`), so the root layout, its
+     stylesheet and its two inline scripts are created by React in the browser, where a `<script>` never runs. An unmatched URL is rendered on
+     the server instead (the not-found tree is the page), which is why `/dit-bestaat-niet` never had this. Reproduce:
+     `curl -s localhost:3000/onderdelen/bestaat-niet | head -c 200` shows `<html id="__next_error__">`. Measured on a production build with
+     Donker stored (DOM samples and the compositor's screencast on one clock): React first inserts the layout's stylesheets into the still empty
+     shell and waits for them to load, and in that moment the body has the light `--background` and `<html>` has no class, so a cream frame was
+     painted in 12 of 15 loads (the samples see that state in every load). At the commit React strips every attribute of `<html>`
+     (`commitHostSingletonAcquisition`), and next-themes puts the class back in an effect that, measured, runs in the commit's own task, so no
+     light frame WITH content was ever seen (0 of 72 loads, up to 6x CPU slowdown). And a found-on-the-way defect: in that shell the layout's
+     stored-theme guard does not run either, so `" dark"`, `"dark light"` or `"a b"` stored turned the 404 into "Er is iets misgegaan", and
+     `"banana"`, `"DARK"`, `""`, `"null"` stayed stored. *A first fix and what it missed (corrected at review the same day).* A module-level
+     step in `theme-provider.tsx` applied the stored theme when its module was evaluated in that shell. It removed the cream frame and the
+     crash, but not the shell's own white canvas: after a full navigation from a dark page, every load of that 404 painted one pure white frame
+     (luminance 1.00) 40 to 105 ms in, OS light and OS dark alike (review 10 of 10; here 6 of 6 and 5 of 5), because the shell's `<head>` carries
+     the root viewport's `<meta name="color-scheme" content="light">` and its `<body>` stays empty until React renders, and no script of ours
+     had run yet. Server-rendered pages never show it. The first version of this bullet called that frame the browser's pre-navigation tab,
+     "dark with a dark OS"; that was wrong (with JavaScript off and a dark OS the shell is white too), and `b4` judged frames only from the
+     first stylesheet on, which left out exactly that frame. *The fix.* `EARLY_THEME_SCRIPT` (`src/components/theme-colors.ts`), which the
+     provider puts into `<head>` with `useServerInsertedHTML`: it drops a junk stored value and puts the stored choice on `<html>` (class and
+     `color-scheme`), as the layout's two scripts do. It reaches the shell because Next's catch branch flushes the HTML registered during
+     the failed render into the error document (`app-render.js`: the same `renderServerInsertedHTML`), and the provider renders before the page
+     throws. It runs while `<head>` is parsed, so the canvas is dark from the first frame. No layout change. The module step was removed: it
+     did the same thing later in the same documents, so no check could prove it (the same reason a layout effect that re-applied the class
+     after the commit was written and dropped). After: white frame 0 of 10 (OS light), 0 of 10 (OS dark), 0 of 5 (Systeem); Licht and no
+     choice show the white canvas and then the light page, never a dark frame. Rejected: a `viewport` export with `colorScheme: "light dark"`
+     on `not-found.tsx` (read, not built: `resolve-metadata.js`, `collectViewport`, takes a not-found module's viewport for the 404): it
+     would darken the canvas only for a dark OS, whatever was stored, and would give a first-time visitor on a dark OS a dark frame before
+     the light page. *The same script, server-rendered pages.* A smaller
+     flash, there before this bundle (the review saw it at `8a28189` too): with Donker stored, after a full navigation, one empty cream frame
+     (`#f4f1eb`) in 5 of 30 loads of `/diagnose` (and 1 of 10, 2 of 10 of `/dit-bestaat-niet`). The layout's scripts sit in `<body>`, behind
+     the `<div hidden>` of the streamed metadata, and a script waits for a stylesheet that is still loading while `<body>` already exists; when
+     the stylesheet arrives Chromium can paint before the parser resumes. With a script in `<head>` the parser waits there, before `<body>`
+     exists, and no frame was seen before `<body>` exists (measured with the screencast, not read in Chromium's source). After: 0 of 30 `/diagnose`, 0 of 20 `/dit-bestaat-niet`, 0 of 10 home. (A mutant
+     whose `<head>` script did nothing outside the shell also gave 0 of 90, which fits that mechanism; `b2` checks the invariant itself,
+     `.dark` on `<html>` before `<body>` exists, and that mutant fails it on 4 of 4 pages.) *Checks.* `S6` runs the script against a stub
+     document (15 cases: each choice on each OS, seven junk values, blocked storage); `b2` (4 pages, Donker): the script exactly once in the
+     server's `<head>`, `.dark` before `<body>` exists and before the first contentful paint; `b4` (2 routes, 8 with `QA_THEME_FULL=1`, x
+     Donker on a light and on a dark OS, Systeem on a dark OS, Licht on a dark OS, nothing on a dark OS): the script in the shell's `<head>`, each
+     case reached by `location.href` from `/privacy` in the same theme, the stored theme on `<html>` in every sampled state from the moment
+     `<body>` exists, no screencast frame after the navigation in the other theme (the white canvas included), the 404 shown; `k` as before
+     (the junk values on the shell now depend on this script). *Proofs.* Provider without the script (build): `b2` FAIL ("<body> existed
+     before .dark", the script 0x in `<head>`), `b4` FAIL (the script 0x; ".dark false" states; white canvas at 31 to 103 ms, cream 0.88
+     frames), `k` FAIL (`" dark"`, `"dark light"`, `"a b"`: "Er is iets misgegaan"; all seven values still stored). Script inert outside the
+     shell (build): `b2` FAIL on 4 of 4 pages, `b4` PASS. Without the junk removal, with an unguarded storage read, or with Systeem ignoring the
+     OS: `S6` FAIL; the provider not rendering it: `S6` FAIL. The mutations of the first fix (above) are superseded with it. What stays: with
+     JavaScript off nothing applies a stored choice (the shell 404 is an empty white page, other pages render light). Not tried: a Suspense
+     boundary (`loading.tsx`) around these pages, which would let the server render the layout but streams the `notFound()` after the status
+     line, so the 404 status `qa-seo` checks is at risk, and the route files are not this bundle's.
+  3. *The checklist wording.* README "Thema" and QA_CHECKLIST now name the 12 pages of the CI-sized run (one per template), the widths and
+     themes of each part, what `QA_THEME_FULL=1` adds (28 pages, 6 form pages, 6 404 routes) and what needs `QA_DEMO_URL`, and say plainly that
+     the rest of the site (533 sitemap URLs on this build) is trusted to share its template's colours and is not opened. Two manual rows added.
+  4. *Playwright 1.63 (a newer Chromium than the suite was written for).* On a production build of the unchanged tree: CI-sized 52/52 in 1 min
+     56 s and `QA_THEME_FULL=1` 52/52 in 4 min 24 s. The CI-sized run judged exactly the element counts of the runs above (8802 judged, 1149
+     by stops, 163 on pixels, 16 covered): the new font rendering moved no reading across a threshold, so neither the product nor the test
+     needed a change and no threshold was touched (corrected at the second review: the test did need a change, item 5; the thresholds
+     still were not touched). The full run's counts (24183 / 4375 / 585 / 16) are recorded here for the first time: no
+     full run had been recorded before, so there was nothing to compare them with. On the final build (this bundle plus the other bundles' working-tree changes of the same
+     day): CI-sized 56/56 in 2 min 25 s, full 56/56 in 5 min 17 s (lint ran beside it for part of that); after the review fix (item 2), on a
+     new build: CI-sized 58/58 in 2 min 33 s, full 58/58 in 5 min 47 s, the same element counts, `qa-csp` 60/60. Screenshots of the home page, a part page,
+     `/diagnose`, `/prijzen`, `/privacy` and both 404s, light and dark, 1280 and 375 px, were looked at: both washing machines and the error-code
+     drawing render their gradients in both themes; text is legible everywhere; the two 404s look the same at 1280 px (at 375 px the bottom bar of the
+     `/onderdelen/...` 404 marks Shop as active, because its path is under `/onderdelen`). Seen, not changed: the
+     four "Populaire pagina's" links of the 404 (and the post list of `/blog`, `/pers`, `/qr/[code]`) use `.step-card` without `.card`, so they
+     have padding but no surface or edge (the same at `e2fb43c`; a design call), and the error-code drawing of the home page always shows "water
+     blijft staan / BLOK", whatever code is selected (content, not theme).
+  5. *A flake in the contrast sweep, found at the second review: the test was wrong, not the product.* One full run of the reviewer failed on
+     the home page at 375 px, light: "water blijft staan" `#0a6a8e` on `#659ac2` = 2.01:1, measured on pixels, although the label sits 7 px
+     below the drum's clip circle and nothing blue is ever behind it. Reproduced here in 2 of 36 runs of `d` on `/`, `/diagnose` and
+     `/onderdelen` (two runs side by side; 1.86:1, and once a dark-theme line of the diagnosis section at 2.74:1). Two causes, both in
+     `scripts/qa-theme.ts`. (a) `waitStable` waited for the home page's chat demo with `page.waitForFunction(<string>)`; Playwright evaluates a
+     string predicate with eval inside the page, the site's CSP has no `'unsafe-eval'`, every call threw an EvalError at once and a `.catch()`
+     swallowed it. On a production build the wait never waited: it returned after about 330 ms with the demo still playing in 6 of 6 loads
+     (now about 4.3 s, finished in 6 of 6), so the sweep ran while the chat was between its third and fourth message. (b) The fourth message
+     makes the diagnosis section 84 px taller, above the elements being photographed. Chromium's scroll anchoring scrolls the page by the same
+     84 px, so each element keeps its place on screen and the boxes read before and after its photograph agree; but Playwright places a
+     photograph with the scroll offset it reads just before the capture, and a jump between that read and the capture photographs the
+     element's old place in the page, here the water 84 px above the label (recorded: `scrollY` 5794 when the boxes were read, 5878 after the
+     photograph, boxes unchanged, the `clip-path` resolved). *Fix.* The demo is polled with `page.evaluate` (a DevTools evaluation, which the
+     page's CSP does not govern), and a photograph counts only when the scroll position (`scrollX`, `scrollY`, the visual viewport's offset
+     and scale) is the same before and after it, as the boxes already had to be; a change that reverts itself within that gap is still not
+     caught. While there, the covered rule: the 16 SVG labels named as not judged were false covers. The hit test skips the washing machine's
+     part tag (a `<g pointer-events="none">`) and found the cabinet under it, and "PROGRAMMA" sits under an invisible click target. A shape
+     earlier in the same drawing, or one with no fill and no stroke, no longer counts as covering; anything else still does. *Checks* (`d0`,
+     harness self-tests): a block above the element grows 84 px during the first photograph and the photograph of the element's old place is
+     handed back, as that race would (the race itself cannot be timed from outside); a chat page served with `script-src 'unsafe-inline'`
+     posts its last message after 1.5 s; a tag in a `<g pointer-events="none">` and a label under a transparent circle are measured while a
+     label under an opaque shape counts as covered. *Proofs:* without the scroll comparison the first fails (`#e6f1ff` on `#ffffff` = 1.14:1);
+     the old `waitForFunction` fails the second ("returned after 339 ms with the demo still playing"); the old cover rule ("measured 0") and no
+     cover rule at all ("covered none") fail the third. After the fix 16 of 16 runs of `d` on the same three pages passed, two side by side.
+     No threshold was touched. New CI-sized counts, with the home page judged after the demo and the labels measured: 8898 judged, 1160 by
+     stops, 188 on pixels, 0 covered (62/62 in 3 min 50 s on a fresh production build, other agents' jobs on the same 4 cores).
+     *The full run's counts are not a baseline.* The reviewer's two full runs on one build judged 24183 and then 24308 elements, the whole
+     difference on `/gidsen` and the one guide page. Two causes. 20 of the 26 seeded guides share one `createdAt`, so "the first guide of the
+     list" was arbitrary (the reviewer got two different ones); the full run now takes the alphabetically first link (`S7`, which the old
+     pick's logic fails: "drukschakelaar..., afvoerpomp..., wasmiddellade..."; at review that guarded only the helper, and putting the
+     old `first(...)` back into `discover()` still passed, so since the integration S7 also reads `discover()`; the integration also
+     made the part page a seeded part, D25 item 7). And `/gidsen` shows "N keer bekeken" only for a guide with views,
+     while opening a guide page counts a view in the database: after a crawl that opens every guide (`qa-seo` does) each of the 26 cards has
+     one more text element once the cached list is read again. Here, on a fresh copy of the catalogue (no views): full 62/62 in 7 min 19 s,
+     24347 / 4386 / 610 / 0; the same build again: 62/62 in 7 min 2 s, 24348 (one element: in the first run one `/gidsen` load at 1280 px
+     came before the opened guide's card showed its new view counter). Compare full runs only on a fresh copy of the catalogue, and expect
+     `/gidsen` to move with the view counters.
 
 ## 2026-10-09 — D21 The restock record is a column on the order line, not an annotation in the credit note (bundle R)
 
@@ -581,7 +878,7 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
   newsletter without a working opt-out is unlawful, so the fallback is not optional. **Known gap, named:** an opt-out
   through Resend's own link is not synced back to our table (whether Resend itself stops mailing that contact is not
   verified from here; our count stays too high and a later sign-up would read "already subscribed"); closing it needs
-  a Resend webhook (`contact.updated`) that this bundle did not build.
+  a Resend webhook (`contact.updated`) that this bundle did not build. (Closed 2026-11-19: see the last bullet of D20.)
 - **Not built, and why.** Storing the link as a contact property from our own code (the property API and its merge
   syntax could not be verified from here, and a refused property would risk the subscribe call itself); an expiring
   opt-out token (would break old mails); a GET that unsubscribes (scanners); a row for unknown addresses (would
@@ -624,6 +921,82 @@ the old entry says so in a "Replaced by" line instead of being rewritten.
   to 404; the hint in the notice rests on that), and that a broadcast can fill a contact property as a merge field. A key
   rotation (new `CRON_SECRET`) invalidates every opt-out link sent before it; the invalid-link page then points to the
   configured contact address. `scripts/qa-privacy.ts` section 5b proves the behaviour above against the local stand-in.
+- **2026-11-19: the known gap is closed by a signed Resend webhook (bundle F3); not verified against real Resend
+  deliveries.** `POST /api/webhooks/resend` (`src/app/api/webhooks/resend/route.ts`; verification and parsing, pure, in
+  `src/lib/resend-webhook.ts`). The owner subscribes the endpoint to `contact.updated` and `email.complained` and sets
+  `RESEND_WEBHOOK_SECRET`. An opt-out through Resend's own link (`contact.updated` with `unsubscribed: true`) and a spam
+  complaint (`email.complained`: each address in `data.to` that is in our table) set `unsubscribedAt` through the SAME table
+  path as our own link (`recordOptOut` in `src/lib/newsletter.ts`: the first timestamp is kept, an unknown address gets no
+  row, the stored time is when we recorded it). Verification follows Svix: `svix-id`, `svix-timestamp`, `svix-signature`;
+  base64 HMAC-SHA256 over `id.timestamp.raw body` with the base64-decoded key after `whsec_`; several space-separated `v1`
+  entries, one match is enough; constant-time comparison; a timestamp more than 5 minutes off in either direction is
+  refused. A missing secret, or one that is not `whsec_` + base64, is a 503 and an error line in every environment (no
+  unsigned switch like Clerk's `CLERK_WEBHOOK_ALLOW_UNSIGNED`); a signature that does not verify is a 400 with one answer
+  for every cause; a signed body that is not the documented shape is a 400 too, so that a change of shape shows as failed
+  deliveries in the Resend dashboard; a table write that fails is a 500 so that Resend delivers again (every step is
+  idempotent); no database configured is a 503. Choices, with reasons: (1) `unsubscribed: false` never subscribes anyone
+  (consent only through our double opt-in; our own confirmation PATCHes the contact to `unsubscribed:false`, so that
+  event is the normal echo of every confirmation), logged at info. (2) An opt-out made AT Resend is not PATCHed back (the
+  event says the contact is flagged, and a PATCH would make Resend send another `contact.updated`); the echo of our own
+  opt-out's PATCH arrives as "already" and causes nothing, so there is no loop. A complaint IS followed by the PATCH
+  (that contact may still be subscribed), after the response (next/server `after()`), with the owner notice and its
+  once-per-address-and-direction dedupe shared with our own opt-out. (3) Every other type, `contact.created` with
+  `unsubscribed: true` and `contact.deleted` included, is acknowledged and changes nothing (a debug line outside
+  production; `src/lib/logger.ts` has no debug level). `email.bounced` is not an objection and is not handled. (4) The
+  event's `created_at` and the contact's `audience_id` are not used: an objection is honoured whatever list it was made
+  on, and ordering by an event time whose exact meaning was not observed could either drop an objection or let an older
+  confirmation mail undo it. The cost, named: an opt-out made at Resend but delivered only after the same person signed up
+  and confirmed again through our form unsubscribes them again (they can sign up once more). *Integration, same day:*
+  `contact.updated` carries the whole contact after any change (Resend's documented payload; not observed from here), so
+  ANY later change of a contact whose Resend flag is still `unsubscribed` reaches our table as an opt-out. Concretely: a confirmation's subscribe PATCH fails (the
+  owner gets "Aanmelding niet doorgegeven aan Resend"), the owner re-imports the opt-out-link CSV before fixing that
+  contact, and if the import emits `contact.updated` (not verified) the person who just confirmed is unsubscribed here
+  without any act of theirs. It errs toward the objection; BLOCKED step 7 tells the owner to fix such a contact before the
+  next import. (5) Only deliveries that do
+  not verify count against the caller (30 per hour, then 429 and no log line); a verified delivery is never refused
+  (Svix's servers carry every event). The Stripe and Clerk webhook routes have no rate limit at all. (6) No address in
+  any log line: the opt-out's database error is now logged with the address replaced by `<adres>` (our own link's path
+  too). No middleware change: like `/api/webhooks/clerk`, the path is not a protected route, and under `/api/` it is
+  disallowed in robots.txt, `X-Robots-Tag: noindex` and never in the sitemap. The preflight (group `email`) warns when
+  `RESEND_AUDIENCE_ID` is set without the secret and checks the secret's format with the route's own rule, never printing
+  it. Proof: `scripts/qa-privacy.ts` section 5c (43 checks; the deliveries are signed by the `standardwebhooks` package,
+  an implementation of the scheme we did not write, installed with `@clerk/backend`; mutation-proved: no timestamp window,
+  `===` instead of `timingSafeEqual`, `unsubscribed:false` taken as consent, a PATCH back on `contact.updated`, verified
+  deliveries counted by the rate limit, an address in a log line, an unredacted database error), `scripts/qa-preflight.ts`
+  (5 cases and 2 checks), and a production build (`next start`, `VERCEL=1`, Clerk not configured): without the secret 503
+  and a JSON error line; with it, unsigned and wrongly signed 400, a correctly signed opt-out 200 and the row unsubscribed
+  in Postgres, `X-Robots-Tag: noindex`, no redirect or cookie for `Accept-Language: de`, the address in no log line.
+  **Not verified from here** (no Resend account, no network): the event shapes (taken from Resend's documentation); that
+  Resend's own unsubscribe link emits `contact.updated` with `unsubscribed: true`; whether an opt-out from one Resend
+  topic flips the contact-level flag (only that flag is read); Svix's retry schedule; the route with real Clerk keys.
+- **2026-11-19, repaired after review (bundle F3, same day).** (a) Section 5c now proves the signature is checked over
+  the RAW body: a signed opt-out that is not `JSON.stringify` output (pretty-printed, trailing newline, other key order,
+  `\u` escapes, `1.50`, é and €) is accepted, as a string and as a stream of 3-byte chunks; before this a route that
+  re-serialised the JSON passed every check. (b) The route stops reading a body once it passes 256 KiB, also without a
+  Content-Length, instead of reading it whole and measuring it afterwards, so the route never holds or decodes more than
+  that. *Corrected after a second review, same day:* this bounds the route, not the server. The middleware matcher
+  includes this path, and for a matched request `next start` copies the body for the middleware and waits until the
+  request has ended before the handler runs (`next/dist/server/body-streams.js`, Next 15.5), keeping at most
+  `experimental.middlewareClientMaxBodySize` (10 MB by default) and dropping the rest. So under `next start` the 413
+  comes only after the sender has finished, and that 10 MB bound applied before this change as well; on Vercel the
+  platform's request-body limit applies (not exercised from here). The 5c check of this cap calls the handler
+  in-process. (*Integration, same day:* Next keeps that much TWICE, one copy for the middleware and one for the
+  handler, so up to about 20 MB per request; read in the source, not measured. "Never holds more than that" is exact
+  for what the route keeps; the one chunk that crosses 256 KiB is read and dropped.) (c) While the secret is missing,
+  every POST counts against its caller like a delivery that does not verify: the answer stays 503, but the error line
+  (which also reaches the owner's error sink) stops after 30 per caller and hour, so strangers cannot fill the log. **Costs named, behaviour unchanged:** a spam
+  complaint unsubscribes EVERY address in `data.to` that is in our table, not only the person who complained (the event
+  does not say who), and `email.complained` fires for any mail sent through the Resend account, so marking an order
+  confirmation as spam also ends the newsletter. Both err on the side of the objection (one too many costs a new
+  sign-up, one too few is an unlawful mail); the app's own mails and a broadcast each have one recipient, so several
+  listed addresses only come from a mail sent to several people by other means. Acting only when `data.broadcast_id` is
+  present was not chosen: that field was not observed either, and relying on it could drop an objection. **Watch the
+  endpoint:** a signed body of an unexpected shape is refused with 400 on every retry, and so is everything signed with
+  a secret that does not match; Svix's documentation says an endpoint whose deliveries keep failing for days is disabled,
+  which would also stop the valid opt-outs (not verified for Resend from here). After setup, check the webhook page in
+  Resend for failed deliveries (BLOCKED step 7). Proof: section 5c has 47 checks (qa-privacy 162); mutation-proved:
+  re-serialising the JSON before verifying (2 checks fail), reading the whole body before measuring it (1, in-process),
+  decoding each chunk on its own (1), an unlimited error line without a secret (1).
 
 ## 2026-10-09 — D19 Production deploys run from GitHub Actions, gated on CI and on the preflight (bundle D)
 

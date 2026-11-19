@@ -122,9 +122,9 @@ export default function RepairOrReplaceCalculator() {
         <Card className={`border-2 ${verdict.card}`}>
           <CardContent className="p-6 text-center">
             <div className="text-5xl mb-2">{isRepair ? "🔧" : isBorderline ? "⚖️" : "🛒"}</div>
-            <h3 className="font-heading text-xl font-bold mb-1">
+            <h2 className="font-heading text-xl font-bold mb-1">
               {isRepair ? "Repareer uw machine" : isBorderline ? "Twijfelgeval — bekijk redenering" : "Overweeg vervanging"}
-            </h3>
+            </h2>
             <p className="text-sm text-muted-foreground">
               {isRepair
                 ? `Repareren is de slimste keuze. Besparing: ±€${Math.max(0, result.costComparison.replaceTotal - result.costComparison.repairTotal)}`
@@ -220,7 +220,7 @@ export default function RepairOrReplaceCalculator() {
         ))}
       </div>
 
-      <h3 className="font-heading text-lg font-semibold">{step === 0 ? "Over uw machine" : "Over de reparatie"}</h3>
+      <h2 className="font-heading text-lg font-semibold">{step === 0 ? "Over uw machine" : "Over de reparatie"}</h2>
 
       {step === 0 && (
         <div className="space-y-5">

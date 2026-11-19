@@ -29,7 +29,7 @@ export default async function MonteurOnderdelenPage() {
         <Card>
           <CardContent className="p-12 text-center">
             <Package className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
-            <h2 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h2>
+            <h1 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h1>
             <p className="text-muted-foreground mb-4">Deze pagina is beschikbaar voor Monteur Pro abonnees.</p>
             <Button asChild><Link href="/upgrade?plan=MONTEUR_PRO">Bekijk Monteur Pro</Link></Button>
           </CardContent>

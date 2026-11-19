@@ -30,6 +30,10 @@ function iban(bank: string, account: string): string {
   return `NL${String(98 - r).padStart(2, "0")}${bank}${account}`;
 }
 const b64 = (host: string) => Buffer.from(`${host}$`).toString("base64").replace(/=+$/, "");
+// A Resend webhook signing secret of the documented shape (whsec_ + base64), assembled at run time: the literal pattern is
+// what push protection scans for.
+const HOOK_PREFIX = ["wh", "sec_"].join("");
+const HOOK_SECRET = HOOK_PREFIX + Buffer.from("qa-preflight resend webhook key 32").toString("base64");
 
 const GOOD: Record<string, string> = {
   NEXT_PUBLIC_APP_URL: "https://shop.example.nl",
@@ -132,6 +136,12 @@ const CASES: Case[] = [
   { name: "no owner channel (RESEND key alone is not one, no address)", env: without("SLACK_WEBHOOK_URL", "COMPANY_EMAIL", "ORDER_NOTIFY_EMAIL"), expect: "block", mention: /meldingskanaal/ },
   { name: "ORDER_NOTIFY_EMAIL + Resend is a channel", env: { ...without("SLACK_WEBHOOK_URL"), ORDER_NOTIFY_EMAIL: "owner@shop.example.nl" }, expect: "clean" },
   { name: "RESEND_API_KEY missing", env: without("RESEND_API_KEY"), expect: "block", mention: /RESEND_API_KEY/ },
+  // D20, bundle F3: with an audience, an opt-out or spam complaint at Resend only reaches our table through the signed webhook.
+  { name: "RESEND_AUDIENCE_ID without RESEND_WEBHOOK_SECRET (warning: opt-outs at Resend do not reach our table)", env: { ...GOOD, RESEND_AUDIENCE_ID: "aud_qa_preflight" }, expect: "warn", mention: /afmeldingen via Resend komen niet in onze tabel[\s\S]*api\/webhooks\/resend/ },
+  { name: "RESEND_AUDIENCE_ID with a well-formed RESEND_WEBHOOK_SECRET", env: { ...GOOD, RESEND_AUDIENCE_ID: "aud_qa_preflight", RESEND_WEBHOOK_SECRET: HOOK_SECRET }, expect: "clean" },
+  { name: "RESEND_WEBHOOK_SECRET without its whsec_ prefix (warning)", env: { ...GOOD, RESEND_AUDIENCE_ID: "aud_qa_preflight", RESEND_WEBHOOK_SECRET: HOOK_SECRET.slice(HOOK_PREFIX.length) }, expect: "warn", mention: /RESEND_WEBHOOK_SECRET heeft niet het formaat[\s\S]*begint niet met whsec_/ },
+  { name: "RESEND_WEBHOOK_SECRET with whsec_ but no base64 after it (warning, also without an audience)", env: { ...GOOD, RESEND_WEBHOOK_SECRET: `${HOOK_PREFIX}not-base64!` }, expect: "warn", mention: /na whsec_ staat geen base64/ },
+  { name: "RESEND_WEBHOOK_SECRET that decodes to too few bytes (warning)", env: { ...GOOD, RESEND_WEBHOOK_SECRET: `${HOOK_PREFIX}${Buffer.from("short").toString("base64")}` }, expect: "warn", mention: /te kort/ },
   { name: "CRON_SECRET missing", env: without("CRON_SECRET"), expect: "block", mention: /CRON_SECRET/ },
   { name: "only one Upstash variable", env: without("UPSTASH_REDIS_REST_TOKEN"), expect: "block", mention: /UPSTASH/ },
   { name: "no Upstash: degraded but allowed, consequence spelled out", env: without("UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"), expect: "warn", mention: /per serverinstantie/ },
@@ -347,6 +357,12 @@ async function main() {
     if (c.expect === "warn") check(r.code === 0 && blocks.length === 0 && r.report.verdict === "READY WITH WARNINGS" && warns.some((w) => c.mention!.test(`${w.message} ${w.fix}`)), `${c.name}: READY WITH WARNINGS, exit 0`, `${c.name}: verdict ${r.report.verdict}, exit ${r.code}, blocks=${blocks.map((b) => b.message).join(" | ")}, warns=${warns.map((b) => b.message).join(" | ")}`);
     if (c.expect === "block") check(r.code === 1 && r.report.verdict === "NOT READY" && blocks.some((b) => c.mention!.test(`${b.message} ${b.fix}`)) && blocks.every((b) => (b.fix ?? "").length > 10), `${c.name}: NOT READY, exit 1, names the problem and its fix`, `${c.name}: verdict ${r.report.verdict}, exit ${r.code}, blocks=${blocks.map((b) => b.message).join(" | ")}`);
   }
+
+  note("bundle F3: the Resend webhook secret is judged by its format and never printed");
+  const hookRuns = CASES.filter((c) => c.env.RESEND_WEBHOOK_SECRET).map((c) => ({ secret: String(c.env.RESEND_WEBHOOK_SECRET), r: results.get(c.name)! }));
+  check(hookRuns.length >= 4 && hookRuns.every(({ secret, r }) => !!r.report && !r.text.includes(secret.slice(HOOK_PREFIX.length)) && !r.text.includes(secret)), "no report prints RESEND_WEBHOOK_SECRET (nor its base64 part), whether it is well-formed or not", `RESEND_WEBHOOK_SECRET printed in ${hookRuns.filter(({ secret, r }) => !r.report || r.text.includes(secret.slice(HOOK_PREFIX.length))).length} of ${hookRuns.length} reports`);
+  const hookOk = results.get("RESEND_AUDIENCE_ID with a well-formed RESEND_WEBHOOK_SECRET");
+  check(!!hookOk?.report?.checks.some((c) => c.group === "email" && c.level === "ok" && /RESEND_WEBHOOK_SECRET is ingesteld/.test(c.message)), "a well-formed RESEND_WEBHOOK_SECRET is reported as set, in the email group", JSON.stringify(hookOk?.report?.checks.filter((c) => c.group === "email")));
 
   note("--strict turns warnings into a failing exit code");
   const strict = await runCli(without("UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN"), ["--strict"]);

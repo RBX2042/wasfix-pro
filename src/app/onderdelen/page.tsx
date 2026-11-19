@@ -75,7 +75,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
   const FilterLinks = () => (
     <div className="space-y-6">
       <div>
-        <h3 className="font-semibold mb-2">Categorieën</h3>
+        <h2 className="font-semibold mb-2">Categorieën</h2>
         <div className="space-y-0.5">
           <Link
             href={href(base, { cat: undefined, n: undefined })}
@@ -96,7 +96,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
         </div>
       </div>
       <div>
-        <h3 className="font-semibold mb-2">Merk</h3>
+        <h2 className="font-semibold mb-2">Merk</h2>
         <div className="space-y-0.5">
           {brands.map((b) => (
             <Link
@@ -219,7 +219,7 @@ export default async function OnderdelenPage({ searchParams }: { searchParams: P
             <>
               <div className="grid grid-cols-1 min-[360px]:grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
                 {parts.map((p) => (
-                  <PartCard key={p.id} part={p} />
+                  <PartCard key={p.id} part={p} headingLevel={2} />
                 ))}
               </div>
               {parts.length < total && parts.length < MAX_SHOWN && (

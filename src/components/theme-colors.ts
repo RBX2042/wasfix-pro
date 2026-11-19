@@ -26,6 +26,23 @@ export const THEME_STORAGE_KEY = "theme";
 export const STORED_THEME_GUARD_SCRIPT = `try{var k=${JSON.stringify(THEME_STORAGE_KEY)},v=localStorage.getItem(k);if(v!==null&&v!=="light"&&v!=="dark"&&v!=="system")localStorage.removeItem(k)}catch(e){}`;
 
 /**
+ * Runs in <head>, so before the parser has created <body> (theme-provider.tsx puts it there with useServerInsertedHTML,
+ * decision D22, 2026-11-19): drops a junk stored value like the guard above, then puts the stored choice on <html> the way
+ * next-themes' script does with the provider's defaults (class "light" or "dark", inline color-scheme; nothing stored is
+ * light, "system" follows the OS). Two documents needed it:
+ *  - Next's client-rendered 404 shell (notFound() in a dynamic route): no inline script of the layout runs there, its
+ *    <head> says color-scheme light and its <body> is empty until React renders, so the browser painted a white canvas for
+ *    a visitor with Donker stored, on a light and on a dark OS alike. HTML registered with useServerInsertedHTML during the
+ *    failed render does reach that shell (app-render.js, the catch branch flushes the same renderServerInsertedHTML).
+ *  - every server-rendered page: the layout's scripts sit in <body> behind the stylesheet, and when the stylesheet
+ *    finished loading Chromium could paint the empty body (light background, no class yet) before they ran.
+ * A script in <head> runs before <body> exists, and no frame of the page was seen before that (measured with Chromium's
+ * screencast, not read in its source; b2 checks the class is set before <body> exists). Plain string,
+ * no "use client": scripts/qa-theme.ts runs it against a stub document (S6). Storage may be blocked: in a try.
+ */
+export const EARLY_THEME_SCRIPT = `(function(){var h=document.documentElement,k=${JSON.stringify(THEME_STORAGE_KEY)},c="light";try{var v=localStorage.getItem(k);if(v!==null&&v!=="light"&&v!=="dark"&&v!=="system")localStorage.removeItem(k);else if(v!==null)c=v}catch(e){}try{var d=c==="dark"||(c==="system"&&matchMedia("(prefers-color-scheme: dark)").matches);h.classList.remove("light","dark");h.classList.add(d?"dark":"light");h.style.colorScheme=d?"dark":"light"}catch(e){}})()`;
+
+/**
  * The palette of the pages that render OUTSIDE the app: app/global-error.tsx replaces the whole document
  * (root layout, stylesheet and theme provider included), so it cannot use the tokens of globals.css and carries
  * these values itself. Each one is the value of the token named next to it, in that theme; scripts/qa-theme.ts

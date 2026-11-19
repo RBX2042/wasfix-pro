@@ -92,7 +92,7 @@ export default function PrijzenPage() {
               )}
               <CardContent className="p-6 space-y-5 h-full flex flex-col">
                 <div>
-                  <h3 className="font-heading font-bold text-xl">{plan.name}</h3>
+                  <h2 className="font-heading font-bold text-xl">{plan.name}</h2>
                   <p className="text-sm text-muted-foreground">{plan.description}</p>
                   <div className="flex items-baseline mt-3">
                     <span className="font-heading text-4xl font-bold">{plan.price}</span>

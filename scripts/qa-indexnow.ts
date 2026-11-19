@@ -222,7 +222,7 @@ async function main() {
     check(pad(nx.MAX_URL_LENGTH).length === nx.MAX_URL_LENGTH && len.kept.length === 1 && len.kept[0].length === nx.MAX_URL_LENGTH && len.dropped.length === 1 && len.dropped[0].reason === "te-lang", "an address of exactly 2048 characters is kept, one of 2049 is dropped as too long", JSON.stringify(len.counts));
   }
   {
-    // The families next.config.ts sends a noindex X-Robots-Tag for without a condition (variantHeaderRules): /qr/*.
+    // The families next.config.ts sends a noindex X-Robots-Tag for without a condition (variantHeaderRules): /qr/* and /leadmagnets/*.
     const prefixes = nx.noindexFamilyPrefixes();
     check(prefixes.includes("/qr") && prefixes.every((p) => /^\/[^/:*]+(\/[^/:*]+)*$/.test(p)), "the noindex families are read from the header rules of src/lib/seo.ts: /qr is one", JSON.stringify(prefixes));
     check(
@@ -239,7 +239,9 @@ async function main() {
     check(fam.kept.length === 0 && fam.dropped.length === 6 && fam.dropped.every((d) => d.reason === "noindex"), "/qr/<code>, deeper paths, /qr itself and other letter cases are dropped as noindex-familie", JSON.stringify(fam));
     check(prefixes.includes("/leadmagnets"), "the static documents of public/ that next.config.ts marks noindex (the lead-magnet cheat sheet) are a family too", JSON.stringify(prefixes));
     const exact = nx.noindexExactPaths();
-    check(exact.includes("/offline.html") && exact.every((p) => /^\/[^:*()]*$/.test(p) && p === p.toLowerCase()), "the single noindex files are read from the header rules too: /offline.html is one", JSON.stringify(exact));
+    // D25: /offline.html was the one single noindex file; it was deleted together with its header rule, so today there is none (the
+    // mechanism is still proved on planted rules just below).
+    check(exact.length === 0 && !fs.existsSync(path.join(ROOT, "public", "offline.html")), "no single noindex file is left in the header rules: /offline.html was deleted with its rule (D25)", `public/offline.html is back, or a single-file noindex rule is: ${JSON.stringify(exact)} (D25 deleted the offline page and its rule)`);
     check(
       JSON.stringify(nx.noindexExactPaths([
         { source: "/Foo.html", robots: "noindex" },
@@ -250,8 +252,8 @@ async function main() {
       ])) === JSON.stringify(["/foo.html"]),
       "only an unconditional noindex rule on a plain path is a single noindex file (not an index rule, not a rule with a query condition, not a family, not a pattern)",
     );
-    const lead = nx.filterUrls([u("/leadmagnets/foutcodes-cheatsheet.html"), u("/Leadmagnets/x.pdf"), u("/offline.html"), u("/OFFLINE.HTML")], O);
-    check(lead.kept.length === 0 && lead.dropped.length === 4 && lead.dropped.every((d) => d.reason === "noindex"), "the lead-magnet files and the offline page are dropped as noindex, in any letter case", JSON.stringify(lead));
+    const lead = nx.filterUrls([u("/leadmagnets/foutcodes-cheatsheet.html"), u("/Leadmagnets/x.pdf"), u("/LEADMAGNETS/foutcodes-cheatsheet.pdf")], O);
+    check(lead.kept.length === 0 && lead.dropped.length === 3 && lead.dropped.every((d) => d.reason === "noindex"), "the lead-magnet files are dropped as noindex, in any letter case", JSON.stringify(lead));
     const every = nx.noindexFamilyPrefixes().flatMap((p) => [u(p), u(`${p}/x`), u(`${p}/x/y`)]).concat(nx.noindexExactPaths().map((p) => u(p)));
     check(every.length >= 3 && nx.filterUrls(every, O).kept.length === 0, "every unconditional noindex family of the header rules is dropped by the filter, whatever it is called (the two lists cannot drift apart)");
     const files = nx.filterUrls([u(`/${KEY}.txt`), u("/robots.txt"), u("/sitemap.xml"), u("/sitemap-2.xml"), u("/ROBOTS.TXT"), u("/llms.txt")], O);
@@ -972,7 +974,7 @@ async function main() {
     if (matches) {
       const files = [`/${KEY}.txt`, "/robots.txt", "/sitemap.xml", "/sitemap-2.xml"];
       check(files.every((f) => !matches!(f)), "the key file, robots.txt and the sitemap skip the middleware: no locale-hint cookie, no redirect to /<locale>/... when NEXT_PUBLIC_FEATURE_I18N is on, no Clerk run per crawler fetch", JSON.stringify(files.filter((f) => matches!(f))));
-      check(["/", "/onderdelen", "/api/orders/abc.pdf", "/api/x/report.txt", "/bosch-wasmachine-reparatie", "/admin"].every((f) => matches!(f)) && ["/_next/static/a.js", "/logo.png", "/offline.html"].every((f) => !matches!(f)), "...while pages, the API (also a path that ends in .txt under /api) and the private areas still go through it, and the earlier exclusions still hold");
+      check(["/", "/onderdelen", "/api/orders/abc.pdf", "/api/x/report.txt", "/bosch-wasmachine-reparatie", "/admin"].every((f) => matches!(f)) && ["/_next/static/a.js", "/logo.png", "/leadmagnets/foutcodes-cheatsheet.html", "/sw.js"].every((f) => !matches!(f)) && !literal!.includes("offline.html"), "...while pages, the API (also a path that ends in .txt under /api) and the private areas still go through it, the earlier exclusions still hold, and the deleted offline page is no longer named (D25)");
     }
   }
 
@@ -1045,10 +1047,24 @@ async function main() {
           check(filt.dropped.length === 0 && filt.kept.length === sitemapRaw.urls.length && filt.kept.every((k, i) => k === sitemapRaw.urls[i]), "the tool's filter drops NOTHING from the real sitemap and changes no address: the submit list is the same list the sitemap publishes", `${sitemapRaw.urls.length} in the sitemap, ${filt.kept.length} kept, dropped: ${JSON.stringify(filt.counts)}`);
           engine.reset();
           const out: string[] = [];
-          const code = await run(["--origin", po.value.origin, "--live"], { INDEXNOW_ENDPOINT: engine.endpoint, QA_INDEXNOW_BACKOFF_MS: "1" }, { out: (l) => out.push(l), err: (l) => out.push(l) }, { get: mapped, sleep: async () => undefined });
+          // The run reads the sitemap itself, a second read. The server regenerates the sitemap at most every 60 s (decision D25), so
+          // a row another suite created or deleted can make the two reads differ. The run is judged against the sitemap IT read (every
+          // answer it got is recorded and parsed again by the same reader), and a difference from the first read is named in a note.
+          const answers = new Map<string, nx.HttpResult>();
+          const recording: nx.HttpGet = async (url) => { const r = await mapped(url); answers.set(url, r); return r; };
+          const code = await run(["--origin", po.value.origin, "--live"], { INDEXNOW_ENDPOINT: engine.endpoint, QA_INDEXNOW_BACKOFF_MS: "1" }, { out: (l) => out.push(l), err: (l) => out.push(l) }, { get: recording, sleep: async () => undefined });
           printed.push(out.join("\n"));
           const sent = engine.posts.flatMap((q) => (q.body?.urlList as string[] | undefined) ?? []);
-          check(code === 0 && engine.posts.length === Math.ceil(filt.kept.length / 10000) && JSON.stringify(sent) === JSON.stringify(filt.kept), "a live run against the real sitemap and the real key file (fake engine) sends exactly the sitemap's URLs", `exit ${code}: ${out.join(" | ").slice(0, 400)}`);
+          const replay = await nx.readSitemap(po.value, async (url) => { const r = answers.get(url); if (!r) throw new Error(`the run did not read ${url}`); return r; });
+          const want = replay.ok ? nx.filterUrls(replay.urls, po.value).kept : [];
+          const listDiff = (a: readonly string[], b: readonly string[]) => {
+            const inA = new Set(a), inB = new Set(b);
+            const only = (xs: readonly string[], other: Set<string>) => xs.filter((x) => !other.has(x));
+            const firstMoved = a.findIndex((x, i) => x !== b[i]);
+            return `${a.length} vs ${b.length}; only in the first: ${JSON.stringify(only(a, inB).slice(0, 10))}; only in the second: ${JSON.stringify(only(b, inA).slice(0, 10))}${firstMoved >= 0 ? `; first difference at position ${firstMoved}: ${a[firstMoved]} vs ${b[firstMoved]}` : ""}`;
+          };
+          if (replay.ok && JSON.stringify(want) !== JSON.stringify(filt.kept)) note(`the sitemap changed between the first read and the run's own read (regenerated in its 60 s window): ${listDiff(filt.kept, want)}`);
+          check(code === 0 && replay.ok && want.length > 0 && engine.posts.length === Math.ceil(want.length / 10000) && JSON.stringify(sent) === JSON.stringify(want), "a live run against the real sitemap and the real key file (fake engine) sends exactly the URLs of the sitemap it read, in its order", `exit ${code}, ${engine.posts.length} POSTs, ${replay.ok ? `sent vs the sitemap the run read: ${listDiff(sent, want)}` : `the run's sitemap answers do not parse: ${replay.reason}`}; output: ${out.join(" | ").slice(0, 300)}`);
           check(engine.posts.every((q) => q.body?.keyLocation === `${po.value.origin}/${real.key}.txt` && q.body.host === po.value.hostname), "...with the key location on the site's own domain");
         }
       } else check(false, "", "robots.txt names no usable Sitemap line, so the real sitemap cannot be read");

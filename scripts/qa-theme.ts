@@ -10,7 +10,9 @@
  *                                                                          It WRITES to that database (a user, a part, an order, an invoice and a credit
  *                                                                          note of year 2999, with QA_DEMO_URL also a work order and maybe a monteur
  *                                                                          profile): a throw-away database, never production.
- *   QA_THEME_FULL=1                                                        the full page list (about 45 pages) instead of the 12 representative ones
+ *   QA_THEME_FULL=1                                                        the full page list (40 pages) instead of the 12 representative ones (one per
+ *                                                                          template), 17 form pages instead of 11 (j), 8 page-level 404 routes instead of 2 (b4).
+ *                                                                          Neither size opens every page of the site: the rest is trusted to share its template's colours.
  *   QA_REQUIRE_BROWSER=1                                                   a missing Chromium or QA_BASE_URL is a FAILURE, not a SKIPPED line (CI sets it)
  *
  * What it proves, and where each part would fail:
@@ -19,10 +21,24 @@
  *  S2  the palette of the redesign pages (wasfix-design.css): every text colour on every surface, both palettes.
  *  S3  the meta theme-color constants and the palette of the stand-alone error page equal the tokens.
  *  S4  the wiring: light is the default (layout.tsx, theme-provider.tsx), "system" stays selectable.
+ *  S5  SVG ids: no component gives a gradient, pattern or clip path a literal id (it repeats when the drawing does), and
+ *      svgSafeId() turns every React useId format into a distinct, selector- and url(#)-safe prefix; no url(#...) in src/
+ *      is written by hand (part n no longer sees the scan sweep's two references, drawn only while the demo scans).
+ *  S6  EARLY_THEME_SCRIPT (the theme script the provider puts into <head>), run against a stub document: every stored choice,
+ *      every OS, seven junk values and blocked storage give the right class and color-scheme; the provider inserts it.
+ *  S7  the guide page of the full run is picked by name, not by its place in a list whose order is arbitrary, and the part
+ *      page is a seeded part, not a test row another suite created first in the SKU order (and may have deleted); discover()
+ *      really uses both picks (its source is read).
  *  a   a fresh browser whose OS prefers DARK and whose storage is empty renders LIGHT (fails if defaultTheme becomes "system").
  *  b   the toggle exists in the header, the mobile menu, the bottom bar and the footer, has a name, works by keyboard and
  *      mouse; Donker survives a reload (and is on <html> before the first paint) and client navigation; Licht undoes it;
  *      Systeem follows the OS in both directions; theme-color follows the choice (fails if a layout loses its toggle).
+ *  b2  with Donker stored, .dark is on <html> before <body> exists and before the first contentful paint (fails if the
+ *      <head> script of the provider goes: the layout's scripts in <body> come after the stylesheet, and Chromium can paint between).
+ *  b4  the page-level 404 of a dynamic route (notFound() in /onderdelen/[sku] ...), which Next 15.5 answers with an empty shell
+ *      that React builds in the browser (no inline script of the layout runs there): the provider's <head> script is in that
+ *      shell, the stored theme is on <html> before <body> exists, and after a full navigation from a page in the same theme
+ *      no frame of the other theme reaches the screen, the shell's white canvas included (fails if that script goes).
  *  c   no console error, page error or hydration warning in either theme.
  *  d   a contrast sweep of every visible text element, page x {light, dark} x {375, 1280}; gradients are bounded
  *      by their colour stops or, where that is not enough (and for text in an SVG), measured on the rendered pixels with the
@@ -32,8 +48,13 @@
  *  e3  the OPENED mobile menu, the footer controls and the bottom bar panel at 320 to 480 px (and 768): nothing sticks out of the gutter.
  *  j   form-field boundaries reach 3:1 against the surface behind (WCAG 1.4.11, non-text contrast), light and dark; every field shows a focus ring.
  *  k   a stored theme the app never wrote (" dark", "dark light", "banana", ...) and a browser that refuses web storage do not take the pages down:
- *      the site stays light and usable (fails if the stored-theme guard in layout.tsx or the storage guards of the exit-intent offer go).
- *  d0  the pixel verifier survives a layout shift between reading an element and photographing it (a harness self-test).
+ *      the site stays light and usable (fails if the stored-theme guard in layout.tsx or the storage guards of the exit-intent offer go), the
+ *      page-level 404 shell included (fails if the provider's <head> script, EARLY_THEME_SCRIPT, stops dropping a junk value there).
+ *  n   no id occurs twice on a page (the server's HTML and the hydrated DOM) and every url(#...) of an SVG points at an element of the same
+ *      drawing (fails if the washing machine of the home page, drawn twice, gets literal gradient ids again).
+ *  d0  the pixel verifier survives a layout shift, and a scroll jump that leaves the element in place (scroll anchoring), between reading
+ *      an element and photographing it; waitStable waits for the home page's chat demo under a CSP without 'unsafe-eval'; text in a drawing
+ *      that takes no pointer events, or under an invisible click target, is measured, not written off as covered (harness self-tests).
  *  f   documents print light under emulated print media with .dark set.
  *  g   the toggle works in the dashboard layout and on an admin page (QA_DEMO_URL).
  *  h   the stand-alone global error page honours the stored choice (bundled and rendered like Next does, in the browser and as a server string).
@@ -44,7 +65,9 @@ import path from "node:path";
 import zlib from "node:zlib";
 import { createRequire } from "node:module";
 import { loadPlaywright, makeChecker } from "./lib/browser";
-import { STANDALONE_PALETTE, THEME_COLOR_DARK, THEME_COLOR_LIGHT } from "../src/components/theme-colors";
+import vm from "node:vm";
+import { EARLY_THEME_SCRIPT, STANDALONE_PALETTE, THEME_COLOR_DARK, THEME_COLOR_LIGHT } from "../src/components/theme-colors";
+import { svgSafeId } from "../src/components/redesign/svg-ids";
 
 const { check, note, finish } = makeChecker("qa-theme");
 const ROOT = process.cwd();
@@ -52,7 +75,7 @@ const BASE = process.env.QA_BASE_URL?.replace(/\/+$/, "");
 const DEMO = process.env.QA_DEMO_URL?.replace(/\/+$/, "");
 const FULL = process.env.QA_THEME_FULL === "1";
 const REQUIRE = process.env.QA_REQUIRE_BROWSER === "1";
-// Debug aids, not part of CI: QA_THEME_ONLY=d,i  runs only those browser parts (a b b2 b3 d0 d e2 e3 j k i f g h);
+// Debug aids, not part of CI: QA_THEME_ONLY=d,i  runs only those browser parts (a b b2 b3 b4 d0 d e2 e3 j k n i f g h);
 // QA_THEME_PAGES=/,/blog  replaces the page list.
 const ONLY = process.env.QA_THEME_ONLY?.split(",").map((x) => x.trim());
 const on = (part: string) => !ONLY || ONLY.includes(part);
@@ -117,6 +140,18 @@ const blockAfter = (css: string, marker: string) => {
 };
 
 // ───────────────────────────── S1-S4: no server, no browser ─────────────────────────────
+/** Literal ids on SVG definitions in a source text: id="x", id='x', id={"x"}, id={'x'}, id={`x`} (a template with ${...} is not constant). */
+function literalDefIds(src: string): string[] {
+  const out: string[] = [];
+  for (const m of src.matchAll(/<(linearGradient|radialGradient|pattern|clipPath|mask|filter|marker|symbol)\b[^>]*?\sid=(?:"([^"]+)"|'([^']+)'|\{\s*(["'`])([^"'`$]+)\4\s*\})/g)) out.push(`<${m[1]} id="${m[2] ?? m[3] ?? m[5]}">`);
+  return out;
+}
+
+/** Hand-written fragment references in a source text: "url(#" in any spelling (also "url( #", and inside a template). */
+function literalUrlRefs(src: string): string[] {
+  return [...src.matchAll(/url\(\s*#[^)\n]{0,60}\)?/g)].map((m) => m[0]);
+}
+
 function staticChecks() {
   const globals = read("src/app/globals.css");
   const light = blockAfter(globals, "\n  :root {");
@@ -220,6 +255,111 @@ function staticChecks() {
   check(/colorScheme:\s*"light"/.test(layout) && /prefers-color-scheme: light/.test(layout) && /prefers-color-scheme: dark/.test(layout), "layout.tsx: the viewport export carries colorScheme and both theme-color tags", "layout.tsx: no viewport export with colorScheme and theme-color");
   const tailwind = read("tailwind.config.ts");
   check(/darkMode:\s*\["variant",\s*"@media not print \{ &:is\(\.dark \*\) \}"\]/.test(tailwind), "tailwind: dark: utilities do not apply to print", "tailwind: darkMode is not the print-safe variant");
+
+  note("S5 SVG ids: per drawing, never literal (src/components/redesign/svg-ids.ts)");
+  // A <defs> entry with a literal id exists once per drawing on the page: the home page draws its washing machine twice, and
+  // url(#cabFill) of the second one resolved to the first one's gradient. Every such id comes from useSvgIds() now.
+  const literal: string[] = [];
+  const walk = (dir: string) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = path.join(dir, e.name);
+      if (e.isDirectory()) walk(rel);
+      else if (/\.tsx$/.test(e.name)) {
+        for (const id of literalDefIds(read(rel))) literal.push(`${rel}: ${id}`);
+      }
+    }
+  };
+  walk("src");
+  // The scan must see every spelling of a constant id, not only id="...": planted lines, each must be found (the last one is fine).
+  const planted = ['<linearGradient id="a1">', "<radialGradient x=\"1\" id='a2'>", '<clipPath id={"a3"}>', "<mask id={ 'a4' }>", "<pattern id={`a5`}>", "<symbol id={`a${n}`}>", '<linearGradient id={svg.ref("ok")}>'];
+  const plantedFound = planted.map((l) => literalDefIds(l).length);
+  const scanOk = plantedFound.slice(0, 5).every((n) => n === 1) && plantedFound.slice(5).every((n) => n === 0);
+  check(scanOk && literal.length === 0, "no SVG definition (gradient, pattern, clip path, mask, filter, marker, symbol) in src/ has a literal id, in any spelling (id=\"x\", id='x', id={\"x\"}, id={'x'}, id={`x`})", scanOk ? `literal SVG definition ids (they repeat when the drawing does; use useSvgIds()):\n      ${literal.slice(0, 12).join("\n      ")}` : `the literal-id scan misses a spelling: ${planted.map((l, i) => `${l} -> ${plantedFound[i]}`).join(", ")}`);
+  // The references, statically. Part n judges url(#...) only in what the browser shows when it looks, and since the home page's
+  // chat demo is waited for (D22, theme finish item 5) the scan sweep's two references (url(#scanClip), url(#scanSweep)), drawn
+  // only for about a second while the demo scans, are never on screen then. So every url(#...) in src/ must be built by
+  // useSvgIds().url() (svg-ids.ts, the one place that writes the text "url(#"); a literal one would point at another drawing.
+  const literalRefs: string[] = [];
+  const walkRefs = (dir: string) => {
+    for (const e of fs.readdirSync(path.join(ROOT, dir), { withFileTypes: true })) {
+      const rel = path.join(dir, e.name);
+      if (e.isDirectory()) walkRefs(rel);
+      else if (/\.(tsx|ts|css)$/.test(e.name) && rel !== path.join("src", "components", "redesign", "svg-ids.ts")) {
+        for (const ref of literalUrlRefs(read(rel))) literalRefs.push(`${rel}: ${ref}`);
+      }
+    }
+  };
+  walkRefs("src");
+  const plantedRefs = ['<rect fill="url(#a1)" />', "<g clipPath={'url(#a2)'}>", "<path fill={`url(#${id})`} />", "<circle style={{ fill: \"url( #a4)\" }} />", '<rect fill={svg.url("ok")} />', "<rect fill=\"url(/img.png)\" />"];
+  const plantedRefFound = plantedRefs.map((l) => literalUrlRefs(l).length);
+  const refScanOk = plantedRefFound.slice(0, 4).every((n) => n === 1) && plantedRefFound.slice(4).every((n) => n === 0);
+  check(refScanOk && literalRefs.length === 0, "no url(#...) reference in src/ is written by hand: every one comes from useSvgIds().url(), also the ones drawn only for a moment (the scan sweep)", refScanOk ? `literal url(#...) references (they point at the first drawing that has the id; use useSvgIds().url()):\n      ${literalRefs.slice(0, 12).join("\n      ")}` : `the url(#...) scan misses a spelling: ${plantedRefs.map((l, i) => `${l} -> ${plantedRefFound[i]}`).join(", ")}`);
+  const samples = ["_R_1a_", "_r_3_", ":r1:", ":R1:", "«r1»", "_r1_", "r1", "-3a-r1-3a-", ":r1", "r1:", "a b", "a-b", "a_b"];
+  const prefixes = samples.map(svgSafeId);
+  const bad = prefixes.filter((p) => !/^[A-Za-z][A-Za-z0-9_-]*$/.test(p));
+  const distinct = new Set(prefixes).size === samples.length;
+  check(bad.length === 0 && distinct && svgSafeId("_R_1a_") === "svg_R_1a_", `svgSafeId: ${samples.length} id formats (React 18 ":r1:", 19.1 "«r1»", 19.2 "_r_1_" and look-alikes) give ${samples.length} distinct prefixes that start with a letter and hold only [A-Za-z0-9_-]`, `svgSafeId: ${JSON.stringify(Object.fromEntries(samples.map((s, i) => [s, prefixes[i]])))}`);
+
+  note("S6 the <head> theme script (EARLY_THEME_SCRIPT in theme-colors.ts), run against a stub document");
+  // The script as the browser runs it, in a fresh context: <html> with a class list that throws on whitespace like the DOM does,
+  // a storage that is either a map or blocked (reading the global throws, as in a browser with site data blocked), and the OS.
+  const runEarly = (stored: string | null | "BLOCKED", osDark: boolean, before: string[] = []) => {
+    const classes = new Set(before);
+    const store = new Map<string, string>();
+    if (stored !== null && stored !== "BLOCKED") store.set("theme", stored);
+    const tokens = (xs: string[]) => { for (const x of xs) if (!x || /\s/.test(x)) throw new Error(`InvalidCharacterError: "${x}"`); return xs; };
+    const html = { classList: { add: (...xs: string[]) => tokens(xs).forEach((x) => classes.add(x)), remove: (...xs: string[]) => tokens(xs).forEach((x) => classes.delete(x)) }, style: { colorScheme: "" } };
+    const sandbox: Record<string, unknown> = { document: { documentElement: html }, matchMedia: (q: string) => ({ matches: q === "(prefers-color-scheme: dark)" && osDark }) };
+    if (stored !== "BLOCKED") sandbox.localStorage = { getItem: (k: string) => store.get(k) ?? null, removeItem: (k: string) => void store.delete(k) };
+    const ctx = vm.createContext(sandbox);
+    if (stored === "BLOCKED") vm.runInContext(`Object.defineProperty(globalThis, "localStorage", { get() { throw new Error("SecurityError: storage blocked"); } })`, ctx);
+    try {
+      vm.runInContext(EARLY_THEME_SCRIPT, ctx);
+    } catch (e) {
+      return { classes: "", scheme: "", stored: null as string | null, threw: String(e) };
+    }
+    return { classes: [...classes].sort().join(" "), scheme: html.style.colorScheme, stored: store.get("theme") ?? null, threw: "" };
+  };
+  const earlyCases: Array<[string, string | null | "BLOCKED", boolean, string[], string, string | null]> = [
+    ["nothing stored, OS light", null, false, [], "light", null],
+    ["nothing stored, OS dark (light is the default)", null, true, [], "light", null],
+    ["Licht, OS dark", "light", true, [], "light", "light"],
+    ["Donker, OS light", "dark", false, [], "dark", "dark"],
+    ["Systeem, OS dark", "system", true, [], "dark", "system"],
+    ["Systeem, OS light", "system", false, [], "light", "system"],
+    ["Licht over a stale .dark", "light", false, ["dark"], "light", "light"],
+    ...[" dark", "dark light", "banana", "DARK", "", "null", "a b"].map((v): [string, string, boolean, string[], string, null] => [`junk ${JSON.stringify(v)}, OS dark`, v, true, [], "light", null]),
+    ["storage blocked, OS dark", "BLOCKED", true, [], "light", null],
+  ];
+  const earlyBad = earlyCases.flatMap(([name, stored, osDark, before, want, keep]) => {
+    const r = runEarly(stored, osDark, before);
+    return r.threw || r.classes !== want || r.scheme !== want || r.stored !== keep ? [`${name}: class "${r.classes}", color-scheme "${r.scheme}", stored ${JSON.stringify(r.stored)}${r.threw ? `, threw ${r.threw}` : ""} (want "${want}", stored ${JSON.stringify(keep)})`] : [];
+  });
+  check(earlyBad.length === 0, `EARLY_THEME_SCRIPT: ${earlyCases.length} cases (each choice on each OS, seven junk values dropped from storage, blocked storage) give the right class and color-scheme on <html> and never throw`, `EARLY_THEME_SCRIPT:\n      ${earlyBad.join("\n      ")}`);
+  const providerSrc = read("src/components/theme-provider.tsx");
+  check(/useServerInsertedHTML\(/.test(providerSrc) && /__html:\s*EARLY_THEME_SCRIPT/.test(providerSrc) && /<NextThemesProvider[^>]*>\s*<EarlyThemeScript \/>/.test(providerSrc), "theme-provider.tsx inserts EARLY_THEME_SCRIPT into <head> (useServerInsertedHTML, rendered by the provider)", "theme-provider.tsx no longer inserts EARLY_THEME_SCRIPT (the <head> theme script; b2 and b4 say what it prevents)");
+
+  note("S7 the page list does not depend on the order of a list, nor on test rows other suites put first in it");
+  const guideRe = /href="(\/gidsen\/[^"?#]+)"/;
+  const listed = ["drukschakelaar-testen-vervangen", "wasmiddellade-reinigen", "afvoerpomp-reinigen-vervangen"].map((s) => `<a href="/gidsen/${s}">x</a>`);
+  const picks = [listed, [...listed].reverse(), [listed[1], listed[2], listed[0]]].map((l) => lowestHref(`<ul>${l.join("")}</ul>`, guideRe));
+  check(picks.every((p) => p === "/gidsen/afvoerpomp-reinigen-vervangen"), "the guide of the full run is the same whatever order /gidsen lists the guides in (20 of them share one createdAt)", `the guide pick depends on the list order: ${picks.join(", ")}`);
+  // The helper alone proves nothing if discover() stops using it (the review put the old first(...) back and S7 still passed):
+  // every read of /gidsen inside discover() must go straight into lowestHref().
+  const own = read("scripts/qa-theme.ts");
+  const discoverAt = own.indexOf("\nasync function discover(");
+  const discoverBody = discoverAt >= 0 ? own.slice(discoverAt, own.indexOf("\n}\n", discoverAt) + 2) : "";
+  const gidsenReads = [...discoverBody.matchAll(/(\w+)\(\s*await get\("\/gidsen"\)/g)].map((m) => m[1]);
+  check(gidsenReads.length > 0 && gidsenReads.every((f) => f === "lowestHref"), "discover() picks the full run's guide with lowestHref(), the helper checked above", discoverBody ? `discover() reads /gidsen through ${gidsenReads.length ? gidsenReads.join(", ") : "nothing that S7 can see"}, not only lowestHref()` : "S7 cannot find discover() in scripts/qa-theme.ts");
+  // The part page: a seeded part even when the list starts with a row another suite created (and may have deleted), and the same one
+  // whatever such rows precede it. The planted list puts two test rows first, as /onderdelen does (it sorts by SKU).
+  const seeded = seededPartPaths();
+  const partRe = /href="(\/onderdelen\/[^"?#]+)"/;
+  const firstSeededPart = [...seeded].sort()[0];
+  const partList = (extra: string[]) => `<ul>${[...extra, firstSeededPart, "/onderdelen/WF-ZZZ-99"].map((h) => `<a href="${h}">x</a>`).join("")}</ul>`;
+  const partPicks = [[], ["/onderdelen/QA-CHK-1700000000000"], ["/onderdelen/QA-CHK-1", "/onderdelen/QA-THEME-1700000000000"]].map((x) => firstSeeded(partList(x), partRe, seeded));
+  const onderdelenReads = [...discoverBody.matchAll(/(\w+)\(\s*await get\("\/onderdelen"\)/g)].map((m) => m[1]);
+  check(seeded.size === 96 && partPicks.every((p) => p === firstSeededPart) && onderdelenReads.length > 0 && onderdelenReads.every((f) => f === "firstSeeded"), `the part page of every run is a seeded part (${firstSeededPart}), also when /onderdelen lists rows other suites created first, and discover() picks it that way`, `seeded parts ${seeded.size}; picks ${partPicks.join(", ")} (want ${firstSeededPart}); discover() reads /onderdelen through ${onderdelenReads.join(", ") || "nothing S7 can see"}`);
 }
 
 /** Compile one dark: utility with the repository's Tailwind config: it must come out inside @media not print. */
@@ -429,7 +569,12 @@ async function waitStable(page: any, quietMs = 500, timeoutMs = 10000): Promise<
   // Self-playing content has quiet gaps of several seconds between its steps, so "nothing moved for half a second" is not
   // enough: wait until each known demo reports that it has played to its end (the chat on the home page: four messages, the last
   // one about 4.3 s after hydration, then no typing indicator).
-  await page.waitForFunction(PLAYING_DEMOS_DONE, null, { timeout: timeoutMs }).catch(() => undefined);
+  // Polled from here with page.evaluate (a DevTools evaluation, which the page's CSP does not govern). It used to be
+  // page.waitForFunction(PLAYING_DEMOS_DONE): Playwright runs a STRING predicate through eval inside the page, the site's CSP has no
+  // 'unsafe-eval', every call threw an EvalError at once, and a .catch() swallowed it. So on a production build this wait never
+  // waited: a sweep could start in the 2.8 s between the chat's third and fourth message, and the fourth one (84 px at 375 px) then
+  // arrived during the photographs (2026-11-19, see verifyByPixels and d0).
+  while (Date.now() - t0 < timeoutMs && !(await page.evaluate(PLAYING_DEMOS_DONE))) await page.waitForTimeout(100);
   while (Date.now() - t0 < timeoutMs) {
     const now: string = await page.evaluate(() => `${document.documentElement.scrollHeight}x${document.documentElement.scrollWidth}`);
     if (now !== last) { last = now; since = Date.now(); }
@@ -462,6 +607,11 @@ async function verifyByPixels(page: any, items: Recheck[], label: string, failur
     // page (a timer adding content above it), the photograph shows the wrong place, and the measurement is thrown away and
     // repeated once the page is still. It used to take the photograph on trust, and a chat message arriving in that gap made
     // the home page's "ERROR" label look like light text on a light drum (1.28:1) in 4 of 6 runs.
+    // The scroll position is read with the boxes and compared too (2026-11-19). When content ABOVE the element grows, Chromium's
+    // scroll anchoring scrolls the page by the same amount, so the element keeps its place on screen and the boxes agree; but
+    // Playwright positions the photograph with a scroll offset it reads just before the capture, and a jump between that read and
+    // the capture photographs the element's old place in the page. That is how "water blijft staan" (home, 375 px) was once
+    // measured on the drum's water 84 px above it (2.01:1, and 1.86:1 here). A change that reverts itself within the gap is not caught.
     let pick: { r: number; bg: number[]; fg: number[] } | null = null;
     let worstPng: Buffer | null = null;
     let wasCovered = false;
@@ -474,11 +624,22 @@ async function verifyByPixels(page: any, items: Recheck[], label: string, failur
         const r = el.getBoundingClientRect();
         const cx = Math.min(Math.max(r.left + r.width / 2, 0), innerWidth - 1), cy = Math.min(Math.max(r.top + r.height / 2, 0), innerHeight - 1);
         const top = document.elementFromPoint(cx, cy);
-        if (top && !el.contains(top) && !top.contains(el)) return { covered: true };
+        if (top && !el.contains(top) && !top.contains(el)) {
+          // The hit test skips what takes no pointer events, so it can name a shape BEHIND the text (the washing machine's part tag
+          // sits in a <g pointer-events="none">, and the test found the cabinet under it), and it names an invisible click target in
+          // front (fill="transparent" over "PROGRAMMA"). Neither hides the text: in the same drawing a shape earlier in the document
+          // is painted under it, and a shape with no fill and no stroke paints nothing. Anything else still counts as covering it.
+          const sameDrawing = el instanceof SVGElement && top instanceof SVGElement && !!el.ownerSVGElement && top.ownerSVGElement === el.ownerSVGElement;
+          const beneath = sameDrawing && !!(el.compareDocumentPosition(top) & Node.DOCUMENT_POSITION_PRECEDING);
+          const cs = getComputedStyle(top);
+          const paintsNothing = top instanceof SVGGeometryElement && (cs.fill === "none" || /^rgba\([^)]*,\s*0\)$/.test(cs.fill)) && cs.stroke === "none";
+          if (!beneath && !paintsNothing) return { covered: true };
+        }
         (el as HTMLElement).style.visibility = "hidden";
         // One rectangle per line box: an inline link that wraps has a bounding box that also holds the text around it, which is not its background.
         const rects = [...el.getClientRects()].map((q) => ({ x: Math.max(0, q.left), y: Math.max(0, q.top), w: Math.min(q.width, innerWidth - Math.max(0, q.left)), h: Math.min(q.height, innerHeight - Math.max(0, q.top)) })).filter((q) => q.w >= 2 && q.h >= 2);
-        return { covered: false, rects };
+        const vv = window.visualViewport;
+        return { covered: false, rects, view: `${scrollX},${scrollY},${vv?.pageLeft},${vv?.pageTop},${vv?.scale}` };
       }, it.idx);
       if (!at || at.covered || at.rects.length === 0) { wasCovered = true; if (at && !at.covered) await page.evaluate((i: number) => { const el = document.querySelector(`[data-qa-sweep="${i}"]`) as HTMLElement | null; if (el) el.style.visibility = ""; }, it.idx); break; }
       let here: { r: number; bg: number[]; fg: number[] } | null = null;
@@ -520,9 +681,10 @@ async function verifyByPixels(page: any, items: Recheck[], label: string, failur
         if (!el) return null;
         const rects = [...el.getClientRects()].map((q) => ({ x: Math.max(0, q.left), y: Math.max(0, q.top), w: Math.min(q.width, innerWidth - Math.max(0, q.left)), h: Math.min(q.height, innerHeight - Math.max(0, q.top)) })).filter((q) => q.w >= 2 && q.h >= 2);
         el.style.visibility = "";
-        return rects;
+        const vv = window.visualViewport;
+        return { rects, view: `${scrollX},${scrollY},${vv?.pageLeft},${vv?.pageTop},${vv?.scale}` };
       }, it.idx);
-      if (after && sameBoxes(at.rects as Box[], after as Box[])) { pick = here; worstPng = herePng; break; }
+      if (after && sameBoxes(at.rects as Box[], after.rects as Box[]) && after.view === at.view) { pick = here; worstPng = herePng; break; }
     }
     if (wasCovered) { skipped++; covered.push(`<${it.sel}> "${it.text}"`); continue; }
     if (!pick) { failures.push(`${label}: <${it.sel}> "${it.text}" could not be measured: the page kept moving under the photograph in ${PHOTO_ATTEMPTS} attempts (${it.kind})`); continue; }
@@ -587,10 +749,26 @@ const OVERFLOW_JS = String.raw`(() => {
 
 // ───────────────────────────── the pages ─────────────────────────────
 type PageDef = { name: string; path: string };
+/** The alphabetically first captured href: the same page whatever order the list shows them in. */
+function lowestHref(html: string, re: RegExp): string | undefined {
+  return [...html.matchAll(new RegExp(re.source, "g"))].map((m) => m[1]).sort()[0];
+}
+/** The seeded parts (src/data/parts.json, the catalogue db:setup loads), as the part list links them. */
+const seededPartPaths = () => new Set((JSON.parse(read("src/data/parts.json")) as Array<{ sku: string }>).map((p) => `/onderdelen/${encodeURIComponent(p.sku)}`));
+/**
+ * The first captured href that is in `seeded`, else the first one. Other suites create parts straight in the database and delete them
+ * again (qa-checkout's QA-CHK-, this suite's own QA-THEME-), and /onderdelen lists by SKU, so such a row comes first and, after its
+ * delete, the cached list can still link it for up to about two minutes (decision D25): its page then answers 404 (Next's error shell),
+ * and the "product" page, also one of the four flash pages of b2, would not be a product page at all.
+ */
+function firstSeeded(html: string, re: RegExp, seeded: Set<string>): string | undefined {
+  const hrefs = [...html.matchAll(new RegExp(re.source, "g"))].map((m) => m[1]);
+  return hrefs.find((h) => seeded.has(h)) ?? hrefs[0];
+}
 async function discover(): Promise<PageDef[]> {
   const get = async (p: string) => (await fetch(`${BASE}${p}`)).text();
   const first = (html: string, re: RegExp) => re.exec(html)?.[1];
-  const part = first(await get("/onderdelen"), /href="(\/onderdelen\/[^"?#]+)"/) ?? "/onderdelen";
+  const part = firstSeeded(await get("/onderdelen"), /href="(\/onderdelen\/[^"?#]+)"/, seededPartPaths()) ?? "/onderdelen";
   const code = first(await get("/foutcodes"), /href="(\/foutcodes\/[^"?#]+)"/) ?? "/foutcodes";
   const core: PageDef[] = [
     { name: "home", path: "/" },
@@ -607,7 +785,9 @@ async function discover(): Promise<PageDef[]> {
     { name: "not-found", path: "/dit-bestaat-niet-qa-theme" },
   ];
   if (!FULL) return core;
-  const guide = first(await get("/gidsen"), /href="(\/gidsen\/[^"?#]+)"/) ?? "/gidsen";
+  // Not the first guide listed: 20 of the 26 seeded guides share one createdAt, so the first in the list's "newest first" order is
+  // arbitrary and two full runs on one build judged different guides (S7).
+  const guide = lowestHref(await get("/gidsen"), /href="(\/gidsen\/[^"?#]+)"/) ?? "/gidsen";
   const vsSlug: string = (JSON.parse(read("src/data/comparisons.json")) as Array<{ slug: string }>)[0].slug;
   const brand = first(await get("/merken"), /href="(\/merken\/[^"?#/]+)"/) ?? "/merken";
   const extra = ["/gidsen", guide, brand, "/over", "/help", "/garantie", "/voorwaarden", "/cookies", "/disclaimer", "/klachten", "/retourvoorwaarden", "/right-to-repair", "/pers", "/api-docs", "/api-info", "/tools/garantie-check", "/tools/predictive", "/tools/qr-sticker", "/tools/repareren-of-vervangen", "/monteur", "/inloggen", "/registreren", "/upgrade", "/checkout", "/retour/start", `/vs/${vsSlug}`, "/bosch-wasmachine-reparatie", "/wasmachine-kapot/amsterdam"];
@@ -834,19 +1014,31 @@ async function browserChecks(pw: any) {
       note("b2 no flash of the wrong theme");
       const ctx = await context(browser, { theme: "dark", base });
       await ctx.addInitScript(() => {
-        const w = window as unknown as { __darkAt?: number };
-        // Observe the document itself: at the moment an init script runs <html> may not exist yet.
-        new MutationObserver(() => { if (document.documentElement?.classList.contains("dark") && w.__darkAt === undefined) w.__darkAt = performance.now(); }).observe(document, { attributes: true, subtree: true, attributeFilter: ["class"] });
+        const w = window as unknown as { __darkAt?: number; __darkWhenBody?: boolean };
+        // Observe the document itself: at the moment an init script runs <html> may not exist yet. A parser-inserted script
+        // runs after a microtask checkpoint, so the first callback that sees <body> comes before the first script in it.
+        new MutationObserver(() => {
+          const dark = !!document.documentElement?.classList.contains("dark");
+          if (dark && w.__darkAt === undefined) w.__darkAt = performance.now();
+          if (document.body && w.__darkWhenBody === undefined) w.__darkWhenBody = dark;
+        }).observe(document, { attributes: true, subtree: true, attributeFilter: ["class"], childList: true });
       });
       const page = await ctx.newPage();
       const bad: string[] = [];
       for (const p of pages.slice(0, 4)) {
         await page.goto(base + p.path, { waitUntil: "load" });
         await page.waitForTimeout(300);
-        const t = await page.evaluate(() => ({ darkAt: (window as unknown as { __darkAt?: number }).__darkAt, fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime }));
+        const t = await page.evaluate(() => ({ darkAt: (window as unknown as { __darkAt?: number }).__darkAt, darkWhenBody: (window as unknown as { __darkWhenBody?: boolean }).__darkWhenBody, fcp: performance.getEntriesByName("first-contentful-paint")[0]?.startTime }));
         if (t.darkAt === undefined || t.fcp === undefined || t.darkAt > t.fcp) bad.push(`${p.name}: dark at ${t.darkAt?.toFixed(0)} ms, first paint at ${t.fcp?.toFixed(0)} ms`);
+        // Not only before the first CONTENTFUL paint: an empty body in the light background is a paint too (measured: 5 of 30 loads
+        // of /diagnose showed one cream frame while the layout's scripts in <body> waited for the stylesheet). The provider's
+        // <head> script (EARLY_THEME_SCRIPT) is ahead of <body>, and it must be in the server's <head> exactly once.
+        if (t.darkWhenBody !== true) bad.push(`${p.name}: <body> existed before .dark was on <html> (${t.darkWhenBody === undefined ? "never sampled" : "no .dark yet"})`);
+        const html = await (await fetch(base + p.path)).text();
+        const inHead = html.slice(0, Math.max(0, html.indexOf("</head>"))).split(EARLY_THEME_SCRIPT).length - 1;
+        if (inHead !== 1 || html.split(EARLY_THEME_SCRIPT).length - 1 !== 1) bad.push(`${p.name}: the <head> theme script occurs ${inHead}x in <head> (want exactly 1, and nowhere else)`);
       }
-      check(bad.length === 0, "with Donker stored, .dark is on <html> before the first contentful paint", `the dark class arrived after the first paint:${names(bad)}`);
+      check(bad.length === 0, "with Donker stored, .dark is on <html> before <body> exists (the provider's <head> script, once per page) and before the first contentful paint", `the dark class arrived late:${names(bad)}`);
       await ctx.close();
     }
 
@@ -893,6 +1085,9 @@ async function browserChecks(pw: any) {
       check(bad.length === 0, "every theme-color tag carries the colour of the CHOSEN theme (OS light + Donker, OS dark + Licht), equal to the rendered page background, and still does after client-side navigations", `theme-color: ${bad.join("; ")}`);
       await ctx.close();
     }
+
+    // ── b4: the page-level 404 of a dynamic route (Next's client-rendered shell)
+    if (on("b4")) await notFoundShellChecks(browser, base);
 
     // ── d0: the pixel verifier itself
     if (on("d0") || on("d")) await pixelVerifierSelfTest(browser);
@@ -943,6 +1138,8 @@ async function browserChecks(pw: any) {
     if (on("j")) await fieldChecks(browser, base);
     // ── k: a junk stored theme, blocked web storage
     if (on("k")) await robustnessChecks(browser, base);
+    // ── n: no duplicate ids, every url(#...) of an SVG resolves inside its own drawing
+    if (on("n")) await idChecks(browser, base, pages);
     // ── i: overlays
     if (on("i")) await overlayChecks(browser, base);
     // ── f: documents
@@ -1154,9 +1351,12 @@ async function fieldChecks(browser: any, base: string) {
  * home page's chat demo does exactly that for its first five seconds). The test page shifts its layout the moment the verifier hides
  * the element, once: a verifier that trusts its first photograph looks at the wrong place (white, behind light text: 1.1:1) and
  * reports a failure that is not there; the real one reads the box again after the photograph, sees it moved, and measures again.
+ * Two more (2026-11-19, after "water blijft staan" on the home page was once measured on the drum's water above it): a scroll jump
+ * that leaves the element in its place on screen (scroll anchoring) must not let a photograph of the wrong place through, and
+ * waitStable must wait for the chat demo on a page whose CSP has no 'unsafe-eval', as the site's has not.
  */
 async function pixelVerifierSelfTest(browser: any) {
-  note("d0 the pixel verifier survives a layout shift between reading an element and photographing it");
+  note("d0 the pixel verifier survives a layout shift and a scroll jump between reading an element and photographing it; waitStable works under the site's CSP");
   const ctx = await browser.newContext({ viewport: { width: 600, height: 400 }, colorScheme: "light", reducedMotion: "reduce" });
   const page = await ctx.newPage();
   await page.setContent('<body style="margin:0;background:#fff"><div id="host"></div><svg width="300" height="100" style="display:block"><rect width="300" height="100" fill="#0e1a33"/><text id="t" data-qa-sweep="0" x="10" y="60" font-size="28" fill="#e6f1ff">ERROR</text></svg></body>');
@@ -1165,6 +1365,54 @@ async function pixelVerifierSelfTest(browser: any) {
   const r = await verifyByPixels(page, [{ idx: 0, sel: "text#t", text: "ERROR", need: 4.5, kind: "svg text", x: 10, y: 30, w: 80, h: 30, fgs: [[230, 241, 255, 1]] }], "self-test", failures);
   const shifted = await page.evaluate(() => document.getElementById("host")!.style.height === "200px");
   check(shifted && r.verified === 1 && failures.length === 0, "light text on a dark SVG rectangle is measured on the dark rectangle although the page shifted under the first photograph", `the pixel verifier: shifted ${shifted}, verified ${r.verified}, ${failures.join(" | ") || "no failure reported"}`);
+
+  // The scroll jump the boxes cannot see. Content above the element grows while it is photographed and scroll anchoring scrolls the
+  // page by as much, so the element keeps its place on screen. WHEN the jump lands between Playwright's read of the scroll offset and
+  // the capture cannot be timed from outside, so the page handed to the verifier reproduces the outcome of that race: on the first
+  // photograph it grows the block above, lets anchoring act, and photographs the element's old place in the page (white). A verifier
+  // that compares only the boxes takes that photograph (light text on white, 1.1:1); the real one sees the scroll offset changed.
+  const p2 = await ctx.newPage();
+  await p2.setContent('<body style="margin:0;background:#fff"><div id="grow" style="height:300px;background:#fff"></div><div style="height:420px;background:#fff"></div><svg width="300" height="100" style="display:block"><rect width="300" height="100" fill="#0e1a33"/><text id="t" data-qa-sweep="0" x="10" y="60" font-size="28" fill="#e6f1ff">ERROR</text></svg><div style="height:1200px;background:#fff"></div></body>');
+  let fired = false, jump = 0;
+  const racing = new Proxy(p2, {
+    get(target: any, key: string | symbol) {
+      if (key === "screenshot") return async (opts: any) => {
+        if (fired || !opts?.clip) return target.screenshot(opts);
+        fired = true;
+        const before: number = await target.evaluate(() => window.scrollY);
+        await target.evaluate(() => new Promise<void>((done) => { document.getElementById("grow")!.style.height = "384px"; requestAnimationFrame(() => requestAnimationFrame(() => done())); }));
+        jump = (await target.evaluate(() => window.scrollY)) - before;
+        return target.screenshot({ ...opts, clip: { ...opts.clip, y: opts.clip.y - jump } });
+      };
+      const v = target[key];
+      return typeof v === "function" ? v.bind(target) : v;
+    },
+  });
+  const f2: string[] = [];
+  const r2 = await verifyByPixels(racing, [{ idx: 0, sel: "text#t", text: "ERROR", need: 4.5, kind: "svg text", x: 10, y: 30, w: 80, h: 30, fgs: [[230, 241, 255, 1]] }], "self-test scroll", f2);
+  check(jump === 84 && r2.verified === 1 && f2.length === 0, "the same text is measured on the dark rectangle although scroll anchoring moved the page 84 px under the first photograph and left the element in its place on screen", `the pixel verifier: anchoring moved the page ${jump} px (want 84), verified ${r2.verified}, ${f2.join(" | ") || "no failure reported"}`);
+
+  // waitStable and the chat demo under the site's kind of CSP: three messages and a typing indicator, the fourth message after 1.5 s.
+  // Served with the policy as a response header, as the site sends it.
+  const p3 = await ctx.newPage();
+  await p3.route("http://qa-theme-selftest.invalid/**", (route: any) => route.fulfill({ status: 200, headers: { "content-type": "text/html; charset=utf-8", "content-security-policy": "script-src 'unsafe-inline'" }, body: `<!doctype html><body><div class="chat-body"><div class="msg">a</div><div class="msg">b</div><div class="msg">c</div><div class="msg"><span class="typing">...</span></div></div><script>setTimeout(function () { var m = document.querySelector(".typing").parentNode; m.innerHTML = "d<br>e<br>f"; }, 1500);</script></body>` }));
+  await p3.goto("http://qa-theme-selftest.invalid/chat");
+  // Tried from a timer: code that DevTools evaluates directly may eval whatever the policy says, a page task may not.
+  const evalBlocked: boolean = await p3.evaluate(() => new Promise<boolean>((done) => setTimeout(() => { try { done(new Function("return 1")() !== 1); } catch { done(true); } }, 0)));
+  const t0 = Date.now();
+  await waitStable(p3, 250, 6000);
+  const waited = Date.now() - t0;
+  const finished: boolean = await p3.evaluate(PLAYING_DEMOS_DONE);
+  check(evalBlocked && finished, "waitStable waits for the chat demo to finish on a page whose CSP has no 'unsafe-eval' (as the site's)", `waitStable: eval blocked by the test page's CSP ${evalBlocked}; returned after ${waited} ms with the demo ${finished ? "finished" : "still playing (typing indicator on the page)"}`);
+
+  // What counts as covered: a tag in a <g pointer-events="none"> (the hit test finds the dark panel under it) and a label under an
+  // invisible click target are measured; a label under an opaque shape drawn after it is not (it is hidden, nothing to judge).
+  const p4 = await ctx.newPage();
+  await p4.setContent('<body style="margin:0;background:#fff"><svg width="300" height="240" style="display:block"><rect width="300" height="240" fill="#0e1a33"/><g pointer-events="none"><text data-qa-sweep="0" x="10" y="40" font-size="28" fill="#e6f1ff">TAG</text></g><text data-qa-sweep="1" x="10" y="120" font-size="28" fill="#e6f1ff">DIAL</text><circle cx="40" cy="110" r="40" fill="transparent"/><text data-qa-sweep="2" x="10" y="200" font-size="28" fill="#e6f1ff">HIDDEN</text><rect x="0" y="170" width="300" height="40" fill="#0e1a33"/></svg></body>');
+  const f4: string[] = [];
+  const item = (idx: number, text: string) => ({ idx, sel: "text", text, need: 4.5, kind: "svg text", x: 10, y: 0, w: 80, h: 30, fgs: [[230, 241, 255, 1]] });
+  const r4 = await verifyByPixels(p4, [item(0, "TAG"), item(1, "DIAL"), item(2, "HIDDEN")], "self-test cover", f4);
+  check(r4.verified === 2 && r4.covered.length === 1 && /HIDDEN/.test(r4.covered[0] ?? "") && f4.length === 0, "a text whose drawing takes no pointer events, and one under an invisible click target, are measured; one under an opaque shape counts as covered", `the cover rule: measured ${r4.verified} (want 2: TAG, DIAL), covered ${r4.covered.join(", ") || "none"} (want only HIDDEN)${f4.length ? `, ${f4.join(" | ")}` : ""}`);
   await ctx.close();
 }
 
@@ -1328,6 +1576,184 @@ async function overlayChecks(browser: any, base: string) {
 }
 
 /**
+ * Unknown slugs of dynamic routes. Their 404 is not rendered by the server through the root layout: notFound() thrown by the page reaches the
+ * top of React's server render (which has no error boundaries), and Next 15.5 answers with an empty shell, `<html id="__next_error__">` with
+ * the 404's metadata and an empty <body>, that React then builds in the browser (node_modules/next/dist/server/app-render/app-render.js,
+ * getErrorRSCPayload; client/app-index.js). An unmatched URL (/dit-bestaat-niet) is different: it is rendered on the server, inline scripts
+ * and all (part a, b and d cover it as the page "not-found").
+ */
+const SHELL_404_PATHS = ["/onderdelen/qa-theme-onbekend-onderdeel", "/bestelling/qa-theme-onbekend", ...(FULL ? ["/blog/qa-theme-onbekend", "/foutcodes/qa-theme-onbekend", "/gidsen/qa-theme-onbekend", "/merken/qa-theme-onbekend", "/vs/qa-theme-onbekend", "/wasmachine-kapot/qa-theme-onbekend"] : [])];
+
+// Records the state a frame could show: on every batch of DOM changes (a MutationObserver runs at the end of the task that made them, and
+// before each script the parser runs), when a stylesheet has loaded (the shell gets the page background from it) and on every animation frame.
+// Each sample: the shell still there, <body> there, .dark on <html>, the computed body background, the 404's heading in the DOM. A string, like SWEEP.
+const SHELL_PROBE_INIT = String.raw`(() => {
+  const S = (window.__qaShell = []);
+  const snap = (why) => {
+    const h = document.documentElement, b = document.body;
+    if (!h || S.length > 3000) return;
+    S.push({ why, t: Math.round(performance.now()), at: performance.timeOrigin + performance.now(), shell: h.id === "__next_error__", body: !!b, dark: h.classList.contains("dark"), bg: b ? getComputedStyle(b).backgroundColor : "", content: !!document.querySelector("h1") });
+  };
+  new MutationObserver(() => snap("dom")).observe(document, { subtree: true, childList: true, attributes: true });
+  document.addEventListener("load", (e) => { if (e.target && e.target.tagName === "LINK") snap("stylesheet loaded"); }, true);
+  const raf = () => { snap("frame"); if (performance.now() < 8000) requestAnimationFrame(raf); };
+  requestAnimationFrame(raf);
+})()`;
+
+/**
+ * b4  The page-level 404 of a dynamic route, with each stored choice, reached the way a visitor reaches it: a full navigation (location.href)
+ * from a page the server rendered in the same theme (/privacy). Two defects were measured here on production builds (D22, 2026-11-19):
+ *  - the light page background: React puts the layout's stylesheets into the empty shell and waits for them before it commits, and with no
+ *    class on <html> the body was cream (12 of 15 loads with Donker stored);
+ *  - the shell's white canvas: its <head> says color-scheme light and its <body> is empty until React renders, so the browser painted one
+ *    white frame after the navigation, in every load (10 of 10, OS light and OS dark alike), until the first script of ours ran.
+ * Both are gone because the provider's <head> script (EARLY_THEME_SCRIPT) is in that shell. Checked: the script is in the shell's <head>, the
+ * stored theme is on <html> in every sampled state from the moment <body> exists (deterministic), and no screencast frame after the
+ * navigation is of the other theme (the white canvas included; samples and frames share the wall clock).
+ */
+async function notFoundShellChecks(browser: any, base: string) {
+  const cases: Array<{ name: string; stored: string | null; os: "light" | "dark"; dark: boolean }> = [
+    { name: "Donker stored, OS light", stored: "dark", os: "light", dark: true },
+    { name: "Donker stored, OS dark", stored: "dark", os: "dark", dark: true },
+    { name: "Systeem stored, OS dark", stored: "system", os: "dark", dark: true },
+    { name: "Licht stored, OS dark", stored: "light", os: "dark", dark: false },
+    { name: "nothing stored, OS dark", stored: null, os: "dark", dark: false },
+  ];
+  const from = "/privacy";
+  note(`b4 the page-level 404 of a dynamic route (Next's client-rendered shell), ${SHELL_404_PATHS.length} routes x ${cases.length} stored choices, each after a full navigation from ${from}: no state and no frame of the other theme`);
+  const bad: string[] = [];
+  let shells = 0, samples = 0, beforeBody = 0, frames = 0, judged = 0, canvas = 0;
+  const rgbOf = (s: string) => { const m = /rgba?\(\s*([\d.]+)[,\s]+([\d.]+)[,\s]+([\d.]+)(?:\s*[,/]\s*([\d.]+%?))?/.exec(s); return m ? { c: [+m[1], +m[2], +m[3]] as RGB, a: m[4] === undefined ? 1 : m[4].endsWith("%") ? parseFloat(m[4]) / 100 : +m[4] } : null; };
+  for (const p of SHELL_404_PATHS) {
+    // The raw answer: a 404, (today) the shell, and the provider's theme script in its <head>. If Next one day renders it on the server the
+    // frame checks below still apply.
+    const raw = await fetch(base + p);
+    const html = await raw.text();
+    if (raw.status !== 404) bad.push(`${p}: status ${raw.status} (want 404)`);
+    if (/<html id="__next_error__"/.test(html)) shells++;
+    const inHead = html.slice(0, Math.max(0, html.indexOf("</head>"))).split(EARLY_THEME_SCRIPT).length - 1;
+    if (inHead !== 1) bad.push(`${p}: the provider's theme script occurs ${inHead}x in the <head> of the answer (want 1)`);
+    for (const c of cases) {
+      const ctx = await browser.newContext({ viewport: { width: 800, height: 600 }, colorScheme: c.os, reducedMotion: "reduce" });
+      await relaxUpgradeInsecure(ctx, base);
+      await ctx.addCookies([consentCookie(base)]);
+      await ctx.addInitScript((s: string | null) => { try { if (s === null) localStorage.removeItem("theme"); else localStorage.setItem("theme", s); } catch { /* no storage */ } }, c.stored);
+      await ctx.addInitScript(SHELL_PROBE_INIT);
+      const page = await ctx.newPage();
+      const errors: string[] = [];
+      page.on("pageerror", (e: any) => errors.push(String(e).slice(0, 160)));
+      const label = `${p} (${c.name})`;
+      await page.goto(base + from, { waitUntil: "load" });
+      await page.waitForTimeout(300);
+      // What reached the screen: every composited frame, as a small PNG, from the settled start page on.
+      const cdp = await ctx.newCDPSession(page);
+      const shots: Array<{ lum: number; at: number; canvas: boolean }> = [];
+      cdp.on("Page.screencastFrame", async (e: any) => {
+        try {
+          const img = decodePng(Buffer.from(e.data, "base64"));
+          let sum = 0, n = 0, white = 0;
+          for (let y = 0; y < img.h; y += 3) for (let x = 0; x < img.w; x += 3) {
+            const o = (y * img.w + x) * img.bpp;
+            sum += lum([img.data[o], img.data[o + 1], img.data[o + 2]]); n++;
+            if (img.data[o] >= 253 && img.data[o + 1] >= 253 && img.data[o + 2] >= 253) white++;
+          }
+          shots.push({ lum: sum / n, at: e.metadata.timestamp * 1000, canvas: white / n >= 0.97 });
+        } catch { /* a frame that cannot be read is not a measurement */ }
+        await cdp.send("Page.screencastFrameAck", { sessionId: e.sessionId }).catch(() => undefined);
+      });
+      await cdp.send("Page.startScreencast", { format: "png", everyNthFrame: 1, maxWidth: 200, maxHeight: 150 });
+      await page.waitForTimeout(200);
+      const startOk = await page.evaluate(() => document.documentElement.classList.contains("dark"));
+      if (startOk !== c.dark) bad.push(`${label}: the start page ${from} is ${startOk ? "dark" : "light"} (want ${c.dark ? "dark" : "light"}), so the frames below say nothing`);
+      await page.evaluate((u: string) => { location.href = u; }, base + p);
+      await page.waitForURL((u: URL) => u.pathname === p, { waitUntil: "load" });
+      await page.waitForFunction(() => !!document.querySelector("h1"), null, { timeout: 15000 }).catch(() => undefined);
+      await page.waitForTimeout(700);
+      await cdp.send("Page.stopScreencast").catch(() => undefined);
+      type ShellSample = { why: string; t: number; at: number; shell: boolean; body: boolean; dark: boolean; bg: string; content: boolean };
+      const st: { samples: ShellSample[]; h1: string; crashed: boolean; dark: boolean; bg: string; navStart: number } = await page.evaluate(() => ({ samples: (window as unknown as { __qaShell: ShellSample[] }).__qaShell, h1: document.querySelector("h1")?.textContent ?? "", crashed: /Er is iets misgegaan/.test(document.body.innerText), dark: document.documentElement.classList.contains("dark"), bg: getComputedStyle(document.body).backgroundColor, navStart: performance.timeOrigin }));
+      samples += st.samples.length;
+      beforeBody += st.samples.filter((s) => !s.body).length;
+      // A sampled state is judged from the moment <body> exists (before that nothing can be laid out): for a dark choice .dark must be on
+      // <html> and the body must not be painted light; for a light choice no .dark and no dark body.
+      const wrong = st.samples.filter((s) => {
+        if (!s.body) return false;
+        const bg = rgbOf(s.bg);
+        const painted = !!bg && bg.a >= 0.5;
+        const lightBg = painted && lum(bg!.c) > 0.4;
+        return c.dark ? (!s.dark || lightBg) : (s.dark || (painted && !lightBg));
+      });
+      if (wrong.length) bad.push(`${label}: ${wrong.length} sample(s) in the other theme, first at ${wrong[0].t} ms (${wrong[0].why}): .dark ${wrong[0].dark}, body ${wrong[0].bg || "(none)"}, shell ${wrong[0].shell}, content ${wrong[0].content}`);
+      const want = c.dark ? THEME_COLOR_DARK : THEME_COLOR_LIGHT;
+      const fin = rgbOf(st.bg);
+      if (st.crashed || !/niet gevonden/i.test(st.h1)) bad.push(`${label}: the page shows "${st.h1.slice(0, 40)}" (want the 404 page)${st.crashed ? ", the global error page" : ""}`);
+      if (st.dark !== c.dark || !fin || hex(fin.c) !== want) bad.push(`${label}: ends with .dark ${st.dark} and body ${fin ? hex(fin.c) : st.bg} (want ${c.dark} and ${want})`);
+      // The screen: every frame from the start of the navigation on (until the new document paints, the start page in the same theme stays).
+      const onScreen = shots.filter((s) => s.at >= st.navStart);
+      frames += shots.length;
+      judged += onScreen.length;
+      canvas += onScreen.filter((s) => s.canvas).length;
+      const off = onScreen.filter((s) => (c.dark ? s.lum > 0.4 : s.lum < 0.1));
+      if (off.length) bad.push(`${label}: ${off.length} of ${onScreen.length} frame(s) after the navigation in the other theme (mean luminance ${off.map((s) => `${s.lum.toFixed(2)}${s.canvas ? " white canvas" : ""} at ${Math.round(s.at - st.navStart)} ms`).join(", ")})`);
+      if (errors.length) bad.push(`${label}: ${errors.join(" | ")}`);
+      await ctx.close();
+    }
+  }
+  console.log(`   ${SHELL_404_PATHS.length} routes, ${shells} answered with the client-rendered shell; ${samples} states sampled (${beforeBody} before <body> existed, not judged); ${frames} frames read, ${judged} of them after the navigation and judged (${canvas} of those a blank white canvas, fine only for a light choice)`);
+  const list = (xs: string[]) => (xs.length ? `\n      ${xs.slice(0, 12).join("\n      ")}${xs.length > 12 ? `\n      ... and ${xs.length - 12} more` : ""}` : "");
+  check(bad.length === 0 && judged > 0, `the page-level 404 of ${SHELL_404_PATHS.length} dynamic routes (${shells} of them Next's client-rendered shell, the <head> theme script in each) after a full navigation: Donker (OS light and dark) and Systeem on a dark OS never show a light state or frame, the white canvas included; Licht and no choice never a dark one`, `page-level 404 (${frames} frames read):${list(bad)}`);
+}
+
+// Every id of the page, the ids of a document parsed from HTML, and every url(#...) of an SVG paint or clip attribute. A string, like SWEEP.
+const IDS_JS = String.raw`(html) => {
+  const count = (root) => { const seen = new Map(); for (const el of root.querySelectorAll("[id]")) if (el.id) seen.set(el.id, (seen.get(el.id) || 0) + 1); return [...seen].filter(([, n]) => n > 1).map(([id, n]) => id + " x" + n); };
+  const server = html ? count(new DOMParser().parseFromString(html, "text/html")) : [];
+  const broken = [];
+  let refs = 0;
+  for (const el of document.querySelectorAll("svg *")) {
+    for (const a of ["fill", "stroke", "clip-path", "mask", "filter", "marker-start", "marker-mid", "marker-end"]) {
+      const v = el.getAttribute(a);
+      const m = v && /url\(\s*['"]?#([^'")\s]+)['"]?\s*\)/.exec(v);
+      if (!m) continue;
+      refs++;
+      let svg = el.ownerSVGElement; while (svg && svg.ownerSVGElement) svg = svg.ownerSVGElement;
+      const target = document.getElementById(m[1]);
+      if (!target) broken.push(a + '="' + v + '": no element has that id');
+      else if (!svg || !svg.contains(target)) broken.push(a + '="' + v + '": that id belongs to another drawing');
+    }
+  }
+  return { ids: document.querySelectorAll("[id]").length, dom: count(document), server, refs, broken };
+}`;
+
+/**
+ * n  Duplicate ids. The washing machine of the home page is drawn twice (hero and diagnosis demo) and both copies declared the gradients
+ * cabFill, panelFill, glassFill, drumFill and seal (and six more): invalid HTML, and the second drawing's url(#cabFill) painted with the first
+ * drawing's gradient. Each page of the list, in the server's HTML and in the hydrated DOM (1280 px, light; the ids do not depend on the theme):
+ * no id twice, and every url(#...) of an SVG names an element of the same drawing.
+ */
+async function idChecks(browser: any, base: string, pages: PageDef[]) {
+  note(`n  no duplicate ids (server HTML and hydrated DOM) and every url(#...) of an SVG resolves inside its own drawing, ${pages.length} pages`);
+  const bad: string[] = [];
+  let ids = 0, refs = 0;
+  const ctx = await context(browser, { width: 1280, theme: "light", base });
+  const page = await ctx.newPage();
+  for (const p of pages) {
+    const html = await (await ctx.request.get(base + p.path)).text();
+    await page.goto(base + p.path, { waitUntil: "load" });
+    await settle(page);
+    await waitStable(page, 250);
+    const r = await page.evaluate(`(${IDS_JS})(${JSON.stringify(html)})`);
+    ids += r.ids; refs += r.refs;
+    if (r.server.length) bad.push(`${p.name}: the server's HTML has duplicate ids: ${r.server.slice(0, 8).join(", ")}`);
+    if (r.dom.length) bad.push(`${p.name}: the page has duplicate ids: ${r.dom.slice(0, 8).join(", ")}`);
+    if (r.broken.length) bad.push(`${p.name}: ${r.broken.slice(0, 4).join("; ")}${r.broken.length > 4 ? ` (+${r.broken.length - 4})` : ""}`);
+  }
+  await ctx.close();
+  const list = (xs: string[]) => (xs.length ? `\n      ${xs.slice(0, 12).join("\n      ")}${xs.length > 12 ? `\n      ... and ${xs.length - 12} more` : ""}` : "");
+  check(bad.length === 0 && refs > 0, `no id occurs twice on ${pages.length} pages (server HTML and hydrated DOM, ${ids} ids), and all ${refs} url(#...) references of their SVGs point into their own drawing`, `ids (${ids} ids, ${refs} references):${list(bad)}`);
+}
+
+/**
  * k  Two ways the browser can hand the app something it did not expect, both of which took every page down before this check:
  *  - the stored theme is not one of light, dark, system. next-themes copies the raw string onto <html> with classList.add(), which throws
  *    on whitespace (" dark"); the throw sat in an effect, so the global error page answered on every page and again after every
@@ -1338,8 +1764,10 @@ async function overlayChecks(browser: any, base: string) {
  */
 async function robustnessChecks(browser: any, base: string) {
   const junk = [" dark", "dark light", "a b", "banana", "DARK", "", "null"];
-  const junkPaths = ["/", "/onderdelen"];
-  const blockedPaths = ["/", "/onderdelen", "/diagnose", "/foutcodes", "/blog", "/prijzen", "/contact", "/checkout"];
+  // The last one is a page-level 404, Next's client-rendered shell: the layout's guard script never runs there (part b4 says why); only the
+  // provider's <head> script (EARLY_THEME_SCRIPT) drops the value before next-themes reads it.
+  const junkPaths = ["/", "/onderdelen", SHELL_404_PATHS[0]];
+  const blockedPaths = ["/", "/onderdelen", "/diagnose", "/foutcodes", "/blog", "/prijzen", "/contact", "/checkout", SHELL_404_PATHS[0]];
   note(`k  ${junk.length} junk values of the stored theme on ${junkPaths.length} pages, and blocked web storage on ${blockedPaths.length} pages`);
   const bad: string[] = [];
   const state = (page: any) => page.evaluate(() => ({ crashed: /Er is iets misgegaan/.test(document.body?.innerText ?? ""), h1: document.querySelectorAll("h1").length, dark: document.documentElement.classList.contains("dark") }));
@@ -1622,7 +2050,7 @@ async function main() {
   staticChecks();
   await tailwindVariantCheck();
   if (!BASE) {
-    skipOrFail("browser checks a-i: QA_BASE_URL is not set (a production server)");
+    skipOrFail("browser checks a-n: QA_BASE_URL is not set (a production server)");
   } else {
     const pw = loadPlaywright();
     if (!pw) {

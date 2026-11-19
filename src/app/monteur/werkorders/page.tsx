@@ -43,7 +43,7 @@ export default async function WerkordersPage() {
         <Card>
           <CardContent className="p-12 text-center">
             <ClipboardList className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
-            <h2 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h2>
+            <h1 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h1>
             <p className="text-muted-foreground mb-4">Werkorders zijn beschikbaar voor Monteur Pro abonnees.</p>
             <Button asChild><Link href="/prijzen">Bekijk Monteur Pro</Link></Button>
           </CardContent>
@@ -115,7 +115,7 @@ export default async function WerkordersPage() {
                       {w.urgent && w.status !== "VOLTOOID" && <Badge variant="danger">Urgent</Badge>}
                       {w.errorCode && <Badge variant="outline">{w.errorCode}</Badge>}
                     </div>
-                    <h3 className="font-heading font-semibold">{w.customer?.name ?? "Geen klant gekoppeld"}</h3>
+                    <h2 className="font-heading font-semibold">{w.customer?.name ?? "Geen klant gekoppeld"}</h2>
                     <p className="text-sm text-muted-foreground mt-1">
                       {[w.machine, w.problem].filter(Boolean).join(" — ")}
                     </p>

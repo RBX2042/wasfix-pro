@@ -16,7 +16,8 @@
  *                              12th of each dynamic family: parts, error codes, models, brands, guides, help, blog,
  *                              vs, brand repair pages)
  *   QA_SEO_SEED=n              shifts the "every 12th" window (n modulo 12), so successive runs cover other pages
- *   QA_SEO_STRICT_HEADINGS=1   a skipped heading level (h1 straight to h3) fails instead of being listed
+ *   QA_REQUIRE_BROWSER=1       a missing Chromium is a FAILURE of the browser-then-crawler section instead of a SKIPPED line
+ *                              (QA_REQUIRE_SERVER=1, which CI sets, implies it)
  *   QA_EXPECT_GOOGLE_VERIFICATION / QA_EXPECT_BING_VERIFICATION
  *                              the token the server was built with: the home page must carry that tag
  *
@@ -26,17 +27,36 @@
  *
  * The crawl runs as Googlebot (smartphone), and a separate section fetches the dynamic pages and a filter variant as
  * every crawler that matters (Googlebot in four forms, Bingbot, Applebot, the link-preview bots): title, description,
- * canonical, Open Graph and the robots tag must be inside <head> for each of them, not streamed into <body>.
+ * canonical, Open Graph and the robots tag must be inside <head> for each of them, not streamed into <body>. Before
+ * anything else touches the pages, the same pages are first opened in Chromium (light and dark, as scripts/qa-theme.ts
+ * does), so that a browser, not a crawler, is the visitor that makes the server render and cache them; then every crawler
+ * fetches them (`crawler-after-browser-*`). That is the order in which one run once failed; the cause turned out to be a
+ * deleted row (below), not the browser, and the section stays as the guard of that order (decision D25). A page that
+ * answers a crawler with something other than 200 is reported as `crawler-gets-200`, never as misplaced metadata.
  *
- * The last section feeds sixteen defects to the same audit functions (a broken canonical, a duplicated title, a rating
- * without reviews, a noindex URL in the sitemap, a missing h1, a FAQPage nobody can read, a wrong price, a private path
+ * Other suites create catalogue parts straight in the database and delete them again (qa-checkout's QA-CHK-, qa-theme's
+ * QA-THEME-). For up to two cache windows afterwards the sitemap, or a page rendered before the delete, can still name such
+ * a row while its page already answers 404: reproduced, that gives the one failed run's signature (the old crawler section
+ * sampled "the first part of the sitemap", saw 200 early and 404 late; whether that run hit it is not knowable, decision
+ * D25). Now the samples come from the seeded catalogue, and a 404 the sitemap lists or a link points at is judged by
+ * reading fresh copies until the reference is gone (a NOTE, and the URL is left out) or the bound passes (a failure):
+ * DELETED_ROW_BOUND_MS. Not covered: rows created or deleted WHILE this suite runs (suites run one after another, in CI
+ * as by hand).
+ *
+ * Headings are strict: every crawled page has exactly one h1, it is the first heading, and no level is skipped (h1 straight
+ * to h3 fails `heading-order`). There is no opt-out (decision D25). The private pages, which no crawl reaches, are judged
+ * from the source by the same rule (`source-private-page-heading-order`).
+ *
+ * The last section feeds seventeen defects to the same audit functions (a broken canonical, a duplicated title, a rating
+ * without reviews, a noindex URL in the sitemap, a missing h1, a skipped heading level, a FAQPage nobody can read, a wrong price, a private path
  * robots.txt lets through, metadata that sits after </head>, and more) and fails when one of them is NOT caught by the
  * check that is named for it. The lists of paths that must stay private and of parameters that make a list page a
  * variant are written out below on purpose: a test that reads its expectation from the list it tests passes when
  * somebody deletes an entry from that list.
  *
  * In CI, right after "HTTP smoke test (production build, database)" and BEFORE "Checkout + storefront against the
- * production server" (qa-checkout creates and deletes catalogue parts, which this suite reads through the sitemap):
+ * production server" (qa-checkout creates and deletes catalogue parts, which this suite reads through the sitemap; run
+ * after it, the suite still passes, but may wait up to DELETED_ROW_BOUND_MS for the cache to forget them):
  *   QA_BASE_URL=http://localhost:3000 QA_REQUIRE_SERVER=1 npx tsx scripts/qa-seo.ts
  * and by hand before a release, against the live domain: QA_BASE_URL=https://<domein> QA_SEO_FULL=1 npx tsx scripts/qa-seo.ts
  *
@@ -79,11 +99,14 @@ import {
   verificationMetadata,
 } from "../src/lib/seo";
 import { UNIVERSAL_BRAND, articleLd, breadcrumbLd, ldJson, organizationLd, productLd, websiteLd } from "../src/lib/json-ld";
+import { CATALOG_REVALIDATE_SECONDS } from "../src/lib/cache-tags";
+import { loadPlaywright } from "./lib/browser";
 
 const BASE = (process.env.QA_BASE_URL ?? "").replace(/\/+$/, "");
 const FULL = process.env.QA_SEO_FULL === "1";
 const SEED = Number.parseInt(process.env.QA_SEO_SEED ?? "0", 10) || 0;
-const STRICT_HEADINGS = process.env.QA_SEO_STRICT_HEADINGS === "1";
+// The browser-then-crawler section needs Chromium. In CI (QA_REQUIRE_SERVER=1) a missing browser is a failure, not a skip.
+const REQUIRE_BROWSER = process.env.QA_REQUIRE_BROWSER === "1" || process.env.QA_REQUIRE_SERVER === "1";
 // The crawl runs as Googlebot (smartphone). Next sends a dynamic page's title, description, canonical and robots tag
 // blocking, inside <head>, only to the user agents on its htmlLimitedBots list; any other client may get them streamed
 // into <body> after </head>. Next leaves Googlebot off that list, on the assumption that it renders the page and finds the
@@ -116,8 +139,12 @@ const ROOT = path.resolve(__dirname, "..");
  */
 const EXPECTED_PRIVATE = ["/api/", "/admin", "/dashboard", "/monteur/dashboard", "/monteur/klanten", "/monteur/onderdelen", "/monteur/werkorders", "/monteur/instellingen", "/checkout", "/inloggen", "/registreren", "/upgrade", "/bestelling"];
 const ALL_PRIVATE = [...new Set([...EXPECTED_PRIVATE, ...PRIVATE_PATH_PREFIXES])];
-/** The static documents in public/ that carry a noindex header, written out like the lists above (STATIC_NOINDEX_SOURCES feeds the headers). */
-const EXPECTED_STATIC_NOINDEX = ["/leadmagnets/:path*", "/offline.html"];
+/**
+ * The static documents in public/ that carry a noindex header, written out like the lists above (STATIC_NOINDEX_SOURCES feeds the
+ * headers). /offline.html was the second one; it was deleted (decision D25) and its address must now be an ordinary 404.
+ */
+const EXPECTED_STATIC_NOINDEX = ["/leadmagnets/:path*"];
+const DELETED_STATIC_DOCUMENTS = ["/offline.html"];
 /**
  * The query parameters that turn a list page into a noindex variant, also written out: src/lib/seo.ts LIST_FILTER_PARAMS
  * feeds the page metadata and the X-Robots-Tag rules, and a parameter dropped from it would drop both at once.
@@ -269,6 +296,16 @@ function tagsOutsideHead(f: Facts, want: { canonical: boolean; robots: boolean }
 const metaAll = (f: Facts, key: string) => f.metas.filter((m) => m.name === key || m.property === key).map((m) => m.content ?? "");
 const linkAll = (f: Facts, rel: string) => f.links.filter((l) => l.rel === rel).map((l) => l.href ?? "");
 const h1s = (f: Facts) => f.headings.filter((h) => h.level === 1);
+/** "" when the outline starts with the h1 and never goes down more than one level at a time; else the first problem. */
+function headingProblem(headings: Facts["headings"]): string {
+  if (headings.length > 0 && headings[0].level !== 1) return `the first heading is h${headings[0].level} "${headings[0].text.slice(0, 30)}", not the h1`;
+  let prev = 0;
+  for (const h of headings) {
+    if (prev && h.level > prev + 1) return `h${prev} -> h${h.level} "${h.text.slice(0, 30)}"`;
+    prev = h.level;
+  }
+  return "";
+}
 
 type Resp = { url: string; status: number; headers: Record<string, string>; location: string | null; body: string };
 
@@ -415,17 +452,11 @@ function auditPage(l: Ledger, resp: Resp, f: Facts, ctx: PageCtx): void {
   l.rec("canonical-self", u, canon.length === 1 && sameUrl(c, u), `canonical ${c}`);
   l.rec("canonical-clean", u, !/[?#]/.test(c) && c.startsWith(`${ctx.origin}/`) || c === ctx.origin, `canonical ${c}`);
 
-  // headings
+  // headings: one h1, it comes first, and no level is skipped on the way down (h1 -> h3). Strict, no opt-out (decision D25): the
+  // outline is what a screen reader offers as the page's table of contents and what a search engine reads as its structure.
   const one = h1s(f);
   l.rec("one-h1", u, one.length === 1 && one[0].text.length > 0, `${one.length} h1`);
-  let skipped = "";
-  let prev = 0;
-  for (const h of f.headings) {
-    if (prev && h.level > prev + 1 && !skipped) skipped = `h${prev} -> h${h.level} "${h.text.slice(0, 30)}"`;
-    prev = h.level;
-  }
-  if (STRICT_HEADINGS) l.rec("heading-order", u, skipped === "", skipped);
-  else if (skipped) l.notes.push(`heading level skipped on ${u}: ${skipped}`);
+  l.rec("heading-order", u, headingProblem(f.headings) === "", headingProblem(f.headings));
 
   // Open Graph and Twitter
   const og = (k: string) => metaAll(f, k)[0] ?? "";
@@ -666,6 +697,33 @@ async function sitemapContent(l: Ledger, locs: string[], get: (u: string) => Pro
   });
 }
 
+/**
+ * The sitemap's URLs minus the rows deleted after it was generated (see DELETED_ROW_BOUND_MS). Every listed URL is fetched (the same
+ * cached response the checks below read); one that answers 404 or 410 is looked for in fresh copies of the sitemap until it is gone.
+ * Gone in time: `sitemap-drops-a-deleted-row-within-its-window` passes, a NOTE names it, and it is left out of every check that follows.
+ * Still listed at the bound: that check fails and the URL stays in, so `sitemap-status-200` fails for it as well.
+ */
+async function withoutDeletedRows(locs: string[]): Promise<string[]> {
+  const status = new Map<string, number>();
+  await pool(locs, 6, async (u) => {
+    status.set(u, (await get(u)).status);
+  });
+  const gone = locs.filter((u) => isGone(status.get(u) ?? 0));
+  if (gone.length === 0) return locs;
+  console.log(`sitemap: ${gone.length} listed URL(s) answer 404/410 (${gone.slice(0, 3).map((u) => new URL(u).pathname).join(" ")}${gone.length > 3 ? " ..." : ""}); reading fresh copies of the sitemap for up to ${DELETED_ROW_BOUND_MS / 1000} s`);
+  const { dropped, kept, reads } = await waitUntilDropped(gone, async () => {
+    const r = await request(`${SITE_ORIGIN}/sitemap.xml`);
+    if (r.status !== 200) throw new Error(`HTTP ${r.status}`);
+    return new Set(parseSitemap(r.body).entries.map((e) => e.loc));
+  });
+  for (const [u, ms] of dropped) {
+    L.rec("sitemap-drops-a-deleted-row-within-its-window", u, true);
+    note(`deleted row: ${new URL(u).pathname} answered HTTP ${status.get(u)} while the sitemap listed it; a fresh sitemap no longer lists it ${Math.round(ms / 1000)} s later (a row deleted after the sitemap was generated, e.g. another QA suite's part), so it is left out of the page checks`);
+  }
+  for (const u of kept) L.rec("sitemap-drops-a-deleted-row-within-its-window", u, false, `HTTP ${status.get(u)} and still listed after ${DELETED_ROW_BOUND_MS / 1000} s (${reads} fresh reads): not a row the cache still remembers but a sitemap entry that does not answer 200`);
+  return locs.filter((u) => !dropped.has(u));
+}
+
 // ───────────────────────────── network ─────────────────────────────
 
 let SITE_ORIGIN = "";
@@ -723,6 +781,54 @@ function imageCacheProblem(cacheControl: string): string | null {
 }
 const pngSize = (b: Buffer) => (b.length > 24 && b.readUInt32BE(0) === 0x89504e47 ? { w: b.readUInt32BE(16), h: b.readUInt32BE(20) } : null);
 
+/**
+ * Rows deleted shortly before (or while) this suite runs. Other suites create catalogue parts straight in the database and delete them
+ * again (qa-checkout's QA-CHK-, qa-theme's QA-THEME-; nothing revalidates the cache when they do). The sitemap and the catalogue pages are
+ * cached: the sitemap for 60 s (src/app/sitemap.ts) and the catalogue reads behind it and behind the pages for
+ * CATALOG_REVALIDATE_SECONDS (src/lib/cache-tags.ts, also 60). So for a while after such a delete, the sitemap or a page rendered
+ * before it can still name the row, whose own page already answers 404. Reproduced in decision D25, that gives the signature of the one
+ * integration run that failed `crawler-gets-metadata-in-head` with "9 of 153" (whether that run hit it is not knowable: its server state
+ * and logs are gone). It is the cache doing its job, not a defect, as long as it
+ * ends; a sitemap entry or a link that STILL points at a 404 after the window is a defect. So a 404 the sitemap lists, or a link
+ * points at, is judged by reading a fresh copy of the sitemap or of the linking page every POLL_EVERY_MS until the reference is gone,
+ * up to DELETED_ROW_BOUND_MS: two windows (the sitemap's and the data cache's, which can each serve the old list once more) and a margin.
+ * Gone in time: a NOTE, and the URL is left out of the page checks. Still there: a failure.
+ */
+const DELETED_ROW_BOUND_MS = (2 * CATALOG_REVALIDATE_SECONDS + 30) * 1000;
+const POLL_EVERY_MS = 5_000;
+const sleepMs = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
+async function waitUntilDropped(
+  subjects: string[],
+  stillReferenced: () => Promise<Set<string>>,
+  boundMs = DELETED_ROW_BOUND_MS,
+  everyMs = POLL_EVERY_MS,
+  sleep: (ms: number) => Promise<void> = sleepMs,
+  now: () => number = Date.now,
+): Promise<{ dropped: Map<string, number>; kept: string[]; reads: number }> {
+  const start = now();
+  const left = new Set(subjects);
+  const dropped = new Map<string, number>();
+  let reads = 0;
+  while (left.size > 0 && now() - start < boundMs) {
+    await sleep(everyMs);
+    let refs: Set<string>;
+    try {
+      refs = await stillReferenced();
+      reads++;
+    } catch {
+      continue; // an unreadable copy proves nothing either way: read again
+    }
+    for (const s of [...left]) {
+      if (!refs.has(s)) {
+        dropped.set(s, now() - start);
+        left.delete(s);
+      }
+    }
+  }
+  return { dropped, kept: [...left], reads };
+}
+const isGone = (status: number) => status === 404 || status === 410;
+
 // ───────────────────────────── 1. the helper modules (no server needed) ─────────────────────────────
 
 function helperChecks(): void {
@@ -776,6 +882,12 @@ function helperChecks(): void {
   check("helper-variant-header-rules-ignore-blank-values", rules.filter((r) => r.has && r.has[0].key !== "t").every((r) => new RegExp(`^${r.has![0].value}$`).test("pomp") && !new RegExp(`^${r.has![0].value}$`).test("") && !new RegExp(`^${r.has![0].value}$`).test("  ") && !new RegExp(`^${r.has![0].value}$`).test(" \n\t ")), "a blank ?q= is the page itself (isListVariant), so it must not get a noindex header");
   // Next anchors the value (`^...$`) and `.` does not match a line break: a value such as "a\nb" is a variant (the page carries the tag) and must get the header too.
   check("helper-variant-header-rules-match-a-value-with-a-line-break", rules.filter((r) => r.has && r.has[0].key !== "t").every((r) => ["a\nb", "\nab", "ab\n", "a\r\nb", "pomp"].every((v) => new RegExp(`^${r.has![0].value}$`).test(v))) && isListVariant({ q: "a\nb" }, LIST_FILTER_PARAMS["/onderdelen"]) && isListVariant({ q: "\nab" }, LIST_FILTER_PARAMS["/onderdelen"]), "header and meta tag disagree for a value with a line break");
+  // D25: a header rule for a file that no longer exists is a leftover (the offline page's rule outlived nothing, but it would have).
+  const publicDir = path.join(ROOT, "public");
+  check("helper-static-noindex-rules-name-files-that-exist", STATIC_NOINDEX_SOURCES.every((src) => fs.existsSync(path.join(publicDir, src.replace(/\/:path\*$/, "")))) && DELETED_STATIC_DOCUMENTS.every((d) => !fs.existsSync(path.join(publicDir, d)) && !rules.some((r) => r.source === d)), `STATIC_NOINDEX_SOURCES ${JSON.stringify(STATIC_NOINDEX_SOURCES)}; deleted ${JSON.stringify(DELETED_STATIC_DOCUMENTS)}`);
+  // headings (D25: strict, no opt-out)
+  const outline = (...levels: number[]) => headingProblem(levels.map((level) => ({ level, text: `h${level}` })));
+  check("helper-heading-order", outline(1, 2, 3, 2, 3, 4, 2) === "" && outline() === "" && outline(1, 2, 2, 2) === "" && outline(1, 3) !== "" && outline(1, 2, 4) !== "" && outline(2, 1) !== "" && outline(3, 1, 2) !== "", `${outline(1, 3)} | ${outline(2, 1)}`);
   check("helper-static-documents-have-a-noindex-header-rule", EXPECTED_STATIC_NOINDEX.every((src) => STATIC_NOINDEX_SOURCES.includes(src) && rules.some((r) => r.source === src && !r.has && /noindex/.test(r.robots))), JSON.stringify(STATIC_NOINDEX_SOURCES));
   check("helper-variant-keeps-the-expected-parameters", Object.entries(EXPECTED_VARIANT_PARAMS).every(([p, keys]) => keys.every((k) => ((LIST_FILTER_PARAMS as Record<string, readonly string[]>)[p] ?? []).includes(k))), "a parameter was dropped from LIST_FILTER_PARAMS (src/lib/seo.ts)");
   check("helper-variant-header-covers-the-return-token-and-qr", rules.some((r) => r.source === "/retour/start" && r.has?.[0].key === "t" && r.robots === "noindex, nofollow") && rules.some((r) => r.source === "/qr/:path*" && !r.has));
@@ -822,6 +934,69 @@ function helperChecks(): void {
     if (prevNode === undefined) delete (process.env as Record<string, string | undefined>).NODE_ENV;
     else (process.env as Record<string, string>).NODE_ENV = prevNode;
   }
+}
+
+// ───────────────────────────── 1a. the crawler harness itself (no server needed) ─────────────────────────────
+
+/**
+ * D25: the crawler sections must not depend on what other suites did to the catalogue, and must not report a page that went away as a
+ * metadata defect. Both are proved here on planted inputs (a sitemap whose first part is a QA- row; a 404, a streamed page and a good page
+ * fed to the same judging function the live run uses).
+ */
+async function crawlerHarnessChecks(): Promise<void> {
+  section("crawler harness: the sample and the verdict (planted inputs)");
+  const seeded = seededPaths();
+  const o = "https://wasfix.nl";
+  const planted = [`${o}/`, `${o}/onderdelen/QA-THEME-1700000000000`, `${o}/onderdelen/QA-1x2-1`, `${o}/onderdelen/WF-BEAR-01`, `${o}/foutcodes/QA-Z1`, `${o}/foutcodes/Bosch-E18`, `${o}/gidsen/qa-gids`, `${o}/gidsen/filter-reinigen`, `${o}/bosch-wasmachine-reparatie`];
+  const sample = crawlerSample(planted, seeded);
+  const firstOfFamily = (fam: string) => planted.map((u) => new URL(u).pathname).find((x) => familyOf(x) === fam);
+  check("helper-crawler-sample-ignores-rows-other-suites-create", sample.indexable.includes("/onderdelen/WF-BEAR-01") && sample.indexable.includes("/foutcodes/Bosch-E18") && sample.indexable.includes("/gidsen/filter-reinigen") && !sample.indexable.some((x) => /QA|qa-gids/.test(x)) && firstOfFamily("part") === "/onderdelen/QA-THEME-1700000000000", `sample ${JSON.stringify(sample.indexable.slice(8))}; the old rule ("first of the family") would have taken ${firstOfFamily("part")}`);
+  check("helper-crawler-sample-falls-back-on-another-catalogue", crawlerSample([`${o}/onderdelen/OTHER-1`], seeded).indexable.includes("/onderdelen/OTHER-1"));
+  // The verdict: a 404 is a status failure (with the browser's answer), never a metadata failure; a streamed page is a metadata failure.
+  const head = '<html lang="nl"><head><title>T</title><meta name="description" content="d"/><link rel="canonical" href="https://wasfix.nl/x"/><meta property="og:title" content="T"/></head><body><h1>x</h1></body></html>';
+  const resp = (status: number, body: string): Resp => ({ url: "/x", status, headers: {}, location: null, body });
+  const verdict = async (crawler: Resp, browser: Resp) => {
+    const l = new Ledger();
+    await crawlerFetch(l, "crawler", "Googlebot", "Googlebot/2.1", "/x", false, async (_p, ua) => (ua === UA_BROWSER ? browser : crawler));
+    return l;
+  };
+  const gone = await verdict(resp(404, "<html><head><title>Pagina niet gevonden</title></head><body></body></html>"), resp(404, ""));
+  check("helper-crawler-verdict-a-404-is-a-status-not-misplaced-metadata", gone.failedChecks().join() === "crawler-gets-200" && /a browser now gets HTTP 404: the page itself answers that now/.test(gone.failed.get("crawler-gets-200")?.[0] ?? ""), JSON.stringify([...gone.failed]));
+  const onlyCrawler = await verdict(resp(500, ""), resp(200, head));
+  check("helper-crawler-verdict-says-when-only-the-crawler-gets-it", /only the crawler gets it/.test(onlyCrawler.failed.get("crawler-gets-200")?.[0] ?? ""), JSON.stringify([...onlyCrawler.failed]));
+  const streamedPage = await verdict(resp(200, moveMetadataIntoBody(head)), resp(200, head));
+  check("helper-crawler-verdict-streamed-metadata-is-a-metadata-failure", streamedPage.failedChecks().join() === "crawler-gets-metadata-in-head" && (streamedPage.seen.get("crawler-gets-200") ?? 0) === 1, JSON.stringify([...streamedPage.failed]));
+  const good = await verdict(resp(200, head), resp(200, head));
+  check("helper-crawler-verdict-a-good-page-passes", good.failedChecks().length === 0 && (good.seen.get("crawler-gets-metadata-in-head") ?? 0) === 1, JSON.stringify([...good.failed]));
+
+  // The defect proofs work on a seeded row that answered 200, not on the first part of the crawl (a deleted QA- row sorts first).
+  const crawled = new Map<string, { resp: Resp }>([
+    [`${o}/onderdelen/QA-THEME-1700000000000`, { resp: resp(404, "") }],
+    [`${o}/onderdelen/QA-CHK-abc-1`, { resp: resp(200, head) }],
+    [`${o}/onderdelen/WF-BEAR-01`, { resp: resp(200, head) }],
+    [`${o}/foutcodes/Bosch-E18`, { resp: resp(200, head) }],
+  ]);
+  const firstCrawledPart = [...crawled.keys()].find((u) => familyOf(new URL(u).pathname) === "part");
+  check("helper-proof-page-is-a-seeded-row-that-answers-200", proofPage(crawled, "part", seeded) === `${o}/onderdelen/WF-BEAR-01` && proofPage(new Map([[`${o}/onderdelen/OTHER-1`, { resp: resp(200, head) }], [`${o}/onderdelen/OTHER-0`, { resp: resp(404, "") }]]), "part", seeded) === `${o}/onderdelen/OTHER-1` && proofPage(crawled, "error-code", seeded) === `${o}/foutcodes/Bosch-E18` && firstCrawledPart === `${o}/onderdelen/QA-THEME-1700000000000`, `picked ${proofPage(crawled, "part", seeded)}; the old rule ("first of the family") took ${firstCrawledPart}`);
+
+  // A reference to a deleted row is excused only when it goes away within the bound (a fake clock: no waiting here).
+  let t = 0;
+  const fakeSleep = async (ms: number) => {
+    t += ms;
+  };
+  const listing = async () => new Set([...(t < 70_000 ? ["/onderdelen/QA-THEME-1"] : []), "/onderdelen/NEVER-GOES"]);
+  const waited = await waitUntilDropped(["/onderdelen/QA-THEME-1", "/onderdelen/NEVER-GOES"], listing, DELETED_ROW_BOUND_MS, POLL_EVERY_MS, fakeSleep, () => t);
+  const droppedAt = waited.dropped.get("/onderdelen/QA-THEME-1") ?? -1;
+  check("helper-deleted-row-is-excused-only-when-the-reference-goes", droppedAt >= 70_000 && droppedAt <= 70_000 + POLL_EVERY_MS && waited.kept.join() === "/onderdelen/NEVER-GOES" && t >= DELETED_ROW_BOUND_MS && t < DELETED_ROW_BOUND_MS + POLL_EVERY_MS, `dropped at ${droppedAt} ms, kept ${JSON.stringify(waited.kept)}, waited ${t} ms (bound ${DELETED_ROW_BOUND_MS})`);
+  t = 0;
+  let calls = 0;
+  const flaky = async () => {
+    calls++;
+    if (calls === 1) throw new Error("HTTP 500");
+    return new Set<string>();
+  };
+  const afterError = await waitUntilDropped(["/onderdelen/QA-THEME-2"], flaky, DELETED_ROW_BOUND_MS, POLL_EVERY_MS, fakeSleep, () => t);
+  check("helper-deleted-row-an-unreadable-copy-proves-nothing", afterError.dropped.get("/onderdelen/QA-THEME-2") === 2 * POLL_EVERY_MS && afterError.reads === 1, JSON.stringify({ dropped: [...afterError.dropped], reads: afterError.reads }));
 }
 
 // ───────────────────────────── 1b. deployment environments (child processes, no server needed) ─────────────────────────────
@@ -924,7 +1099,7 @@ function walkFiles(dir: string, accept: (f: string) => boolean, out: string[] = 
 }
 
 function sourceChecks(): void {
-  section("source tree: every page is classified, every private area is marked, no raw JSON in a script tag");
+  section("source tree: every page is classified, every private area is marked, no raw JSON in a script tag, private-page headings, audit workflows");
   const appDir = path.join(ROOT, "src", "app");
   const pages = walkFiles(appDir, (f) => f.endsWith(`${path.sep}page.tsx`));
   const routeOf = (f: string) => "/" + path.relative(appDir, path.dirname(f)).split(path.sep).filter((s) => s && !(s.startsWith("(") && s.endsWith(")"))).join("/");
@@ -971,6 +1146,88 @@ function sourceChecks(): void {
   const sitemapSrc = fs.readFileSync(path.join(appDir, "sitemap.ts"), "utf8");
   check("source-robots-uses-the-shared-private-list", /disallow:\s*\[\.\.\.PRIVATE_PATH_PREFIXES\]/.test(robotsSrc) && !/"\/(admin|dashboard|checkout|inloggen|registreren|upgrade|monteur\/)/.test(robotsSrc), "robots.ts must not carry its own list of private paths");
   check("source-sitemap-uses-the-shared-rules", /SITEMAP_STATIC_PATHS/.test(sitemapSrc) && /indexability\(/.test(sitemapSrc) && !/changeFrequency\s*:|priority\s*:\s*\d/.test(sitemapSrc));
+  // D25: an import timestamp is not a modification date. Only the blog's publishedAt may become a lastmod, and nothing else may stand in
+  // for it: `g.publishedAt ?? g.createdAt` mentions publishedAt and still publishes an import timestamp, so the whole expression must be
+  // the publication date and nothing more.
+  const lastmodSources = [...sitemapSrc.matchAll(/lastModified\s*:\s*([^,}\n]+)/g)].map((m) => m[1].trim());
+  check("source-sitemap-lastmod-only-from-a-publication-date", lastmodSources.length > 0 && lastmodSources.every((x) => lastmodExpressionProblem(x) === null), `lastModified from: ${lastmodSources.map((x) => `${x}${lastmodExpressionProblem(x) ? ` (${lastmodExpressionProblem(x)})` : ""}`).join(" | ")}`);
+  const plantedLastmods: Array<[string, boolean]> = [
+    ["new Date(p.publishedAt)", true],
+    ["p.publishedAt", true],
+    ["g.publishedAt ?? g.createdAt", false],
+    ["p.publishedAt || new Date()", false],
+    ["p.publishedAt ? new Date(p.publishedAt) : g.createdAt", false],
+    ["new Date(g.createdAt)", false],
+    ["g.updatedAt", false],
+    ["new Date()", false],
+  ];
+  check("source-lastmod-rule-catches-planted-fallbacks", plantedLastmods.every(([x, ok]) => (lastmodExpressionProblem(x) === null) === ok), plantedLastmods.filter(([x, ok]) => (lastmodExpressionProblem(x) === null) !== ok).map(([x]) => x).join(" | "));
+  // The sitemap's own window is the catalogue's (decision D25): it said 3600 ("at most hourly") while the build counted 60, because the
+  // catalogue reads under it are cached for CATALOG_REVALIDATE_SECONDS. Segment config must be a literal, so the two are compared here.
+  const sitemapWindow = /^export const revalidate\s*=\s*(\d+)\s*;/m.exec(sitemapSrc)?.[1];
+  check("source-sitemap-window-is-the-catalogue-window", Number(sitemapWindow) === CATALOG_REVALIDATE_SECONDS, `src/app/sitemap.ts revalidate ${sitemapWindow ?? "-"} vs CATALOG_REVALIDATE_SECONDS ${CATALOG_REVALIDATE_SECONDS} (src/lib/cache-tags.ts)`);
+  // D25 item 2, the private pages. They are behind a login and noindex, so no crawl reaches them; their outline is read from the
+  // source instead: every <DashboardLayout> block that shows a heading starts with its one h1 and never skips a level, and so does a
+  // component of a private area that renders the page's h1 itself (admin/analytics/client.tsx). A block without any heading (a notice
+  // such as "Stel DATABASE_URL in") is not judged. Source order stands in for render order, which holds for these flat pages.
+  const privateFiles = ["admin", "dashboard", "monteur"].flatMap((d) => walkFiles(path.join(appDir, d), (f) => f.endsWith(".tsx")));
+  for (const f of privateFiles) {
+    for (const [where, outline] of privateOutlines(fs.readFileSync(f, "utf8"))) {
+      const problem = privateOutlineProblem(outline);
+      L.rec("source-private-page-heading-order", `${path.relative(ROOT, f)} ${where}`, problem === "", problem);
+    }
+  }
+  const plantedOutlines: Array<[string, boolean]> = [
+    ["<DashboardLayout><Card><h2>Monteur Pro vereist</h2></Card></DashboardLayout>", false],
+    ["<DashboardLayout><h1>A</h1><CardTitle>B</CardTitle></DashboardLayout>", false],
+    ["<DashboardLayout><h1>A</h1><h2>B</h2><h1>C</h1></DashboardLayout>", false],
+    ["export function X() { return <div><h1>A</h1><h3>B</h3></div>; }", false],
+    ["<DashboardLayout><h1>A</h1><h2>B</h2><CardTitle>C</CardTitle></DashboardLayout>", true],
+    ["<DashboardLayout><Card>Stel DATABASE_URL in</Card></DashboardLayout>", true],
+  ];
+  const plantedWrong = plantedOutlines.filter(([src, ok]) => privateOutlines(src).every(([, o]) => privateOutlineProblem(o) === "") !== ok);
+  check("source-private-heading-rule-catches-planted-outlines", plantedWrong.length === 0, plantedWrong.map(([src]) => src).join(" | "));
+  // D25 item 5: the two audit workflows run by hand only, with a read-only token, and neither leaves that token in .git/config while
+  // npm ci and the repository's own scripts run (actions/checkout's persist-credentials: false).
+  for (const wf of ["seo-audit.yml", "lighthouse.yml"]) {
+    const y = fs.readFileSync(path.join(ROOT, ".github", "workflows", wf), "utf8");
+    const on = /^on:[ \t]*\n((?:[ \t]+.*\n|[ \t]*\n)*)/m.exec(y)?.[1] ?? "";
+    const triggers = [...on.matchAll(/^ {2}(\w+):/gm)].map((m) => m[1]);
+    const checkouts = [...y.matchAll(/uses:\s*actions\/checkout@\S+((?:\n[ \t]+(?!-)\S.*)*)/g)].map((m) => m[1]);
+    const unpersisted = checkouts.filter((w) => /\n\s+persist-credentials:\s*false\b/.test(w)).length;
+    L.rec("source-audit-workflow-by-hand-and-read-only", wf, triggers.join() === "workflow_dispatch" && /^permissions:[ \t]*\n[ \t]+contents:[ \t]*read[ \t]*$/m.test(y) && checkouts.length > 0 && unpersisted === checkouts.length, `triggers: ${triggers.join(", ") || "-"}; contents: read ${/^permissions:[ \t]*\n[ \t]+contents:[ \t]*read[ \t]*$/m.test(y)}; ${checkouts.length} checkout(s), ${unpersisted} with persist-credentials: false`);
+  }
+  // The audit runs this suite's browser-first section in the Chromium CI runs it in (its comment says "the same version CI uses").
+  const pins = ["ci.yml", "seo-audit.yml"].map((wf) => [...fs.readFileSync(path.join(ROOT, ".github", "workflows", wf), "utf8").matchAll(/playwright@(\d+\.\d+\.\d+)/g)].map((m) => m[1]));
+  check("source-audit-workflow-uses-the-ci-playwright", pins.every((p) => p.length === 1) && pins[0][0] === pins[1][0], `ci.yml ${pins[0].join(", ") || "-"} vs seo-audit.yml ${pins[1].join(", ") || "-"}`);
+}
+
+/** The heading outlines of a private-area source file: one per <DashboardLayout> block, or the whole file when it has no such block but renders an h1. CardTitle is an h3. */
+function privateOutlines(src: string): Array<[string, number[]]> {
+  const levels = (s: string) => [...s.matchAll(/<(h[1-6]|CardTitle)\b/g)].map((m) => (m[1] === "CardTitle" ? 3 : Number(m[1][1])));
+  const blocks = [...src.matchAll(/<DashboardLayout\b[\s\S]*?<\/DashboardLayout>/g)];
+  if (blocks.length) return blocks.map((m, i): [string, number[]] => [`(DashboardLayout block ${i + 1} of ${blocks.length})`, levels(m[0])]).filter(([, o]) => o.length > 0);
+  const whole = levels(src);
+  return whole.includes(1) ? [["(component with the page's h1)", whole]] : [];
+}
+/** "" when the outline has exactly one h1, first, and never goes down more than one level at a time (headingProblem's rule). */
+function privateOutlineProblem(outline: number[]): string {
+  if (!outline.length) return "";
+  const shown = `(outline ${outline.map((l) => `h${l}`).join(", ")})`;
+  const order = headingProblem(outline.map((level) => ({ level, text: "" })));
+  if (order) return `${order.replace(/ ""/g, "")} ${shown}`;
+  const h1 = outline.filter((l) => l === 1).length;
+  return h1 === 1 ? "" : `${h1} h1 elements ${shown}`;
+}
+
+/**
+ * Why a sitemap lastModified expression is not a publication date, or null when it is one: it must read `<row>.publishedAt`, optionally
+ * wrapped in `new Date(...)`, and nothing else (no fallback, no other field, no "now").
+ */
+function lastmodExpressionProblem(expr: string): string | null {
+  if (/createdAt|updatedAt|importedAt|Date\.now|new Date\(\s*\)/.test(expr)) return "an import, change or current timestamp";
+  if (!/^(?:new Date\(\s*)?[A-Za-z_$][\w$]*\.publishedAt(?:\s*\))?$/.test(expr)) return "not exactly a publishedAt (a fallback or another expression)";
+  return null;
 }
 
 // ───────────────────────────── 3. the running site ─────────────────────────────
@@ -1050,25 +1307,48 @@ async function httpChecks(): Promise<void> {
   check("sitemap-https-on-a-real-host", SITE_ORIGIN.startsWith("https://") || /localhost|127\./.test(SITE_ORIGIN), SITE_ORIGIN);
   const staticListed = new Set(locs.map((u) => new URL(u).pathname).filter((p) => (SITEMAP_STATIC_PATHS as readonly string[]).includes(p)));
   check("sitemap-lists-every-static-page", SITEMAP_STATIC_PATHS.every((p) => staticListed.has(p)), SITEMAP_STATIC_PATHS.filter((p) => !staticListed.has(p)).join(", "));
+  // lastmod only where a real publication or change date exists (decision D25): the blog posts, whose publishedAt the post prints.
+  // Guides carry only createdAt, an import timestamp (two imports, 20 guides on the same millisecond), so they carry none.
+  const publishedAt = new Map((JSON.parse(fs.readFileSync(path.join(ROOT, "src", "data", "blog-posts.json"), "utf8")) as Array<{ slug: string; publishedAt: string }>).map((p) => [`/blog/${p.slug}`, p.publishedAt]));
   for (const e of entries) {
+    const fam = familyOf(new URL(e.loc).pathname);
+    if (fam === "guide") L.rec("sitemap-guides-carry-no-lastmod", e.loc, e.lastmod === null, `lastmod ${e.lastmod}: a guide has no modification date, only the moment it was imported`);
+    if (fam === "blog") {
+      const day = publishedAt.get(new URL(e.loc).pathname);
+      L.rec("sitemap-blog-lastmod-is-the-publication-date", e.loc, !!day && e.lastmod !== null && e.lastmod.slice(0, 10) === day.slice(0, 10), `lastmod ${e.lastmod ?? "-"} vs publishedAt ${day ?? "-"}`);
+    }
     if (e.lastmod === null) continue;
     const t = Date.parse(e.lastmod);
-    const fam = familyOf(new URL(e.loc).pathname);
     L.rec("sitemap-lastmod-valid-and-not-future", e.loc, /^\d{4}-\d{2}-\d{2}(T[\d:.]+(Z|[+-]\d{2}:\d{2}))?$/.test(e.lastmod) && !Number.isNaN(t) && t <= Date.now() + 86_400_000, e.lastmod);
-    L.rec("sitemap-lastmod-only-where-a-date-exists", e.loc, fam === "blog" || fam === "guide", `a lastmod on a ${fam} page: only blog posts and guides carry a real date`);
+    L.rec("sitemap-lastmod-only-where-a-date-exists", e.loc, fam === "blog", `a lastmod on a ${fam} page: only blog posts carry a real publication date`);
   }
+  // The guides in a stable order (slug order). They were listed by views, then createdAt: every guide visit changes the order at the
+  // sitemap's next regeneration (and 20 guides share one createdAt), so two reads a minute apart could list the same URLs in another
+  // order, which is churn for a crawler and made qa-indexnow's comparison of two reads fail once (decision D25 item 7).
+  const guidePaths = locs.map((u) => new URL(u).pathname).filter((p) => familyOf(p) === "guide");
+  const guideSorted = [...guidePaths].sort();
+  const guideOutOfOrder = guidePaths.findIndex((p, i) => p !== guideSorted[i]);
+  check("sitemap-guides-in-slug-order", guidePaths.length > 0 && guideOutOfOrder === -1, guideOutOfOrder >= 0 ? `position ${guideOutOfOrder} of ${guidePaths.length}: ${guidePaths[guideOutOfOrder]} where slug order has ${guideSorted[guideOutOfOrder]}` : "no guide in the sitemap");
   check("city-switch-agrees-with-the-expectation", CITY_PAGES_INDEXABLE === EXPECT_CITY_PAGES_INDEXABLE, "CITY_PAGES_INDEXABLE (src/lib/seo.ts) was flipped: flip EXPECT_CITY_PAGES_INDEXABLE in scripts/qa-seo.ts with it, once the city pages carry copy of their own");
   const cityListed = locs.some((u) => familyOf(new URL(u).pathname) === "city");
   check("sitemap-city-pages-follow-the-switch", cityListed === EXPECT_CITY_PAGES_INDEXABLE, EXPECT_CITY_PAGES_INDEXABLE ? "city pages are meant to be indexable and the sitemap lists none" : "city pages are noindex and the sitemap lists some");
+  // D25: before ANY page is requested by this suite, a browser opens the crawler sample (both themes) and then every crawler fetches it.
+  const sample = crawlerSample(locs, seededPaths());
+  await browserThenCrawlerChecks(sample);
+
+  // A row another suite deleted after the sitemap was generated is still listed for up to two cache windows (D25): told apart here,
+  // and left out of everything below once a fresh sitemap no longer lists it.
+  const live = await withoutDeletedRows(locs);
+
   // Every listed URL, not a sample: 200, indexable, names itself as canonical, allowed by robots.txt, not private.
-  await sitemapContent(L, locs, async (u) => {
+  await sitemapContent(L, live, async (u) => {
     const r = await get(u);
     return { resp: r, f: extract(r.body) };
   }, SITE_ORIGIN, g);
 
   // ── which URLs to crawl ──
   const byFamily = new Map<string, string[]>();
-  for (const u of locs) {
+  for (const u of live) {
     const fam = familyOf(new URL(u).pathname);
     byFamily.set(fam, [...(byFamily.get(fam) ?? []), u]);
   }
@@ -1080,7 +1360,7 @@ async function httpChecks(): Promise<void> {
     picks.push(...chosen);
     summary.push(`${fam} ${chosen.length}/${list.length}`);
   }
-  console.log(`sitemap: ${locs.length} URLs; crawling ${picks.length}${FULL ? " (QA_SEO_FULL)" : ""}: ${summary.join(", ")}`);
+  console.log(`sitemap: ${locs.length} URLs${live.length !== locs.length ? ` (${locs.length - live.length} of them rows deleted since it was generated, left out)` : ""}; crawling ${picks.length}${FULL ? " (QA_SEO_FULL)" : ""}: ${summary.join(", ")}`);
   check("sitemap-families-are-all-known", !byFamily.has("other"), (byFamily.get("other") ?? []).slice(0, 5).join(", "));
 
   // ── crawl ──
@@ -1146,7 +1426,7 @@ async function httpChecks(): Promise<void> {
   }
 
   // ── links ──
-  await linkChecks(pages, g, locs);
+  await linkChecks(pages, g, live);
 
   // breadcrumb targets
   for (const t of pendingBreadcrumbTargets) {
@@ -1183,7 +1463,7 @@ async function httpChecks(): Promise<void> {
   }
 
   await exclusionChecks(g, new Set(locs), rootDescription, pages);
-  await crawlerDeliveryChecks(locs);
+  await crawlerDeliveryChecks(sample);
   await notFoundChecks();
   await redirectChecks();
   await manifestChecks(home?.f ?? null);
@@ -1192,34 +1472,168 @@ async function httpChecks(): Promise<void> {
   await mutationProofs(pages, locs, g, rootDescription, titleOwners, descOwners);
 }
 
+// ───────────────────────────── crawlers: the sample, one fetch, and the two sections that use them ─────────────────────────────
+
+type CrawlerSample = { indexable: string[]; noindex: string[] };
+type SeededPaths = { part: Set<string>; "error-code": Set<string>; guide: Set<string>; "brand-repair": Set<string> };
+
 /**
- * The dynamic pages (they read searchParams or cookies, so Next streams their metadata for a client it does not know as a
- * crawler) and a few filter variants, fetched as each crawler: the title, description, Open Graph and the canonical (or the
- * robots tag, on a noindex variant) must be inside <head>.
+ * The pages of the seeded catalogue (src/data, what `npm run db:setup` loads), as the sitemap spells them. No QA suite creates or
+ * deletes these rows. Other suites DO create and delete parts on the same server while it runs (qa-checkout's QA- SKUs, qa-theme's
+ * QA-THEME- part), and such a SKU sorts before "WF-": "the first part of the sitemap" could be a row that is deleted while this suite
+ * runs, and the crawler sections, which fetch late and without the response cache, would then report a 404 nine times (decision D25).
  */
-async function crawlerDeliveryChecks(locs: string[]): Promise<void> {
-  section("crawler delivery: the metadata is inside <head> for every crawler");
-  const pathOf = (fam: string) => locs.map((u) => new URL(u).pathname).find((p) => familyOf(p) === fam);
-  const indexable = ["/", "/diagnose", "/onderdelen", "/contact", "/foutcodes", "/retour/start", "/gidsen", "/over", pathOf("part"), pathOf("error-code"), pathOf("guide"), pathOf("brand-repair")].filter((p): p is string => !!p);
-  const noindex = ["/onderdelen?q=pomp", "/foutcodes?brand=Bosch", "/gidsen?difficulty=EASY", "/retour/start?t=abc", "/qr/ABC123"];
+function seededPaths(): SeededPaths {
+  const data = (f: string) => JSON.parse(fs.readFileSync(path.join(ROOT, "src", "data", f), "utf8")) as Array<Record<string, string>>;
+  const brandOf = new Map(data("machines.json").map((m) => [m.id, m.brand]));
+  return {
+    part: new Set(data("parts.json").map((p) => `/onderdelen/${encodeURIComponent(p.sku)}`)),
+    "error-code": new Set(data("error-codes.json").filter((e) => brandOf.has(e.machineId)).map((e) => `/foutcodes/${encodeURIComponent(brandOf.get(e.machineId)!)}-${encodeURIComponent(e.code)}`)),
+    guide: new Set(data("guides.json").map((g) => `/gidsen/${g.slug}`)),
+    "brand-repair": new Set(data("brands.json").map((b) => `/${b.slug}-wasmachine-reparatie`)),
+  };
+}
+
+/**
+ * The pages both crawler sections fetch: fixed public pages, one page of four dynamic families, and five noindex variants. The family
+ * page is the first of that family in the sitemap THAT IS IN THE SEEDED CATALOGUE (else, on a site with another catalogue, the first of
+ * the family): the sample must not be a row another suite is about to delete.
+ */
+function crawlerSample(locs: string[], seeded: SeededPaths): CrawlerSample {
+  const paths = locs.map((u) => new URL(u).pathname);
+  const pick = (fam: keyof SeededPaths) => paths.find((p) => familyOf(p) === fam && seeded[fam].has(p)) ?? paths.find((p) => familyOf(p) === fam);
+  const indexable = ["/", "/diagnose", "/onderdelen", "/contact", "/foutcodes", "/retour/start", "/gidsen", "/over", pick("part"), pick("error-code"), pick("guide"), pick("brand-repair")].filter((p): p is string => !!p);
+  return { indexable, noindex: ["/onderdelen?q=pomp", "/foutcodes?brand=Bosch", "/gidsen?difficulty=EASY", "/retour/start?t=abc", "/qr/ABC123"] };
+}
+
+/**
+ * The crawled page a defect proof works on: one of the family that is in the seeded catalogue and answered 200 (else any crawled page
+ * of the family that answered 200), never "the first of the family". That was the rule until D25's repair, and after another suite had
+ * deleted its QA-THEME- part the first part page was that row's 404: the planted defects then landed on a 404 page and three of them
+ * went unnoticed (`defect-is-caught-by-its-named-check`), which says nothing about the checks.
+ */
+function proofPage(pages: Map<string, { resp: Resp }>, fam: keyof SeededPaths, seeded: SeededPaths): string | undefined {
+  const ok = [...pages.entries()].filter(([u, p]) => familyOf(new URL(u).pathname) === fam && p.resp.status === 200).map(([u]) => u).sort();
+  return ok.find((u) => seeded[fam].has(new URL(u).pathname)) ?? ok[0];
+}
+
+/**
+ * One crawler fetch, judged in two parts so that one cannot pass for the other: `<prefix>-gets-200` (the crawler got the page) and
+ * `<prefix>-gets-metadata-in-head` (title, description, og:title and the canonical or, on a noindex variant, the robots tag sit inside
+ * <head>). A non-200 is fetched again at once as an ordinary browser, and the detail says whether the page itself answers that now (it
+ * changed during the run) or only the crawler gets it. The run that failed once reported "9 of 153" under the metadata check with the
+ * detail lost; a status and a placement are now told apart and printed in full (decision D25).
+ */
+async function crawlerFetch(l: Ledger, prefix: string, name: string, ua: string, p: string, noindexVariant: boolean, fetcher: (p: string, ua: string) => Promise<Resp> = (x, a) => request(`${SITE_ORIGIN}${x}`, { "user-agent": a })): Promise<void> {
+  const subject = `${name} ${p}`;
+  const r = await fetcher(p, ua);
+  if (r.status !== 200) {
+    const b = await fetcher(p, UA_BROWSER);
+    const same = b.status === r.status;
+    l.rec(`${prefix}-gets-200`, subject, false, `HTTP ${r.status} for the crawler${r.location ? ` (-> ${r.location})` : ""}; a browser now gets HTTP ${b.status}${same ? ": the page itself answers that now (it changed during the run), it is not how a crawler is served" : ": only the crawler gets it"}`);
+    return;
+  }
+  l.rec(`${prefix}-gets-200`, subject, true);
+  const outside = tagsOutsideHead(extract(r.body), { canonical: !noindexVariant, robots: noindexVariant });
+  l.rec(`${prefix}-gets-metadata-in-head`, subject, outside.length === 0, `not inside <head>: ${outside.join(", ")} (x-nextjs-cache ${r.headers["x-nextjs-cache"] ?? "-"})`);
+}
+
+async function everyCrawler(prefix: string, sample: CrawlerSample): Promise<void> {
   const jobs: Array<[string, string, string, boolean]> = [];
   for (const [name, ua] of CRAWLERS) {
-    for (const p of indexable) jobs.push([name, ua, p, false]);
-    for (const p of noindex) jobs.push([name, ua, p, true]);
+    for (const p of sample.indexable) jobs.push([name, ua, p, false]);
+    for (const p of sample.noindex) jobs.push([name, ua, p, true]);
   }
-  await pool(jobs, 6, async ([name, ua, p, noindexVariant]) => {
-    const r = await request(`${SITE_ORIGIN}${p}`, { "user-agent": ua });
-    const outside = tagsOutsideHead(extract(r.body), { canonical: !noindexVariant, robots: noindexVariant });
-    L.rec("crawler-gets-metadata-in-head", `${name} ${p}`, r.status === 200 && outside.length === 0, `HTTP ${r.status}; not inside <head>: ${outside.join(", ")}`);
-  });
+  await pool(jobs, 6, async ([name, ua, p, noindexVariant]) => crawlerFetch(L, prefix, name, ua, p, noindexVariant));
+}
+
+/**
+ * The order of the one run that failed `crawler-gets-metadata-in-head` (9 of 153, decision D25): scripts/qa-theme.ts had just opened the
+ * pages in Chromium in both themes, and then this suite fetched them as crawlers. Next sends a dynamic page's metadata streamed into
+ * <body> to a browser and blocking in <head> to a crawler, and caches the HTML of an ISR page (the home page, parts, error codes, brand
+ * repair pages) for everybody: HTML rendered for a browser and then served from the cache to a crawler would carry the streamed form.
+ * Measured on Next 15.5.27 it does not (an ISR render is a static prerender whatever the user agent, and its metadata lands in <head>);
+ * what reproduces the failure's signature is a deleted QA-THEME- row's page instead (see DELETED_ROW_BOUND_MS; whether the integration
+ * run hit exactly that is not knowable, D25). This section keeps the browser-first order covered
+ * all the same: it runs BEFORE anything else in this suite requests a page, opens every page of the crawler sample
+ * in Chromium (light and dark, OS in dark, the way qa-theme does; a page the server has not cached yet is rendered for the browser, and
+ * a stale one is regenerated by its visit), lets the browser prefetch the linked pages, and then fetches the same pages as every crawler.
+ */
+async function browserThenCrawlerChecks(sample: CrawlerSample): Promise<void> {
+  section("browser first, then every crawler: pages a browser made the server render still reach a crawler with the metadata in <head>");
+  const pw = loadPlaywright();
+  if (!pw) {
+    if (REQUIRE_BROWSER) check("crawler-after-browser-has-a-browser", false, "Chromium/Playwright not found (QA_REQUIRE_BROWSER=1 or QA_REQUIRE_SERVER=1): install it with `npx playwright install chromium` or set PLAYWRIGHT_PATH");
+    else note("SKIPPED crawler-after-browser-*: Chromium/Playwright not found, so the pages were not opened in a browser first (QA_REQUIRE_BROWSER=1 makes this a failure)");
+    return;
+  }
+  const origin = new URL(BASE).origin;
+  const rendered: string[] = [];
+  const streamed = new Set<string>();
+  const browser = await pw.chromium.launch();
+  try {
+    for (const theme of ["light", "dark"]) {
+      const ctx = await browser.newContext({ colorScheme: "dark", reducedMotion: "reduce" });
+      // Nothing outside the server under test (no network in CI), and on plain http the CSP's upgrade-insecure-requests would send every
+      // script to https and break the page (the same harness as scripts/qa-theme.ts); every other directive still applies.
+      await ctx.route((u: URL) => u.origin !== origin && /^https?:$/.test(u.protocol), (route: { abort: () => Promise<void> }) => route.abort());
+      if (origin.startsWith("http://")) {
+        await ctx.route((u: URL) => u.origin === origin, async (route: any) => {
+          if (route.request().resourceType() !== "document") return route.continue();
+          const res = await route.fetch({ maxRedirects: 0 });
+          const headers: Record<string, string> = { ...res.headers() };
+          for (const k of ["content-security-policy", "content-security-policy-report-only"]) if (headers[k]) headers[k] = headers[k].replace(/;?\s*upgrade-insecure-requests/g, "");
+          await route.fulfill({ response: res, headers });
+        });
+      }
+      await ctx.addInitScript((t: string) => {
+        try {
+          localStorage.setItem("theme", t);
+        } catch {
+          /* storage blocked: the page stays light */
+        }
+      }, theme);
+      // Every response that made the server render and cache a page for this browser: the documents it opened, and the RSC prefetches of
+      // the pages they link to (a visitor's browser asks for those too, and an uncached or stale ISR page is rendered on that request).
+      ctx.on("response", (res: any) => {
+        const cache = res.headers()["x-nextjs-cache"];
+        if (cache === "MISS" || cache === "STALE") rendered.push(`${new URL(res.url()).pathname}${res.request().resourceType() === "document" ? "" : " (prefetch)"} ${cache} ${theme}`);
+      });
+      const page = await ctx.newPage();
+      for (const p of [...sample.indexable, ...sample.noindex]) {
+        const resp = await page.goto(`${BASE}${p}`, { waitUntil: "load", timeout: 60_000 });
+        // A visitor's browser prefetches the pages it links to (the header, the footer, the cards): those requests reach the server too.
+        await page.waitForLoadState("networkidle", { timeout: 5_000 }).catch(() => undefined);
+        L.rec("crawler-after-browser-browser-got-the-page", `${theme} ${p}`, resp?.status() === 200, `HTTP ${resp?.status()}`);
+        const html = resp ? await resp.text().catch(() => "") : "";
+        if (html && tagsOutsideHead(extract(html), { canonical: !p.includes("?"), robots: p.includes("?") }).length > 0) streamed.add(p);
+      }
+      await ctx.close();
+    }
+  } finally {
+    await browser.close();
+  }
+  const renderedSample = rendered.filter((r) => [...sample.indexable, ...sample.noindex].some((p) => r.startsWith(`${p} `)));
+  note(`crawler-after-browser: the browser made the server render and cache ${rendered.length} response(s) (x-nextjs-cache MISS or STALE), ${renderedSample.length} of them pages of the crawler sample${renderedSample.length ? `: ${renderedSample.slice(0, 8).join(", ")}` : " (all were cached already: an earlier visitor rendered them)"}; ${streamed.size} page(s) reached the browser with streamed metadata (by design, a browser is not a crawler)${streamed.size ? `: ${[...streamed].slice(0, 6).join(" ")}` : ""}`);
+  await everyCrawler("crawler-after-browser", sample);
+}
+
+/**
+ * The same crawler fetches again, late in the run, after the crawl, the links and the exclusions (every other section reads its first
+ * response from the cache; these are fresh). For the dynamic pages and the variants this is how each crawler is served; and a browser
+ * must still get the streamed form (the crawler rule must not turn every visit into a blocking render).
+ */
+async function crawlerDeliveryChecks(sample: CrawlerSample): Promise<void> {
+  section("crawler delivery: the metadata is inside <head> for every crawler");
+  await everyCrawler("crawler", sample);
   // An ordinary visitor is not a crawler: the rule above must not turn every visit into a blocking render. (Informational:
   // a page that is static anyway has its metadata in the head for everybody.)
   const streamed: string[] = [];
-  for (const p of indexable) {
+  for (const p of sample.indexable) {
     const r = await request(`${SITE_ORIGIN}${p}`, { "user-agent": UA_BROWSER });
     if (tagsOutsideHead(extract(r.body), { canonical: true, robots: false }).length > 0) streamed.push(p);
   }
-  note(`streamed metadata for ordinary visitors (by design, only crawlers get it blocking): ${streamed.length} of ${indexable.length} probe pages${streamed.length ? `, e.g. ${streamed.slice(0, 5).join(" ")}` : ""}`);
+  note(`streamed metadata for ordinary visitors (by design, only crawlers get it blocking): ${streamed.length} of ${sample.indexable.length} probe pages${streamed.length ? `, e.g. ${streamed.slice(0, 5).join(" ")}` : ""}`);
 }
 
 function uniqueChecks(l: Ledger, titleOwners: Map<string, string[]>, descOwners: Map<string, string[]>): void {
@@ -1253,6 +1667,7 @@ async function linkChecks(pages: Map<string, { resp: Resp; f: Facts }>, robots: 
     }
   }
   let knownDebt = 0;
+  const goneTargets: Array<{ sample: string; from: string; status: number }> = [];
   await pool([...targets.entries()], 6, async ([, { sample, from }]) => {
     const full = `${SITE_ORIGIN}${sample}`;
     const p = new URL(full);
@@ -1263,6 +1678,11 @@ async function linkChecks(pages: Map<string, { resp: Resp; f: Facts }>, robots: 
       hops++;
     }
     const f = extract(r.body);
+    if (isGone(r.status) && !isPrivate(p.pathname)) {
+      // Judged below, once a fresh copy of the linking page has been read: a page rendered before a row was deleted (D25).
+      goneTargets.push({ sample, from, status: r.status });
+      return;
+    }
     L.rec("link-resolves", `${sample} <- ${from}`, r.status < 400 || isPrivate(p.pathname), `HTTP ${r.status}`);
     if (isPrivate(p.pathname)) return;
     // The other half of "no orphans": an indexable page that pages link to must be in the sitemap.
@@ -1284,6 +1704,38 @@ async function linkChecks(pages: Map<string, { resp: Resp; f: Facts }>, robots: 
       L.rec("link-to-noindex-page", sample, true);
     }
   });
+  // A link to a 404: the linking page may have been rendered (or its catalogue read cached) before another suite deleted the row it
+  // links to. Read fresh copies of the linking page until the link is gone, up to DELETED_ROW_BOUND_MS; still there is `link-resolves`.
+  if (goneTargets.length) {
+    const subject = (t: { sample: string; from: string }) => `${t.sample} <- ${t.from}`;
+    const froms = [...new Set(goneTargets.map((t) => t.from))];
+    console.log(`links: ${goneTargets.length} link(s) to a 404/410 (${goneTargets.slice(0, 3).map(subject).join(" | ")}); reading fresh copies of ${froms.length} linking page(s) for up to ${DELETED_ROW_BOUND_MS / 1000} s`);
+    const { dropped, reads } = await waitUntilDropped(goneTargets.map(subject), async () => {
+      const still = new Set<string>();
+      for (const from of froms) {
+        const r = await request(from);
+        if (r.status !== 200) throw new Error(`HTTP ${r.status} for ${from}`);
+        const hrefs = new Set(
+          extract(r.body).anchors.map((a) => {
+            try {
+              const u = new URL(a.href ?? "", from);
+              return u.origin === SITE_ORIGIN ? u.pathname + u.search : "";
+            } catch {
+              return "";
+            }
+          }),
+        );
+        for (const t of goneTargets) if (t.from === from && hrefs.has(t.sample)) still.add(subject(t));
+      }
+      return still;
+    });
+    for (const t of goneTargets) {
+      const ms = dropped.get(subject(t));
+      L.rec("link-to-a-deleted-row-goes-within-its-window", subject(t), ms !== undefined, `HTTP ${t.status}, and a fresh copy of the linking page still links to it after ${DELETED_ROW_BOUND_MS / 1000} s (${reads} reads)`);
+      if (ms !== undefined) note(`deleted row: ${t.sample} answered HTTP ${t.status} and ${new URL(t.from).pathname} linked to it as rendered before; a fresh copy no longer does ${Math.round(ms / 1000)} s later`);
+      else L.rec("link-resolves", subject(t), false, `HTTP ${t.status}`);
+    }
+  }
   void robots;
   // Reachability needs the whole link graph, so it is only judged when every sitemap page was crawled.
   if (FULL) {
@@ -1364,15 +1816,15 @@ async function exclusionChecks(robots: RobotsGroup[], inSitemap: Set<string>, ro
     L.rec("variant-header-agrees-with-the-tag", p, /\bnofollow\b/i.test(header) === /\bnofollow\b/i.test(tag), `header "${header}" vs tag "${tag}"`);
   }
   // A file in public/ cannot carry a robots tag, so its header is the only signal: every HTML or PDF document there is noindex (the lead-magnet
-  // cheat sheet is handed out for an e-mail address, the offline page belongs to the service worker), and none is listed in the sitemap.
-  // The one kind of file that must stay plain is the IndexNow key (public/<key>.txt): the engine has to read it.
+  // cheat sheet is handed out for an e-mail address), and none is listed in the sitemap. The one kind of file that must stay plain is the
+  // IndexNow key (public/<key>.txt): the engine has to read it.
   {
     const publicDir = path.join(ROOT, "public");
     const walk = (dir: string): string[] => fs.readdirSync(dir, { withFileTypes: true }).flatMap((e) => (e.isDirectory() ? walk(path.join(dir, e.name)) : [path.join(dir, e.name)]));
     const files = walk(publicDir).map((f) => `/${path.relative(publicDir, f).split(path.sep).join("/")}`);
     const documents = files.filter((f) => /\.(html?|pdf)$/i.test(f));
     const keyFiles = files.filter((f) => /^\/[A-Za-z0-9-]{8,128}\.txt$/.test(f));
-    check("public-documents-are-found", documents.length >= 3 && documents.includes("/offline.html") && documents.some((f) => f.startsWith("/leadmagnets/")), documents.join(" "));
+    check("public-documents-are-found", documents.length >= 2 && documents.some((f) => f.startsWith("/leadmagnets/")), documents.join(" "));
     for (const f of documents) {
       const r = await get(f);
       L.rec("static-document-noindex-header", f, r.status === 200 && /\bnoindex\b/i.test(r.headers["x-robots-tag"] ?? ""), `HTTP ${r.status}, X-Robots-Tag ${r.headers["x-robots-tag"] ?? "-"}`);
@@ -1381,6 +1833,13 @@ async function exclusionChecks(robots: RobotsGroup[], inSitemap: Set<string>, ro
     for (const f of keyFiles) {
       const r = await get(f);
       L.rec("indexnow-key-file-stays-plain", f, r.status === 200 && !/\bnoindex\b/i.test(r.headers["x-robots-tag"] ?? "") && robotsAllows(robots, "bingbot", f), `HTTP ${r.status}, X-Robots-Tag ${r.headers["x-robots-tag"] ?? "-"}`);
+    }
+    // D25: the offline page of the removed service worker was deleted (nothing served or linked it: public/sw.js is a kill switch without a
+    // fetch handler). Its address is now the site's ordinary 404, which says noindex in the page, is not in the sitemap and is not cached.
+    for (const f of DELETED_STATIC_DOCUMENTS) {
+      const r = await get(f);
+      const fx = extract(r.body);
+      L.rec("deleted-static-document-is-gone", f, !files.includes(f) && r.status === 404 && metaAll(fx, "robots").some((c) => /\bnoindex\b/i.test(c)) && !listed(f), `in public/: ${files.includes(f)}, HTTP ${r.status}, robots meta ${JSON.stringify(metaAll(fx, "robots"))}, in the sitemap: ${listed(f)}`);
     }
   }
   // ...and the addresses that are the page itself carry none (a blank ?q= and tracking parameters are not variants).
@@ -1517,12 +1976,14 @@ async function mutationProofs(
   descOwners: Map<string, string[]>,
 ): Promise<void> {
   section("defect proofs: the checks above must notice these");
-  const partUrl = [...pages.keys()].find((u) => familyOf(new URL(u).pathname) === "part");
-  const codeUrl = [...pages.keys()].find((u) => familyOf(new URL(u).pathname) === "error-code");
+  // A seeded row that answered 200, not the first of the family: a QA- row another suite deleted sorts first (D25).
+  const seeded = seededPaths();
+  const partUrl = proofPage(pages, "part", seeded);
+  const codeUrl = proofPage(pages, "error-code", seeded);
   const staticUrl = `${SITE_ORIGIN}/over`;
   const pricesUrl = `${SITE_ORIGIN}/prijzen`;
   if (!partUrl || !codeUrl || !pages.has(staticUrl) || !pages.has(pricesUrl)) {
-    check("mutation-proofs-have-pages-to-work-on", false, "need a part page, an error code page, /over and /prijzen in the crawl");
+    check("mutation-proofs-have-pages-to-work-on", false, "need a part page and an error code page that answered 200, /over and /prijzen in the crawl");
     return;
   }
   const ctxFor = (loc: string): PageCtx => ({ loc, origin: SITE_ORIGIN, rootDescription, robots, family: familyOf(new URL(loc).pathname) });
@@ -1585,6 +2046,12 @@ async function mutationProofs(
       mutation: "the h1 of an error code page is removed",
       expect: "one-h1",
       run: () => run(codeUrl, html(codeUrl).replace(/<h1\b[\s\S]*?<\/h1>/i, "")),
+    },
+    {
+      name: "a skipped heading level",
+      mutation: "an h3 is put right after the h1 of an error code page (h1 straight to h3, the pattern 38 pages had before D25)",
+      expect: "heading-order",
+      run: () => run(codeUrl, html(codeUrl).replace(/(<h1\b[\s\S]*?<\/h1>)/i, "$1<h3>Overgeslagen niveau</h3>")),
     },
     {
       name: "a page that is accidentally noindex",
@@ -1683,7 +2150,7 @@ async function mutationProofs(
   const clean = run(partUrl, html(partUrl));
   const cleanPrices = run(pricesUrl, html(pricesUrl));
   void base;
-  check("untouched-page-passes-the-checks-the-defects-trip", ["canonical-self", "one-h1", "indexable", "jsonld-rating-needs-reviews", "jsonld-faq-visible", "product-price-visible", "product-brand-is-a-manufacturer", "metadata-in-head", "title-brand-once", "description-not-generic", "img-alt"].every((c) => !clean.failedChecks().includes(c)), clean.failedChecks().join(", "));
+  check("untouched-page-passes-the-checks-the-defects-trip", ["canonical-self", "one-h1", "heading-order", "indexable", "jsonld-rating-needs-reviews", "jsonld-faq-visible", "product-price-visible", "product-brand-is-a-manufacturer", "metadata-in-head", "title-brand-once", "description-not-generic", "img-alt"].every((c) => !clean.failedChecks().includes(c)), clean.failedChecks().join(", "));
   check("untouched-plan-page-passes-the-plan-checks", ["plan-offer-states-period-and-vat", "plan-offer-matches-the-printed-price"].every((c) => !cleanPrices.failedChecks().includes(c)) && (cleanPrices.seen.get("plan-offer-states-period-and-vat") ?? 0) >= 2, `${cleanPrices.failedChecks().join(", ")}; plan offers seen: ${cleanPrices.seen.get("plan-offer-states-period-and-vat") ?? 0}`);
   void locs;
 }
@@ -1693,6 +2160,7 @@ async function mutationProofs(
 async function main(): Promise<void> {
   console.log("SEO readiness: helpers and source first, then the running site");
   helperChecks();
+  await crawlerHarnessChecks();
   sourceChecks();
   await environmentChecks();
   if (!BASE) {
@@ -1715,8 +2183,10 @@ async function main(): Promise<void> {
     if (bad) {
       failed++;
       console.log(`❌ ${n}: ${bad.length} of ${total} failed`);
-      for (const b of bad.slice(0, 6)) console.log(`     ${b}`);
-      if (bad.length > 6) console.log(`     ... and ${bad.length - 6} more`);
+      // Up to 20 failures are all printed: a run once failed "9 of 153" with only six of them shown, and the cause could not be traced
+      // afterwards (decision D25). Beyond 20 the first 20 and a count.
+      for (const b of bad.slice(0, 20)) console.log(`     ${b}`);
+      if (bad.length > 20) console.log(`     ... and ${bad.length - 20} more`);
     } else {
       console.log(`✅ ${n}${total > 1 ? ` (${total})` : ""}`);
     }

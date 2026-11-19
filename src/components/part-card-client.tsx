@@ -29,6 +29,8 @@ type PartCardProps = {
   showAddToCart?: boolean;
   /** Small label above the name, e.g. "Mogelijk nodig". */
   note?: string;
+  /** The level of the name's heading (see PartCard): the page outline must not skip a level. Same look either way. */
+  headingLevel?: 2 | 3;
 };
 
 /**
@@ -36,8 +38,9 @@ type PartCardProps = {
  * pass the part through <PartCard>, which strips it down to the public fields
  * before it crosses into this client component (and therefore into the HTML).
  */
-export function PartCardClient({ part, showAddToCart = true, note }: PartCardProps) {
+export function PartCardClient({ part, showAddToCart = true, note, headingLevel = 3 }: PartCardProps) {
   const add = useCart((s) => s.add);
+  const Heading = headingLevel === 2 ? "h2" : "h3";
   const availability = availabilityOf(part.stock);
 
   return (
@@ -67,9 +70,9 @@ export function PartCardClient({ part, showAddToCart = true, note }: PartCardPro
         <CardContent className="p-3 sm:p-4">
           <Badge variant="outline" className="text-[10px] mb-1.5">{part.brand}</Badge>
           {note && <p className="text-[11px] font-medium text-warning mb-0.5">{note}</p>}
-          <h3 className="text-sm font-medium line-clamp-2 leading-snug min-h-[40px] group-hover:text-primary transition-colors break-words">
+          <Heading className="text-sm font-medium line-clamp-2 leading-snug min-h-[40px] group-hover:text-primary transition-colors break-words">
             {part.name}
-          </h3>
+          </Heading>
           {/* flex-wrap: on a 360px phone a card is ~158px wide, too narrow for "€ 12,00" and "Op voorraad" side by side; the label drops to its own line instead of being cut off. */}
           <div className="flex flex-wrap items-center justify-between mt-3 gap-x-2 gap-y-0.5">
             <span className="text-lg font-bold text-primary">{formatEur(part.priceEur)}</span>

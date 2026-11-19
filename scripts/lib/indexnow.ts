@@ -236,8 +236,8 @@ export const DROP_LABEL: Record<DropReason, string> = {
 /**
  * The path prefixes that next.config.ts marks noindex WITHOUT a condition: a header rule without a query condition, on a
  * `/prefix/:path*` source, whose X-Robots-Tag says noindex. Read from variantHeaderRules() (src/lib/seo.ts), so the filter and
- * the headers cannot drift apart: a family added there is dropped here. Today: ["/qr"]. The filtered list variants (rules with
- * a query condition) are not families: they are addresses with a query string, dropped as such.
+ * the headers cannot drift apart: a family added there is dropped here. Today: ["/qr", "/leadmagnets"]. The filtered list
+ * variants (rules with a query condition) are not families: they are addresses with a query string, dropped as such.
  */
 export function noindexFamilyPrefixes(rules: readonly RobotsHeaderRule[] = variantHeaderRules()): string[] {
   return rules.filter((r) => !r.has && /noindex/i.test(r.robots) && /^\/[^:*]+\/:path\*$/.test(r.source)).map((r) => r.source.replace(/\/:path\*$/, ""));
@@ -245,8 +245,9 @@ export function noindexFamilyPrefixes(rules: readonly RobotsHeaderRule[] = varia
 
 /**
  * The single files next.config.ts marks noindex without a condition: a header rule without a query condition on a source that
- * is a plain path (no `:param`, no `*`), whose X-Robots-Tag says noindex. Today ["/offline.html"]. Read from
- * variantHeaderRules() like the families, in lower case (a path is compared lower-cased).
+ * is a plain path (no `:param`, no `*`), whose X-Robots-Tag says noindex. Today none: the one there was, /offline.html, was
+ * deleted with its header rule (decision D25); the mechanism stays for the next single file. Read from variantHeaderRules() like
+ * the families, in lower case (a path is compared lower-cased).
  */
 export function noindexExactPaths(rules: readonly RobotsHeaderRule[] = variantHeaderRules()): string[] {
   return rules.filter((r) => !r.has && /noindex/i.test(r.robots) && /^\/[^:*()]*$/.test(r.source)).map((r) => r.source.toLowerCase());

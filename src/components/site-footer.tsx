@@ -23,7 +23,7 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Product</h4>
+            <h2 className="font-semibold mb-3 text-sm">Product</h2>
             <ul className="text-sm text-muted-foreground">
               <li><Link href="/diagnose" className="hover:text-foreground inline-flex items-center min-h-11">AI Diagnose</Link></li>
               <li><Link href="/onderdelen" className="hover:text-foreground inline-flex items-center min-h-11">Onderdelen</Link></li>
@@ -34,7 +34,7 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Bedrijf</h4>
+            <h2 className="font-semibold mb-3 text-sm">Bedrijf</h2>
             <ul className="text-sm text-muted-foreground">
               <li><Link href="/prijzen" className="hover:text-foreground inline-flex items-center min-h-11">Prijzen</Link></li>
               <li><Link href="/monteur" className="hover:text-foreground inline-flex items-center min-h-11">Voor monteurs</Link></li>
@@ -44,7 +44,7 @@ export function SiteFooter() {
           </div>
 
           <div>
-            <h4 className="font-semibold mb-3 text-sm">Support</h4>
+            <h2 className="font-semibold mb-3 text-sm">Support</h2>
             <ul className="text-sm text-muted-foreground">
               <li><Link href="/help" className="hover:text-foreground inline-flex items-center min-h-11">Helpcentrum</Link></li>
               <li><Link href="/contact" className="hover:text-foreground inline-flex items-center min-h-11">Contact</Link></li>

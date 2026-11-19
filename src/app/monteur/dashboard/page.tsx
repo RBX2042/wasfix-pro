@@ -32,7 +32,7 @@ export default async function MonteurDashboardPage() {
         <Card>
           <CardContent className="p-12 text-center">
             <Wrench className="mx-auto h-12 w-12 text-muted-foreground/30 mb-3" />
-            <h2 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h2>
+            <h1 className="font-heading text-xl font-bold mb-2">Monteur Pro vereist</h1>
             <p className="text-muted-foreground mb-4">Deze functies zijn beschikbaar voor Monteur Pro abonnees.</p>
             <Button asChild><Link href="/prijzen">Bekijk Monteur Pro</Link></Button>
           </CardContent>

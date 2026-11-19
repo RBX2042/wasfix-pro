@@ -16,10 +16,13 @@ export function PartCard({
   part,
   showAddToCart = true,
   note,
+  headingLevel = 3,
 }: {
   part: PartCardPart & { description?: string | null };
   showAddToCart?: boolean;
   note?: string;
+  /** The level of the part name's heading: 3 under a section heading (the default), 2 in a grid right under the page's h1. */
+  headingLevel?: 2 | 3;
 }) {
   const pub = toPublicPart({ description: null, ...part });
   return (
@@ -37,6 +40,7 @@ export function PartCard({
       }}
       showAddToCart={showAddToCart}
       note={note}
+      headingLevel={headingLevel}
     />
   );
 }

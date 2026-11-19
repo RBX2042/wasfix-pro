@@ -21,6 +21,16 @@
  *      address and direction; a confirmation link older than an opt-out does not undo it; two rate-limit buckets
  *      (forged tokens per caller, valid tokens per address); the RFC 8058 headers reach the transport (sendMail ->
  *      sendRaw -> the Resend stand-in's POST /emails)
+ *   5c Resend webhook (bundle F3, closes the gap D20 named): the Svix signature (valid, tampered, wrong secret, missing
+ *      headers, five minutes either way, several v1 entries, constant-time comparison; cross-checked against the
+ *      standardwebhooks package; verified over the RAW body, also one that is not JSON.stringify output or arrives in
+ *      chunks), no secret -> 503 (its error line rate limited), contact.updated unsubscribed:true -> our table (first timestamp kept,
+ *      no call back to Resend), unsubscribed:false never subscribes, email.complained -> every listed address in our table
+ *      (audience flagged after the response, owner notice shared with our own opt-out), other types and unknown addresses
+ *      change nothing and get the same answer, malformed signed bodies are refused, database errors are a 500 for a retry,
+ *      the rate limit counts only unsigned deliveries, a body without a Content-Length is cut off at the size limit while
+ *      the route reads it (in-process only: under `next start` Next reads the whole request for the middleware before
+ *      the route runs, DECISIONS.md D20), and no address reaches a log line
  *
  * Usage:  VERCEL=1 DATABASE_URL=postgresql://... npx tsx scripts/qa-privacy.ts
  * (VERCEL=1: the suite sends x-vercel-forwarded-for to get a separate rate-limit bucket per simulated caller.)
@@ -67,7 +77,7 @@ Object.assign(process.env, {
   NEXT_PUBLIC_APP_URL: "https://shop.qa-privacy.test",
 });
 
-type Json = Record<string, any>; // eslint-disable-line @typescript-eslint/no-explicit-any
+type Json = Record<string, any>;
 const DAY = 86_400_000;
 
 async function main() {
@@ -502,10 +512,10 @@ async function main() {
     // persistence fails -> an error, not "bedankt"
     const dbDown = email("nl-dbdown");
     const orig = prisma.newsletterSubscriber.findUnique;
-    (prisma.newsletterSubscriber as any).findUnique = async () => { throw new Error("db down"); }; // eslint-disable-line @typescript-eslint/no-explicit-any
+    (prisma.newsletterSubscriber as any).findUnique = async () => { throw new Error("db down"); };
     const failed = await post(dbDown);
     const failedLead = await leadRoute.POST(req("/api/lead-magnet", { method: "POST", body: { email: dbDown, magnetId: "foutcodes-cheatsheet" } }));
-    (prisma.newsletterSubscriber as any).findUnique = orig; // eslint-disable-line @typescript-eslint/no-explicit-any
+    (prisma.newsletterSubscriber as any).findUnique = orig;
     const failedJson = (await failed.json()) as Json;
     const failedLeadJson = (await failedLead.json()) as Json;
     check(failed.status === 503 && /niets opgeslagen/.test(String(failedJson.error)) && !failedJson.message && failedLead.status === 503 && !failedLeadJson.url && (await prisma.newsletterSubscriber.count({ where: { email: dbDown } })) === 0, "Database error: /api/newsletter AND /api/lead-magnet answer 503 'niets opgeslagen' (before: 200 'Bedankt, je bent aangemeld'), no download link, nothing stored", `db down: ${failed.status} ${JSON.stringify(failedJson)} / ${failedLead.status} ${JSON.stringify(failedLeadJson)}`);
@@ -1028,10 +1038,450 @@ async function main() {
 
     delete process.env.RESEND_API_KEY;
     delete process.env.RESEND_AUDIENCE_ID;
-    delete process.env.RESEND_BASE_URL;
-    resendFake.closeAllConnections?.();
-    await new Promise<void>((r) => resendFake.close(() => r()));
   }
+
+  // ════════════════════════ 5c. Resend webhook ════════════════════════
+  section("5c. Resend webhook: a signed opt-out or spam complaint made at Resend reaches our table; Resend never subscribes anyone");
+  {
+    // What Resend sends is taken from its webhook documentation (svix-* headers; contact.updated with data.email and
+    // data.unsubscribed; email.complained with data.to as an array). Nothing here was observed from a real Resend delivery.
+    const nodeCrypto = Module.createRequire(__filename)("node:crypto") as typeof import("node:crypto");
+    const hook = await import("../src/lib/resend-webhook");
+    const hookRoute = await import("../src/app/api/webhooks/resend/route");
+    process.env.RESEND_API_KEY = "re_qa_privacy";
+    process.env.RESEND_AUDIENCE_ID = "aud_qa";
+    audience.mode = "ok";
+    audience.calls.length = 0;
+    slackBodies.length = 0;
+    newsletter._setNewsletterStateForTests();
+    const logMark = captured.length;
+    const logsSince = () => captured.slice(logMark);
+    // Every address this section uses: none may appear in a log line or an owner notice (checked at the end).
+    const used: string[] = [];
+    const addrFor = (tag: string) => { const a = email(tag); used.push(a); return a; };
+    const subscriber = (addr: string, confirmed = true) => prisma.newsletterSubscriber.create({ data: { email: addr, source: "newsletter", ...(confirmed ? { confirmedAt: new Date(Date.now() - 30 * DAY) } : {}) } });
+    const rowOf = (addr: string) => prisma.newsletterSubscriber.findUnique({ where: { email: addr } });
+    const unsubNotices = () => slackTexts().filter((t) => /newsletter\.resend_unsubscribe_failed/.test(t));
+
+    // A secret of the documented shape (whsec_ + base64 of 24 bytes), made at run time: a whsec_ literal in a file is what
+    // push protection looks for.
+    const PREFIX = ["wh", "sec_"].join("");
+    const SECRET = PREFIX + nodeCrypto.randomBytes(24).toString("base64");
+    const keyOf = (s: string) => { const p = hook.parseResendWebhookSecret(s); if (!p.ok) throw new Error(`fixture secret refused: ${p.reason}`); return p.key; };
+    const KEY = keyOf(SECRET);
+    const OTHER_KEY = keyOf(PREFIX + nodeCrypto.randomBytes(24).toString("base64"));
+    process.env.RESEND_WEBHOOK_SECRET = SECRET;
+
+    // The deliveries are signed by an implementation we did not write: standardwebhooks (the Svix / Standard Webhooks
+    // scheme), which @clerk/backend installs. Loaded through a variable, so that a missing package is a warning here and
+    // not a type error; then our own function signs and the cross-check below is skipped.
+    type Reference = { sign(id: string, at: Date, body: string): string; verify(body: string, headers: Record<string, string>): unknown };
+    let reference: Reference | null = null;
+    try {
+      const spec = "standardwebhooks";
+      const mod = (await import(spec)) as { Webhook: new (secret: string) => Reference };
+      reference = new mod.Webhook(SECRET);
+    } catch {
+      log.push("⚠️  standardwebhooks is not installed: deliveries are signed with our own function and the cross-check is skipped");
+    }
+    const nowSec = () => Math.floor(Date.now() / 1000);
+    let msgSeq = 0;
+    type Hdrs = Record<string, string>;
+    const sign = (body: string, o: { ts?: number; key?: Buffer; id?: string } = {}): Hdrs => {
+      const id = o.id ?? `msg_qa_${RUN}_${++msgSeq}`;
+      const ts = o.ts ?? nowSec();
+      const sig = reference && !o.key ? reference.sign(id, new Date(ts * 1000), body).replace(/^v1,/, "") : hook.resendWebhookSignature(o.key ?? KEY, id, String(ts), body);
+      return { "svix-id": id, "svix-timestamp": String(ts), "svix-signature": `v1,${sig}` };
+    };
+    const post = async (body: string, headers: Hdrs, ip: string = freshIp()) => {
+      const res = await hookRoute.POST(new NextRequest("http://localhost/api/webhooks/resend", { method: "POST", headers: { "content-type": "application/json", "user-agent": "Svix-Webhooks/1.0", "x-vercel-forwarded-for": ip, ...headers }, body }));
+      return { status: res.status, text: await res.text() };
+    };
+    const deliver = (event: unknown, ip?: string) => { const body = JSON.stringify(event); return post(body, sign(body), ip); };
+    const contactUpdated = (addr: string, unsubscribed: boolean) => ({
+      type: "contact.updated",
+      created_at: new Date().toISOString(),
+      data: { id: nodeCrypto.randomUUID(), audience_id: "aud_qa", email: addr, first_name: "", last_name: "", created_at: new Date(Date.now() - 30 * DAY).toISOString(), updated_at: new Date().toISOString(), unsubscribed },
+    });
+    const complained = (to: unknown[]) => ({
+      type: "email.complained",
+      created_at: new Date().toISOString(),
+      data: { created_at: new Date().toISOString(), email_id: nodeCrypto.randomUUID(), broadcast_id: nodeCrypto.randomUUID(), from: "WasFix Pro <noreply@wasfix.nl>", to, subject: "Nieuwsbrief" },
+    });
+    const ACK = JSON.stringify({ received: true });
+    const INVALID = JSON.stringify({ error: "Invalid signature" });
+
+    // ── The verification (pure, src/lib/resend-webhook.ts), with the clock passed in ──
+    const T = 1_900_000_000;
+    const pureAddr = addrFor("hook-pure");
+    const pureBody = JSON.stringify(contactUpdated(pureAddr, true));
+    const H = sign(pureBody, { ts: T });
+    const verify = (body: string, h: Partial<Hdrs>, atSec: number = T) =>
+      hook.verifyResendWebhook({ key: KEY, headers: { id: h["svix-id"] ?? null, timestamp: h["svix-timestamp"] ?? null, signature: h["svix-signature"] ?? null }, body, nowMs: atSec * 1000 });
+    const reasonOf = (r: ReturnType<typeof verify>) => (r.ok ? "ok" : r.reason);
+    check(verify(pureBody, H).ok === true, "Svix verification: a delivery signed with the secret (v1 = base64 HMAC-SHA256 over svix-id.svix-timestamp.body, key = the base64 after whsec_) verifies", `valid: ${reasonOf(verify(pureBody, H))}`);
+    const tamperedBody = pureBody.replace('"unsubscribed":true', '"unsubscribed":false');
+    const tamperReasons = [reasonOf(verify(tamperedBody, H)), reasonOf(verify(pureBody, { ...H, "svix-id": `${H["svix-id"]}x` })), reasonOf(verify(pureBody, { ...H, "svix-timestamp": String(T - 1) }))];
+    check(tamperedBody !== pureBody && tamperReasons.every((r) => r === "no_matching_signature"), "Svix verification: a tampered body is refused, and so is the same signature under another svix-id or another timestamp (both are signed)", `tampered: ${tamperReasons.join(",")}`);
+    const wrongSecret = sign(pureBody, { ts: T, key: OTHER_KEY });
+    check(reasonOf(verify(pureBody, wrongSecret)) === "no_matching_signature", "Svix verification: a signature made with another secret is refused", `wrong secret: ${reasonOf(verify(pureBody, wrongSecret))}`);
+    const missingReasons = (["svix-id", "svix-timestamp", "svix-signature"] as const).map((h) => reasonOf(verify(pureBody, { ...H, [h]: undefined })));
+    check(missingReasons.every((r) => r === "missing_headers") && reasonOf(verify(pureBody, { ...H, "svix-signature": "  " })) === "missing_headers", "Svix verification: a delivery without svix-id, svix-timestamp or svix-signature (each in turn, or a blank one) is refused", `missing headers: ${missingReasons.join(",")}`);
+    const olderBy = [299, 300, 301].map((d) => reasonOf(verify(pureBody, sign(pureBody, { ts: T - d }))));
+    check(JSON.stringify(olderBy) === JSON.stringify(["ok", "ok", "timestamp_too_old"]), "Svix verification: a timestamp more than five minutes old is refused (300 s old is still accepted, 301 s is not)", `older by 299/300/301 s: ${olderBy.join(",")}`);
+    const aheadBy = [299, 300, 301].map((d) => reasonOf(verify(pureBody, sign(pureBody, { ts: T + d }))));
+    check(JSON.stringify(aheadBy) === JSON.stringify(["ok", "ok", "timestamp_too_new"]), "Svix verification: a timestamp more than five minutes in the FUTURE is refused too (a clock ahead is no way around the window)", `ahead by 299/300/301 s: ${aheadBy.join(",")}`);
+    const badTs = ["12a", "-5", "1e9", "1900000000.5", "0x10"].map((ts) => reasonOf(verify(pureBody, { ...H, "svix-timestamp": ts })));
+    check(badTs.every((r) => r === "bad_timestamp"), "Svix verification: a timestamp that is not whole seconds in digits is refused", `bad timestamps: ${badTs.join(",")}`);
+    const good = H["svix-signature"].slice(3);
+    const bad = wrongSecret["svix-signature"].slice(3);
+    const multi = [`v1,${bad} v1,${good}`, `v1,${good} v1,${bad}`, `v1a,${good} v1,${bad} v1,${good}`].map((s) => reasonOf(verify(pureBody, { ...H, "svix-signature": s })));
+    check(multi.every((r) => r === "ok"), "Svix verification: a header with several space-separated v1 entries (as during a secret rotation) verifies when ONE of them matches, wherever it stands", `several entries: ${multi.join(",")}`);
+    const notV1 = [`v2,${good}`, good, `v1,${bad} v1,${bad}`, `v1,${good}=`, `v1 ${good}`].map((s) => reasonOf(verify(pureBody, { ...H, "svix-signature": s })));
+    check(notV1.every((r) => r === "no_matching_signature"), "Svix verification: only v1 entries count (v2,<the right signature>, a bare signature, two wrong ones and one character more are all refused)", `not v1: ${notV1.join(",")}`);
+    // Constant time: the comparison must go through crypto.timingSafeEqual. Spied on the module object the code calls into
+    // (the transpiled import reads the property at call time), restored at once.
+    const realTse = nodeCrypto.timingSafeEqual;
+    const compared: number[] = [];
+    (nodeCrypto as { timingSafeEqual: typeof realTse }).timingSafeEqual = ((a: NodeJS.ArrayBufferView, b: NodeJS.ArrayBufferView) => { compared.push(a.byteLength, b.byteLength); return realTse(a, b); }) as typeof realTse;
+    let spied = "";
+    try {
+      spied = reasonOf(verify(pureBody, { ...H, "svix-signature": `v1,${bad} v1,${good}` }));
+    } finally {
+      (nodeCrypto as { timingSafeEqual: typeof realTse }).timingSafeEqual = realTse;
+    }
+    check(spied === "ok" && JSON.stringify(compared) === JSON.stringify([44, 44, 44, 44]), "Svix verification: the signature is compared in constant time (each v1 entry of the right length goes through crypto.timingSafeEqual, here two entries of 44 base64 characters), never with ===", `constant time: ${spied}, timingSafeEqual byte lengths ${JSON.stringify(compared)}`);
+    const sp = (s: string | undefined) => { const r = hook.parseResendWebhookSecret(s); return r.ok ? `ok:${r.key.length}` : r.reason; };
+    const secretCases = [sp(undefined), sp("  "), sp(["re", "x".repeat(30)].join("_")), sp(SECRET.slice(PREFIX.length)), sp(`${PREFIX}not base64!`), sp(`${PREFIX}${Buffer.alloc(8).toString("base64")}`), sp(` ${SECRET} `)];
+    check(JSON.stringify(secretCases) === JSON.stringify(["missing", "missing", "no_prefix", "no_prefix", "not_base64", "too_short", "ok:24"]) && KEY.equals(Buffer.from(SECRET.slice(PREFIX.length), "base64")), "RESEND_WEBHOOK_SECRET is read as whsec_ + base64 and the key is the decoded part; unset, another kind of key (re_...), a bare base64 value, non-base64 and a key under 16 bytes are refused", `secret parsing: ${JSON.stringify(secretCases)}`);
+    if (reference) {
+      const theirs = reference.sign("msg_qa_cross", new Date(T * 1000), pureBody);
+      const ours = `v1,${hook.resendWebhookSignature(KEY, "msg_qa_cross", String(T), pureBody)}`;
+      const nowTs = String(nowSec());
+      let theyAcceptOurs = false;
+      try {
+        reference.verify(pureBody, { "webhook-id": "msg_qa_cross_now", "webhook-timestamp": nowTs, "webhook-signature": `v1,${hook.resendWebhookSignature(KEY, "msg_qa_cross_now", nowTs, pureBody)}` });
+        theyAcceptOurs = true;
+      } catch {
+        theyAcceptOurs = false;
+      }
+      check(theirs === ours && theyAcceptOurs, "Cross-check with an implementation we did not write (standardwebhooks, the Svix scheme): it signs exactly what resendWebhookSignature() signs, and it accepts a delivery signed by ours", `cross-check: theirs ${theirs} ours ${ours}, they accept ours: ${theyAcceptOurs}`);
+    }
+    const pe = (body: string) => { const r = hook.parseResendWebhookEvent(body); return r.ok ? r.event : r.reason; };
+    const listed = pe(JSON.stringify(complained([`Lezer <${pureAddr.toUpperCase()}>`, pureAddr, "geen-adres", 42])));
+    const parseReasons = [pe("{"), pe("[]"), pe('{"type":5}'), pe('{"data":{}}'), pe(JSON.stringify({ type: "contact.updated", data: { unsubscribed: true } })), pe(JSON.stringify({ type: "contact.updated", data: { email: pureAddr, unsubscribed: "true" } })), pe(JSON.stringify(complained([])))];
+    check(JSON.stringify(parseReasons) === JSON.stringify(["not_json", "not_an_event", "not_an_event", "not_an_event", "contact_without_email", "contact_without_unsubscribed_flag", "complaint_without_recipients"]) && typeof listed === "object" && listed.kind === "email.complained" && JSON.stringify(listed.to) === JSON.stringify([pureAddr]) && (pe(JSON.stringify({ type: "contact.deleted", data: { email: pureAddr } })) as { kind?: string }).kind === "ignored",
+      "The event is read defensively: invalid JSON, a non-event, a contact.updated without an address or with a non-boolean unsubscribed, a complaint without recipients are reasons, never a throw; `Name <ADDRESS>` in data.to becomes the lower-case address, once; contact.deleted is ignored", `parse: ${JSON.stringify(parseReasons)} listed ${JSON.stringify(listed)}`);
+
+    // ── The route ──
+    // No usable secret: every delivery is refused with 503 and an error line, also one correctly signed with a secret the server does not have.
+    const victim = addrFor("hook-victim");
+    await subscriber(victim);
+    delete process.env.RESEND_WEBHOOK_SECRET;
+    const noSecret = await deliver(contactUpdated(victim, true));
+    process.env.RESEND_WEBHOOK_SECRET = ["re", "y".repeat(30)].join("_");
+    const otherKindOfKey = await deliver(contactUpdated(victim, true));
+    process.env.RESEND_WEBHOOK_SECRET = SECRET;
+    const afterNoSecret = await rowOf(victim);
+    check(noSecret.status === 503 && otherKindOfKey.status === 503 && afterNoSecret?.unsubscribedAt === null && logsSince().some((l) => /\[ERROR\]/.test(l) && /RESEND_WEBHOOK_SECRET is not set/.test(l)) && logsSince().some((l) => /\[ERROR\]/.test(l) && /not a Resend signing secret/.test(l)),
+      "Route: without RESEND_WEBHOOK_SECRET (or with a value that is not whsec_ + base64) every delivery is refused with 503 and an ERROR line, and nothing changes: no event is ever accepted unverified", `no secret: ${noSecret.status} ${noSecret.text} / other key: ${otherKindOfKey.status} row ${JSON.stringify(afterNoSecret)}`);
+    // ...but strangers cannot fill the log (and the owner's error sink) while the secret is missing: every POST then counts
+    // as a delivery that did not verify, and past the limit the 503 comes without the line.
+    const { max: unverifiedMax } = hook.RESEND_WEBHOOK_INVALID_LIMIT;
+    delete process.env.RESEND_WEBHOOK_SECRET;
+    const floodIp = freshIp();
+    const floodMark = captured.length;
+    const flood: number[] = [];
+    for (let i = 0; i < unverifiedMax + 3; i++) flood.push((await post("{}", {}, floodIp)).status);
+    const floodLines = captured.slice(floodMark).filter((l) => /\[ERROR\]/.test(l) && /RESEND_WEBHOOK_SECRET is not set/.test(l)).length;
+    const otherCaller = await post("{}", {});
+    const otherCallerLogged = captured.slice(floodMark).filter((l) => /\[ERROR\]/.test(l) && /RESEND_WEBHOOK_SECRET is not set/.test(l)).length === unverifiedMax + 1;
+    process.env.RESEND_WEBHOOK_SECRET = SECRET;
+    check(flood.length === unverifiedMax + 3 && flood.every((s) => s === 503) && floodLines === unverifiedMax && otherCaller.status === 503 && otherCallerLogged,
+      `Route: while the secret is missing, ${unverifiedMax + 3} POSTs from one caller all get 503 but only the first ${unverifiedMax} write the ERROR line (counted like deliveries that do not verify); another caller's POST is still logged`, `flood: ${flood.join(",")}; error lines ${floodLines}; other caller ${otherCaller.status} logged ${otherCallerLogged}`);
+
+    // Signature failures: 400, one answer for all of them, and nothing changes
+    const bystander = addrFor("hook-bystander");
+    await subscriber(bystander);
+    const evVictim = JSON.stringify(contactUpdated(victim, true));
+    const hv = sign(evVictim);
+    // Each case is judged on the rows as they are right after ITS delivery, so a failure names exactly one cause.
+    const untouched = async () => (await rowOf(victim))?.unsubscribedAt === null && (await rowOf(bystander))?.unsubscribedAt === null;
+    const swapped = await post(evVictim.split(victim).join(bystander), hv); // signed for one address, delivered naming another
+    const swappedClean = await untouched();
+    const otherSecret = await post(evVictim, sign(evVictim, { key: OTHER_KEY }));
+    const otherSecretClean = await untouched();
+    const noHeaders = await Promise.all((["svix-id", "svix-timestamp", "svix-signature"] as const).map((h) => post(evVictim, Object.fromEntries(Object.entries(hv).filter(([k]) => k !== h)))));
+    const noHeadersClean = await untouched();
+    const tooOld = await post(evVictim, sign(evVictim, { ts: nowSec() - 301 }));
+    const tooOldClean = await untouched();
+    await prisma.newsletterSubscriber.updateMany({ where: { email: victim }, data: { unsubscribedAt: null } }); // only matters when the check above failed
+    const tooNew = await post(evVictim, sign(evVictim, { ts: nowSec() + 301 }));
+    const tooNewClean = await untouched();
+    await prisma.newsletterSubscriber.updateMany({ where: { email: victim }, data: { unsubscribedAt: null } });
+    const v2Only = await post(evVictim, { ...hv, "svix-signature": hv["svix-signature"].replace(/^v1,/, "v2,") });
+    check(swapped.status === 400 && swapped.text === INVALID && swappedClean, "Route: a body changed after signing (the signed opt-out of one address, delivered naming another) is refused with 400 and neither row changes", `swapped: ${swapped.status} ${swapped.text}`);
+    check(otherSecret.status === 400 && otherSecret.text === INVALID && otherSecretClean, "Route: a delivery signed with another secret is refused (400)", `other secret: ${otherSecret.status} ${otherSecret.text}`);
+    check(noHeaders.every((r) => r.status === 400 && r.text === INVALID) && noHeadersClean, "Route: a delivery without svix-id, svix-timestamp or svix-signature is refused (400)", `missing headers: ${noHeaders.map((r) => r.status).join(",")}`);
+    check(tooOld.status === 400 && tooOld.text === INVALID && tooOldClean, "Route: a correctly signed delivery whose timestamp is more than five minutes old is refused (400): a captured delivery cannot be replayed later", `too old: ${tooOld.status} ${tooOld.text}`);
+    check(tooNew.status === 400 && tooNew.text === INVALID && tooNewClean, "Route: ...and so is one more than five minutes in the future", `too new: ${tooNew.status} ${tooNew.text}`);
+    check(v2Only.status === 400 && [swapped, otherSecret, ...noHeaders, tooOld, tooNew, v2Only].every((r) => r.text === INVALID), "Route: every signature failure gets the same answer, {\"error\":\"Invalid signature\"}, which does not say which check failed", `answers: ${[swapped, otherSecret, ...noHeaders, tooOld, tooNew, v2Only].map((r) => r.text).join(" | ")}`);
+
+    // contact.updated with unsubscribed:true: our table, the first timestamp kept, no call back to Resend
+    audience.calls.length = 0;
+    const tBefore = Date.now();
+    const fresh = sign(evVictim);
+    const retiredSig = sign(evVictim, { key: OTHER_KEY, id: fresh["svix-id"], ts: Number(fresh["svix-timestamp"]) })["svix-signature"];
+    const rotated = await post(evVictim, { ...fresh, "svix-signature": `${retiredSig} ${fresh["svix-signature"]}` });
+    const firstRow = await rowOf(victim);
+    await settle();
+    check(rotated.status === 200 && rotated.text === ACK && firstRow?.unsubscribedAt instanceof Date && firstRow.unsubscribedAt.getTime() >= tBefore - 1000 && firstRow.confirmedAt instanceof Date,
+      "contact.updated with unsubscribed:true (its signature header carrying two v1 entries, one under another secret and one valid) -> 200 {received:true}, unsubscribedAt set in our table, confirmedAt kept", `opt-out at Resend: ${rotated.status} ${rotated.text} row ${JSON.stringify(firstRow)}`);
+    check(patches(victim).length === 0 && audience.calls.length === 0 && (await rowOf(bystander))?.unsubscribedAt === null, "...with NO call back to Resend (the event says the contact is flagged already, and a PATCH would make Resend report another contact.updated), and the other row untouched", `resend calls: ${JSON.stringify(audience.calls)}`);
+    const again = await deliver(contactUpdated(victim, true));
+    const secondRow = await rowOf(victim);
+    check(again.status === 200 && again.text === ACK && secondRow?.unsubscribedAt?.getTime() === firstRow?.unsubscribedAt?.getTime(), "A second delivery of that opt-out (a retry by Resend) is acknowledged the same and keeps the FIRST timestamp (idempotent, the table path of our own link)", `second delivery: ${again.status} ${secondRow?.unsubscribedAt?.toISOString()} vs ${firstRow?.unsubscribedAt?.toISOString()}`);
+
+    // The signature covers the RAW bytes. A real delivery need not look like JSON.stringify output, so this body is
+    // pretty-printed with a trailing newline, keys in another order, \u escapes, a number written as 1.50 and literal
+    // non-ASCII text: a route that parsed and re-serialised the JSON (or read it with req.json()) before verifying would
+    // compute the HMAC over other bytes and refuse it. Delivered twice: as one string, and as a stream of 3-byte chunks
+    // without a Content-Length, so that chunk boundaries fall inside multi-byte characters (they must be decoded together).
+    const rawBodyFor = (addr: string) => [
+      "{",
+      '  "data" : {',
+      '    "unsubscribed" : true,',
+      '    "first_name" : "Ren\\u00e9 \\u003cRedactie\\u003e",',
+      '    "last_name" : "Müller-Zoë €",',
+      `    "email" : "${addr}",`,
+      '    "score" : 1.50',
+      "  },",
+      `  "created_at" : "${new Date().toISOString()}",`,
+      '  "type" : "contact.updated"',
+      "}",
+      "",
+    ].join("\n");
+    type Next = (i: number) => Uint8Array | null;
+    const postStream = async (next: Next, headers: Hdrs, ip: string = freshIp()) => {
+      let pulls = 0;
+      const stream = new ReadableStream<Uint8Array>({
+        pull(controller) {
+          const chunk = next(pulls++);
+          if (chunk) controller.enqueue(chunk);
+          else controller.close();
+        },
+      });
+      const init = { method: "POST", headers: { "content-type": "application/json", "user-agent": "Svix-Webhooks/1.0", "x-vercel-forwarded-for": ip, ...headers }, body: stream, duplex: "half" };
+      const res = await hookRoute.POST(new NextRequest("http://localhost/api/webhooks/resend", init as unknown as ConstructorParameters<typeof NextRequest>[1]));
+      return { status: res.status, text: await res.text(), pulls };
+    };
+    const [rawAddr, streamAddr] = [addrFor("hook-raw"), addrFor("hook-stream")];
+    await subscriber(rawAddr);
+    await subscriber(streamAddr);
+    const rawBody = rawBodyFor(rawAddr);
+    const rawRes = await post(rawBody, sign(rawBody));
+    const rawRow = await rowOf(rawAddr);
+    check(JSON.stringify(JSON.parse(rawBody)) !== rawBody && rawRes.status === 200 && rawRes.text === ACK && rawRow?.unsubscribedAt instanceof Date,
+      "The signature is verified over the RAW body: a signed opt-out that is not in JSON.stringify form (pretty-printed, trailing newline, keys in another order, \\u escapes, 1.50, é and €) -> 200 and the row unsubscribed", `raw body: ${rawRes.status} ${rawRes.text} row ${JSON.stringify(rawRow)}`);
+    const streamBody = rawBodyFor(streamAddr);
+    const streamBytes = Buffer.from(streamBody, "utf8");
+    const pieces: Uint8Array[] = [];
+    for (let i = 0; i < streamBytes.length; i += 3) pieces.push(new Uint8Array(streamBytes.subarray(i, i + 3)));
+    const splitsACharacter = pieces.some((p) => { try { new TextDecoder("utf-8", { fatal: true }).decode(p); return false; } catch { return true; } });
+    const streamed = await postStream((i) => pieces[i] ?? null, sign(streamBody));
+    const streamRow = await rowOf(streamAddr);
+    check(splitsACharacter && streamed.status === 200 && streamed.text === ACK && streamRow?.unsubscribedAt instanceof Date,
+      `...and the same kind of body streamed in ${pieces.length} chunks of 3 bytes without a Content-Length (boundaries inside é and €) verifies too: the chunks are decoded together, not one by one`, `streamed: split ${splitsACharacter} ${streamed.status} ${streamed.text} row ${JSON.stringify(streamRow)}`);
+    const ownFirst = addrFor("hook-own-first");
+    await subscriber(ownFirst);
+    const ownRes = await afmeldenRoute.POST(formReq("/api/newsletter/afmelden", { token: newsletter.signNewsletterUnsubscribeToken(ownFirst)! }));
+    const ownRow = await rowOf(ownFirst);
+    const echo = await deliver(contactUpdated(ownFirst, true));
+    await settle();
+    const echoRow = await rowOf(ownFirst);
+    check(ownRes.status === 200 && echo.status === 200 && echo.text === ACK && ownRow?.unsubscribedAt instanceof Date && echoRow?.unsubscribedAt?.getTime() === ownRow.unsubscribedAt.getTime() && patches(ownFirst).length === 1,
+      "Our own opt-out link first, then Resend's contact.updated caused by its PATCH: the echo is acknowledged, our timestamp stands, and it causes no further PATCH (no loop)", `echo: own ${ownRes.status}, echo ${echo.status}, rows ${ownRow?.unsubscribedAt?.toISOString()} / ${echoRow?.unsubscribedAt?.toISOString()}, patches ${patches(ownFirst).length}`);
+
+    // contact.updated with unsubscribed:false never subscribes anyone
+    const pending = addrFor("hook-pending");
+    await subscriber(pending, false);
+    const stranger = addrFor("hook-stranger");
+    audience.calls.length = 0;
+    const resubVictim = await deliver(contactUpdated(victim, false));
+    const resubPending = await deliver(contactUpdated(pending, false));
+    const resubStranger = await deliver(contactUpdated(stranger, false));
+    const [vr, pr, sr] = [await rowOf(victim), await rowOf(pending), await rowOf(stranger)];
+    check([resubVictim, resubPending, resubStranger].every((r) => r.status === 200 && r.text === ACK) && vr?.unsubscribedAt?.getTime() === firstRow?.unsubscribedAt?.getTime() && vr?.confirmedAt?.getTime() === firstRow?.confirmedAt?.getTime() && pr?.confirmedAt === null && pr.unsubscribedAt === null && sr === null && audience.calls.length === 0,
+      "contact.updated with unsubscribed:false NEVER subscribes: the unsubscribed row stays unsubscribed (same timestamps), a never-confirmed row stays unconfirmed, an unknown address gets no row, no Resend call; acknowledged with the same answer (consent only through our double opt-in)", `unsubscribed:false: ${[resubVictim, resubPending, resubStranger].map((r) => r.status).join(",")} rows ${JSON.stringify([vr, pr, sr])} calls ${audience.calls.length}`);
+    check(logsSince().filter((l) => /unsubscribed:false: our table is not changed/.test(l)).length === 3, "...and each such event is logged (info), without the address", `info lines: ${logsSince().filter((l) => /unsubscribed:false/.test(l)).length}`);
+
+    // email.complained: every listed address that is in our table
+    const [k1, k2, k3, k4, u1] = ["hook-k1", "hook-k2", "hook-k3", "hook-k4", "hook-u1"].map(addrFor);
+    await subscriber(k1);
+    await subscriber(k2, false);
+    await subscriber(k3);
+    await subscriber(k4);
+    audience.calls.length = 0;
+    const comp = await deliver(complained([k1, k2, `Lezer <${k3.toUpperCase()}>`, u1]));
+    const compRows = { k1: await rowOf(k1), k2: await rowOf(k2), k3: await rowOf(k3), k4: await rowOf(k4), u1: await rowOf(u1) };
+    await settle();
+    check(comp.status === 200 && comp.text === ACK && compRows.k1?.unsubscribedAt instanceof Date && compRows.k2?.unsubscribedAt instanceof Date && compRows.k3?.unsubscribedAt instanceof Date && compRows.k4?.unsubscribedAt === null && compRows.u1 === null,
+      "email.complained -> every listed address that is in our table is unsubscribed (a confirmed one, a never-confirmed one, one listed as `Name <ADDRESS>` in capitals); a subscriber who is not listed is untouched; a listed unknown address gets no row", `complaint: ${comp.status} ${comp.text} rows ${JSON.stringify(compRows)}`);
+    check([k1, k2, k3].every((a) => patches(a).length === 1 && JSON.stringify(patches(a)[0].body) === JSON.stringify({ unsubscribed: true })) && patches(k4).length === 0 && patches(u1).length === 0,
+      "...and each of those contacts is flagged unsubscribed in the Resend audience (PATCH {unsubscribed:true}, as after our own opt-out); no call for the unlisted or the unknown address", `complaint patches: ${JSON.stringify(audience.calls.map((c) => [c.method, c.email]))}`);
+    // The audience call goes out AFTER the response; when Resend does not answer the owner gets the notice of our own opt-out.
+    audience.mode = "hang";
+    newsletter._setNewsletterStateForTests({ resendTimeoutMs: 1500 });
+    slackBodies.length = 0;
+    const k5 = addrFor("hook-k5");
+    const k5Row = await subscriber(k5);
+    const tc = Date.now();
+    const compHang = await deliver(complained([k5]));
+    const compTook = Date.now() - tc;
+    const k5After = await rowOf(k5);
+    const noticesAtAnswer = unsubNotices().length;
+    await new Promise((r) => setTimeout(r, 2000));
+    const hangNotices = unsubNotices();
+    resendFake.closeAllConnections?.();
+    check(compHang.status === 200 && compTook < 1000 && k5After?.unsubscribedAt instanceof Date && noticesAtAnswer === 0 && patches(k5).length === 1, `A complaint's audience call happens AFTER the response: with Resend hanging (1500 ms deadline) the delivery was acknowledged in ${compTook} ms, the row already unsubscribed`, `complaint while Resend hangs: ${compHang.status} took ${compTook} ms row ${JSON.stringify(k5After)} patches ${patches(k5).length}`);
+    check(hangNotices.length === 1 && /Afmelding niet doorgegeven aan Resend/.test(hangNotices[0]) && /timeout_1500ms/.test(hangNotices[0]) && hangNotices[0].includes(k5Row.id) && !hangNotices[0].toLowerCase().includes(k5),
+      "...and when Resend does not answer, the owner gets the same notice as for our own opt-out (the reason, the row id, never the address)", `notices: ${JSON.stringify(hangNotices)}`);
+    audience.mode = "fail";
+    const compAgain = await deliver(complained([k5]));
+    await settle();
+    const ownAfter = await afmeldenRoute.POST(formReq("/api/newsletter/afmelden", { token: newsletter.signNewsletterUnsubscribeToken(k5)! }));
+    await settle();
+    const k6 = addrFor("hook-k6");
+    await subscriber(k6);
+    const compK6 = await deliver(complained([k6]));
+    await settle();
+    const dedupeNotices = unsubNotices();
+    audience.mode = "ok";
+    newsletter._setNewsletterStateForTests();
+    check(compAgain.status === 200 && ownAfter.status === 200 && compK6.status === 200 && dedupeNotices.length === 2 && /http_500/.test(dedupeNotices[1]) && patches(k5).length === 3,
+      "The notice is de-duplicated together with our own opt-out (one key per address and direction): the same complaint again, then our own link for that address, with Resend down, add no notice; a complaint for ANOTHER address does", `dedupe: ${compAgain.status}/${ownAfter.status}/${compK6.status} notices ${dedupeNotices.length} patches ${patches(k5).length}`);
+
+    // Every other type: acknowledged, nothing changes, a debug line
+    const k7 = addrFor("hook-k7");
+    await subscriber(k7, false);
+    audience.calls.length = 0;
+    const otherTypes = ["contact.deleted", "contact.created", "email.delivered", "email.bounced", "domain.updated"];
+    const otherRes = [
+      await deliver({ type: "contact.deleted", created_at: new Date().toISOString(), data: { id: nodeCrypto.randomUUID(), email: k4, unsubscribed: true } }),
+      await deliver({ type: "contact.created", created_at: new Date().toISOString(), data: { id: nodeCrypto.randomUUID(), email: k7, unsubscribed: true } }),
+      await deliver({ type: "email.delivered", created_at: new Date().toISOString(), data: { email_id: nodeCrypto.randomUUID(), to: [k4] } }),
+      await deliver({ type: "email.bounced", created_at: new Date().toISOString(), data: { email_id: nodeCrypto.randomUUID(), to: [k4] } }),
+      await deliver({ type: "domain.updated", data: {} }),
+    ];
+    const [k4r, k7r] = [await rowOf(k4), await rowOf(k7)];
+    check(otherRes.every((r) => r.status === 200 && r.text === ACK) && k4r?.unsubscribedAt === null && k4r.confirmedAt instanceof Date && k7r?.unsubscribedAt === null && k7r.confirmedAt === null && audience.calls.length === 0,
+      "Every other type (contact.deleted, contact.created even with unsubscribed:true, email.delivered, email.bounced, domain.updated) -> 200 with the same answer, nothing changes, no Resend call", `other types: ${otherRes.map((r) => r.status).join(",")} rows ${JSON.stringify([k4r, k7r])} calls ${audience.calls.length}`);
+    check(otherTypes.every((t) => logsSince().some((l) => /\[DEBUG\]/.test(l) && /event type not handled/.test(l) && l.includes(`"${t}"`))), "...and each is logged at debug with its type", `debug lines: ${logsSince().filter((l) => /DEBUG/.test(l)).length}`);
+
+    // A signed body that is not a readable event
+    const k8 = addrFor("hook-k8");
+    await subscriber(k8);
+    const malformedBodies = ["{not json", JSON.stringify([contactUpdated(k8, true)]), JSON.stringify({ type: "contact.updated", data: { email: k8, unsubscribed: "true" } }), JSON.stringify({ type: "contact.updated", data: { id: "x", unsubscribed: true } }), JSON.stringify(complained([])), ""];
+    const malformed: { status: number; text: string }[] = [];
+    for (const b of malformedBodies) malformed.push(await post(b, sign(b)));
+    check(malformed.every((r) => r.status === 400 && r.text === JSON.stringify({ error: "Invalid payload" })) && (await rowOf(k8))?.unsubscribedAt === null,
+      "A correctly signed body that is not a readable event (invalid JSON, an array, unsubscribed as a string, no address, a complaint without recipients, an empty body) -> 400 {\"error\":\"Invalid payload\"}, nothing changes", `malformed: ${malformed.map((r) => `${r.status} ${r.text}`).join(" | ")}`);
+
+    // An address we do not know
+    const ghost = addrFor("hook-ghost");
+    const ghostRes = await deliver(contactUpdated(ghost, true));
+    check(ghostRes.status === 200 && ghostRes.text === ACK && ghostRes.text === rotated.text && (await rowOf(ghost)) === null, "An opt-out for an address we do not know -> 200 with the same answer as for a subscriber (no enumeration), and no row is created (an opt-out never stores an address)", `unknown: ${ghostRes.status} ${ghostRes.text} row ${JSON.stringify(await rowOf(ghost))}`);
+
+    // The table cannot be written: 500 so Resend delivers again; the logged error has no address in it
+    const k9 = addrFor("hook-k9");
+    await subscriber(k9);
+    const origFind = prisma.newsletterSubscriber.findUnique;
+    (prisma.newsletterSubscriber as unknown as Json).findUnique = async (args: { where?: { email?: string } }) => {
+      // Shaped like a Prisma error that quotes the query's arguments.
+      throw Object.assign(new Error(`Invalid \`prisma.newsletterSubscriber.findUnique()\` invocation: where: { email: "${args?.where?.email}" }. Can't reach database server`), { code: "P1001" });
+    };
+    const dbDown = await deliver(contactUpdated(k9, true));
+    (prisma.newsletterSubscriber as unknown as Json).findUnique = origFind;
+    const dbDownRow = await rowOf(k9);
+    const retried = await deliver(contactUpdated(k9, true));
+    const retriedRow = await rowOf(k9);
+    check(dbDown.status === 500 && dbDown.text === JSON.stringify({ error: "Not stored" }) && dbDownRow?.unsubscribedAt === null && retried.status === 200 && retriedRow?.unsubscribedAt instanceof Date,
+      "The table cannot be written: 500 (so Resend delivers the event again), nothing claimed; the retry with the database back records the opt-out", `db down: ${dbDown.status} ${dbDown.text} row ${JSON.stringify(dbDownRow)} retry ${retried.status} row ${JSON.stringify(retriedRow)}`);
+    check(logsSince().some((l) => /opt-out could not be stored/.test(l) && l.includes("<adres>") && /P1001/.test(l)) && !logsSince().some((l) => l.toLowerCase().includes(k9)),
+      "...and that database error is logged with its code and message, the address in it replaced by <adres> (a driver message can quote the query's arguments)", `logged: ${logsSince().filter((l) => /could not be stored/.test(l)).join(" | ").slice(0, 400)}`);
+
+    // No database configured at all: isDatabaseConfigured() is fixed when src/lib/env.ts loads, so this runs the real route in a
+    // child process without DATABASE_URL. An opt-out is refused with 503 (Resend delivers it again later), an event that
+    // needs no table is still acknowledged.
+    const { spawnSync } = await import("node:child_process");
+    const childAddr = addrFor("hook-nodb");
+    const childCode = `(async () => {
+      const { NextRequest } = require("next/server");
+      const hook = require("./src/lib/resend-webhook");
+      const route = require("./src/app/api/webhooks/resend/route");
+      const p = hook.parseResendWebhookSecret(process.env.RESEND_WEBHOOK_SECRET);
+      if (!p.ok) throw new Error(p.reason);
+      for (const event of [{ type: "contact.updated", data: { email: process.env.QA_CHILD_ADDR, unsubscribed: true } }, { type: "email.delivered", data: { to: [process.env.QA_CHILD_ADDR] } }]) {
+        const body = JSON.stringify(event);
+        const ts = String(Math.floor(Date.now() / 1000));
+        const res = await route.POST(new NextRequest("http://localhost/api/webhooks/resend", { method: "POST", headers: { "svix-id": "msg_child", "svix-timestamp": ts, "svix-signature": "v1," + hook.resendWebhookSignature(p.key, "msg_child", ts, body) }, body }));
+        process.stdout.write("RESULT " + JSON.stringify({ status: res.status, body: await res.text() }) + "\\n");
+      }
+    })();`;
+    const child = spawnSync("npx", ["--no-install", "tsx", "--conditions=react-server", "--eval", childCode], { cwd: repo, encoding: "utf8", timeout: 90_000, env: { PATH: process.env.PATH, HOME: process.env.HOME, RESEND_WEBHOOK_SECRET: SECRET, QA_CHILD_ADDR: childAddr } as unknown as NodeJS.ProcessEnv });
+    const childOut = `${child.stdout ?? ""}${child.stderr ?? ""}`;
+    const childResults = [...childOut.matchAll(/^RESULT (.*)$/gm)].map((m) => JSON.parse(m[1]) as { status: number; body: string });
+    check(childResults.length === 2 && childResults[0].status === 503 && childResults[0].body === JSON.stringify({ error: "Not available" }) && childResults[1].status === 200 && childResults[1].body === ACK && /\[ERROR\].*no database is configured/.test(childOut) && !childOut.toLowerCase().includes(childAddr),
+      "Without a database configured (DATABASE_URL unset; the real route in a child process): a signed opt-out is refused with 503 and an ERROR line, so Resend delivers it again once the table exists; an event that needs no table is still acknowledged; the address is not logged", `no database: ${JSON.stringify(childResults)} output ${childOut.slice(0, 600)}`);
+
+    // Rate limit: only deliveries that do not verify count against the caller
+    const { max } = hook.RESEND_WEBHOOK_INVALID_LIMIT;
+    const ipX = freshIp();
+    const forged = JSON.stringify(contactUpdated(k4, true));
+    const rl: number[] = [];
+    for (let i = 0; i < max + 1; i++) rl.push((await post(forged, sign(forged, { key: OTHER_KEY }), ipX)).status);
+    const k10 = addrFor("hook-k10");
+    await subscriber(k10);
+    const validFromX = await deliver(contactUpdated(k10, true), ipX);
+    check(rl.slice(0, max).every((s) => s === 400) && rl[max] === 429 && (await rowOf(k4))?.unsubscribedAt === null, `Route: deliveries that do not verify are rate limited per caller, ${max} per hour (400 each), then 429`, `rate limit: ${rl.join(",")}`);
+    check(validFromX.status === 200 && validFromX.text === ACK && (await rowOf(k10))?.unsubscribedAt instanceof Date, "...while a VALID delivery from that same caller is still accepted and recorded (Svix's servers carry every event; only what does not verify counts)", `valid from limited caller: ${validFromX.status} ${validFromX.text}`);
+    const huge = JSON.stringify({ type: "email.delivered", data: { pad: "x".repeat(hook.RESEND_WEBHOOK_MAX_BODY_BYTES) } });
+    const tooLarge = await post(huge, sign(huge));
+    check(tooLarge.status === 413, `Route: a body over ${hook.RESEND_WEBHOOK_MAX_BODY_BYTES / 1024} KiB is refused (413), however it is signed`, `too large: ${tooLarge.status} ${tooLarge.text}`);
+    // Without a Content-Length (chunked) the limit applies while the ROUTE reads: a 4 MiB stream of 64 KiB chunks is
+    // abandoned right after the chunk that crosses 256 KiB, instead of being buffered whole and measured afterwards.
+    // In-process only (the handler is called directly): under `next start` the middleware matcher makes Next read the
+    // whole request (keeping at most 10 MB in each of its two copies) before the handler runs, so there the 413 comes
+    // after the sender finished.
+    const block = new Uint8Array(64 * 1024).fill(0x20);
+    const endless = await postStream((i) => (i < 64 ? block : null), {});
+    const breaking = await postStream((i) => { if (i === 2) throw new Error("connection reset"); return block; }, {});
+    check(endless.status === 413 && endless.text === JSON.stringify({ error: "Payload too large" }) && endless.pulls <= 8 && breaking.status === 400 && breaking.text === INVALID,
+      `Route (in-process: the handler called directly, not through Next's server and middleware): a body streamed without a Content-Length is cut off once it passes ${hook.RESEND_WEBHOOK_MAX_BODY_BYTES / 1024} KiB (413 after ${endless.pulls} of 64 chunks were pulled, never the whole 4 MiB); a stream that breaks off is a 400 like a bad signature`, `streamed too large: ${endless.status} ${endless.text} pulls ${endless.pulls}; broken stream: ${breaking.status} ${breaking.text}`);
+
+    // Reachable without auth, kept out of search engines
+    const fs = await import("node:fs");
+    const mw = fs.readFileSync(path.join(repo, "src/middleware.ts"), "utf8");
+    const protectedPatterns = [...(/createRouteMatcher\(\[([\s\S]*?)\]\)/.exec(mw)?.[1] ?? "").matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    const gated = protectedPatterns.filter((p) => new RegExp(`^${p}$`).test("/api/webhooks/resend"));
+    const seo = await import("../src/lib/seo");
+    check(protectedPatterns.length >= 10 && gated.length === 0 && protectedPatterns.some((p) => new RegExp(`^${p}$`).test("/api/admin/x")) && seo.PRIVATE_PATH_PREFIXES.includes("/api/") && !seo.SITEMAP_STATIC_PATHS.some((p) => p.startsWith("/api/")),
+      "/api/webhooks/resend is not behind the sign-in (no protected-route pattern of src/middleware.ts matches it, as for /api/webhooks/clerk), and it is under /api/: Disallow in robots.txt, noindex header, not in the sitemap", `protected patterns matching: ${JSON.stringify(gated)} of ${protectedPatterns.length}`);
+
+    // No address, and not the secret, in anything logged or sent to the owner during this section
+    const lines = logsSince().map((l) => l.toLowerCase());
+    const leaked = used.filter((a) => lines.some((l) => l.includes(a.toLowerCase())));
+    const noticeLeak = used.filter((a) => slackTexts().some((t) => t.toLowerCase().includes(a.toLowerCase())));
+    check(lines.length > 20 && leaked.length === 0 && noticeLeak.length === 0 && !logsSince().some((l) => l.includes(SECRET.slice(PREFIX.length))),
+      `No address reaches a log line or an owner notice: none of the ${used.length} addresses of this section appears in the ${lines.length} lines logged since it began, and neither does the secret`, `leaked to logs: ${leaked.join(", ")}; to notices: ${noticeLeak.join(", ")}`);
+
+    delete process.env.RESEND_WEBHOOK_SECRET;
+    delete process.env.RESEND_API_KEY;
+    delete process.env.RESEND_AUDIENCE_ID;
+  }
+  delete process.env.RESEND_BASE_URL;
+  resendFake.closeAllConnections?.();
+  await new Promise<void>((r) => resendFake.close(() => r()));
 
   // ─── cleanup ───
   try {

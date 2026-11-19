@@ -57,7 +57,7 @@ export function AnalyticsDashboard({ counts, topCodes, hasDb }: { counts: Record
           <p className="text-xs text-muted-foreground">Periode: laatste {LABEL[period]}. &ldquo;Betaald&rdquo; is de huidige status (betaald, verzonden of afgeleverd) van bestellingen die in die periode zijn geplaatst.</p>
 
           <div className="border rounded-lg p-5">
-            <h3 className="font-semibold mb-1">Meest gediagnosticeerde foutcodes</h3>
+            <h2 className="font-semibold mb-1">Meest gediagnosticeerde foutcodes</h2>
             <p className="text-xs text-muted-foreground mb-3">Laatste 90 dagen, maximaal 2000 diagnoses</p>
             {topCodes.length === 0 ? (
               <div className="text-sm text-muted-foreground py-6 text-center border border-dashed rounded-md">Geen diagnoses met een foutcode in deze periode.</div>

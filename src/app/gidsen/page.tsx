@@ -76,7 +76,7 @@ export default async function GidsenPage({ searchParams }: { searchParams: Promi
                 </div>
                 <CardContent className="p-5">
                   <DifficultyBadge difficulty={g.difficulty} />
-                  <h3 className="font-heading text-lg font-semibold mt-2 line-clamp-2 group-hover:text-primary transition-colors">{g.title}</h3>
+                  <h2 className="font-heading text-lg font-semibold mt-2 line-clamp-2 group-hover:text-primary transition-colors">{g.title}</h2>
                   <p className="text-sm text-muted-foreground mt-1.5 line-clamp-2">{g.summary}</p>
                   <div className="flex items-center gap-4 mt-4 text-xs text-muted-foreground">
                     <span className="flex items-center gap-1"><Clock className="h-3 w-3" /> {g.timeMinutes} min</span>

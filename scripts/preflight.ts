@@ -45,7 +45,7 @@ const KNOWN_VARS = [
   "NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY", "CLERK_SECRET_KEY", "CLERK_WEBHOOK_SECRET", "CLERK_WEBHOOK_SIGNING_SECRET", "CLERK_WEBHOOK_ALLOW_UNSIGNED",
   "ADMIN_EMAILS", "GEMINI_API_KEY", "GOOGLE_AI_API_KEY", "GEMINI_MODEL",
   "STRIPE_SECRET_KEY", "STRIPE_WEBHOOK_SECRET", "NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY", "STRIPE_PRICE_PARTICULIER", "STRIPE_PRICE_MONTEUR", "STRIPE_PRICE_BEDRIJF",
-  "RESEND_API_KEY", "RESEND_FROM_EMAIL", "RESEND_AUDIENCE_ID", "SLACK_WEBHOOK_URL", "DISCORD_WEBHOOK_URL", "ORDER_NOTIFY_EMAIL",
+  "RESEND_API_KEY", "RESEND_FROM_EMAIL", "RESEND_AUDIENCE_ID", "RESEND_WEBHOOK_SECRET", "SLACK_WEBHOOK_URL", "DISCORD_WEBHOOK_URL", "ORDER_NOTIFY_EMAIL",
   "UPSTASH_REDIS_REST_URL", "UPSTASH_REDIS_REST_TOKEN", "API_DEMO_KEY", "CRON_SECRET",
   "COMPANY_NAME", "COMPANY_STREET", "COMPANY_POSTAL_CODE", "COMPANY_CITY", "COMPANY_KVK", "COMPANY_VAT", "COMPANY_IBAN", "COMPANY_EMAIL", "COMPANY_PHONE",
   "NEXT_PUBLIC_FEATURE_REFERRAL", "NEXT_PUBLIC_FEATURE_I18N", "NEXT_PUBLIC_FEATURE_EXIT_INTENT", "NEXT_PUBLIC_POSTHOG_KEY", "NEXT_PUBLIC_POSTHOG_HOST", "NEXT_PUBLIC_GA_ID",
@@ -288,6 +288,14 @@ export async function runPreflight(args: Args): Promise<Report> {
       if (!from) warn(g, `RESEND_FROM_EMAIL is niet ingesteld; de standaardafzender noreply@wasfix.nl wordt gebruikt. Dat werkt alleen als wasfix.nl in Resend is geverifieerd.`, "Zet RESEND_FROM_EMAIL op een adres van het domein dat je in Resend hebt geverifieerd.");
       else ok(g, `Afzender: ${addr}`);
     }
+    // The Resend webhook (DECISIONS.md D20): with an audience, an opt-out through Resend's own link or a spam complaint only
+    // reaches our table through it. The format rule is the route's own (src/lib/resend-webhook.ts); the value is never printed.
+    const { parseResendWebhookSecret } = await import("../src/lib/resend-webhook");
+    const hook = parseResendWebhookSecret(get("RESEND_WEBHOOK_SECRET"));
+    const hookFix = "Resend, Webhooks: maak een endpoint https://<jouw domein>/api/webhooks/resend met de gebeurtenissen contact.updated en email.complained, kopieer het Signing secret (whsec_…) naar RESEND_WEBHOOK_SECRET en deploy opnieuw (zie BLOCKED.md stap 7).";
+    if (hook.ok) ok(g, "RESEND_WEBHOOK_SECRET is ingesteld en heeft het formaat van een Resend-ondertekeningsgeheim (whsec_ + base64)");
+    else if (hook.reason !== "missing") warn(g, `RESEND_WEBHOOK_SECRET heeft niet het formaat van een Resend-ondertekeningsgeheim (${hook.reason === "no_prefix" ? "begint niet met whsec_" : hook.reason === "not_base64" ? "na whsec_ staat geen base64" : "te kort"}): de webhook weigert dan elke melding, dus afmeldingen via Resend komen niet in onze tabel.`, hookFix);
+    else if (get("RESEND_AUDIENCE_ID")) warn(g, "RESEND_AUDIENCE_ID is ingesteld maar RESEND_WEBHOOK_SECRET niet: afmeldingen via Resend komen niet in onze tabel. Wie zich afmeldt via Resends eigen link of een nieuwsbrief als spam markeert, blijft bij ons abonnee: het aantal klopt niet, het adres staat nog in de CSV met afmeldlinks, en een nieuwe aanmelding krijgt 'al aangemeld'.", hookFix);
   }
 
   // ── owner notifications ──────────────────────────────────────────────
